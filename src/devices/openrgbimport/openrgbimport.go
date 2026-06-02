@@ -739,10 +739,10 @@ func newDeviceFromController(dc openrgb.DiscoveredController) *Device {
 	cfg := resolveDeviceConfig(serial, dc)
 
 	if isConfigValidForController(cfg, dc) {
-		nameLower := strings.ToLower(dc.Name)
-		isStrimer := strings.Contains(nameLower, "strimer") || strings.Contains(strings.ToLower(serial), "strimer")
-		
-		if dc.LEDCount == 0 || isStrimer {
+		isLegacyASUS := isLegacyASUSMotherboardImport(dc.Name, dc.Vendor)
+		if !isLegacyASUS {
+			// Universal Fallback: Always trust the user's .json UI config for packet sizes,
+			// except for the ASUS Z890-E which has a strict OpenRGB hardware limitation.
 			colorCount = configLedCount(cfg)
 		}
 	}
