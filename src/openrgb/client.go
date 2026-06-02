@@ -298,7 +298,7 @@ func spawnServer() {
 	if smbus != "" {
 		i2cPath := filepath.Join("/dev", smbus)
 		if _, err := os.Stat(i2cPath); err == nil {
-			cmd = exec.Command("bwrap", "--dev-bind", "/", "/", "--dev-bind", "/dev/null", i2cPath, "openrgb", "--server", "--config", configDir)
+			cmd = exec.Command("bwrap", "--die-with-parent", "--dev-bind", "/", "/", "--dev-bind", "/dev/null", i2cPath, "openrgb", "--server", "--config", configDir)
 		}
 	}
 	if cmd == nil {
