@@ -778,6 +778,23 @@ func newDeviceFromController(dc openrgb.DiscoveredController) *Device {
 		d.loadDeviceProfiles()
 		d.saveDeviceProfile()
 		d.setupClusterController()
+		
+		// Apply initial state so the device lights up on boot
+		if !d.DeviceProfile.RGBCluster {
+			if d.effect == "static" || d.effect == "off" {
+				d.mu.Lock()
+				frame := d.buildZoneFrame()
+				d.mu.Unlock()
+				if len(frame) > 0 {
+					conn, _ := openrgb.SendFramePersistent(d.openrgbConn, uint32(d.controllerId), frame)
+					d.openrgbConn = conn
+				}
+			} else {
+				go func() {
+					_ = d.SetEffect(d.effect)
+				}()
+			}
+		}
 	}
 
 	return d
@@ -1570,7 +1587,13 @@ func (d *Device) ProcessSetRgbCluster(enabled bool) uint8 {
 			d.openrgbConn.Close()
 			d.openrgbConn = nil
 		}
-		if d.effect != "" {
+		if d.effect == "static" || d.effect == "off" {
+			frame := d.buildZoneFrame()
+			if len(frame) > 0 {
+				conn, _ := openrgb.SendFramePersistent(d.openrgbConn, uint32(d.controllerId), frame)
+				d.openrgbConn = conn
+			}
+		} else if d.effect != "" {
 			go func() {
 				_ = d.SetEffect(d.effect)
 			}()
