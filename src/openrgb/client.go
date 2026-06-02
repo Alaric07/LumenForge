@@ -297,7 +297,11 @@ func spawnServer() {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Pdeathsig: syscall.SIGTERM,
 	}
-	cmd.Start()
+	if err := cmd.Start(); err == nil {
+		go func() {
+			cmd.Wait()
+		}()
+	}
 	time.Sleep(8 * time.Second)
 }
 
