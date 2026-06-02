@@ -742,7 +742,7 @@ func newDeviceFromController(dc openrgb.DiscoveredController) *Device {
 		nameLower := strings.ToLower(dc.Name)
 		isStrimer := strings.Contains(nameLower, "strimer") || strings.Contains(strings.ToLower(serial), "strimer")
 		
-		if isStrimer {
+		if dc.LEDCount == 0 || isStrimer {
 			colorCount = configLedCount(cfg)
 		}
 	}
