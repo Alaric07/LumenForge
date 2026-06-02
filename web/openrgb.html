@@ -335,8 +335,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (increasedZoneCount) {
             const confirmed = window.confirm(
-                'Increasing LED count beyond the last working saved value may crash the OpenRGB server.\n\n' +
-                'If you are unsure, confirm the zone and LED counts in OpenRGB before continuing.\n\n' +
+                'If you increase the LED count beyond what the hardware actually has, OpenRGB will reject the commands and the device will stop responding.\n\n' +
+                'If you are unsure, confirm the exact LED count in the OpenRGB app before continuing.\n\n' +
                 'Do you want to save anyway?'
             );
             if (!confirmed) {
