@@ -739,10 +739,7 @@ func newDeviceFromController(dc openrgb.DiscoveredController) *Device {
 	cfg := resolveDeviceConfig(serial, dc)
 
 	if isConfigValidForController(cfg, dc) {
-		nameLower := strings.ToLower(dc.Name)
-		isStrimer := strings.Contains(nameLower, "strimer") || strings.Contains(strings.ToLower(serial), "strimer")
-		
-		if isStrimer {
+		if !isLegacyASUS {
 			colorCount = configLedCount(cfg)
 		}
 	}
