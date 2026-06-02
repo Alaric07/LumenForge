@@ -739,10 +739,9 @@ func newDeviceFromController(dc openrgb.DiscoveredController) *Device {
 	cfg := resolveDeviceConfig(serial, dc)
 
 	if isConfigValidForController(cfg, dc) {
-		isLegacyASUS := isLegacyASUSMotherboardImport(dc.Name, dc.Vendor)
-		if !isLegacyASUS {
-			// Universal Fallback: Always trust the user's .json UI config for packet sizes,
-			// except for the ASUS Z890-E which has a strict OpenRGB hardware limitation.
+		if dc.LEDCount == 0 {
+			// Universal Fallback: If OpenRGB binary parsing fails (0 LEDs),
+			// trust the user's .json UI config for packet sizes.
 			colorCount = configLedCount(cfg)
 		}
 	}
