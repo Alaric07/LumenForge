@@ -293,17 +293,7 @@ func spawnServer() {
 		os.WriteFile(configPath, safeConfig, 0644)
 	}
 
-	smbus := config.GetConfig().MemorySmBus
-	var cmd *exec.Cmd
-	if smbus != "" {
-		i2cPath := filepath.Join("/dev", smbus)
-		if _, err := os.Stat(i2cPath); err == nil {
-			cmd = exec.Command("bwrap", "--die-with-parent", "--dev-bind", "/", "/", "--dev-bind", "/dev/null", i2cPath, "openrgb", "--server", "--config", configDir)
-		}
-	}
-	if cmd == nil {
-		cmd = exec.Command("openrgb", "--server", "--config", configDir)
-	}
+	cmd := exec.Command("openrgb", "--server", "--config", configDir)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Pdeathsig: syscall.SIGTERM,
 	}
