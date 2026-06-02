@@ -186,6 +186,11 @@ func spawnServer() {
 		safeConfig := []byte(`{
     "Detectors": {
         "detectors": {
+            "ASRock Motherboard SMBus Controllers": false,
+            "ASUS Aura SMBus Motherboard": false,
+            "ENE SMBus DRAM": false,
+            "EVGA Motherboard SMBus Controllers": false,
+            "Gigabyte RGB Fusion 2 SMBus": false,
             "Corsair 1000D Obsidian": false,
             "Corsair Commander Core": false,
             "Corsair Commander Core XT": false,
