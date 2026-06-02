@@ -738,10 +738,6 @@ func newDeviceFromController(dc openrgb.DiscoveredController) *Device {
 
 	cfg := resolveDeviceConfig(serial, dc)
 
-	if isConfigValidForController(cfg, dc) {
-		colorCount = configLedCount(cfg)
-	}
-
 	d := &Device{
 		Product:            product,
 		Serial:             serial,
