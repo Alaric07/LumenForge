@@ -212,6 +212,7 @@ const (
 	ProductTypeDongle               = 997
 	ProductTypeSlipstream           = 998
 	ProductTypeCluster              = 999
+	ProductTypeOpenRGB              = 1000
 )
 
 const (

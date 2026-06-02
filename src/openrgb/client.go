@@ -2,13 +2,18 @@ package openrgb
 
 import (
 	"OpenLinkHub/src/config"
+	"OpenLinkHub/src/logger"
 	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -164,8 +169,136 @@ func readORGBString(data []byte, offset *int) (string, error) {
 	return string(raw), nil
 }
 
+var autoSpawnOnce sync.Once
+
+func spawnServer() {
+	logger.Log(logger.Fields{}).Info("[OpenRGB] Attempting to spawn background server...")
+	if _, err := exec.LookPath("openrgb"); err != nil {
+		logger.Log(logger.Fields{"error": err}).Error("[OpenRGB] Could not find openrgb in PATH")
+		return
+	}
+
+	configDir := filepath.Join(os.TempDir(), "openlinkhub_openrgb_sandbox")
+	logger.Log(logger.Fields{"sandbox": configDir}).Info("[OpenRGB] Creating sandbox")
+	err := os.MkdirAll(configDir, 0755)
+	if err == nil {
+		configPath := filepath.Join(configDir, "OpenRGB.json")
+		safeConfig := []byte(`{
+    "Detectors": {
+        "detectors": {
+            "Corsair 1000D Obsidian": false,
+            "Corsair Commander Core": false,
+            "Corsair Commander Core XT": false,
+            "Corsair Commander Pro": false,
+            "Corsair Dark Core RGB Pro SE (Wired)": false,
+            "Corsair Dark Core RGB SE (Wired)": false,
+            "Corsair Dominator Platinum": false,
+            "Corsair Glaive RGB": false,
+            "Corsair Glaive RGB PRO": false,
+            "Corsair H100i v2": false,
+            "Corsair Harpoon RGB": false,
+            "Corsair Harpoon RGB PRO": false,
+            "Corsair Harpoon Wireless (Wired)": false,
+            "Corsair Hydro H100i Elite": false,
+            "Corsair Hydro H100i Elite White": false,
+            "Corsair Hydro H100i Platinum": false,
+            "Corsair Hydro H100i Platinum SE": false,
+            "Corsair Hydro H100i Pro XT": false,
+            "Corsair Hydro H100i Pro XT v2": false,
+            "Corsair Hydro H115i Elite": false,
+            "Corsair Hydro H115i Platinum": false,
+            "Corsair Hydro H115i Pro XT": false,
+            "Corsair Hydro H150i Elite": false,
+            "Corsair Hydro H150i Elite White": false,
+            "Corsair Hydro H150i Pro XT": false,
+            "Corsair Hydro H60i Pro XT": false,
+            "Corsair Hydro Series": false,
+            "Corsair Ironclaw RGB": false,
+            "Corsair Ironclaw Wireless (Wired)": false,
+            "Corsair K100 MX Red": false,
+            "Corsair K100 RGB Optical": false,
+            "Corsair K55 RGB": false,
+            "Corsair K55 RGB PRO": false,
+            "Corsair K55 RGB PRO XT": false,
+            "Corsair K57 RGB (Wired)": false,
+            "Corsair K60 RGB PRO": false,
+            "Corsair K60 RGB PRO Low Profile": false,
+            "Corsair K60 RGB PRO TKL": false,
+            "Corsair K60 RGB PRO TKL Black": false,
+            "Corsair K60 RGB PRO TKL White": false,
+            "Corsair K65 LUX RGB": false,
+            "Corsair K65 Mini": false,
+            "Corsair K65 RGB": false,
+            "Corsair K65 RGB RAPIDFIRE": false,
+            "Corsair K68 RED": false,
+            "Corsair K68 RED SHADOW": false,
+            "Corsair K68 RGB": false,
+            "Corsair K70 Core RGB": false,
+            "Corsair K70 LUX": false,
+            "Corsair K70 LUX RGB": false,
+            "Corsair K70 RGB": false,
+            "Corsair K70 RGB MK.2": false,
+            "Corsair K70 RGB MK.2 Low Profile": false,
+            "Corsair K70 RGB MK.2 SE": false,
+            "Corsair K70 RGB PRO": false,
+            "Corsair K70 RGB PRO V2": false,
+            "Corsair K70 RGB RAPIDFIRE": false,
+            "Corsair K70 RGB TKL": false,
+            "Corsair K70 RGB TKL Champion Series": false,
+            "Corsair K95 RGB": false,
+            "Corsair K95 RGB PLATINUM": false,
+            "Corsair K95 RGB PLATINUM SE": false,
+            "Corsair K95 RGB PLATINUM XT": false,
+            "Corsair Katar Pro": false,
+            "Corsair Katar Pro V2": false,
+            "Corsair Katar Pro XT": false,
+            "Corsair LS100 Lighting Kit": false,
+            "Corsair LT100": false,
+            "Corsair Lighting Node Core": false,
+            "Corsair Lighting Node Pro": false,
+            "Corsair M55 RGB PRO": false,
+            "Corsair M65": false,
+            "Corsair M65 PRO": false,
+            "Corsair M65 RGB Elite": false,
+            "Corsair M65 RGB Ultra Wired": false,
+            "Corsair M65 RGB Ultra Wireless (Wired)": false,
+            "Corsair M75 Gaming Mouse": false,
+            "Corsair MM700": false,
+            "Corsair MM700 3XL": false,
+            "Corsair MM800 RGB Polaris": false,
+            "Corsair Nightsword": false,
+            "Corsair SPEC OMEGA RGB": false,
+            "Corsair ST100 RGB": false,
+            "Corsair Sabre RGB": false,
+            "Corsair Scimitar Elite RGB": false,
+            "Corsair Scimitar PRO RGB": false,
+            "Corsair Scimitar RGB": false,
+            "Corsair Slipstream Wireless Receiver HW": false,
+            "Corsair Slipstream Wireless Receiver SW": false,
+            "Corsair Strafe": false,
+            "Corsair Strafe MK.2": false,
+            "Corsair Strafe Red": false,
+            "Corsair Vengeance": false,
+            "Corsair Vengeance Pro": false,
+            "Corsair Vengeance RGB DRAM": false,
+            "Corsair iCUE Link System Hub": false
+        }
+    }
+}`)
+		os.WriteFile(configPath, safeConfig, 0644)
+	}
+
+	cmd := exec.Command("openrgb", "--server", "--config", configDir)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Pdeathsig: syscall.SIGTERM,
+	}
+	cmd.Start()
+	time.Sleep(3 * time.Second)
+}
+
 func dial() (net.Conn, error) {
 	port := config.GetConfig().OpenRGBPort
+	logger.Log(logger.Fields{"port": port}).Info("[OpenRGB] Dialing OpenRGB server")
 	if port <= 0 {
 		err := fmt.Errorf("OpenRGB port is not configured")
 		setStatus(StateNotConfigured, err)
@@ -173,6 +306,12 @@ func dial() (net.Conn, error) {
 	}
 	conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
+		logger.Log(logger.Fields{"error": err}).Warn("[OpenRGB] Dial failed, attempting auto-spawn")
+		autoSpawnOnce.Do(spawnServer)
+		conn, err = net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	}
+	if err != nil {
+		logger.Log(logger.Fields{"error": err}).Error("[OpenRGB] Final dial failed")
 		setStatus(StateOffline, err)
 		return nil, err
 	}
@@ -287,6 +426,15 @@ func FindControllerIDByNameOrVendor(nameMatch string, vendorMatch string) (int, 
 
 		nameOK := nameMatch != "" && strings.Contains(strings.ToLower(name), nameMatch)
 		vendorOK := vendorMatch != "" && strings.Contains(strings.ToLower(vendor), vendorMatch)
+
+		logger.Log(logger.Fields{
+			"name":        name,
+			"vendor":      vendor,
+			"nameMatch":   nameMatch,
+			"vendorMatch": vendorMatch,
+			"nameOK":      nameOK,
+			"vendorOK":    vendorOK,
+		}).Info("[OpenRGB] Checking controller match")
 
 		if nameOK || vendorOK {
 			return int(i), nil
@@ -690,26 +838,36 @@ func DiscoverControllers() ([]DiscoveredController, error) {
 	defer conn.Close()
 
 	packet := new(bytes.Buffer)
-	if err := writeHeader(packet, 0, opcodeRequestControllerCount, 0); err != nil {
-		return nil, err
-	}
-	if _, err := conn.Write(packet.Bytes()); err != nil {
-		return nil, err
+	var count uint32
+	for retries := 0; retries < 10; retries++ {
+		packet.Reset()
+		if err := writeHeader(packet, 0, opcodeRequestControllerCount, 0); err != nil {
+			return nil, err
+		}
+		if _, err := conn.Write(packet.Bytes()); err != nil {
+			return nil, err
+		}
+
+		_, _, size, err := readHeader(conn)
+		if err != nil {
+			return nil, err
+		}
+		payload, err := readPayload(conn, size)
+		if err != nil {
+			return nil, err
+		}
+		if len(payload) < 4 {
+			return nil, fmt.Errorf("controller count payload too short")
+		}
+
+		count = binary.LittleEndian.Uint32(payload[:4])
+		if count > 0 {
+			break
+		}
+		// OpenRGB might still be initializing devices
+		time.Sleep(500 * time.Millisecond)
 	}
 
-	_, _, size, err := readHeader(conn)
-	if err != nil {
-		return nil, err
-	}
-	payload, err := readPayload(conn, size)
-	if err != nil {
-		return nil, err
-	}
-	if len(payload) < 4 {
-		return nil, fmt.Errorf("controller count payload too short")
-	}
-
-	count := binary.LittleEndian.Uint32(payload[:4])
 	result := make([]DiscoveredController, 0, count)
 
 	for i := uint32(0); i < count; i++ {
@@ -721,11 +879,11 @@ func DiscoverControllers() ([]DiscoveredController, error) {
 			continue
 		}
 
-		_, _, size, err = readHeader(conn)
+		_, _, size, err := readHeader(conn)
 		if err != nil {
 			continue
 		}
-		payload, err = readPayload(conn, size)
+		payload, err := readPayload(conn, size)
 		if err != nil || len(payload) < 8 {
 			continue
 		}

@@ -173,7 +173,6 @@ var (
 	devices             = make(map[string]*common.Device)
 	deviceList          = make(map[string]Device)
 	legacyDevices       = []uint16{3080, 3081, 3082, 3090, 3091, 3093, 7168}
-	initWG              sync.WaitGroup
 	Dispatch            dispatcher.DeviceDispatcher = CallDeviceMethod
 )
 
@@ -668,10 +667,6 @@ func Init() {
 		Instance:    cls,
 	}
 
-	for _, imported := range openrgbimport.InitAll() {
-		devices[imported.Serial] = imported
-	}
-
 	// Legacy devices
 	res := usb.Init(legacyDevices)
 	if res != 0 {
@@ -694,8 +689,11 @@ func Init() {
 		initializeDevice(productId, key, productPath)
 	}
 
+	for _, imported := range openrgbimport.InitAll() {
+		devices[imported.Serial] = imported
+	}
+
 	if config.GetConfig().EnableOpenRGBTargetServer {
-		initWG.Wait()
 		openrgb.Init()
 		openrgb.SendToOpenRGB()
 	}
@@ -881,21 +879,13 @@ func initializeDevice(productId uint16, key, productPath string) {
 	callback, ok := deviceRegisterMap[productId]
 	if ok {
 		if callback.DeviceRegister != nil {
-			initWG.Add(1)
-			go func(vid, pid uint16, serial, path string, cb deviceRegister) {
-				defer initWG.Done()
-				dev := cb(vid, pid, serial, path)
-				addDevice(dev)
-			}(vendorId, productId, key, productPath, callback.DeviceRegister)
+			dev := callback.DeviceRegister(vendorId, productId, key, productPath)
+			addDevice(dev)
 		}
 
 		if callback.DeviceRegisterEx != nil {
-			initWG.Add(1)
-			go func(vid, pid uint16, serial, path string, cb deviceRegisterEx) {
-				defer initWG.Done()
-				dev := cb(vid, pid, serial, path, addDevice)
-				addDevice(dev)
-			}(vendorId, productId, key, productPath, callback.DeviceRegisterEx)
+			dev := callback.DeviceRegisterEx(vendorId, productId, key, productPath, addDevice)
+			addDevice(dev)
 		}
 	}
 }

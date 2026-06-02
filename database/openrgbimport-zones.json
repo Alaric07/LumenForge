@@ -2,6 +2,7 @@
   "devices": {
     "openrgb-import-0": {
       "serial": "openrgb-import-0",
+      "product": "WLED (or generic E1.31)",
       "zones": [
         {
           "name": "Zone 1",
@@ -11,6 +12,7 @@
     },
     "openrgb-import-2": {
       "serial": "openrgb-import-2",
+      "product": "Lian Li Strimer Plus",
       "zones": [
         {
           "name": "24 Pin ATX Strip 0",

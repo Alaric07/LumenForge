@@ -2077,6 +2077,8 @@ func uiDeviceOverview(w http.ResponseWriter, r *http.Request) {
 		web.OpenRGBImportSpeed = openrgbDevice.GetSpeed()
 		web.OpenRGBImportBrightness = openrgbDevice.GetBrightness()
 		web.OpenRGBImportRGBCluster = openrgbDevice.GetRGBCluster()
+		web.OpenRGBImportVersion = openrgbDevice.Version
+		web.OpenRGBImportDescription = openrgbDevice.Description
 	}
 	web.Lcd = lcd.GetLcdDevices()
 	web.LCDImages = lcd.GetLcdImages()

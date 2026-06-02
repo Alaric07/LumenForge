@@ -19,6 +19,10 @@ func (r *ActiveRGB) Colorwarp(startTime *time.Time, activeRgb *ActiveRGB) {
 	progress := math.Mod(totalProgress, 1.0)
 	currentCycle := int(totalProgress)
 
+	if activeRgb.LastCycle[r.ChannelId] == nil {
+		activeRgb.LastCycle[r.ChannelId] = &LastCycle{}
+	}
+
 	if activeRgb.LastCycle[r.ChannelId].RGBStartColor == nil {
 		activeRgb.LastCycle[r.ChannelId].RGBStartColor = GenerateRandomColor(r.RGBBrightness)
 	}
