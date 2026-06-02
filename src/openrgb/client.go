@@ -285,6 +285,7 @@ func spawnServer() {
             "Corsair Strafe Red": false,
             "Corsair Vengeance": false,
             "Corsair Vengeance Pro": false,
+            "Corsair Vengeance Pro/RGB": false,
             "Corsair Vengeance RGB DRAM": false,
             "Corsair iCUE Link System Hub": false
         }
