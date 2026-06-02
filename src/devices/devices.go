@@ -620,6 +620,20 @@ func Init() {
 		return nil
 	})
 
+	// Create dummy cluster object before any other object
+	cls = cluster.Init()
+	devices["cluster"] = &common.Device{
+		ProductType: common.ProductTypeCluster,
+		Product:     "Cluster",
+		Serial:      "cluster",
+		Hidden:      true,
+		Instance:    cls,
+	}
+
+	for _, imported := range openrgbimport.InitAll() {
+		devices[imported.Serial] = imported
+	}
+
 	// Enumerate all Corsair devices
 	err := hid.Enumerate(vendorId, hid.ProductIDAny, enum)
 	if err != nil {
@@ -657,15 +671,6 @@ func Init() {
 		}
 	}
 
-	// Create dummy cluster object before any other object
-	cls = cluster.Init()
-	devices["cluster"] = &common.Device{
-		ProductType: common.ProductTypeCluster,
-		Product:     "Cluster",
-		Serial:      "cluster",
-		Hidden:      true,
-		Instance:    cls,
-	}
 
 	// Legacy devices
 	res := usb.Init(legacyDevices)
@@ -689,9 +694,7 @@ func Init() {
 		initializeDevice(productId, key, productPath)
 	}
 
-	for _, imported := range openrgbimport.InitAll() {
-		devices[imported.Serial] = imported
-	}
+
 
 	if config.GetConfig().EnableOpenRGBTargetServer {
 		openrgb.Init()
