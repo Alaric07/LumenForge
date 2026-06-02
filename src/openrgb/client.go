@@ -288,12 +288,22 @@ func spawnServer() {
 		os.WriteFile(configPath, safeConfig, 0644)
 	}
 
-	cmd := exec.Command("openrgb", "--server", "--config", configDir)
+	smbus := config.GetConfig().MemorySmBus
+	var cmd *exec.Cmd
+	if smbus != "" {
+		i2cPath := filepath.Join("/dev", smbus)
+		if _, err := os.Stat(i2cPath); err == nil {
+			cmd = exec.Command("bwrap", "--dev-bind", "/", "/", "--dev-bind", "/dev/null", i2cPath, "openrgb", "--server", "--config", configDir)
+		}
+	}
+	if cmd == nil {
+		cmd = exec.Command("openrgb", "--server", "--config", configDir)
+	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Pdeathsig: syscall.SIGTERM,
 	}
 	cmd.Start()
-	time.Sleep(3 * time.Second)
+	time.Sleep(8 * time.Second)
 }
 
 func dial() (net.Conn, error) {

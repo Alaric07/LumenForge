@@ -1074,7 +1074,7 @@ func (d *Device) SetEffect(effect string) error {
 		defer close(done)
 
 		startTime := time.Now()
-		ticker := time.NewTicker(50 * time.Millisecond)
+		ticker := time.NewTicker(100 * time.Millisecond)
 		defer ticker.Stop()
 
 		for {
