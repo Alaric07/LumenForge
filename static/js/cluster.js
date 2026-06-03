@@ -117,4 +117,44 @@ $(document).ready(function () {
         $brightnessSlider.on("input", updateSlider);
         updateSlider();
     }
+
+    $("#clusterSortable").sortable({
+        helper: function(e, tr) {
+            var $originals = tr.children();
+            var $helper = tr.clone();
+            $helper.children().each(function(index) {
+                $(this).width($originals.eq(index).width());
+            });
+            $helper.css("background-color", "rgba(255, 255, 255, 0.05)");
+            return $helper;
+        },
+        axis: "y",
+        update: function (event, ui) {
+            const deviceOrder = [];
+            $(this).children('tr').each(function () {
+                deviceOrder.push($(this).data('serial').toString());
+            });
+
+            const payload = {
+                deviceOrder: deviceOrder
+            };
+
+            $.ajax({
+                url: '/api/cluster/order',
+                type: 'PUT',
+                data: JSON.stringify(payload),
+                contentType: 'application/json',
+                success: function(response) {
+                    if (response.status === 1) {
+                        toast.success(response.message);
+                    } else {
+                        toast.warning(response.message);
+                    }
+                },
+                error: function() {
+                    toast.error("Failed to update cluster order");
+                }
+            });
+        }
+    }).disableSelection();
 });

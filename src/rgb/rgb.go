@@ -254,6 +254,7 @@ func random01(values ...float64) float64 {
 
 func lerp(a, b, t float64) float64 { return a + (b-a)*t }
 
+// New will create new ActiveRGB struct for RGB control
 func New(
 	lightChannels int,
 	rgbModeSpeed float64,
@@ -268,6 +269,7 @@ func New(
 	for i := 0; i < 64; i++ {
 		lastCycle[i] = &LastCycle{}
 	}
+
 	return &ActiveRGB{
 		LightChannels:   lightChannels,
 		Smoothness:      smoothness,

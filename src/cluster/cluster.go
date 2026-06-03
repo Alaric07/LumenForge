@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"math/rand"
 	"os"
+	"sort"
 	"slices"
 	"sync"
 	"time"
@@ -22,13 +23,14 @@ var (
 	pwd                   = ""
 	d                     *Device
 	deviceRefreshInterval = 1000
-	rgbProfileUpgrade     = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "rain"}
+	rgbProfileUpgrade     = []string{"arc", "gradient", "pastelrainbow", "pastelspiralrainbow", "rain"}
 )
 
 type DeviceProfile struct {
 	RGBProfile         string
 	BrightnessSlider   *uint8
 	OriginalBrightness uint8
+	DeviceOrder        []string
 }
 
 type Device struct {
@@ -54,6 +56,7 @@ func Init() *Device {
 		Product: "Cluster",
 		Serial:  "cluster",
 		RGBModes: []string{
+			"arc",
 			"circle",
 			"circleshift",
 			"colorpulse",
@@ -128,8 +131,29 @@ func (d *Device) AddDeviceController(controller *common.ClusterController) {
 	d.Controllers = append(d.Controllers, controller)
 	d.mutex.Unlock()
 
+	d.SortControllers()
+
 	if len(d.Controllers) == 1 {
 		d.setDeviceColor()
+	}
+}
+
+// SortControllers permanently sorts the controllers array based on the saved DeviceOrder
+func (d *Device) SortControllers() {
+	if d.DeviceProfile != nil && len(d.DeviceProfile.DeviceOrder) > 0 {
+		d.mutex.Lock()
+		defer d.mutex.Unlock()
+		sort.Slice(d.Controllers, func(i, j int) bool {
+			idxI := common.IndexOfString(d.DeviceProfile.DeviceOrder, d.Controllers[i].Serial)
+			idxJ := common.IndexOfString(d.DeviceProfile.DeviceOrder, d.Controllers[j].Serial)
+			if idxI == -1 {
+				return false
+			}
+			if idxJ == -1 {
+				return true
+			}
+			return idxI < idxJ
+		})
 	}
 }
 
@@ -278,6 +302,24 @@ func (d *Device) UpdateRgbProfile(_ int, profile string) uint8 {
 	}
 	d.DeviceProfile.RGBProfile = profile
 	d.saveDeviceProfile()
+
+	if d.activeRgb != nil {
+		d.activeRgb.Exit <- true // Exit current RGB mode
+		d.activeRgb = nil
+	}
+	d.setDeviceColor() // Restart RGB
+	return 1
+}
+
+// UpdateDeviceOrder saves the new sequence of devices for the cluster animations
+func (d *Device) UpdateDeviceOrder(order []string) uint8 {
+	if d.DeviceProfile == nil {
+		return 0
+	}
+	d.DeviceProfile.DeviceOrder = order
+	d.saveDeviceProfile()
+
+	d.SortControllers()
 
 	if d.activeRgb != nil {
 		d.activeRgb.Exit <- true // Exit current RGB mode
@@ -537,6 +579,11 @@ func (d *Device) generateRgbEffect(channels int, startTime *time.Time, rgbProfil
 			r.PastelSpiralRainbow(*startTime)
 			buff = r.Output
 		}
+	case "arc":
+		{
+			r.Arc(*startTime)
+			buff = r.Output
+		}
 	case "rain":
 		{
 			r.Rain(*startTime)
@@ -663,6 +710,7 @@ func (d *Device) saveDeviceProfile() {
 		}
 		deviceProfile.RGBProfile = d.DeviceProfile.RGBProfile
 		deviceProfile.OriginalBrightness = d.DeviceProfile.OriginalBrightness
+		deviceProfile.DeviceOrder = d.DeviceProfile.DeviceOrder
 	}
 
 	if err := common.SaveJsonData(profilePath, deviceProfile); err != nil {

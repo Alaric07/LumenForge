@@ -1160,4 +1160,3 @@ func SendFramePersistent(conn net.Conn, controllerId uint32, frame []byte) (net.
 
 	return conn, nil
 }
-

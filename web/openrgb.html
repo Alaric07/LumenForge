@@ -15,7 +15,8 @@
             {{ template "temperature-bar" . }}
             {{ end }}
 
-            <!-- OpenRGB Device -->
+            <!-- Motherboard -->
+            {{ if .OpenRGBImportConfig }}
             <div class="row g-4 mb-4 align-items-start">
                 <div class="col-md-3">
                     <div class="stack-gap-4">
@@ -46,20 +47,6 @@
                                     </div>
                                     {{ end }}
 
-                                    {{ if .OpenRGBImportVersion }}
-                                    <div class="settings-row">
-                                        <span class="settings-label text-ellipsis" title="Firmware/Device Version">Version</span>
-                                        <span class="meta-value">{{ .OpenRGBImportVersion }}</span>
-                                    </div>
-                                    {{ end }}
-
-                                    {{ if .OpenRGBImportDescription }}
-                                    <div class="settings-row">
-                                        <span class="settings-label text-ellipsis" title="Device Description">Description</span>
-                                        <span class="meta-value text-ellipsis" style="text-align: right; max-width: 60%;" title="{{ .OpenRGBImportDescription }}">{{ .OpenRGBImportDescription }}</span>
-                                    </div>
-                                    {{ end }}
-
                                     <div class="settings-row">
                                         <span class="settings-label text-ellipsis">Brightness</span>
                                         <div class="system-slider no-padding-top">
@@ -74,6 +61,189 @@
                                             <input type="checkbox" id="toggleRgbCluster" class="toggleRgbCluster" {{ if .OpenRGBImportRGBCluster }} checked {{ end }}>
                                             <span class="toggle-track"></span>
                                         </label>
+                                    </div>
+
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">OpenRGB Link</span>
+                                        <label class="system-toggle compact">
+                                            <input type="checkbox" id="openrgbToggleCheck" checked disabled>
+                                            <span class="toggle-track"></span>
+                                        </label>
+                                    </div>
+
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">Connection Status</span>
+                                        <span class="meta-value openrgbStatusText">Loading...</span>
+                                    </div>
+
+                                    <div class="settings-row d-none openrgbErrorRow">
+                                        <span class="settings-label text-ellipsis" style="color: #ff5b5b;">Connection Error</span>
+                                        <span class="meta-value openrgbErrorText" style="color: #ff5b5b; font-size: 11px; white-space: normal; word-break: break-word; text-align: right;"></span>
+                                    </div>
+
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">RGB</span>
+                                        <select id="mbRgbProfile" class="form-select system-select compact auto-width">
+                                            {{ range $key, $mode := $rgbModes }}
+                                            {{ if eq $mode $.OpenRGBImportEffect }}
+                                            <option value="{{ $mode }}" selected>{{ $mode }}</option>
+                                            {{ else }}
+                                            <option value="{{ $mode }}">{{ $mode }}</option>
+                                            {{ end }}
+                                            {{ end }}
+                                        </select>
+                                    </div>
+
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">{{ .Lang "txtRgbOverride" }}</span>
+                                        <label>
+                                            <button class="system-button compact rgbOverride" data-info="0" type="button">{{ .Lang "txtConfigure" }}</button>
+                                        </label>
+                                    </div>
+
+                                    <!-- User profile -->
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">{{ .Lang "txtProfile" }}</span>
+                                        <label for="profiles">
+                                            <select id="profiles" class="form-select system-select compact auto-width userProfile" name="userProfile">
+                                                {{ range $profile := .DeviceUserProfiles }}
+                                                {{ if $profile.Active }}
+                                                <option value="{{ $profile.Name }}" selected>{{ $profile.Name }}</option>
+                                                {{ else }}
+                                                <option value="{{ $profile.Name }}">{{ $profile.Name }}</option>
+                                                {{ end }}
+                                                {{ end }}
+                                            </select>
+                                        </label>
+                                    </div>
+
+                                    <!-- Delete user profile -->
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">{{ .Lang "txtDeleteProfile" }}</span>
+                                        <label for="deleteUserProfiles">
+                                            <select id="deleteUserProfiles" class="form-select system-select compact auto-width deleteUserProfiles" name="deleteUserProfiles">
+                                                <option value="none">None</option>
+                                                {{ range $profile := .DeviceUserProfiles }}
+                                                {{ if $profile.Active }}
+                                                {{ continue }}
+                                                {{ else }}
+                                                <option value="{{ $profile.Name }}">{{ $profile.Name }}</option>
+                                                {{ end }}
+                                                {{ end }}
+                                            </select>
+                                        </label>
+                                    </div>
+
+                                    <!-- Save profile -->
+                                    <div class="settings-row">
+                                        <button class="system-button center saveUserProfile">{{ .Lang "txtSaveUserProfile" }}</button>
+                                        <button class="system-button danger center deleteUserProfile">{{ .Lang "txtDeleteProfile" }}</button>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-9">
+                    <!-- Zone Layout Controls -->
+                    <div class="d-flex align-items-center gap-3 mb-4 ps-1">
+                        <h6 class="text-uppercase text-light fw-bold mb-0" style="letter-spacing: 1.5px; font-size: 0.8rem;">Zone Configuration <span class="text-secondary text-opacity-75 ms-2 fw-normal" style="font-size: 0.75rem;">({{ len .OpenRGBImportConfig.Zones }} ZONES | GROUPED)</span></h6>
+                        <button class="system-button compact m-0 px-3" id="saveZoneConfig" type="button" style="padding-top: 4px; padding-bottom: 4px; font-size: 0.7rem;">Save Layout</button>
+                    </div>
+
+                    <!-- Zone Cards Grid -->
+                    <div class="row g-4 align-items-start" style="max-height:800px;overflow-y:auto;overflow-x:hidden;">
+                        {{ range $index, $zone := .OpenRGBImportConfig.Zones }}
+                        <div class="col-xl-3 col-lg-4 col-md-6 col-sm-12">
+                            <div class="card system-card m-0 h-100" style="border: 1px solid rgba(255,255,255,0.05);">
+                                <div class="card-header header-split">
+                                    <span class="header-left text-uppercase" style="letter-spacing: 1px; font-size: 0.65rem;">ZONE CONFIGURATION</span>
+                                    <span class="header-right text-uppercase" style="letter-spacing: 0.5px; font-size: 0.65rem;">SET LAYOUT</span>
+                                </div>
+                                <div class="card-body">
+                                    <div class="settings-list">
+                                        <div class="settings-row" style="padding-bottom: 8px;">
+                                            <span class="settings-label text-ellipsis" style="font-size: 0.75rem;">Name</span>
+                                            <label class="w-100" style="max-width: 140px;">
+                                                <input
+                                                    type="text"
+                                                    class="configZoneName form-control form-control-sm bg-transparent text-light border-secondary w-100"
+                                                    data-zone-index="{{ $index }}"
+                                                    value="{{ $zone.Name }}"
+                                                    style="font-size: 0.8rem; text-align: right;"
+                                                >
+                                            </label>
+                                        </div>
+                                        <div class="settings-row" style="padding-top: 8px;">
+                                            <span class="settings-label text-ellipsis" style="font-size: 0.75rem;">LEDs</span>
+                                            <label class="w-100" style="max-width: 140px;">
+                                                <input
+                                                    type="number"
+                                                    class="configZoneCount form-control form-control-sm bg-transparent text-light border-secondary w-100"
+                                                    data-zone-index="{{ $index }}"
+                                                    data-saved-led-count="{{ $zone.LedCount }}"
+                                                    min="1"
+                                                    value="{{ $zone.LedCount }}"
+                                                    style="font-size: 0.8rem; text-align: right;"
+                                                >
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+            {{ else }}
+            <div class="row g-4 mb-4 align-items-start">
+
+                <!-- LEFT PANEL -->
+                <div class="col-md-2">
+                    <div class="stack-gap-4">
+                        <div class="card system-card text-center">
+                            <div class="card-header">
+                                {{ .Device.Product }}
+                            </div>
+                            <div class="card-body">
+                                <div class="settings-list">
+
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">Device</span>
+                                        <span class="meta-value">{{ .Device.Product }}</span>
+                                    </div>
+
+                                    {{ if .OpenRGBImportDevice }}
+                                         {{ if .OpenRGBImportDisplaySerial }}
+                                         <div class="settings-row">
+                                             <span class="settings-label text-ellipsis" title="Identifier provided by OpenRGB (may be serial or firmware version depending on device)">
+                                                 {{ if eq .OpenRGBImportDisplaySerialLabel "VERSION" }}
+                                                     {{ $.Lang "txtFirmware" }}
+                                                 {{ else if eq .OpenRGBImportDisplaySerialLabel "SERIAL" }}
+                                                     Serial
+                                                 {{ else }}
+                                                     OpenRGB ID
+                                                 {{ end }}
+                                             </span>
+                                             <span class="meta-value">{{ .OpenRGBImportDisplaySerial }}</span>
+                                         </div>
+                                         {{ end }}
+                                    {{ else }}
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">Serial</span>
+                                        <span class="meta-value">{{ .Device.Serial }}</span>
+                                    </div>
+                                    {{ end }}
+
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">Brightness</span>
+                                        <div class="system-slider no-padding-top">
+                                            <input type="range" id="mbBrightnessSlider" min="0" max="100" value="{{ if .OpenRGBImportDevice }}{{ .OpenRGBImportBrightness }}{{ else }}100{{ end }}">
+                                            <div class="slider-value" id="mbBrightnessSliderValue">{{ if .OpenRGBImportDevice }}{{ .OpenRGBImportBrightness }}{{ else }}100{{ end }} %</div>
+                                        </div>
                                     </div>
 
                                     <div class="settings-row">
@@ -161,76 +331,86 @@
                     </div>
                 </div>
 
-                <div class="col-md-9">
-                    <div class="card system-card text-center">
-                        <div class="card-header header-split">
-                            <span class="header-left">{{ .Device.Product }}</span>
-                            <span class="header-right">LINKED</span>
-                        </div>
-                        <div class="card-body">
-                            <div class="settings-list">
+                <!-- RIGHT PANEL -->
+                <div class="col-md-10">
 
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">Zones</span>
-                                    <span class="meta-value">{{ len .OpenRGBImportConfig.Zones }}</span>
+                    <div class="row g-4 mb-4 align-items-start">
+
+                        <!-- MAIN CONTROL CARD -->
+                        <div class="col-md-3">
+                            <div class="card system-card text-center">
+                                <div class="card-header header-split">
+                                    <span class="header-left">{{ .Device.Product }}</span>
+                                    <span class="header-right">LINKED</span>
                                 </div>
+                                <div class="card-body">
+                                    <div class="settings-list">
 
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">Mode</span>
-                                    <span class="meta-value">Grouped</span>
+                                        <div class="settings-row">
+                                            <span class="settings-label text-ellipsis">Zones</span>
+                                            <span class="meta-value">3</span>
+                                        </div>
+
+                                        <div class="settings-row">
+                                            <span class="settings-label text-ellipsis">Mode</span>
+                                            <span class="meta-value">Grouped</span>
+                                        </div>
+
+                                        <div class="settings-row">
+                                            <span class="settings-label text-ellipsis">Color</span>
+                                            <input type="color" id="mbColor" value="#63d5ff" style="width:56px;min-width:56px;flex:0 0 auto;">
+                                        </div>
+
+                                        <div class="settings-row">
+                                            <button class="system-button compact" id="mbApplyColor" type="button">
+                                                Apply
+                                            </button>
+                                        </div>
+
+                                    </div>
                                 </div>
-
-                                <div class="settings-row" style="justify-content:flex-start;gap:12px;">
-                                    <span class="settings-label text-ellipsis">Color</span>
-                                    <input type="color" id="mbColor" value="#63d5ff" style="width:56px;min-width:56px;flex:0 0 auto;">
-                                </div>
-
-                                <div class="settings-row">
-                                    <button class="system-button compact" id="mbApplyColor" type="button">
-                                        Apply
-                                    </button>
-                                </div>
-
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
 
-            <div class="row g-4 mb-4">
-                <div class="col-12">
-                    <div class="card system-card text-center">
-                        <div class="card-header">Zone Configuration</div>
-                        <div class="card-body">
-                            <div class="settings-list" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-height:320px;overflow-y:auto;">
-                                {{ range $index, $zone := .OpenRGBImportConfig.Zones }}
-                                <div class="system-input compact no-padding-top" style="display:flex;flex-direction:column;gap:8px;">
-                                    <input
-                                        type="text"
-                                        class="configZoneName"
-                                        data-zone-index="{{ $index }}"
-                                        value="{{ $zone.Name }}"
-                                        placeholder="Zone Name"
-                                    >
-                                    <input
-                                        type="number"
-                                        class="configZoneCount"
-                                        data-zone-index="{{ $index }}"
-                                        data-saved-led-count="{{ $zone.LedCount }}"
-                                        min="1"
-                                        value="{{ $zone.LedCount }}"
-                                        placeholder="LED Count"
-                                    >
+                        <!-- ZONES -->
+                        <div class="col-md-3">
+                            <div class="card system-card text-center">
+                                <div class="card-header">Zone 1</div>
+                                <div class="card-body">
+                                    <p>Linked</p>
+                                    <p>Global</p>
                                 </div>
-                                {{ end }}
                             </div>
                         </div>
-                        <div class="card-footer card-footer-left">
-                            <button class="system-button" id="saveZoneConfig" type="button">Save Zone Layout</button>
+
+                        <div class="col-md-3">
+                            <div class="card system-card text-center">
+                                <div class="card-header">Zone 2</div>
+                                <div class="card-body">
+                                    <p>Linked</p>
+                                    <p>Global</p>
+                                </div>
+                            </div>
                         </div>
+
+                        <div class="col-md-3">
+                            <div class="card system-card text-center">
+                                <div class="card-header">Zone 3</div>
+                                <div class="card-body">
+                                    <p>Linked</p>
+                                    <p>Global</p>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
+
+                    <div class="row g-4">
+                    </div>
+
                 </div>
             </div>
+            {{ end }}
         </main>
     </div>
 </div>
@@ -335,8 +515,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (increasedZoneCount) {
             const confirmed = window.confirm(
-                'If you increase the LED count beyond what the hardware actually has, OpenRGB will reject the commands and the device will stop responding.\n\n' +
-                'If you are unsure, confirm the exact LED count in the OpenRGB app before continuing.\n\n' +
+                'Increasing LED count beyond the last working saved value may crash the OpenRGB server.\n\n' +
+                'If you are unsure, confirm the zone and LED counts in OpenRGB before continuing.\n\n' +
                 'Do you want to save anyway?'
             );
             if (!confirmed) {
