@@ -5,7 +5,7 @@ package inputmanager
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/logger"
+	"LumenForge/src/logger"
 	"os"
 	"syscall"
 	"time"
@@ -56,7 +56,7 @@ func createVirtualKeyboard(vendorId, productId uint16) error {
 	}
 
 	// Set keyboard name
-	copy(uInputDevice.Name[:], "OpenLinkHub Virtual Keyboard")
+	copy(uInputDevice.Name[:], "LumenForge Virtual Keyboard")
 
 	// Ensure all required key event properties are enabled
 	if _, _, errno = syscall.Syscall(syscall.SYS_IOCTL, virtualKeyboardPointer, UiSetEvbit, uintptr(EvKey)); errno != 0 {

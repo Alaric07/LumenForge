@@ -1,7 +1,7 @@
 package openrgb
 
 import (
-	"OpenLinkHub/src/config"
+	"LumenForge/src/config"
 	"bytes"
 	"encoding/binary"
 	"fmt"

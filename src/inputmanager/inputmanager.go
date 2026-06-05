@@ -5,11 +5,11 @@ package inputmanager
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/dashboard"
-	"OpenLinkHub/src/dispatcher"
-	"OpenLinkHub/src/display"
-	"OpenLinkHub/src/logger"
+	"LumenForge/src/config"
+	"LumenForge/src/dashboard"
+	"LumenForge/src/dispatcher"
+	"LumenForge/src/display"
+	"LumenForge/src/logger"
 	"encoding/binary"
 	"errors"
 	"os"

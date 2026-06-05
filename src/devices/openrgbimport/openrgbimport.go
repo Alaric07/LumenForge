@@ -1,13 +1,13 @@
 package openrgbimport
 
 import (
-	"OpenLinkHub/src/cluster"
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/logger"
-	"OpenLinkHub/src/openrgb"
-	"OpenLinkHub/src/rgb"
-	"OpenLinkHub/src/temperatures"
+	"LumenForge/src/cluster"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/logger"
+	"LumenForge/src/openrgb"
+	"LumenForge/src/rgb"
+	"LumenForge/src/temperatures"
 	"encoding/json"
 	"fmt"
 	"net"

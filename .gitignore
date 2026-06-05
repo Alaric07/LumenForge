@@ -7,7 +7,7 @@ ppa/
 build.sh
 changelog.sh
 build_local.sh
-OpenLinkHub
+LumenForge
 Buildfile
 config.json
 stdout.log
@@ -22,13 +22,15 @@ database/led/*.json
 database/lcd/*.json
 database/scheduler.json
 database/audio.json
-org.openlinkhub.OpenLinkHub.json
+org.lumenforge.LumenForge.json
 .flatpak-builder/
 flatpak/
 flatpak-build/
 copr/
-OpenLinkHub.spec.template
+LumenForge.spec.template
 *.tar.gz
 update.json
 update.json.sig
 .devcontainer/devcontainer-lock.json
+nohup.out
+server_debug.log

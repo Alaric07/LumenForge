@@ -5,14 +5,14 @@ package motherboard
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/dashboard"
-	"OpenLinkHub/src/logger"
-	"OpenLinkHub/src/metrics"
-	"OpenLinkHub/src/motherboards"
-	"OpenLinkHub/src/stats"
-	"OpenLinkHub/src/temperatures"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/dashboard"
+	"LumenForge/src/logger"
+	"LumenForge/src/metrics"
+	"LumenForge/src/motherboards"
+	"LumenForge/src/stats"
+	"LumenForge/src/temperatures"
 	"encoding/json"
 	"fmt"
 	"math"

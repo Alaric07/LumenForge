@@ -5,11 +5,11 @@ package psudongle
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/dashboard"
-	"OpenLinkHub/src/logger"
-	"OpenLinkHub/src/serial"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/dashboard"
+	"LumenForge/src/logger"
+	"LumenForge/src/serial"
 	"bytes"
 	"encoding/json"
 	"fmt"

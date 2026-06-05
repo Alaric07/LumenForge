@@ -2,7 +2,7 @@
 
 set -e
 CURRENT_USER=$SUDO_USER
-PRODUCT="OpenLinkHub"
+PRODUCT="LumenForge"
 PRODUCT_FILE="/opt/$PRODUCT/$PRODUCT"
 
 if [ ! -f $PRODUCT ]; then
@@ -13,11 +13,11 @@ fi
 if [ -f $PRODUCT_FILE ]; then
   echo "Performing upgrade..."
   sudo systemctl stop $PRODUCT
-  cp OpenLinkHub "/opt/$PRODUCT/"
+  cp LumenForge "/opt/$PRODUCT/"
   cp -r web/ "/opt/$PRODUCT/"
   cp -r static/ "/opt/$PRODUCT/"
   cp -r database/ "/opt/$PRODUCT/"
-  sudo cp 99-openlinkhub.rules /etc/udev/rules.d/
+  sudo cp 99-lumenforge.rules /etc/udev/rules.d/
   sudo udevadm control --reload-rules
   sudo udevadm trigger
   chmod -R 755 /opt/$PRODUCT

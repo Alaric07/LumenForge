@@ -5,9 +5,9 @@ package xeneonedge
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/logger"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/logger"
 	"encoding/json"
 	"fmt"
 	"github.com/sstallion/go-hid"

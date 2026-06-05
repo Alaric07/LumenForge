@@ -5,15 +5,15 @@ package mm700
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/cluster"
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/led"
-	"OpenLinkHub/src/logger"
-	"OpenLinkHub/src/metrics"
-	"OpenLinkHub/src/openrgb"
-	"OpenLinkHub/src/rgb"
-	"OpenLinkHub/src/temperatures"
+	"LumenForge/src/cluster"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/led"
+	"LumenForge/src/logger"
+	"LumenForge/src/metrics"
+	"LumenForge/src/openrgb"
+	"LumenForge/src/rgb"
+	"LumenForge/src/temperatures"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -900,7 +900,7 @@ func (d *Device) setupOpenRGBController() {
 	controller := &common.OpenRGBController{
 		Name:         d.Product,
 		Vendor:       "Corsair", // Static value
-		Description:  "OpenLinkHub Backend Device",
+		Description:  "LumenForge Backend Device",
 		FwVersion:    d.Firmware,
 		Serial:       d.Serial,
 		Location:     fmt.Sprintf("HID: %s", d.Path),

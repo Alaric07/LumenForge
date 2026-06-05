@@ -11,9 +11,9 @@ assignees: ''
 A clear and concise description of what the bug is.
 
 **Device / program info**
-1. Content of `/opt/OpenLinkHub/config.json`
+1. Content of `/opt/LumenForge/config.json`
 2. Output of `lsusb` command
-3. Attach `/opt/OpenLinkHub/stdout.log` file.
+3. Attach `/opt/LumenForge/stdout.log` file.
 
 **Expected behavior**
 A clear and concise description of what you expected to happen.

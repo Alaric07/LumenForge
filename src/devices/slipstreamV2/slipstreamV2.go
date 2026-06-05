@@ -5,12 +5,12 @@ package slipstreamV2
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/devices/m65rgbultraW"
-	"OpenLinkHub/src/devices/vanguard96W"
-	"OpenLinkHub/src/devices/vanguard99airW"
-	"OpenLinkHub/src/logger"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/devices/m65rgbultraW"
+	"LumenForge/src/devices/vanguard96W"
+	"LumenForge/src/devices/vanguard99airW"
+	"LumenForge/src/logger"
 	"crypto/rand"
 	"encoding/binary"
 	"errors"

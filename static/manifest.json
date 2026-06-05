@@ -1,5 +1,5 @@
 {
-  "name": "OpenLinkHub",
+  "name": "LumenForge",
   "icons": [
     {
       "src": "/static/img/512.png",
@@ -16,6 +16,6 @@
   "display": "standalone",
   "background_color": "#181818",
   "theme_color": "#181818",
-  "short_name": "OpenLinkHub",
+  "short_name": "LumenForge",
   "description": "Open source interface for iCUE LINK Hub and other Corsair AIOs, Hubs for Linux."
 }

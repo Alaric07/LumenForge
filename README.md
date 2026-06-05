@@ -1,8 +1,8 @@
-# OpenLinkHub interface for Linux
+# LumenForge interface for Linux
 An open-source Linux interface for iCUE LINK Hub and other Corsair AIOs, Hubs.
 Manage RGB lighting, fan speeds, system metrics, as well as keyboards, mice, and headsets via a web dashboard.
 
-![Build](https://github.com/jurkovic-nikola/OpenLinkHub/actions/workflows/go.yml/badge.svg)
+![Build](https://github.com/Alaric07/LumenForge/actions/workflows/go.yml/badge.svg)
 [![](https://dcbadge.limes.pink/api/server/https://discord.gg/mPHcasZRPy?style=flat)](https://discord.gg/mPHcasZRPy)
 
 **Available in other languages:** [Portuguese (Brazil)](README-pt_BR.md)
@@ -14,16 +14,16 @@ Manage RGB lighting, fan speeds, system metrics, as well as keyboards, mice, and
 - Manage keyboards, mice and headsets
 - Support for DDR4 and DDR5 memory
 - Custom fan profiles, temperature sensors and RGB editor
-- If you need system tray menu - https://github.com/jurkovic-nikola/openlinkhub-tray
+- If you need system tray menu - https://github.com/Alaric07/lumenforge-tray
 - [Supported device list](docs/supported-devices.md)
 - [SCUF Controller Audio Config](docs/scuf-controller.md)
-- [KDE System Monitor Sensor Face](https://github.com/jurkovic-nikola/openlinkhub-sensorfaces)
+- [KDE System Monitor Sensor Face](https://github.com/Alaric07/lumenforge-sensorfaces)
 - [Memory DDR4 / DDR5](docs/memory-configuration.md)
 - [Motherboard PWM](docs/motherboard-pwm.md)
 - [OpenRGB Integration](openrgb/README.md)
 - [XENEON EDGE KDE](docs/xeneon-edge-kde.md)
 
-![Web UI](https://github.com/jurkovic-nikola/OpenLinkHub/blob/main/static/img/ui.png?raw=true)
+![Web UI](https://github.com/Alaric07/LumenForge/blob/main/static/img/ui.png?raw=true)
 
 ## Info
 - This project was created out of necessity to control fans and pumps on workstations after switching everything to Linux.
@@ -33,17 +33,17 @@ Manage RGB lighting, fan speeds, system metrics, as well as keyboards, mice, and
 - This project is not an official Corsair product.
 ## Installation (recommended)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jurkovic-nikola/OpenLinkHub/main/remote-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Alaric07/LumenForge/main/remote-install.sh | bash
 ```
 This script will:
-- Open a new system group called openlinkhub 
-- Add your current user to openlinkhub 
-- Install OpenLinkHub in your home directory. 
+- Open a new system group called lumenforge 
+- Add your current user to lumenforge 
+- Install LumenForge in your home directory. 
 - Create a user systemd service 
-- Copy 99-openlinkhub.rules to /etc/udev/rules.d/ 
+- Copy 99-lumenforge.rules to /etc/udev/rules.d/ 
 - Start the service after installation. 
 - You can use this script for installation or upgrade purposes.
-- Before running this script, uninstall any previously installed versions of OpenLinkHub
+- Before running this script, uninstall any previously installed versions of LumenForge
 
 ## Installation (automatic)
 1. Download either .deb or .rpm package from the latest Release, depending on your Linux distribution
@@ -51,23 +51,23 @@ This script will:
 3. Navigate to the folder where the package is downloaded
 ```bash
 # Debian-Based (deb)
-$ sudo apt install ./OpenLinkHub_?.?.?_amd64.deb 
+$ sudo apt install ./LumenForge_?.?.?_amd64.deb 
 
 # RPM-based (rpm)
-$ sudo dnf install ./OpenLinkHub-?.?.?-1.x86_64.rpm
+$ sudo dnf install ./LumenForge-?.?.?-1.x86_64.rpm
 ```
 
 ## Installation (PPA)
 ```bash
-$ sudo add-apt-repository ppa:jurkovic-nikola/openlinkhub
+$ sudo add-apt-repository ppa:Alaric07/lumenforge
 $ sudo apt update
-$ sudo apt-get install openlinkhub
+$ sudo apt-get install lumenforge
 ```
 
 ## Installation (Copr)
 ```bash
-$ sudo dnf copr enable jurkovic-nikola/OpenLinkHub
-$ sudo dnf install OpenLinkHub
+$ sudo dnf copr enable Alaric07/LumenForge
+$ sudo dnf install LumenForge
 ```
 
 ## Installation (manual)
@@ -93,8 +93,8 @@ $ sudo dnf install pkg-config
 Or use the provided devcontainer in VScode. This is useful for immutable distributions.
 ### 2. Build & install
 ```bash
-$ git clone https://github.com/jurkovic-nikola/OpenLinkHub.git
-$ cd OpenLinkHub/
+$ git clone https://github.com/Alaric07/LumenForge.git
+$ cd LumenForge/
 $ CGO_CFLAGS_ALLOW='-fno-strict-overflow' go build .
 $ chmod +x install.sh
 $ sudo ./install.sh
@@ -102,10 +102,10 @@ $ sudo ./install.sh
 
 ### 3. Installation from compiled build
 ```bash
-# Download latest build from https://github.com/jurkovic-nikola/OpenLinkHub/releases/latest
-$ wget "https://github.com/jurkovic-nikola/OpenLinkHub/releases/latest/download/OpenLinkHub_$(curl -s https://api.github.com/repos/jurkovic-nikola/OpenLinkHub/releases/latest | jq -r '.tag_name')_amd64.tar.gz"
-$ tar xf OpenLinkHub_?.?.?_amd64.tar.gz
-$ cd /home/$USER/OpenLinkHub/
+# Download latest build from https://github.com/Alaric07/LumenForge/releases/latest
+$ wget "https://github.com/Alaric07/LumenForge/releases/latest/download/LumenForge_$(curl -s https://api.github.com/repos/Alaric07/LumenForge/releases/latest | jq -r '.tag_name')_amd64.tar.gz"
+$ tar xf LumenForge_?.?.?_amd64.tar.gz
+$ cd /home/$USER/LumenForge/
 $ chmod +x install.sh
 $ sudo ./install.sh
 ```
@@ -114,35 +114,35 @@ $ sudo ./install.sh
 # Do not install RPM or DEB packages on immutable distributions, they will not work.
 # This same procedure may be followed to update an existing installation.
 # Download the latest tar.gz from the Release page, or use the following command to download the latest release.
-$ wget "https://github.com/jurkovic-nikola/OpenLinkHub/releases/latest/download/OpenLinkHub_$(curl -s https://api.github.com/repos/jurkovic-nikola/OpenLinkHub/releases/latest | jq -r '.tag_name')_amd64.tar.gz"
+$ wget "https://github.com/Alaric07/LumenForge/releases/latest/download/LumenForge_$(curl -s https://api.github.com/repos/Alaric07/LumenForge/releases/latest | jq -r '.tag_name')_amd64.tar.gz"
 
 # Extract the package to your home directory
-$ tar xf OpenLinkHub_?.?.?_amd64.tar.gz -C /home/$USER/
+$ tar xf LumenForge_?.?.?_amd64.tar.gz -C /home/$USER/
 
 # Go to the extract folder
-$ cd /home/$USER/OpenLinkHub
+$ cd /home/$USER/LumenForge
 
 # Make install-user-space.sh executable
 $ chmod +x install-user-space.sh
 
-# Run install-user-space.sh. Enter your password for sudo when asked to copy 99-openlinkhub.rules file
+# Run install-user-space.sh. Enter your password for sudo when asked to copy 99-lumenforge.rules file
 $ ./install-user-space.sh
 
 # Restart 
 $ systemctl reboot
 
 # Check if service is running
-$ systemctl status --user OpenLinkHub.service
+$ systemctl status --user LumenForge.service
 ```
 
 ### 5. Usage (non-immutable distributions)
 ```bash
-sudo systemctl start OpenLinkHub.service
+sudo systemctl start LumenForge.service
 xdg-open http://127.0.0.1:27003
 ```
 
 ### 6. Configuration
-`/opt/OpenLinkHub/config.json`
+`/opt/LumenForge/config.json`
 ```json
 {
   "debug": false,
@@ -217,21 +217,21 @@ GNOME 'Web,' also known as 'Epiphany', is a good option for PWAs on GNOME system
 ## Uninstall
 ```bash
 # Stop service
-sudo systemctl stop OpenLinkHub.service
+sudo systemctl stop LumenForge.service
 
 # Remove application directory
-sudo rm -rf /opt/OpenLinkHub/
+sudo rm -rf /opt/LumenForge/
 
-# Remove systemd file (file location can be found by running sudo systemctl status OpenLinkHub.service)
-sudo rm /etc/systemd/system/OpenLinkHub.service
+# Remove systemd file (file location can be found by running sudo systemctl status LumenForge.service)
+sudo rm /etc/systemd/system/LumenForge.service
 # or
-sudo rm /usr/lib/systemd/system/OpenLinkHub.service
+sudo rm /usr/lib/systemd/system/LumenForge.service
 
 # Reload systemd
 sudo systemctl daemon-reload
 
 # Remove udev rules
-sudo rm -f /etc/udev/rules.d/99-openlinkhub.rules
+sudo rm -f /etc/udev/rules.d/99-lumenforge.rules
 sudo rm -f /etc/udev/rules.d/98-corsair-memory.rules
 
 # Reload udev
@@ -239,20 +239,20 @@ sudo udevadm control --reload-rules
 sudo udevadm trigger
 ```
 ## Running in Docker
-As an alternative, OpenLinkHub can be run in Docker, using the Dockerfile in this repository to build it locally. A configuration file has to be mounted to /opt/OpenLinkHub/config.json
+As an alternative, LumenForge can be run in Docker, using the Dockerfile in this repository to build it locally. A configuration file has to be mounted to /opt/LumenForge/config.json
 ```bash
-$ docker build . -t openlinkhub
+$ docker build . -t lumenforge
 $ # To build a specific version, you can use the GIT_TAG build argument
-$ docker build --build-arg GIT_TAG=0.1.3-beta -t openlinkhub .
+$ docker build --build-arg GIT_TAG=0.1.3-beta -t lumenforge .
 
-$ docker run --privileged openlinkhub
+$ docker run --privileged lumenforge
 
 # For WebUI access, networking is required
-$ docker run --network host --privileged openlinkhub
+$ docker run --network host --privileged lumenforge
 ```
 
 ## LCD
-- LCD images / animations are located in `/opt/OpenLinkHub/database/lcd/images/`
+- LCD images / animations are located in `/opt/LumenForge/database/lcd/images/`
 ## Dashboard
 - Device Dashboard is accessible by browser via the link `http://127.0.0.1:27003/`
 - Device Dashboard allows you to control your devices.
@@ -260,5 +260,5 @@ $ docker run --network host --privileged openlinkhub
 - RGB configuration is located at `database/rgb/your-device-serial.json` file
 - RGB can be configured via the RGB Editor in the Dashboard
 ## API
-- OpenLinkHub ships with a built-in HTTP server for device overview and control.
+- LumenForge ships with a built-in HTTP server for device overview and control.
 - Documentation is available at [API Page](api/README.md)

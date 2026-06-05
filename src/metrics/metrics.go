@@ -5,8 +5,8 @@ package metrics
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/systeminfo"
-	"OpenLinkHub/src/temperatures"
+	"LumenForge/src/systeminfo"
+	"LumenForge/src/temperatures"
 	"fmt"
 	"net/http"
 	"strings"
@@ -159,46 +159,46 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	var b strings.Builder
 
 	// Device info
-	b.WriteString("# HELP openlinkhub Product information\n")
-	b.WriteString("# TYPE openlinkhub gauge\n")
+	b.WriteString("# HELP lumenforge Product information\n")
+	b.WriteString("# TYPE lumenforge gauge\n")
 	for _, p := range GetProductMetrics() {
-		b.WriteString(fmt.Sprintf(`openlinkhub{product="%s",serial="%s",firmware="%s"} 1`+"\n",
+		b.WriteString(fmt.Sprintf(`lumenforge{product="%s",serial="%s",firmware="%s"} 1`+"\n",
 			p.Product, p.Serial, p.Firmware))
 	}
 
 	// Temperature data
-	b.WriteString("# HELP openlinkhub_temperature Current temperature of devices.\n")
-	b.WriteString("# TYPE openlinkhub_temperature gauge\n")
+	b.WriteString("# HELP lumenforge_temperature Current temperature of devices.\n")
+	b.WriteString("# TYPE lumenforge_temperature gauge\n")
 	for _, d := range GetDeviceMetrics() {
 		if d.Temperature > 0 {
-			b.WriteString(fmt.Sprintf(`openlinkhub_temperature{serial="%s",channelId="%s",name="%s",description="%s",profile="%s",label="%s",rgb="%s",aio="%s",pump="%s",probe="%s",led="%s"} %.2f`+"\n",
+			b.WriteString(fmt.Sprintf(`lumenforge_temperature{serial="%s",channelId="%s",name="%s",description="%s",profile="%s",label="%s",rgb="%s",aio="%s",pump="%s",probe="%s",led="%s"} %.2f`+"\n",
 				d.Serial, d.ChannelId, d.Name, d.Description, d.Profile, d.Label, d.RGB, d.AIO, d.ContainsPump, d.TemperatureProbe, d.LedChannels, d.Temperature))
 		}
 	}
 
 	// RPM data
-	b.WriteString("# HELP openlinkhub_speed Current speed (RPM) of devices.\n")
-	b.WriteString("# TYPE openlinkhub_speed gauge\n")
+	b.WriteString("# HELP lumenforge_speed Current speed (RPM) of devices.\n")
+	b.WriteString("# TYPE lumenforge_speed gauge\n")
 	for _, d := range GetDeviceMetrics() {
 		if d.Rpm > 0 {
-			b.WriteString(fmt.Sprintf(`openlinkhub_speed{serial="%s",channelId="%s",name="%s",description="%s",profile="%s",label="%s",rgb="%s",aio="%s",pump="%s",probe="%s",led="%s"} %d`+"\n",
+			b.WriteString(fmt.Sprintf(`lumenforge_speed{serial="%s",channelId="%s",name="%s",description="%s",profile="%s",label="%s",rgb="%s",aio="%s",pump="%s",probe="%s",led="%s"} %d`+"\n",
 				d.Serial, d.ChannelId, d.Name, d.Description, d.Profile, d.Label, d.RGB, d.AIO, d.ContainsPump, d.TemperatureProbe, d.LedChannels, d.Rpm))
 		}
 	}
 
 	// Storage temps
-	b.WriteString("# HELP openlinkhub_storage_temp Current temperature of storage devices.\n")
-	b.WriteString("# TYPE openlinkhub_storage_temp gauge\n")
+	b.WriteString("# HELP lumenforge_storage_temp Current temperature of storage devices.\n")
+	b.WriteString("# TYPE lumenforge_storage_temp gauge\n")
 	for _, s := range GetStorageMetrics() {
-		b.WriteString(fmt.Sprintf(`openlinkhub_storage_temp{hwmonDevice="%s",model="%s"} %.2f`+"\n",
+		b.WriteString(fmt.Sprintf(`lumenforge_storage_temp{hwmonDevice="%s",model="%s"} %.2f`+"\n",
 			s.HwmonDevice, s.Model, s.Temperature))
 	}
 
 	// Default temps
-	b.WriteString("# HELP openlinkhub_default_temp Current temperature of default devices.\n")
-	b.WriteString("# TYPE openlinkhub_default_temp gauge\n")
+	b.WriteString("# HELP lumenforge_default_temp Current temperature of default devices.\n")
+	b.WriteString("# TYPE lumenforge_default_temp gauge\n")
 	for _, d := range GetDefaultMetrics() {
-		b.WriteString(fmt.Sprintf(`openlinkhub_default_temp{model="%s"} %.2f`+"\n",
+		b.WriteString(fmt.Sprintf(`lumenforge_default_temp{model="%s"} %.2f`+"\n",
 			d.Model, d.Temperature))
 	}
 

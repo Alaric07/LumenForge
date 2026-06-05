@@ -1,12 +1,12 @@
 package systray
 
 import (
-	"OpenLinkHub/src/cluster"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/devices"
-	"OpenLinkHub/src/logger"
-	"OpenLinkHub/src/rgb"
-	"OpenLinkHub/src/stats"
+	"LumenForge/src/cluster"
+	"LumenForge/src/config"
+	"LumenForge/src/devices"
+	"LumenForge/src/logger"
+	"LumenForge/src/rgb"
+	"LumenForge/src/stats"
 	"fmt"
 	"github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	serviceName               = "org.openlinkhub.OpenLinkHub"
+	serviceName               = "org.lumenforge.LumenForge"
 	statusPath                = dbus.ObjectPath("/StatusNotifierItem")
 	menuPath                  = dbus.ObjectPath("/Menu")
 	menuItems                 = map[int32]MenuLayout{}
@@ -41,8 +41,8 @@ var (
 // Standard SNI props
 var props = map[string]dbus.Variant{
 	"Category":   dbus.MakeVariant("ApplicationStatus"),
-	"Id":         dbus.MakeVariant("openlinkhub"),
-	"Title":      dbus.MakeVariant("OpenLinkHub"),
+	"Id":         dbus.MakeVariant("lumenforge"),
+	"Title":      dbus.MakeVariant("LumenForge"),
 	"Status":     dbus.MakeVariant("Active"),
 	"IconName":   dbus.MakeVariant("cpu"),
 	"ToolTip":    createTooltip(),
@@ -592,9 +592,9 @@ func createTooltip() dbus.Variant {
 		Icons []interface{}
 		Text  string
 	}{
-		Title: "OpenLinkHub",
+		Title: "LumenForge",
 		Icons: []interface{}{},
-		Text:  "OpenLinkHub",
+		Text:  "LumenForge",
 	}
 	return dbus.MakeVariant(tooltip)
 }

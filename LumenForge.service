@@ -1,0 +1,16 @@
+[Unit]
+Description=Open source interface for iCUE LINK System Hub, Corsair AIOs and Hubs
+After=sleep.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+User=lumenforge
+WorkingDirectory=/opt/LumenForge
+ExecStart=/opt/LumenForge/LumenForge
+ExecReload=/bin/kill -s HUP $MAINPID
+RestartSec=5
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

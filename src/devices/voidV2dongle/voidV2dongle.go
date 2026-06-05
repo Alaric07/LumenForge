@@ -5,10 +5,10 @@ package voidV2dongle
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/devices/voidV2W"
-	"OpenLinkHub/src/logger"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/devices/voidV2W"
+	"LumenForge/src/logger"
 	"encoding/binary"
 	"fmt"
 	"github.com/sstallion/go-hid"

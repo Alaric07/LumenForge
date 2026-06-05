@@ -1,7 +1,7 @@
 package rgb
 
 import (
-	"OpenLinkHub/src/common"
+	"LumenForge/src/common"
 	"encoding/json"
 	"math"
 	"math/rand"

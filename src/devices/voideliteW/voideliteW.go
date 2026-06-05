@@ -5,11 +5,11 @@ package voideliteW
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/audio"
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/logger"
-	"OpenLinkHub/src/rgb"
+	"LumenForge/src/audio"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/logger"
+	"LumenForge/src/rgb"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"OpenLinkHub/src/stats"
+	"LumenForge/src/stats"
 	"github.com/sstallion/go-hid"
 )
 

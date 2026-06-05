@@ -5,10 +5,10 @@ package psuhid
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/dashboard"
-	"OpenLinkHub/src/logger"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/dashboard"
+	"LumenForge/src/logger"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"

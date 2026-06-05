@@ -5,10 +5,10 @@ package darkcorergbsesongle
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/devices/darkcorergbseW"
-	"OpenLinkHub/src/logger"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/devices/darkcorergbseW"
+	"LumenForge/src/logger"
 	"encoding/binary"
 	"fmt"
 	"github.com/sstallion/go-hid"

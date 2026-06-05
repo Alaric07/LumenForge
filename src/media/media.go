@@ -5,8 +5,8 @@ package media
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/logger"
+	"LumenForge/src/config"
+	"LumenForge/src/logger"
 	"errors"
 	"github.com/godbus/dbus/v5"
 	"sort"

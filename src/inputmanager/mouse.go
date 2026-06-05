@@ -5,8 +5,8 @@ package inputmanager
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/display"
-	"OpenLinkHub/src/logger"
+	"LumenForge/src/display"
+	"LumenForge/src/logger"
 	"os"
 	"syscall"
 	"time"
@@ -57,7 +57,7 @@ func createVirtualMouseAbs(vendorId, productId uint16) error {
 		},
 	}
 
-	copy(uInputDevice.Name[:], "OpenLinkHub Virtual Absolute Mouse")
+	copy(uInputDevice.Name[:], "LumenForge Virtual Absolute Mouse")
 
 	uInputDevice.AbsMin[AbsX] = AbsMin
 	uInputDevice.AbsMax[AbsX] = int32(display.GetScreenResolution().Width)
@@ -129,7 +129,7 @@ func createVirtualMouse(vendorId, productId uint16) error {
 	}
 
 	// Set mouse name
-	copy(uInputDevice.Name[:], "OpenLinkHub Virtual Mouse")
+	copy(uInputDevice.Name[:], "LumenForge Virtual Mouse")
 
 	// Ensure all required key event properties are enabled
 	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, virtualMousePointer, UiSetEvbit, uintptr(EvKey)); errno != 0 {

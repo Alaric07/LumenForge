@@ -1,4 +1,4 @@
-module OpenLinkHub
+module LumenForge
 
 go 1.25.0
 

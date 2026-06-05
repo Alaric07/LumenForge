@@ -5,12 +5,12 @@ package sabrev2prodongle
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/devices/m55W"
-	"OpenLinkHub/src/devices/sabrev2proW"
-	"OpenLinkHub/src/inputmanager"
-	"OpenLinkHub/src/logger"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/devices/m55W"
+	"LumenForge/src/devices/sabrev2proW"
+	"LumenForge/src/inputmanager"
+	"LumenForge/src/logger"
 	"github.com/sstallion/go-hid"
 	"os"
 	"strconv"

@@ -5,16 +5,16 @@ package memory
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/cluster"
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/dashboard"
-	"OpenLinkHub/src/logger"
-	"OpenLinkHub/src/openrgb"
-	"OpenLinkHub/src/rgb"
-	"OpenLinkHub/src/smbus"
-	"OpenLinkHub/src/stats"
-	"OpenLinkHub/src/temperatures"
+	"LumenForge/src/cluster"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/dashboard"
+	"LumenForge/src/logger"
+	"LumenForge/src/openrgb"
+	"LumenForge/src/rgb"
+	"LumenForge/src/smbus"
+	"LumenForge/src/stats"
+	"LumenForge/src/temperatures"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -1647,7 +1647,7 @@ func (d *Device) setupOpenRGBController() {
 		controller := &common.OpenRGBController{
 			Name:         d.Devices[k].Name,
 			Vendor:       "Corsair", // Static value
-			Description:  "OpenLinkHub Backend Device",
+			Description:  "LumenForge Backend Device",
 			FwVersion:    "0",
 			Serial:       "",
 			Location:     d.Path,

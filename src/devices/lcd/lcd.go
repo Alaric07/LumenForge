@@ -5,10 +5,10 @@ package lcd
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/dashboard"
-	"OpenLinkHub/src/logger"
-	"OpenLinkHub/src/rgb"
+	"LumenForge/src/common"
+	"LumenForge/src/dashboard"
+	"LumenForge/src/logger"
+	"LumenForge/src/rgb"
 	"bytes"
 	"encoding/json"
 	"fmt"

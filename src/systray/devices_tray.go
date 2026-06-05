@@ -1,8 +1,8 @@
 package systray
 
 import (
-	"OpenLinkHub/src/devices"
-	"OpenLinkHub/src/rgb"
+	"LumenForge/src/devices"
+	"LumenForge/src/rgb"
 	"github.com/godbus/dbus/v5"
 	"sort"
 	"strings"

@@ -5,9 +5,9 @@ package systray
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/dashboard"
-	"OpenLinkHub/src/stats"
-	"OpenLinkHub/src/temperatures"
+	"LumenForge/src/dashboard"
+	"LumenForge/src/stats"
+	"LumenForge/src/temperatures"
 )
 
 type Systray struct {

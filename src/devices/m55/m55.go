@@ -5,12 +5,12 @@ package m55
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/inputmanager"
-	"OpenLinkHub/src/logger"
-	"OpenLinkHub/src/macro"
-	"OpenLinkHub/src/rgb"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/inputmanager"
+	"LumenForge/src/logger"
+	"LumenForge/src/macro"
+	"LumenForge/src/rgb"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"

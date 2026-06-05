@@ -1,9 +1,9 @@
 # Servidor OpenRGB
-Com o lançamento da versão 0.6.2 do OpenLinkHub ou o commit mais recente, o OpenLinkHub suporta comunicação nativa de Cliente/Servidor OpenRGB.
+Com o lançamento da versão 0.6.2 do LumenForge ou o commit mais recente, o LumenForge suporta comunicação nativa de Cliente/Servidor OpenRGB.
 
 Isso resolve efetivamente qualquer problema de comunicação de dispositivo que ocorre quando dois programas tentam se comunicar com o mesmo dispositivo.
 
-Com essa implementação, você pode usar o OpenRGB para seus efeitos RGB e o OpenLinkHub para monitoramento de temperatura, controle de ventiladores, controle de bomba, controle de LCD e tudo mais que o programa oferece.
+Com essa implementação, você pode usar o OpenRGB para seus efeitos RGB e o LumenForge para monitoramento de temperatura, controle de ventiladores, controle de bomba, controle de LCD e tudo mais que o programa oferece.
 
 ## Como configurar
 ### Passo 1
@@ -19,29 +19,29 @@ Com essa implementação, você pode usar o OpenRGB para seus efeitos RGB e o Op
 
 ### Passo 2
 ```bash
-systemctl stop OpenLinkHub
+systemctl stop LumenForge
 ```
 
 ### Passo 3
 Desabilite o dispositivo no aplicativo OpenRGB, para que não seja processado lá e clique no botão Aplicar. Depois disso, você pode fazer uma nova varredura de dispositivos ou reiniciar o aplicativo OpenRGB.
 Para cada dispositivo que você deseja integrar, você terá que desabilitá-lo no OpenRGB.
 
-![Dispositivo OpenRGB](https://github.com/jurkovic-nikola/OpenLinkHub/blob/main/static/img/openrgb-device.png?raw=true)
+![Dispositivo OpenRGB](https://github.com/Alaric07/LumenForge/blob/main/static/img/openrgb-device.png?raw=true)
 
 ### Passo 4
 ```bash
-systemctl start OpenLinkHub
+systemctl start LumenForge
 ```
 
 ### Passo 5
 - Ative a Integração OpenRGB
 
-![Integração OpenRGB](https://github.com/jurkovic-nikola/OpenLinkHub/blob/main/static/img/openrgb.png?raw=true)
+![Integração OpenRGB](https://github.com/Alaric07/LumenForge/blob/main/static/img/openrgb.png?raw=true)
 
 ### Passo 6
 No OpenRGB, clique na aba Cliente e conecte à porta 6743.
 
-![Cliente OpenRGB](https://github.com/jurkovic-nikola/OpenLinkHub/blob/main/static/img/openrgb-client.png?raw=true)
+![Cliente OpenRGB](https://github.com/Alaric07/LumenForge/blob/main/static/img/openrgb-client.png?raw=true)
 
 ## Dispositivos suportados
 | Dispositivo            |

@@ -1,10 +1,10 @@
 #!/bin/bash
 
 set -e
-USER_TO_CHECK="openlinkhub"
+USER_TO_CHECK="lumenforge"
 DIST="/etc/lsb-release"
-SYSTEMD_FILE="/etc/systemd/system/OpenLinkHub.service"
-PRODUCT="OpenLinkHub"
+SYSTEMD_FILE="/etc/systemd/system/LumenForge.service"
+PRODUCT="LumenForge"
 
 if [ ! -f $PRODUCT ]; then
   echo "No binary file. Exit"
@@ -12,9 +12,9 @@ if [ ! -f $PRODUCT ]; then
 fi
 
 if [ -f $DIST ]; then
-  SYSTEMD_FILE="/etc/systemd/system/OpenLinkHub.service"
+  SYSTEMD_FILE="/etc/systemd/system/LumenForge.service"
 else
-  SYSTEMD_FILE="/usr/lib/systemd/system/OpenLinkHub.service"
+  SYSTEMD_FILE="/usr/lib/systemd/system/LumenForge.service"
 fi
 
 echo "Checking if application username $USER_TO_CHECK exists..."
@@ -53,10 +53,10 @@ fi
 if [ -f $SYSTEMD_FILE ]; then
   echo "$PRODUCT is already installed. Performing upgrade"
   sudo systemctl stop $PRODUCT
-  cp -r ../OpenLinkHub /opt
+  mkdir -p /opt/LumenForge && cp -r "$(cd "$(dirname "$0")" && pwd)"/. /opt/LumenForge/
   chmod -R 755 /opt/$PRODUCT/
   chown -R "$USER_TO_CHECK":"$USER_TO_CHECK" /opt/$PRODUCT/
-  cp /opt/$PRODUCT/99-openlinkhub.rules /etc/udev/rules.d/
+  cp /opt/$PRODUCT/99-lumenforge.rules /etc/udev/rules.d/
   echo "Reloading udev..."
   sudo udevadm control --reload-rules
   sudo udevadm trigger
@@ -66,7 +66,7 @@ if [ -f $SYSTEMD_FILE ]; then
 fi
 
 echo "Installation is running..."
-cp -r ../OpenLinkHub /opt
+mkdir -p /opt/LumenForge && cp -r "$(cd "$(dirname "$0")" && pwd)"/. /opt/LumenForge/
 # Permissions
 echo "Setting permissions..."
 chmod -R 755 /opt/$PRODUCT/
@@ -99,7 +99,7 @@ sudo systemctl daemon-reload
 
 echo "Setting udev device permissions..."
 sudo rm -f /etc/udev/rules.d/99-corsair*.rules
-sudo cp 99-openlinkhub.rules /etc/udev/rules.d/
+sudo cp 99-lumenforge.rules /etc/udev/rules.d/
 
 echo "Reloading udev..."
 sudo udevadm control --reload-rules

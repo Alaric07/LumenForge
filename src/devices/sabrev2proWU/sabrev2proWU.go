@@ -5,13 +5,13 @@ package sabrev2proWU
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/inputmanager"
-	"OpenLinkHub/src/logger"
-	"OpenLinkHub/src/macro"
-	"OpenLinkHub/src/rgb"
-	"OpenLinkHub/src/stats"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/inputmanager"
+	"LumenForge/src/logger"
+	"LumenForge/src/macro"
+	"LumenForge/src/rgb"
+	"LumenForge/src/stats"
 	"encoding/json"
 	"fmt"
 	"math/bits"

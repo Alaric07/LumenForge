@@ -5,9 +5,9 @@ package dashboard
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/logger"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/logger"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -49,7 +49,7 @@ var (
 		"temperatureBar":       true,
 		"addDeviceToDashboard": true,
 		"rgbOff":               false,
-		"pageTitle":            "OPENLINKHUB WebUI",
+		"pageTitle":            "LUMENFORGE WebUI",
 		"sidebarCollapsed":     false,
 		"devices":              []string{},
 		"theme":                "default",
@@ -103,7 +103,7 @@ func upgradeFile() {
 			AddDeviceToDashboard: true,
 			SidebarCollapsed:     false,
 			LanguageCode:         "en_US",
-			PageTitle:            "OPENLINKHUB WebUI",
+			PageTitle:            "LUMENFORGE WebUI",
 			Devices:              []string{},
 			Theme:                "default",
 			KeyboardLayout:       0,

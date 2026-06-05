@@ -5,12 +5,12 @@ package hs80maxW
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/audio"
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/logger"
-	"OpenLinkHub/src/rgb"
-	"OpenLinkHub/src/stats"
+	"LumenForge/src/audio"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/logger"
+	"LumenForge/src/rgb"
+	"LumenForge/src/stats"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -22,8 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"OpenLinkHub/src/inputmanager"
-	"OpenLinkHub/src/macro"
+	"LumenForge/src/inputmanager"
+	"LumenForge/src/macro"
 	"github.com/sstallion/go-hid"
 	"math/bits"
 )

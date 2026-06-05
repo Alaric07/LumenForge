@@ -5,9 +5,9 @@ package openrgb
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/logger"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/logger"
 	"bytes"
 	"encoding/binary"
 	"errors"
@@ -236,7 +236,7 @@ func handleConn(conn net.Conn) {
 		return
 	}
 
-	var clientName = "openlinkhub"
+	var clientName = "lumenforge"
 	for {
 		// Read header (16 bytes)
 		header := make([]byte, headerSize)

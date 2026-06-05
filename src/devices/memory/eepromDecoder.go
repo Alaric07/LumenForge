@@ -7,7 +7,7 @@ package memory
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/logger"
+	"LumenForge/src/logger"
 	"fmt"
 	"os"
 	"path/filepath"

@@ -2,13 +2,13 @@
 
 set -e
 CURRENT_DIR=$(pwd)
-PRODUCT="OpenLinkHub"
-PERMISSION_FILE="99-openlinkhub.rules"
+PRODUCT="LumenForge"
+PERMISSION_FILE="99-lumenforge.rules"
 PERMISSION_DIR="/etc/udev/rules.d/"
-SEARCH_FOR="openlinkhub"
+SEARCH_FOR="lumenforge"
 USER_TO_CHECK=$USER
-SEARCH_FOR_GROUP='OWNER="openlinkhub"'
-REPLACE_WITH='GROUP="openlinkhub"'
+SEARCH_FOR_GROUP='OWNER="lumenforge"'
+REPLACE_WITH='GROUP="lumenforge"'
 
 if [ ! -f "$PRODUCT" ]; then
   echo "No binary file. Exit"
@@ -35,7 +35,7 @@ if id -nG "$USER_TO_CHECK" | grep -qw "$SEARCH_FOR"; then
     USER_IN_GROUP=true
 fi
 
-SYSTEMD_FILE="/home/$USER_TO_CHECK/.config/systemd/user/OpenLinkHub.service"
+SYSTEMD_FILE="/home/$USER_TO_CHECK/.config/systemd/user/LumenForge.service"
 
 echo "Creating User systemd file..."
 mkdir -p "/home/$USER_TO_CHECK/.config/systemd/user"
@@ -99,7 +99,7 @@ fi
 
 # Copy udev rule
 cp "$CURRENT_DIR/$PERMISSION_FILE" "$PERMISSION_DIR"
-chmod -x "$PERMISSION_DIR"
+chmod -x "$PERMISSION_DIR/$PERMISSION_FILE"
 
 # Reload udev rules
 udevadm control --reload-rules

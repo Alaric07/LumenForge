@@ -5,14 +5,14 @@ package hydro
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/dashboard"
-	"OpenLinkHub/src/logger"
-	"OpenLinkHub/src/rgb"
-	"OpenLinkHub/src/stats"
-	"OpenLinkHub/src/temperatures"
-	"OpenLinkHub/src/usb"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/dashboard"
+	"LumenForge/src/logger"
+	"LumenForge/src/rgb"
+	"LumenForge/src/stats"
+	"LumenForge/src/temperatures"
+	"LumenForge/src/usb"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"

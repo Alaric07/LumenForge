@@ -5,8 +5,8 @@ package smbus
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/logger"
+	"LumenForge/src/config"
+	"LumenForge/src/logger"
 	"bytes"
 	"errors"
 	"fmt"

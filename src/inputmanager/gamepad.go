@@ -5,8 +5,8 @@ package inputmanager
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/logger"
+	"LumenForge/src/common"
+	"LumenForge/src/logger"
 	"encoding/binary"
 	"errors"
 	"math"
@@ -258,7 +258,7 @@ func createVirtualGamepad(vendorId, productId uint16) error {
 		},
 		FFEffects: 16,
 	}
-	copy(u.Name[:], "OpenLinkHub Virtual Gamepad")
+	copy(u.Name[:], "LumenForge Virtual Gamepad")
 
 	if _, _, errno = syscall.Syscall(syscall.SYS_IOCTL, virtualGamepadPointer, UiSetEvbit, uintptr(evKey)); errno != 0 {
 		return errno

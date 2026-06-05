@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_API="https://api.github.com/repos/jurkovic-nikola/OpenLinkHub/releases/latest"
-PRODUCT="OpenLinkHub"
+REPO_API="https://api.github.com/repos/Alaric07/LumenForge/releases/latest"
+PRODUCT="LumenForge"
 SERVICE_NAME="${PRODUCT}.service"
-PERMISSION_FILE="99-openlinkhub.rules"
+PERMISSION_FILE="99-lumenforge.rules"
 PERMISSION_DIR="/etc/udev/rules.d"
-SEARCH_FOR="openlinkhub"
-SEARCH_FOR_GROUP='OWNER="openlinkhub"'
-REPLACE_WITH='GROUP="openlinkhub"'
+SEARCH_FOR="lumenforge"
+SEARCH_FOR_GROUP='OWNER="lumenforge"'
+REPLACE_WITH='GROUP="lumenforge"'
 USER_TO_CHECK="${SUDO_USER:-$USER}"
 USER_HOME="$(getent passwd "$USER_TO_CHECK" | cut -d: -f6)"
 SYSTEMD_DIR="$USER_HOME/.config/systemd/user"
@@ -132,7 +132,7 @@ fi
 success "Found latest release archive"
 info "$TAR_URL"
 
-ARCHIVE="$TMP_DIR/openlinkhub.tar.gz"
+ARCHIVE="$TMP_DIR/lumenforge.tar.gz"
 
 section "Downloading archive"
 

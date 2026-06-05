@@ -1,7 +1,7 @@
 package main
 
 import (
-	"OpenLinkHub/src/controller"
+	"LumenForge/src/controller"
 	"os"
 	"os/signal"
 	"syscall"

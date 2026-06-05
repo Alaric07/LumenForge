@@ -1,9 +1,9 @@
 # OpenRGB Server
-With the release of the 0.6.2 version of OpenLinkHub or the latest commit, OpenLinkHub supports native OpenRGB Client / Server communication.
+With the release of the 0.6.2 version of LumenForge or the latest commit, LumenForge supports native OpenRGB Client / Server communication.
 
 This effectively resolves any device communication issue that occurs when two programs attempt to communicate with the same device. 
 
-With this implementation, you can utilize OpenRGB for your RGB effects and use OpenLinkHub for temperature monitoring, fan control, pump control, LCD control, and everything else the program offers you. 
+With this implementation, you can utilize OpenRGB for your RGB effects and use LumenForge for temperature monitoring, fan control, pump control, LCD control, and everything else the program offers you. 
 
 ## How to configure
 ### Step 1
@@ -19,29 +19,29 @@ With this implementation, you can utilize OpenRGB for your RGB effects and use O
 
 ### Step 2
 ```bash
-systemctl stop OpenLinkHub
+systemctl stop LumenForge
 ```
 
 ### Step 3
 Disable device in the OpenRGB application, so it's not processed there and click Apply button. After that you can either Rescan Devices or restart OpenRGB application. 
 For each device you want integration, you'll have to disable it in OpenRGB. 
 
-![OpenRGB Device](https://github.com/jurkovic-nikola/OpenLinkHub/blob/main/static/img/openrgb-device.png?raw=true)
+![OpenRGB Device](https://github.com/Alaric07/LumenForge/blob/main/static/img/openrgb-device.png?raw=true)
 
 ### Step 4
 ```bash
-systemctl start OpenLinkHub
+systemctl start LumenForge
 ```
 
 ### Step 5
 - Toggle OpenRGB Integration
 
-![OpenRGB Integration](https://github.com/jurkovic-nikola/OpenLinkHub/blob/main/static/img/openrgb.png?raw=true)
+![OpenRGB Integration](https://github.com/Alaric07/LumenForge/blob/main/static/img/openrgb.png?raw=true)
 
 ### Step 6
 In OpenRGB, click on Client tab connect to 6743 port. 
 
-![OpenRGB Client](https://github.com/jurkovic-nikola/OpenLinkHub/blob/main/static/img/openrgb-client.png?raw=true)
+![OpenRGB Client](https://github.com/Alaric07/LumenForge/blob/main/static/img/openrgb-client.png?raw=true)
 
 ## Supported devices
 | Device                 |

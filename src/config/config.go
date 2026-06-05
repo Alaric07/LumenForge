@@ -5,7 +5,7 @@ package config
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
+	"LumenForge/src/common"
 	"encoding/json"
 	"os"
 	"os/user"
@@ -87,8 +87,8 @@ func Init() {
 	pwd, _ := os.Getwd()
 	isAtomic := common.FileExists(pwd + "/atomic")
 	if isAtomic {
-		pwd = "/etc/OpenLinkHub"
-		configPath = "/etc/OpenLinkHub"
+		pwd = "/etc/LumenForge"
+		configPath = "/etc/LumenForge"
 	} else {
 		configPath = pwd
 	}

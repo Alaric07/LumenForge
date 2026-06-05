@@ -61,7 +61,7 @@ sudo dmidecode -t memory | grep 'Part Number'
         Part Number: CMT64GX5M2B5600Z40
 ```
 
-## Configurar o `config.json` do OpenLinkHub
+## Configurar o `config.json` do LumenForge
 Você precisará alterar `memorySmBus`, `memoryType` e `memorySku` de acordo com os valores do seu sistema.  
 ```json
 "memory": true,
@@ -75,12 +75,12 @@ Você precisará alterar `memorySmBus`, `memoryType` e `memorySku` de acordo com
 ## Definir permissões
 Você precisará alterar `'KERNEL=="i2c-15"'` para o número do seu dispositivo `smbus` identificado anteriormente.  
 ```bash
-echo 'KERNEL=="i2c-15", MODE="0600", OWNER="openlinkhub"' | sudo tee /etc/udev/rules.d/98-corsair-memory.rules
+echo 'KERNEL=="i2c-15", MODE="0600", OWNER="lumenforge"' | sudo tee /etc/udev/rules.d/98-corsair-memory.rules
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 ```
 
-## Reiniciar o serviço OpenLinkHub
+## Reiniciar o serviço LumenForge
 ```bash
-sudo systemctl restart OpenLinkHub.service
+sudo systemctl restart LumenForge.service
 ```

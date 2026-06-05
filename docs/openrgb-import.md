@@ -1,7 +1,7 @@
 OpenRGB Import – Design & Behavior
 Overview
 
-OpenRGB import in OpenLinkHub (OLH) is designed to prioritize stability, usability, and persistence over perfect automatic detection.
+OpenRGB import in LumenForge (OLH) is designed to prioritize stability, usability, and persistence over perfect automatic detection.
 
 Instead of attempting to fully parse OpenRGB’s internal payload structures (which vary significantly by device), OLH uses a config-driven model:
 
@@ -132,12 +132,12 @@ enforce strict LED caps based on assumptions
 Debugging / Usage Notes
 Starting the OpenRGB Server
 
-OpenLinkHub is designed to connect to your existing standalone OpenRGB server. You do not need to run complicated background terminal commands to start the server! 
+LumenForge is designed to connect to your existing standalone OpenRGB server. You do not need to run complicated background terminal commands to start the server! 
 You can simply use the official OpenRGB GUI:
 1. Open the official OpenRGB application.
 2. Navigate to the **SDK Server** tab.
 3. Click **Start Server** (ensure it binds to the default port `6742`).
-4. Launch OpenLinkHub. It will automatically detect and connect to your running OpenRGB GUI instance.
+4. Launch LumenForge. It will automatically detect and connect to your running OpenRGB GUI instance.
 
 Finding Correct LED Counts
 

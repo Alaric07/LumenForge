@@ -129,21 +129,21 @@ typedef struct {
 } pw_device_desc_t;
 
 static const pw_device_desc_t DEVICE_SINK_DESC = {
-	.name           = "openlinkhub-virtual-device",
-	.desc           = "OpenLinkHub Virtual Audio Device",
+	.name           = "lumenforge-virtual-device",
+	.desc           = "LumenForge Virtual Audio Device",
 	.media_class	= "Audio/Sink",
 	.role           = "DSP",
-	.node_group     = "openlinkhub-audio",
-	.link_group     = "openlinkhub-audio"
+	.node_group     = "lumenforge-audio",
+	.link_group     = "lumenforge-audio"
 };
 
 static const pw_device_desc_t DEVICE_PLAYBACK_DESC = {
-	.name       = "openlinkhub-virtual-device-playback",
+	.name       = "lumenforge-virtual-device-playback",
 	.type       = "Audio",
 	.category   = "Playback",
 	.role       = "Music",
-	.node_group = "openlinkhub-audio",
-	.link_group = "openlinkhub-audio"
+	.node_group = "lumenforge-audio",
+	.link_group = "lumenforge-audio"
 };
 
 static atomic_int pw_started = 0;

@@ -5,10 +5,10 @@ package scufdongle
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/devices/scufenvisionproW"
-	"OpenLinkHub/src/logger"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/devices/scufenvisionproW"
+	"LumenForge/src/logger"
 	"encoding/binary"
 	"errors"
 	"fmt"

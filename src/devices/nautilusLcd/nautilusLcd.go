@@ -5,14 +5,14 @@ package nautilusLcd
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/devices/lcd"
-	"OpenLinkHub/src/led"
-	"OpenLinkHub/src/logger"
-	"OpenLinkHub/src/rgb"
-	"OpenLinkHub/src/systeminfo"
-	"OpenLinkHub/src/temperatures"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/devices/lcd"
+	"LumenForge/src/led"
+	"LumenForge/src/logger"
+	"LumenForge/src/rgb"
+	"LumenForge/src/systeminfo"
+	"LumenForge/src/temperatures"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"

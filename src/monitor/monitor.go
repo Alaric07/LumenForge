@@ -5,13 +5,13 @@ package monitor
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/audio"
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/devices"
-	"OpenLinkHub/src/inputmanager"
-	"OpenLinkHub/src/logger"
-	"OpenLinkHub/src/openrgb"
+	"LumenForge/src/audio"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/devices"
+	"LumenForge/src/inputmanager"
+	"LumenForge/src/logger"
+	"LumenForge/src/openrgb"
 	"github.com/godbus/dbus/v5"
 	"os"
 	"slices"

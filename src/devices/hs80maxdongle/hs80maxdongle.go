@@ -5,10 +5,10 @@ package hs80maxdongle
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/devices/hs80maxW"
-	"OpenLinkHub/src/logger"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/devices/hs80maxW"
+	"LumenForge/src/logger"
 	"encoding/binary"
 	"fmt"
 	"github.com/sstallion/go-hid"

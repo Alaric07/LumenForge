@@ -5,16 +5,16 @@ package elite
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/cluster"
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/dashboard"
-	"OpenLinkHub/src/logger"
-	"OpenLinkHub/src/metrics"
-	"OpenLinkHub/src/openrgb"
-	"OpenLinkHub/src/rgb"
-	"OpenLinkHub/src/stats"
-	"OpenLinkHub/src/temperatures"
+	"LumenForge/src/cluster"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/dashboard"
+	"LumenForge/src/logger"
+	"LumenForge/src/metrics"
+	"LumenForge/src/openrgb"
+	"LumenForge/src/rgb"
+	"LumenForge/src/stats"
+	"LumenForge/src/temperatures"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -747,7 +747,7 @@ func (d *Device) setupOpenRGBController() {
 	controller := &common.OpenRGBController{
 		Name:         d.Product,
 		Vendor:       "Corsair", // Static value
-		Description:  "OpenLinkHub Backend Device",
+		Description:  "LumenForge Backend Device",
 		FwVersion:    d.Firmware,
 		Serial:       d.Serial,
 		Location:     d.Path,

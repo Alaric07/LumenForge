@@ -5,11 +5,11 @@ package k65plusWdongle
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/devices/k65plusW"
-	"OpenLinkHub/src/logger"
-	"OpenLinkHub/src/stats"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/devices/k65plusW"
+	"LumenForge/src/logger"
+	"LumenForge/src/stats"
 	"encoding/binary"
 	"fmt"
 	"github.com/sstallion/go-hid"

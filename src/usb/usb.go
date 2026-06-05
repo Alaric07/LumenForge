@@ -5,7 +5,7 @@ package usb
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
+	"LumenForge/src/common"
 	"errors"
 	"fmt"
 	"os"

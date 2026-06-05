@@ -5,13 +5,13 @@ package headsetdongle
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
-	"OpenLinkHub/src/devices/hs80rgbW"
-	"OpenLinkHub/src/devices/virtuosoSEW"
-	"OpenLinkHub/src/devices/virtuosoW"
-	"OpenLinkHub/src/devices/virtuosorgbXTW"
-	"OpenLinkHub/src/logger"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/devices/hs80rgbW"
+	"LumenForge/src/devices/virtuosoSEW"
+	"LumenForge/src/devices/virtuosoW"
+	"LumenForge/src/devices/virtuosorgbXTW"
+	"LumenForge/src/logger"
 	"encoding/binary"
 	"fmt"
 	"github.com/sstallion/go-hid"

@@ -35,63 +35,63 @@ What to look for:
 ```
 ls -l /sys/class/hwmon/hwmon1/ | grep 'pwm*'
 
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm1
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm1_auto_channels_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm1_auto_point1_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm1_auto_point1_temp_hyst
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm1_auto_point2_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm1_auto_point3_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm1_auto_slope
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm1_auto_start
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm1_enable
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm1_freq
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm2
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm2_auto_channels_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm2_auto_point1_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm2_auto_point1_temp_hyst
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm2_auto_point2_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm2_auto_point3_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm2_auto_slope
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm2_auto_start
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm2_enable
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm2_freq
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm3
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm3_auto_channels_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm3_auto_point1_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm3_auto_point1_temp_hyst
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm3_auto_point2_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm3_auto_point3_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm3_auto_slope
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm3_auto_start
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm3_enable
--r--rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm3_freq
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm4
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm4_auto_channels_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm4_auto_point1_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm4_auto_point1_temp_hyst
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm4_auto_point2_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm4_auto_point3_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm4_auto_slope
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm4_enable
--r--rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm4_freq
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm5
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm5_auto_channels_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm5_auto_point1_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm5_auto_point1_temp_hyst
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm5_auto_point2_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm5_auto_point3_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm5_auto_slope
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm5_enable
--r--rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm5_freq
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm6
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm6_auto_channels_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm6_auto_point1_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm6_auto_point1_temp_hyst
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm6_auto_point2_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm6_auto_point3_temp
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm6_auto_slope
--rw-rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm6_enable
--r--rw-r--. 1 root openlinkhub 4096 Feb 28 08:26 pwm6_freq
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm1
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm1_auto_channels_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm1_auto_point1_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm1_auto_point1_temp_hyst
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm1_auto_point2_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm1_auto_point3_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm1_auto_slope
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm1_auto_start
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm1_enable
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm1_freq
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm2
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm2_auto_channels_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm2_auto_point1_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm2_auto_point1_temp_hyst
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm2_auto_point2_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm2_auto_point3_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm2_auto_slope
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm2_auto_start
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm2_enable
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm2_freq
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm3
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm3_auto_channels_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm3_auto_point1_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm3_auto_point1_temp_hyst
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm3_auto_point2_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm3_auto_point3_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm3_auto_slope
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm3_auto_start
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm3_enable
+-r--rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm3_freq
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm4
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm4_auto_channels_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm4_auto_point1_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm4_auto_point1_temp_hyst
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm4_auto_point2_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm4_auto_point3_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm4_auto_slope
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm4_enable
+-r--rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm4_freq
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm5
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm5_auto_channels_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm5_auto_point1_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm5_auto_point1_temp_hyst
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm5_auto_point2_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm5_auto_point3_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm5_auto_slope
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm5_enable
+-r--rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm5_freq
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm6
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm6_auto_channels_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm6_auto_point1_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm6_auto_point1_temp_hyst
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm6_auto_point2_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm6_auto_point3_temp
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm6_auto_slope
+-rw-rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm6_enable
+-r--rw-r--. 1 root lumenforge 4096 Feb 28 08:26 pwm6_freq
 ```
 `it8696` reports 6 available fan devices.
 
@@ -198,11 +198,11 @@ cat /sys/class/hwmon/hwmon1/pwm1_enable
 ### Setup udev rules for your chip
 ```
 sudo tee /etc/udev/rules.d/99-motherboard-pwm.rules >/dev/null <<'EOF'
-SUBSYSTEM=="hwmon", KERNEL=="hwmon*", ATTR{name}=="it8696", RUN+="/bin/sh -c 'chgrp -h openlinkhub /sys%p/pwm* 2>/dev/null || true; chmod g+rw /sys%p/pwm* 2>/dev/null || true'"
+SUBSYSTEM=="hwmon", KERNEL=="hwmon*", ATTR{name}=="it8696", RUN+="/bin/sh -c 'chgrp -h lumenforge /sys%p/pwm* 2>/dev/null || true; chmod g+rw /sys%p/pwm* 2>/dev/null || true'"
 EOF
 ```
 - You need to change `ATTR{name}=="it8696"` to match your chip name!
-- If OpenLinkHub is running under a different group or user, you need to change `chgrp -h openlinkhub ...`
+- If LumenForge is running under a different group or user, you need to change `chgrp -h lumenforge ...`
 
 ### Reload udev rules
 ```
@@ -210,7 +210,7 @@ sudo udevadm control --reload-rules
 sudo udevadm trigger --subsystem-match=hwmon
 ```
 
-### Configure OpenLinkHub (config.json)
+### Configure LumenForge (config.json)
 - Set `enableMotherboard` to `true` and restart the service.
 - Set `motherboardBiosOnExit` to `true` to set headers to BIOS mode on program exit.
 

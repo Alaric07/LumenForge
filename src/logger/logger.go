@@ -5,8 +5,8 @@ package logger
 // License: GPL-3.0 or later
 
 import (
-	"OpenLinkHub/src/common"
-	"OpenLinkHub/src/config"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
 	"archive/tar"
 	"compress/gzip"
 	"encoding/json"
