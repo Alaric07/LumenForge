@@ -196,7 +196,7 @@ var (
 	triggerMax              = uint16(512)
 	triggerRelease          = uint16(450)
 	maxBufferSizePerRequest = 60
-	rgbProfileUpgrade = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame"}
+	rgbProfileUpgrade = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora"}
 	rgbModes                = []string{
 		"colorpulse",
 		"colorshift",
@@ -204,7 +204,7 @@ var (
 		"cpu-temperature",
 		"flickering",
 		"flame",
-		"gpu-temperature",
+		"aurora","gpu-temperature",
 		"gradient",
 		"controller",
 		"off",
@@ -2148,6 +2148,12 @@ func (d *Device) setDeviceColor() {
 				{
 
 						r.Flame(&startTime)
+						buff = append(buff, r.Output...)
+				}
+				case "aurora":
+				{
+
+						r.Aurora(&startTime)
 						buff = append(buff, r.Output...)
 				}
 				case "colorshift":

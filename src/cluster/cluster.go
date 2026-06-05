@@ -23,7 +23,7 @@ var (
 	pwd                   = ""
 	d                     *Device
 	deviceRefreshInterval = 1000
-	rgbProfileUpgrade     = []string{"arc", "gradient", "pastelrainbow", "pastelspiralrainbow", "rain", "off", "rotarystack", "flame"}
+	rgbProfileUpgrade     = []string{"arc", "gradient", "pastelrainbow", "pastelspiralrainbow", "rain", "off", "rotarystack", "flame", "aurora"}
 )
 
 type DeviceProfile struct {
@@ -67,6 +67,7 @@ func Init() *Device {
 			"cpu-temperature",
 			"flickering",
 			"flame",
+			"aurora",
 			"gpu-temperature",
 			"gradient",
 			"marquee",
@@ -679,6 +680,11 @@ func (d *Device) generateRgbEffect(channels int, startTime *time.Time, rgbProfil
 	case "flame":
 		{
 			r.Flame(startTime)
+			buff = r.Output
+		}
+	case "aurora":
+		{
+			r.Aurora(startTime)
 			buff = r.Output
 		}
 	case "colorshift":

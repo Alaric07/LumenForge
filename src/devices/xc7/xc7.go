@@ -109,7 +109,7 @@ var (
 	firmwareReportId           = byte(5)
 	featureReportSize          = 32
 	maxLCDBufferSizePerRequest = lcdBufferSize - lcdHeaderSize
-	rgbProfileUpgrade = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame"}
+	rgbProfileUpgrade = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora"}
 	rgbModes                   = []string{
 		"circle",
 		"circleshift",
@@ -119,7 +119,7 @@ var (
 		"cpu-temperature",
 		"flickering",
 		"flame",
-		"gpu-temperature",
+		"aurora","gpu-temperature",
 		"gradient",
 		"liquid-temperature",
 		"off",
@@ -972,6 +972,12 @@ func (d *Device) setDeviceColor() {
 				{
 
 						r.Flame(&startTime)
+						buff = append(buff, r.Output...)
+				}
+				case "aurora":
+				{
+
+						r.Aurora(&startTime)
 						buff = append(buff, r.Output...)
 				}
 				case "colorshift":

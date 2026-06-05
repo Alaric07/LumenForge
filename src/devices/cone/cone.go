@@ -247,7 +247,7 @@ var (
 	deviceRefreshInterval      = 1000
 	temperaturePullingInterval = 3000
 	manualSpeedModes           = map[int]*SpeedMode{}
-	rgbProfileUpgrade = []string{"led", "spiralrainbow", "gradient", "pastelrainbow", "pastelspiralrainbow", "flame"}
+	rgbProfileUpgrade = []string{"led", "spiralrainbow", "gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora"}
 	rgbModes                   = []string{
 		"circle",
 		"circleshift",
@@ -257,7 +257,7 @@ var (
 		"cpu-temperature",
 		"flickering",
 		"flame",
-		"gpu-temperature",
+		"aurora","gpu-temperature",
 		"gradient",
 		"led",
 		"liquid-temperature",
@@ -1042,6 +1042,12 @@ func (d *Device) setDeviceColor() {
 					{
 
 							r.Flame(&startTime)
+							buff = append(buff, r.Output...)
+					}
+					case "aurora":
+					{
+
+							r.Aurora(&startTime)
 							buff = append(buff, r.Output...)
 					}
 					case "colorshift":

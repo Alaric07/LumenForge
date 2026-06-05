@@ -141,7 +141,7 @@ var (
 	keyboardKey           = "k95platinum-default"
 	defaultLayout         = "k95platinum-default-US"
 	maximumPacketSize     = 60
-	rgbProfileUpgrade     = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame"}
+	rgbProfileUpgrade     = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora"}
 	rgbModes              = []string{
 		"circle",
 		"circleshift",
@@ -151,7 +151,7 @@ var (
 		"cpu-temperature",
 		"flickering",
 		"flame",
-		"gpu-temperature",
+		"aurora","gpu-temperature",
 		"gradient",
 		"keyboard",
 		"off",
@@ -1922,6 +1922,10 @@ func (d *Device) setDeviceColor() {
 				case "flame":
 					{
 						r.Flame(&startTime)
+					}
+				case "aurora":
+					{
+						r.Aurora(&startTime)
 					}
 				case "colorshift":
 					{

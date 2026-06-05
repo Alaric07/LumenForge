@@ -30,7 +30,7 @@ var rgbModes = []string{
 	"cpu-temperature",
 	"flickering",
 	"flame",
-		"gpu-temperature",
+		"aurora","gpu-temperature",
 	"gradient",
 	"off",
 	"rainbow",
@@ -1219,6 +1219,8 @@ func (d *Device) SetEffect(effect string) error {
 					runner.Flickering(&startTime)
 				case "flame":
 					runner.Flame(&startTime)
+case "aurora":
+					runner.Aurora(&startTime)
 				case "colorshift":
 					runner.Colorshift(&startTime, runner)
 				case "circleshift":
@@ -1740,7 +1742,7 @@ func (d *Device) loadRgb() {
 	}
 
 	// Upgrade profiles
-	d.upgradeRgbProfileLocked(rgbFilename, []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame"})
+	d.upgradeRgbProfileLocked(rgbFilename, []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora"})
 }
 
 func (d *Device) upgradeRgbProfileLocked(path string, profiles []string) {

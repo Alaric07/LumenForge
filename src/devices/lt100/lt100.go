@@ -124,7 +124,7 @@ var (
 	maxBufferSizePerRequest = 50
 	ledsPerTower            = 27
 	deviceKeepAlive         = 2000
-	rgbProfileUpgrade = []string{"nebula", "marquee", "rotarystack", "sequential", "gradient", "pastelrainbow", "pastelspiralrainbow", "flame"}
+	rgbProfileUpgrade = []string{"nebula", "marquee", "rotarystack", "sequential", "gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora"}
 	rgbModes                = []string{
 		"circle",
 		"circleshift",
@@ -134,7 +134,7 @@ var (
 		"cpu-temperature",
 		"flickering",
 		"flame",
-		"gpu-temperature",
+		"aurora","gpu-temperature",
 		"gradient",
 		"marquee",
 		"nebula",
@@ -1540,6 +1540,12 @@ func (d *Device) setDeviceColor() {
 					{
 
 							r.Flame(&startTime)
+							buff = append(buff, r.Output...)
+					}
+					case "aurora":
+					{
+
+							r.Aurora(&startTime)
 							buff = append(buff, r.Output...)
 					}
 					case "colorshift":
