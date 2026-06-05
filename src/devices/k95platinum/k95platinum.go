@@ -117,6 +117,7 @@ type Device struct {
 	stopRepeatMutex    sync.Mutex
 	ledDataMutex       sync.RWMutex
 	dispatch           dispatcher.DeviceDispatcher
+	keyXMap            map[int]float64
 }
 
 var (
@@ -140,7 +141,7 @@ var (
 	keyboardKey           = "k95platinum-default"
 	defaultLayout         = "k95platinum-default-US"
 	maximumPacketSize     = 60
-	rgbProfileUpgrade     = []string{"gradient", "pastelrainbow", "pastelspiralrainbow"}
+	rgbProfileUpgrade     = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch"}
 	rgbModes              = []string{
 		"circle",
 		"circleshift",
@@ -149,7 +150,8 @@ var (
 		"colorwarp",
 		"cpu-temperature",
 		"flickering",
-		"gpu-temperature",
+		"flame",
+		"aurora","cyberpunkglitch","gpu-temperature",
 		"gradient",
 		"keyboard",
 		"off",
@@ -850,6 +852,18 @@ func (d *Device) getDeviceProfile() {
 				d.DeviceProfile = pf
 			}
 		}
+	}
+	d.updateKeyXMap()
+}
+
+func (d *Device) updateKeyXMap() {
+	if d.DeviceProfile == nil {
+		return
+	}
+	currentLayout := fmt.Sprintf("%s-%s", keyboardKey, d.DeviceProfile.Layout)
+	layout := keyboards.GetKeyboard(currentLayout)
+	if layout != nil {
+		d.keyXMap = keyboards.BuildKeyXMap(layout)
 	}
 }
 
@@ -1905,6 +1919,18 @@ func (d *Device) setDeviceColor() {
 					{
 						r.Flickering(&startTime)
 					}
+				case "flame":
+					{
+						r.Flame(&startTime)
+					}
+				case "aurora":
+					{
+						r.Aurora(&startTime)
+					}
+				case "cyberpunkglitch":
+					{
+						r.CyberpunkGlitch(&startTime)
+					}
 				case "colorshift":
 					{
 						r.Colorshift(&startTime, d.activeRgb)
@@ -1934,9 +1960,18 @@ func (d *Device) setDeviceColor() {
 				for _, rows := range d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row {
 					for _, keys := range rows.Keys {
 						for _, packetIndex := range keys.PacketIndex {
-							buf[0][packetIndex] = r.Raw[packetIndex][0]
-							buf[1][packetIndex] = r.Raw[packetIndex][1]
-							buf[2][packetIndex] = r.Raw[packetIndex][2]
+							srcIdx := packetIndex
+							if d.keyXMap != nil {
+								if x, ok := d.keyXMap[packetIndex]; ok {
+									srcIdx = int(x * float64(lightChannels-1))
+								}
+							}
+							if srcIdx >= 0 && srcIdx < len(r.Raw) && packetIndex >= 0 && packetIndex < len(buf[0]) {
+								buf[0][packetIndex] = r.Raw[srcIdx][0]
+								buf[1][packetIndex] = r.Raw[srcIdx][1]
+								buf[2][packetIndex] = r.Raw[srcIdx][2]
+
+							}
 						}
 					}
 				}
@@ -2012,7 +2047,14 @@ func (d *Device) writeColorCluster(data []byte, _ int) {
 					continue
 				}
 
-				base := packetIndex * 3
+				srcIdx := packetIndex
+				if d.keyXMap != nil {
+					if x, ok := d.keyXMap[packetIndex]; ok {
+						srcIdx = int(x * float64(d.LEDChannels-1))
+					}
+				}
+
+				base := srcIdx * 3
 				if base+2 >= len(data) {
 					continue
 				}
@@ -2020,6 +2062,7 @@ func (d *Device) writeColorCluster(data []byte, _ int) {
 				buf[0][packetIndex] = data[base]
 				buf[1][packetIndex] = data[base+1]
 				buf[2][packetIndex] = data[base+2]
+
 			}
 		}
 	}

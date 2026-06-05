@@ -118,7 +118,7 @@ var (
 	maxBufferSizePerRequest = 50
 	maximumLedAmount        = 204
 	deviceUpdateDelay       = 5
-	rgbProfileUpgrade       = []string{"gradient", "pastelrainbow", "pastelspiralrainbow"}
+	rgbProfileUpgrade = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch"}
 	rgbModes                = []string{
 		"circle",
 		"circleshift",
@@ -127,7 +127,8 @@ var (
 		"colorwarp",
 		"cpu-temperature",
 		"flickering",
-		"gpu-temperature",
+		"flame",
+		"aurora","cyberpunkglitch","gpu-temperature",
 		"gradient",
 		"off",
 		"rainbow",
@@ -1423,10 +1424,29 @@ func (d *Device) setDeviceColor(resetColor bool) {
 							buff[d.Devices[k].PortId] = append(buff[d.Devices[k].PortId], r.Output...)
 						}
 					case "flickering":
-						{
+					{
+
 							r.Flickering(&startTime)
 							buff[d.Devices[k].PortId] = append(buff[d.Devices[k].PortId], r.Output...)
-						}
+					}
+					case "flame":
+					{
+
+							r.Flame(&startTime)
+							buff[d.Devices[k].PortId] = append(buff[d.Devices[k].PortId], r.Output...)
+					}
+					case "aurora":
+					{
+
+							r.Aurora(&startTime)
+							buff[d.Devices[k].PortId] = append(buff[d.Devices[k].PortId], r.Output...)
+					}
+					case "cyberpunkglitch":
+					{
+
+							r.CyberpunkGlitch(&startTime)
+							buff[d.Devices[k].PortId] = append(buff[d.Devices[k].PortId], r.Output...)
+					}
 					case "colorshift":
 						{
 							r.Colorshift(&startTime, d.activeRgb)

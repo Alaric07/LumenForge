@@ -12,6 +12,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 )
 
 var (
@@ -201,4 +203,83 @@ func GetLayouts(key string) []string {
 		}
 	}
 	return layouts
+}
+
+// BuildKeyXMap parses the keyboard layout, sorts columns physically,
+// and maps each key's packetIndex to a normalized X coordinate (0.0 to 1.0) using key centers.
+func BuildKeyXMap(k *Keyboard) map[int]float64 {
+	if k == nil {
+		return nil
+	}
+	xMap := make(map[int]float64)
+	absXMap := make(map[int]float64)
+	maxX := 0.0
+
+	// Determine global maxX across all rows first
+	for _, row := range k.Row {
+		var keyIds []int
+		for kid := range row.Keys {
+			keyIds = append(keyIds, kid)
+		}
+		sort.Ints(keyIds)
+
+		currentX := 0.0
+		for _, kid := range keyIds {
+			key := row.Keys[kid]
+			width := float64(key.Width)
+			if key.KeyName == "----------" {
+				width = 410
+			}
+			keyLeftEdge := currentX + float64(key.Left)
+			rightEdge := keyLeftEdge + width
+			if rightEdge > maxX {
+				maxX = rightEdge
+			}
+			currentX = rightEdge
+		}
+	}
+
+	isK95Platinum := strings.HasPrefix(k.Key, "k95platinum")
+
+	// Calculate and assign keyCenters, stretching the lightbar row to full width if applicable
+	for rowID, row := range k.Row {
+		var keyIds []int
+		for kid := range row.Keys {
+			keyIds = append(keyIds, kid)
+		}
+		sort.Ints(keyIds)
+
+		currentX := 0.0
+		numKeys := len(keyIds)
+
+		for i, kid := range keyIds {
+			key := row.Keys[kid]
+			width := float64(key.Width)
+			if key.KeyName == "----------" {
+				width = 410
+			}
+			keyLeftEdge := currentX + float64(key.Left)
+			keyCenter := keyLeftEdge + width/2.0
+
+			// Stretch Row 0 (lightbar) on K95 Platinum models to cover the entire width (10.0 to maxX - 60.0)
+			// This shifts the lightbar coordinates slightly to the left, aligning its animation with the keys.
+			if isK95Platinum && rowID == 0 && numKeys > 1 {
+				t := float64(i) / float64(numKeys-1)
+				keyCenter = 10.0 + t*(maxX-70.0)
+			}
+
+			for _, idx := range key.PacketIndex {
+				absXMap[idx] = keyCenter
+			}
+			rightEdge := keyLeftEdge + width
+			currentX = rightEdge
+		}
+	}
+
+	if maxX > 0 {
+		for idx, absX := range absXMap {
+			xMap[idx] = absX / maxX
+		}
+	}
+	return xMap
 }

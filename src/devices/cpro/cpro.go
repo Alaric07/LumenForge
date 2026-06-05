@@ -164,13 +164,14 @@ var (
 	defaultSpeedValue          = 100
 	maximumLedAmount           = 408
 	i2cPrefix                  = "i2c"
-	rgbProfileUpgrade          = []string{
+	rgbProfileUpgrade = []string{
 		"arc",
 		"gradient",
 		"pastelrainbow",
 		"pastelspiralrainbow",
 		"rain",
-	}
+		"flame",
+	"aurora","cyberpunkglitch",}
 	rgbModes = []string{
 		"arc",
 		"circle",
@@ -180,7 +181,8 @@ var (
 		"colorwarp",
 		"cpu-temperature",
 		"flickering",
-		"gpu-temperature",
+		"flame",
+		"aurora","cyberpunkglitch","gpu-temperature",
 		"gradient",
 		"off",
 		"rain",
@@ -2289,10 +2291,29 @@ func (d *Device) setDeviceColor(resetColor bool) {
 								buff = append(buff, r.Output...)
 							}
 						case "flickering":
-							{
+						{
+
 								r.Flickering(&startTime)
 								buff = append(buff, r.Output...)
-							}
+						}
+						case "flame":
+						{
+
+								r.Flame(&startTime)
+								buff = append(buff, r.Output...)
+						}
+						case "aurora":
+						{
+
+								r.Aurora(&startTime)
+								buff = append(buff, r.Output...)
+						}
+						case "cyberpunkglitch":
+						{
+
+								r.CyberpunkGlitch(&startTime)
+								buff = append(buff, r.Output...)
+						}
 						case "colorshift":
 							{
 								r.Colorshift(&startTime, d.activeRgb[i])

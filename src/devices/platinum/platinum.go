@@ -159,13 +159,14 @@ var (
 	BufferSize                 = 64
 	deviceRefreshInterval      = 1000
 	temperaturePullingInterval = 3000
-	rgbProfileUpgrade          = []string{
+	rgbProfileUpgrade = []string{
 		"arc",
 		"gradient",
 		"pastelrainbow",
 		"pastelspiralrainbow",
 		"rain",
-	}
+		"flame",
+	"aurora","cyberpunkglitch",}
 	rgbModes = []string{
 		"arc",
 		"circle",
@@ -1072,10 +1073,29 @@ func (d *Device) setDeviceColor() {
 							buff = append(buff, r.Output...)
 						}
 					case "flickering":
-						{
+					{
+
 							r.Flickering(&startTime)
 							buff = append(buff, r.Output...)
-						}
+					}
+					case "flame":
+					{
+
+							r.Flame(&startTime)
+							buff = append(buff, r.Output...)
+					}
+					case "aurora":
+					{
+
+							r.Aurora(&startTime)
+							buff = append(buff, r.Output...)
+					}
+					case "cyberpunkglitch":
+					{
+
+							r.CyberpunkGlitch(&startTime)
+							buff = append(buff, r.Output...)
+					}
 					case "colorshift":
 						{
 							r.Colorshift(&startTime, d.activeRgb)

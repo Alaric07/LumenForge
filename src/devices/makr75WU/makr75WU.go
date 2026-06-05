@@ -150,7 +150,7 @@ var (
 	defaultLayout         = "makr75-default-US"
 	keyAssignmentLength   = 123
 	lockLedIndex          = 324
-	rgbProfileUpgrade     = []string{"tlk", "tlr", "spiralrainbow", "rainbowwave", "rain", "visor", "colorwave", "gradient", "pastelrainbow", "pastelspiralrainbow"}
+	rgbProfileUpgrade = []string{"tlk", "tlr", "spiralrainbow", "rainbowwave", "rain", "visor", "colorwave", "gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch"}
 	rgbModes              = []string{
 		"circle",
 		"circleshift",
@@ -159,7 +159,8 @@ var (
 		"colorwarp",
 		"cpu-temperature",
 		"flickering",
-		"gpu-temperature",
+		"flame",
+		"aurora","cyberpunkglitch","gpu-temperature",
 		"gradient",
 		"keyboard",
 		"marquee",
@@ -1997,10 +1998,29 @@ func (d *Device) setDeviceColor() {
 						buff = append(buff, r.Output...)
 					}
 				case "flickering":
-					{
+				{
+
 						r.Flickering(&startTime)
 						buff = append(buff, r.Output...)
-					}
+				}
+				case "flame":
+				{
+
+						r.Flame(&startTime)
+						buff = append(buff, r.Output...)
+				}
+				case "aurora":
+				{
+
+						r.Aurora(&startTime)
+						buff = append(buff, r.Output...)
+				}
+				case "cyberpunkglitch":
+				{
+
+						r.CyberpunkGlitch(&startTime)
+						buff = append(buff, r.Output...)
+				}
 				case "colorshift":
 					{
 						r.Colorshift(&startTime, d.activeRgb)
