@@ -9,14 +9,6 @@ import (
 func (r *ActiveRGB) Flame(startTime *time.Time) {
 	elapsed := time.Since(*startTime).Milliseconds()
 	tSeconds := float64(elapsed) / 1000.0
-
-	// Loop time every 10 seconds to prevent float overflow or huge numbers in sin
-	if tSeconds >= 10.0 {
-		*startTime = time.Now()
-		elapsed = 0
-		tSeconds = 0.0
-	}
-
 	buf := map[int][]byte{}
 	for j := 0; j < r.LightChannels; j++ {
 		// Calculate position factor across channels
