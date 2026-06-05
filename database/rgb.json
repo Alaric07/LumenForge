@@ -596,6 +596,24 @@
         "brightness": 1
       }
     },
+    "tokyonight": {
+      "profileName": "Tokyo Night",
+      "speed": 2,
+      "brightness": 1,
+      "smoothness": 20,
+      "start": {
+        "red": 187,
+        "green": 154,
+        "blue": 247,
+        "brightness": 1
+      },
+      "end": {
+        "red": 125,
+        "green": 207,
+        "blue": 255,
+        "brightness": 1
+      }
+    },
     "colorwarp": {
       "profileName": "Color Warp",
       "speed": 1,

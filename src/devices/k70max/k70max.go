@@ -156,7 +156,7 @@ var (
 	defaultLayout           = "k70max-default-US"
 	maxKeyAssignmentLen     = 125
 	keyAssignmentLength     = 129
-	rgbProfileUpgrade = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch"}
+	rgbProfileUpgrade = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch", "tokyonight"}
 	keyActuations           = []byte{
 		0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
 		0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13,
@@ -189,7 +189,7 @@ var (
 		"cpu-temperature",
 		"flickering",
 		"flame",
-		"aurora","cyberpunkglitch","gpu-temperature",
+		"aurora","cyberpunkglitch", "tokyonight","gpu-temperature",
 		"gradient",
 		"keyboard",
 		"marquee",
@@ -2436,6 +2436,12 @@ func (d *Device) setDeviceColor() {
 				{
 
 						r.CyberpunkGlitch(&startTime)
+						buff = append(buff, r.Output...)
+				}
+				case "tokyonight":
+				{
+
+						r.TokyoNight(&startTime)
 						buff = append(buff, r.Output...)
 				}
 				case "colorshift":

@@ -146,7 +146,7 @@ var (
 	keyboardKey           = "k70pm-default"
 	defaultLayout         = "k70pm-default-US"
 	deviceKeepAlive       = 20000
-	rgbProfileUpgrade = []string{"tlk", "tlr", "spiralrainbow", "rainbowwave", "rain", "visor", "colorwave", "gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch"}
+	rgbProfileUpgrade = []string{"tlk", "tlr", "spiralrainbow", "rainbowwave", "rain", "visor", "colorwave", "gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch", "tokyonight"}
 	rgbModes              = []string{
 		"circle",
 		"circleshift",
@@ -156,7 +156,7 @@ var (
 		"cpu-temperature",
 		"flickering",
 		"flame",
-		"aurora","cyberpunkglitch","gpu-temperature",
+		"aurora","cyberpunkglitch", "tokyonight","gpu-temperature",
 		"gradient",
 		"keyboard",
 		"off",
@@ -1904,6 +1904,12 @@ func (d *Device) setDeviceColor() {
 				{
 
 						r.CyberpunkGlitch(&startTime)
+						buff = append(buff, r.Output...)
+				}
+				case "tokyonight":
+				{
+
+						r.TokyoNight(&startTime)
 						buff = append(buff, r.Output...)
 				}
 				case "colorshift":

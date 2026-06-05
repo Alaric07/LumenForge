@@ -270,12 +270,14 @@ func SyncBatteryToMenu(battery map[string]stats.BatteryStats) {
 		menuMutex.Unlock()
 		return
 	}
-	if len(battery) > 0 {
-		menuItems[1].Props["visible"] = dbus.MakeVariant(true)
-		menuItems[2].Props["visible"] = dbus.MakeVariant(true)
-	} else {
-		menuItems[1].Props["visible"] = dbus.MakeVariant(false)
-		menuItems[2].Props["visible"] = dbus.MakeVariant(false)
+	visible := len(battery) > 0
+	if item1, ok := menuItems[1]; ok && item1.Props != nil {
+		item1.Props["visible"] = dbus.MakeVariant(visible)
+		menuItems[1] = item1
+	}
+	if item2, ok := menuItems[2]; ok && item2.Props != nil {
+		item2.Props["visible"] = dbus.MakeVariant(visible)
+		menuItems[2] = item2
 	}
 	menuRevision++
 	menuMutex.Unlock()

@@ -166,7 +166,7 @@ var (
 		"pastelspiralrainbow",
 		"rain",
 		"flame",
-	"aurora","cyberpunkglitch",}
+	"aurora","cyberpunkglitch", "tokyonight",}
 	rgbModes = []string{
 		"arc",
 		"circle",
@@ -1094,6 +1094,12 @@ func (d *Device) setDeviceColor() {
 					{
 
 							r.CyberpunkGlitch(&startTime)
+							buff = append(buff, r.Output...)
+					}
+					case "tokyonight":
+					{
+
+							r.TokyoNight(&startTime)
 							buff = append(buff, r.Output...)
 					}
 					case "colorshift":

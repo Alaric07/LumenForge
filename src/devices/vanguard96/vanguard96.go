@@ -154,7 +154,7 @@ var (
 	keyboardKey             = "vanguard96-default"
 	defaultLayout           = "vanguard96-default-US"
 	keyAssignmentLength     = 137
-	rgbProfileUpgrade = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch"}
+	rgbProfileUpgrade = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch", "tokyonight"}
 	noFlashTapSet           = map[uint16]struct{}{
 		130: {}, 131: {}, 132: {}, 133: {}, 134: {}, 135: {},
 	}
@@ -167,7 +167,7 @@ var (
 		"cpu-temperature",
 		"flickering",
 		"flame",
-		"aurora","cyberpunkglitch","gpu-temperature",
+		"aurora","cyberpunkglitch", "tokyonight","gpu-temperature",
 		"gradient",
 		"keyboard",
 		"off",
@@ -2295,6 +2295,12 @@ func (d *Device) setDeviceColor() {
 				{
 
 						r.CyberpunkGlitch(&startTime)
+						buff = append(buff, r.Output...)
+				}
+				case "tokyonight":
+				{
+
+						r.TokyoNight(&startTime)
 						buff = append(buff, r.Output...)
 				}
 				case "colorshift":
