@@ -8,6 +8,7 @@ import (
 	"LumenForge/src/openrgb"
 	"LumenForge/src/rgb"
 	"LumenForge/src/temperatures"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -181,13 +182,18 @@ func pickDisplaySerialAndLabel(dc openrgb.DiscoveredController) (string, string)
 		return version, "VERSION"
 	}
 
-	return "", ""
+	hashInput := fmt.Sprintf("%s|%s|%s|%s|%d", dc.Name, dc.Vendor, dc.Version, dc.Description, len(dc.Zones))
+	hash := sha256.Sum256([]byte(hashInput))
+	fallback := fmt.Sprintf("ORGB-Import-%x", hash[:6])
+	return fallback, "FALLBACK"
 }
 
 func isLegacyASUSMotherboardImport(name, vendor string) bool {
 	nameLower := strings.ToLower(name)
 	vendorLower := strings.ToLower(vendor)
-	return strings.Contains(nameLower, "asus rog strix z890-e gaming wifi") || strings.Contains(vendorLower, "asus aura")
+	isAsus := strings.Contains(nameLower, "asus") || strings.Contains(vendorLower, "asus")
+	isMobo := strings.Contains(nameLower, "motherboard") || strings.Contains(nameLower, "mainboard") || strings.Contains(nameLower, "rog strix") || strings.Contains(nameLower, "tuf") || strings.Contains(nameLower, "aura") || strings.Contains(vendorLower, "aura") || strings.Contains(nameLower, "prime")
+	return isAsus && isMobo
 }
 
 func getConfigPath() string {
@@ -256,6 +262,19 @@ func getDeviceConfig(serial string) *DeviceConfig {
 	return nil
 }
 
+func sanitizeZoneName(name string) string {
+	v := strings.Map(func(r rune) rune {
+		if r == '\uFFFD' {
+			return -1
+		}
+		if unicode.IsControl(r) || !unicode.IsPrint(r) {
+			return -1
+		}
+		return r
+	}, name)
+	return strings.TrimSpace(v)
+}
+
 func buildDefaultDeviceConfig(serial string, dc openrgb.DiscoveredController) *DeviceConfig {
 	nameLower := strings.ToLower(dc.Name)
 	cfg := &DeviceConfig{Serial: serial, Product: dc.Name}
@@ -291,16 +310,31 @@ func buildDefaultDeviceConfig(serial string, dc openrgb.DiscoveredController) *D
 	}
 
 	if len(dc.Zones) > 0 {
-		cfg.Zones = make([]ZoneConfig, len(dc.Zones))
-		for i, z := range dc.Zones {
-			name := strings.TrimSpace(z.Name)
+		zoneLimit := len(dc.Zones)
+		if zoneLimit > 128 {
+			zoneLimit = 128
+		}
+		cfg.Zones = make([]ZoneConfig, zoneLimit)
+		totalLeds := 0
+		for i := 0; i < zoneLimit; i++ {
+			z := dc.Zones[i]
+			name := sanitizeZoneName(z.Name)
 			if name == "" {
 				name = fmt.Sprintf("Zone %d", i+1)
 			}
 			ledCount := z.LEDCount
 			if ledCount <= 0 {
 				ledCount = 1
+			} else if ledCount > 1024 {
+				ledCount = 1024
 			}
+			if totalLeds+ledCount > 4096 {
+				ledCount = 4096 - totalLeds
+				if ledCount <= 0 {
+					ledCount = 1
+				}
+			}
+			totalLeds += ledCount
 			cfg.Zones[i] = ZoneConfig{
 				Name:     name,
 				LedCount: ledCount,
@@ -338,22 +372,25 @@ func isConfigValidForController(cfg *DeviceConfig, dc openrgb.DiscoveredControll
 	if strings.TrimSpace(cfg.Serial) == "" {
 		return false
 	}
-	if len(cfg.Zones) == 0 {
+	if len(cfg.Zones) == 0 || len(cfg.Zones) > 128 {
 		return false
 	}
 
 	total := 0
 	for i, zone := range cfg.Zones {
-		if zone.LedCount <= 0 {
+		if zone.LedCount <= 0 || zone.LedCount > 1024 {
 			return false
 		}
-		if strings.TrimSpace(zone.Name) == "" {
+		sanitizedName := sanitizeZoneName(zone.Name)
+		if sanitizedName == "" {
 			cfg.Zones[i].Name = fmt.Sprintf("Zone %d", i+1)
+		} else {
+			cfg.Zones[i].Name = sanitizedName
 		}
 		total += zone.LedCount
 	}
 
-	return total > 0
+	return total > 0 && total <= 4096
 }
 
 func resolveDeviceConfig(serial string, dc openrgb.DiscoveredController) *DeviceConfig {
@@ -370,7 +407,17 @@ func resolveDeviceConfig(serial string, dc openrgb.DiscoveredController) *Device
 
 	cfg = buildDefaultDeviceConfig(serial, dc)
 	if !isConfigValidForController(cfg, dc) {
-		return nil
+		logger.Log(logger.Fields{
+			"serial":  serial,
+			"product": dc.Name,
+		}).Warn("OpenRGB controller returned invalid layout config. Enforcing fallback layout: 1 zone, 1 LED.")
+		cfg = &DeviceConfig{
+			Serial:  serial,
+			Product: dc.Name,
+			Zones: []ZoneConfig{
+				{Name: "Zone 1", LedCount: 1},
+			},
+		}
 	}
 
 	store := loadConfigStore()
@@ -493,15 +540,28 @@ func (d *Device) resolveControllerId() {
 	if d.controllerId >= 0 {
 		return
 	}
-	if strings.HasPrefix(d.Serial, "openrgb-import-") {
+	if strings.HasPrefix(d.Serial, "openrgb-hash-") {
+		devices, err := openrgb.DiscoverControllers()
+		if err == nil {
+			for _, dc := range devices {
+				hashInput := fmt.Sprintf("%s|%s|%s|%s|%d", dc.Name, dc.Vendor, dc.Version, dc.Description, len(dc.Zones))
+				hash := sha256.Sum256([]byte(hashInput))
+				expectedSerial := fmt.Sprintf("openrgb-hash-%x", hash[:16])
+				if expectedSerial == d.Serial {
+					d.controllerId = dc.ID
+					d.colorCount = dc.LEDCount
+					d.ZoneAmount = len(dc.Zones)
+					break
+				}
+			}
+		}
+	} else if strings.HasPrefix(d.Serial, "openrgb-import-") {
 		fmt.Sscanf(d.Serial, "openrgb-import-%d", &d.controllerId)
 	} else if d.Serial == "openrgb-mobo-1" {
 		devices, err := openrgb.DiscoverControllers()
 		if err == nil {
 			for _, dc := range devices {
-				nameOK := strings.Contains(strings.ToLower(dc.Name), "asus rog strix z890-e gaming wifi")
-				vendorOK := strings.Contains(strings.ToLower(dc.Vendor), "asus aura")
-				if nameOK || vendorOK {
+				if isLegacyASUSMotherboardImport(dc.Name, dc.Vendor) {
 					d.controllerId = dc.ID
 					// Override the config's color count with the actual OpenRGB hardware LED count to prevent dropping
 					d.colorCount = dc.LEDCount
@@ -711,21 +771,21 @@ func InitAll() []*common.Device {
 }
 
 func newDeviceFromController(dc openrgb.DiscoveredController) *Device {
-	nameLower := strings.ToLower(dc.Name)
-	vendorLower := strings.ToLower(dc.Vendor)
+	isLegacyASUS := isLegacyASUSMotherboardImport(dc.Name, dc.Vendor)
 
-	isLegacyASUS := strings.Contains(nameLower, "asus rog strix z890-e gaming wifi") ||
-		strings.Contains(vendorLower, "asus aura")
+	var serial string
+	if isLegacyASUS {
+		serial = "openrgb-mobo-1"
+	} else {
+		hashInput := fmt.Sprintf("%s|%s|%s|%s|%d", dc.Name, dc.Vendor, dc.Version, dc.Description, len(dc.Zones))
+		hash := sha256.Sum256([]byte(hashInput))
+		serial = fmt.Sprintf("openrgb-hash-%x", hash[:16])
+	}
 
-	serial := fmt.Sprintf("openrgb-import-%d", dc.ID)
 	product := dc.Name
 	displaySerial := ""
 	displaySerialLabel := ""
 	colorCount := dc.LEDCount
-
-	if isLegacyASUS {
-		serial = "openrgb-mobo-1"
-	}
 
 	if product == "" {
 		product = fmt.Sprintf("Imported OpenRGB Controller %d", dc.ID)
