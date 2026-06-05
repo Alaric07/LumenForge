@@ -192,6 +192,10 @@ func pickDisplaySerialAndLabel(dc openrgb.DiscoveredController) (string, string)
 func isLegacyASUSMotherboardImport(name, vendor string) bool {
 	nameLower := strings.ToLower(name)
 	vendorLower := strings.ToLower(vendor)
+	isGPU := strings.Contains(nameLower, "geforce") || strings.Contains(nameLower, "rtx") || strings.Contains(nameLower, "gtx") || strings.Contains(nameLower, "radeon") || strings.Contains(nameLower, "gpu") || strings.Contains(nameLower, "graphics") || strings.Contains(nameLower, "vga")
+	if isGPU {
+		return false
+	}
 	isAsus := strings.Contains(nameLower, "asus") || strings.Contains(vendorLower, "asus")
 	isMobo := strings.Contains(nameLower, "motherboard") || strings.Contains(nameLower, "mainboard") || strings.Contains(nameLower, "rog strix") || strings.Contains(nameLower, "tuf") || strings.Contains(nameLower, "aura") || strings.Contains(vendorLower, "aura") || strings.Contains(nameLower, "prime")
 	return isAsus && isMobo
@@ -771,25 +775,126 @@ func InitAll() []*common.Device {
 	return result
 }
 
+func migrateDeviceData(dc openrgb.DiscoveredController, newSerial string) {
+	store := loadConfigStore()
+
+	var candidateSerial string
+
+	// Search order 1: Look for any older hash-based serial (openrgb-hash-*) with same product name
+	for s, cfg := range store.Devices {
+		if strings.HasPrefix(s, "openrgb-hash-") && cfg.Product == dc.Name && s != newSerial {
+			candidateSerial = s
+			break
+		}
+	}
+
+	// Search order 2: Look for the specific ID-based serial (openrgb-import-ID)
+	if candidateSerial == "" {
+		oldImportSerial := fmt.Sprintf("openrgb-import-%d", dc.ID)
+		if _, exists := store.Devices[oldImportSerial]; exists {
+			candidateSerial = oldImportSerial
+		}
+	}
+
+	// Search order 3: Look for any other entry with same product name
+	if candidateSerial == "" {
+		for s, cfg := range store.Devices {
+			if cfg.Product == dc.Name && s != newSerial {
+				candidateSerial = s
+				break
+			}
+		}
+	}
+
+	if candidateSerial == "" {
+		return
+	}
+
+	logger.Log(logger.Fields{
+		"oldSerial": candidateSerial,
+		"newSerial": newSerial,
+		"product":   dc.Name,
+	}).Info("Migrating OpenRGB device config and profiles to new persistent serial")
+
+	// 1. Migrate the config store entry
+	oldCfg := store.Devices[candidateSerial]
+	oldCfg.Serial = newSerial
+	store.Devices[newSerial] = oldCfg
+	delete(store.Devices, candidateSerial)
+	_ = saveConfigStore(store)
+
+	// 2. Migrate dashboard settings
+	dashboard.MigrateDeviceSerial(candidateSerial, newSerial)
+	if cluster.Get() != nil {
+		cluster.Get().MigrateDeviceOrderSerial(candidateSerial, newSerial)
+	}
+
+	// 3. Migrate profile files in database/profiles/
+	profileDir := filepath.Join(config.GetConfig().ConfigPath, "database", "profiles")
+	files, err := os.ReadDir(profileDir)
+	if err != nil {
+		return
+	}
+
+	for _, fi := range files {
+		if fi.IsDir() {
+			continue
+		}
+		if !common.IsValidExtension(fi.Name(), ".json") {
+			continue
+		}
+
+		fileName := strings.TrimSuffix(fi.Name(), ".json")
+		var newFileName string
+		if fileName == candidateSerial {
+			newFileName = newSerial + ".json"
+		} else if strings.HasPrefix(fileName, candidateSerial+"-") {
+			newFileName = newSerial + "-" + strings.TrimPrefix(fileName, candidateSerial+"-") + ".json"
+		} else {
+			continue
+		}
+
+		oldPath := filepath.Join(profileDir, fi.Name())
+		newPath := filepath.Join(profileDir, newFileName)
+
+		data, err := os.ReadFile(oldPath)
+		if err != nil {
+			continue
+		}
+
+		var pf DeviceProfile
+		if err := json.Unmarshal(data, &pf); err != nil {
+			continue
+		}
+
+		pf.Serial = newSerial
+		pf.Path = newPath
+
+		newData, err := json.MarshalIndent(pf, "", "  ")
+		if err != nil {
+			continue
+		}
+
+		if err := os.WriteFile(newPath, newData, 0o644); err == nil {
+			_ = os.Remove(oldPath)
+		}
+	}
+}
+
 func newDeviceFromController(dc openrgb.DiscoveredController) *Device {
 	isLegacyASUS := isLegacyASUSMotherboardImport(dc.Name, dc.Vendor)
 
 	var serial string
-	var oldSerial string
 	if isLegacyASUS {
 		serial = "openrgb-mobo-1"
 	} else {
-		oldSerial = fmt.Sprintf("openrgb-import-%d", dc.ID)
 		hashInput := fmt.Sprintf("%s|%s|%s|%s|%d", dc.Name, dc.Vendor, dc.Version, dc.Description, len(dc.Zones))
 		hash := sha256.Sum256([]byte(hashInput))
 		serial = fmt.Sprintf("openrgb-hash-%x", hash[:16])
 	}
 
-	if oldSerial != "" {
-		dashboard.MigrateDeviceSerial(oldSerial, serial)
-		if cluster.Get() != nil {
-			cluster.Get().MigrateDeviceOrderSerial(oldSerial, serial)
-		}
+	if !isLegacyASUS {
+		migrateDeviceData(dc, serial)
 	}
 
 	product := dc.Name
