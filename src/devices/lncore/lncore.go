@@ -107,7 +107,7 @@ var (
 	bufferSizeWrite         = bufferSize + 1
 	maxBufferSizePerRequest = 50
 	deviceUpdateDelay       = 5
-	rgbProfileUpgrade       = []string{"gradient", "pastelrainbow", "pastelspiralrainbow"}
+	rgbProfileUpgrade = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame"}
 	rgbModes                = []string{
 		"circle",
 		"circleshift",
@@ -116,6 +116,7 @@ var (
 		"colorwarp",
 		"cpu-temperature",
 		"flickering",
+		"flame",
 		"gpu-temperature",
 		"gradient",
 		"off",
@@ -1394,10 +1395,17 @@ func (d *Device) setDeviceColor(resetColor bool) {
 							buff = append(buff, r.Output...)
 						}
 					case "flickering":
-						{
+					{
+
 							r.Flickering(&startTime)
 							buff = append(buff, r.Output...)
-						}
+					}
+					case "flame":
+					{
+
+							r.Flame(&startTime)
+							buff = append(buff, r.Output...)
+					}
 					case "colorshift":
 						{
 							r.Colorshift(&startTime, d.activeRgb)

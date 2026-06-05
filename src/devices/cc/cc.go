@@ -72,7 +72,7 @@ var (
 	lcdBufferSize              = 1024
 	maxLCDBufferSizePerRequest = lcdBufferSize - lcdHeaderSize
 	i2cPrefix                  = "i2c"
-	rgbProfileUpgrade          = []string{
+	rgbProfileUpgrade = []string{
 		"arc",
 		"nebula",
 		"marquee",
@@ -83,6 +83,7 @@ var (
 		"pastelrainbow",
 		"pastelspiralrainbow",
 		"rain",
+		"flame",
 	}
 	rgbModes = []string{
 		"arc",
@@ -93,6 +94,7 @@ var (
 		"colorwarp",
 		"cpu-temperature",
 		"flickering",
+		"flame",
 		"gpu-temperature",
 		"gradient",
 		"liquid-temperature",
@@ -1364,10 +1366,17 @@ func (d *Device) setDeviceColor() {
 							buff = append(buff, r.Output...)
 						}
 					case "flickering":
-						{
+					{
+
 							r.Flickering(&startTime)
 							buff = append(buff, r.Output...)
-						}
+					}
+					case "flame":
+					{
+
+							r.Flame(&startTime)
+							buff = append(buff, r.Output...)
+					}
 					case "colorshift":
 						{
 							r.Colorshift(&startTime, d.activeRgb)

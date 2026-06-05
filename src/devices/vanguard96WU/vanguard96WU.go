@@ -161,7 +161,7 @@ var (
 	keyboardKey             = "vanguard96W-default"
 	defaultLayout           = "vanguard96W-default-US"
 	keyAssignmentLength     = 139
-	rgbProfileUpgrade       = []string{"gradient", "pastelrainbow", "pastelspiralrainbow"}
+	rgbProfileUpgrade = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame"}
 	noFlashTapSet           = map[uint16]struct{}{
 		130: {}, 131: {}, 132: {}, 133: {}, 134: {}, 135: {},
 	}
@@ -173,6 +173,7 @@ var (
 		"colorwarp",
 		"cpu-temperature",
 		"flickering",
+		"flame",
 		"gpu-temperature",
 		"gradient",
 		"keyboard",
@@ -2291,10 +2292,17 @@ func (d *Device) setDeviceColor() {
 						buff = append(buff, r.Output...)
 					}
 				case "flickering":
-					{
+				{
+
 						r.Flickering(&startTime)
 						buff = append(buff, r.Output...)
-					}
+				}
+				case "flame":
+				{
+
+						r.Flame(&startTime)
+						buff = append(buff, r.Output...)
+				}
 				case "colorshift":
 					{
 						r.Colorshift(&startTime, d.activeRgb)

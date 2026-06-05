@@ -65,7 +65,7 @@ var (
 	ledStartIndex              = 10
 	maxBufferSizePerRequest    = 381
 	i2cPrefix                  = "i2c"
-	rgbProfileUpgrade          = []string{
+	rgbProfileUpgrade = []string{
 		"arc",
 		"nebula",
 		"marquee",
@@ -77,6 +77,7 @@ var (
 		"pastelspiralrainbow",
 		"probe-temperature",
 		"rain",
+		"flame",
 	}
 	rgbModes = []string{
 		"arc",
@@ -87,6 +88,7 @@ var (
 		"colorwarp",
 		"cpu-temperature",
 		"flickering",
+		"flame",
 		"gpu-temperature",
 		"gradient",
 		"marquee",
@@ -1201,10 +1203,17 @@ func (d *Device) setDeviceColor() {
 							buff = append(buff, r.Output...)
 						}
 					case "flickering":
-						{
+					{
+
 							r.Flickering(&startTime)
 							buff = append(buff, r.Output...)
-						}
+					}
+					case "flame":
+					{
+
+							r.Flame(&startTime)
+							buff = append(buff, r.Output...)
+					}
 					case "colorshift":
 						{
 							r.Colorshift(&startTime, d.activeRgb)

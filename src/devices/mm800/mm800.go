@@ -111,7 +111,7 @@ var (
 	cmdHardwareMode       = []byte{0x04, 0x01}
 	cmdWriteColor         = []byte{0x22, 0x14, 0x00}
 	cmdActivateLed        = []byte{0x05, 0x02, 0x00, 0x04}
-	rgbProfileUpgrade     = []string{"gradient", "pastelrainbow", "pastelspiralrainbow"}
+	rgbProfileUpgrade = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame"}
 	rgbModes              = []string{
 		"circle",
 		"circleshift",
@@ -120,6 +120,7 @@ var (
 		"colorwarp",
 		"cpu-temperature",
 		"flickering",
+		"flame",
 		"gpu-temperature",
 		"gradient",
 		"mousepad",
@@ -1404,10 +1405,17 @@ func (d *Device) setDeviceColor() {
 						buff = append(buff, r.Output...)
 					}
 				case "flickering":
-					{
+				{
+
 						r.Flickering(&startTime)
 						buff = append(buff, r.Output...)
-					}
+				}
+				case "flame":
+				{
+
+						r.Flame(&startTime)
+						buff = append(buff, r.Output...)
+				}
 				case "colorshift":
 					{
 						r.Colorshift(&startTime, d.activeRgb)

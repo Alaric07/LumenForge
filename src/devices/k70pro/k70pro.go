@@ -140,7 +140,7 @@ var (
 	keyboardKey             = "k70pro-default"
 	defaultLayout           = "k70pro-default-US"
 	keyAssignmentLength     = 129
-	rgbProfileUpgrade       = []string{"marquee", "nebula", "sequential", "gradient", "pastelrainbow", "pastelspiralrainbow"}
+	rgbProfileUpgrade = []string{"marquee", "nebula", "sequential", "gradient", "pastelrainbow", "pastelspiralrainbow", "flame"}
 	rgbModes                = []string{
 		"circle",
 		"circleshift",
@@ -149,6 +149,7 @@ var (
 		"colorwarp",
 		"cpu-temperature",
 		"flickering",
+		"flame",
 		"gpu-temperature",
 		"gradient",
 		"keyboard",
@@ -1860,10 +1861,17 @@ func (d *Device) setDeviceColor() {
 						buff = append(buff, r.Output...)
 					}
 				case "flickering":
-					{
+				{
+
 						r.Flickering(&startTime)
 						buff = append(buff, r.Output...)
-					}
+				}
+				case "flame":
+				{
+
+						r.Flame(&startTime)
+						buff = append(buff, r.Output...)
+				}
 				case "colorshift":
 					{
 						r.Colorshift(&startTime, d.activeRgb)

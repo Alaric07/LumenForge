@@ -307,6 +307,7 @@ var (
 		"colorwarp",
 		"cpu-temperature",
 		"flickering",
+		"flame",
 		"gpu-temperature",
 		"gradient",
 		"liquid-temperature",
@@ -342,6 +343,7 @@ var (
 		"pastelrainbow",
 		"pastelspiralrainbow",
 		"probe-temperature",
+		"flame",
 	}
 )
 
@@ -4780,10 +4782,17 @@ func (d *Device) generateRgbEffect(k int, channels uint8, startTime *time.Time, 
 			buff = r.Output
 		}
 	case "flickering":
-		{
+	{
+
 			r.Flickering(startTime)
 			buff = r.Output
-		}
+	}
+	case "flame":
+	{
+
+			r.Flame(startTime)
+			buff = r.Output
+	}
 	case "colorshift":
 		{
 			r.Colorshift(startTime, d.activeRgb)

@@ -135,13 +135,14 @@ var (
 	headerSize                = 3
 	headerWriteSize           = 4
 	colorPacketLength         = 20
-	rgbProfileUpgrade         = []string{"gradient", "nebula", "pastelrainbow", "pastelspiralrainbow"}
+	rgbProfileUpgrade = []string{"gradient", "nebula", "pastelrainbow", "pastelspiralrainbow", "flame"}
 	rgbModes                  = []string{
 		"colorpulse",
 		"colorshift",
 		"colorwarp",
 		"cpu-temperature",
 		"flickering",
+		"flame",
 		"gpu-temperature",
 		"gradient",
 		"headset",
@@ -1627,10 +1628,17 @@ func (d *Device) setDeviceColor() {
 						buff = append(buff, r.Output...)
 					}
 				case "flickering":
-					{
+				{
+
 						r.Flickering(&startTime)
 						buff = append(buff, r.Output...)
-					}
+				}
+				case "flame":
+				{
+
+						r.Flame(&startTime)
+						buff = append(buff, r.Output...)
+				}
 				case "colorshift":
 					{
 						r.Colorshift(&startTime, d.activeRgb)

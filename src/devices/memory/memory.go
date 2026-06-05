@@ -147,7 +147,7 @@ var (
 	colorAddresses        = []byte{0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d, 0x5e, 0x5f} // DDR4
 	temperatureAddresses  = []string{"0018", "0019", "001a", "001b", "001c", "001d", "001e", "001f"}
 	basePath              = "/sys/bus/i2c/drivers"
-	rgbProfileUpgrade     = []string{"led", "nebula", "marquee", "spiralrainbow", "gradient", "pastelrainbow", "pastelspiralrainbow"}
+	rgbProfileUpgrade = []string{"led", "nebula", "marquee", "spiralrainbow", "gradient", "pastelrainbow", "pastelspiralrainbow", "flame"}
 	rgbModes              = []string{
 		"circle",
 		"circleshift",
@@ -156,6 +156,7 @@ var (
 		"colorwarp",
 		"cpu-temperature",
 		"flickering",
+		"flame",
 		"gpu-temperature",
 		"gradient",
 		"led",
@@ -1437,10 +1438,17 @@ func (d *Device) setDeviceColor() {
 							buff = r.Output
 						}
 					case "flickering":
-						{
+					{
+
 							r.Flickering(&startTime)
 							buff = r.Output
-						}
+					}
+					case "flame":
+					{
+
+							r.Flame(&startTime)
+							buff = r.Output
+					}
 					case "colorshift":
 						{
 							r.Colorshift(&startTime, d.activeRgb)
