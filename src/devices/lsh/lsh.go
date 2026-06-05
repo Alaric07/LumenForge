@@ -308,7 +308,7 @@ var (
 		"cpu-temperature",
 		"flickering",
 		"flame",
-		"aurora","gpu-temperature",
+		"aurora","cyberpunkglitch","gpu-temperature",
 		"gradient",
 		"liquid-temperature",
 		"led",
@@ -344,7 +344,7 @@ var (
 		"pastelspiralrainbow",
 		"probe-temperature",
 		"flame",
-	"aurora",}
+	"aurora","cyberpunkglitch",}
 )
 
 // Init will initialize a new device
@@ -4797,6 +4797,12 @@ func (d *Device) generateRgbEffect(k int, channels uint8, startTime *time.Time, 
 	{
 
 			r.Aurora(startTime)
+			buff = r.Output
+	}
+	case "cyberpunkglitch":
+	{
+
+			r.CyberpunkGlitch(startTime)
 			buff = r.Output
 	}
 	case "colorshift":

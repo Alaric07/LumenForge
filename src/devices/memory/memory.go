@@ -147,7 +147,7 @@ var (
 	colorAddresses        = []byte{0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d, 0x5e, 0x5f} // DDR4
 	temperatureAddresses  = []string{"0018", "0019", "001a", "001b", "001c", "001d", "001e", "001f"}
 	basePath              = "/sys/bus/i2c/drivers"
-	rgbProfileUpgrade = []string{"led", "nebula", "marquee", "spiralrainbow", "gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora"}
+	rgbProfileUpgrade = []string{"led", "nebula", "marquee", "spiralrainbow", "gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch"}
 	rgbModes              = []string{
 		"circle",
 		"circleshift",
@@ -157,7 +157,7 @@ var (
 		"cpu-temperature",
 		"flickering",
 		"flame",
-		"aurora","gpu-temperature",
+		"aurora","cyberpunkglitch","gpu-temperature",
 		"gradient",
 		"led",
 		"marquee",
@@ -1453,6 +1453,12 @@ func (d *Device) setDeviceColor() {
 					{
 
 							r.Aurora(&startTime)
+							buff = r.Output
+					}
+					case "cyberpunkglitch":
+					{
+
+							r.CyberpunkGlitch(&startTime)
 							buff = r.Output
 					}
 					case "colorshift":

@@ -578,6 +578,24 @@
         "brightness": 1
       }
     },
+    "cyberpunkglitch": {
+      "profileName": "Cyberpunk Glitch",
+      "speed": 2,
+      "brightness": 1,
+      "smoothness": 20,
+      "start": {
+        "red": 0,
+        "green": 255,
+        "blue": 255,
+        "brightness": 1
+      },
+      "end": {
+        "red": 255,
+        "green": 0,
+        "blue": 128,
+        "brightness": 1
+      }
+    },
     "colorwarp": {
       "profileName": "Color Warp",
       "speed": 1,

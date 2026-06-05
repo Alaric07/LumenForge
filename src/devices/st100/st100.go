@@ -113,7 +113,7 @@ var (
 	cmdGetFirmware        = []byte{0x01, 0x05}
 	cmdWriteColor         = []byte{0x22, 0x14}
 	colorPacketLength     = 28
-	rgbProfileUpgrade = []string{"gradient", "spiralrainbow", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora"}
+	rgbProfileUpgrade = []string{"gradient", "spiralrainbow", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch"}
 	rgbModes              = []string{
 		"circle",
 		"circleshift",
@@ -123,7 +123,7 @@ var (
 		"cpu-temperature",
 		"flickering",
 		"flame",
-		"aurora","gpu-temperature",
+		"aurora","cyberpunkglitch","gpu-temperature",
 		"gradient",
 		"off",
 		"rainbow",
@@ -1476,6 +1476,12 @@ func (d *Device) setDeviceColor() {
 				{
 
 						r.Aurora(&startTime)
+						buff = append(buff, r.Output...)
+				}
+				case "cyberpunkglitch":
+				{
+
+						r.CyberpunkGlitch(&startTime)
 						buff = append(buff, r.Output...)
 				}
 				case "colorshift":

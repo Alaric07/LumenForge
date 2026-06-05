@@ -171,7 +171,7 @@ var (
 		"pastelspiralrainbow",
 		"rain",
 		"flame",
-	"aurora",}
+	"aurora","cyberpunkglitch",}
 	rgbModes = []string{
 		"arc",
 		"circle",
@@ -182,7 +182,7 @@ var (
 		"cpu-temperature",
 		"flickering",
 		"flame",
-		"aurora","gpu-temperature",
+		"aurora","cyberpunkglitch","gpu-temperature",
 		"gradient",
 		"off",
 		"rain",
@@ -2306,6 +2306,12 @@ func (d *Device) setDeviceColor(resetColor bool) {
 						{
 
 								r.Aurora(&startTime)
+								buff = append(buff, r.Output...)
+						}
+						case "cyberpunkglitch":
+						{
+
+								r.CyberpunkGlitch(&startTime)
 								buff = append(buff, r.Output...)
 						}
 						case "colorshift":

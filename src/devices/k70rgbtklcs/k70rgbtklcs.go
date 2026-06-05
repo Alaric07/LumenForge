@@ -139,7 +139,7 @@ var (
 	keyboardKey             = "k70rgbtklcs-default"
 	defaultLayout           = "k70rgbtklcs-default-US"
 	keyAssignmentLength     = 129
-	rgbProfileUpgrade = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora"}
+	rgbProfileUpgrade = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch"}
 	rgbModes                = []string{
 		"circle",
 		"circleshift",
@@ -149,7 +149,7 @@ var (
 		"cpu-temperature",
 		"flickering",
 		"flame",
-		"aurora","gpu-temperature",
+		"aurora","cyberpunkglitch","gpu-temperature",
 		"gradient",
 		"keyboard",
 		"off",
@@ -1852,6 +1852,12 @@ func (d *Device) setDeviceColor() {
 				{
 
 						r.Aurora(&startTime)
+						buff = append(buff, r.Output...)
+				}
+				case "cyberpunkglitch":
+				{
+
+						r.CyberpunkGlitch(&startTime)
 						buff = append(buff, r.Output...)
 				}
 				case "colorshift":

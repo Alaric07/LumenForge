@@ -174,7 +174,7 @@ var (
 	keyAmount         = 12
 	minDpiValue       = 100
 	maxDpiValue       = 26000
-	rgbProfileUpgrade = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora"}
+	rgbProfileUpgrade = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch"}
 	rgbModes          = []string{
 		"colorpulse",
 		"colorshift",
@@ -182,7 +182,7 @@ var (
 		"cpu-temperature",
 		"flickering",
 		"flame",
-		"aurora","gpu-temperature",
+		"aurora","cyberpunkglitch","gpu-temperature",
 		"gradient",
 		"mouse",
 		"off",
@@ -2282,6 +2282,12 @@ func (d *Device) setDeviceColor() {
 				{
 
 						r.Aurora(&startTime)
+						buff = append(buff, r.Output...)
+				}
+				case "cyberpunkglitch":
+				{
+
+						r.CyberpunkGlitch(&startTime)
 						buff = append(buff, r.Output...)
 				}
 				case "colorshift":

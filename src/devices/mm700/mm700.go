@@ -115,7 +115,7 @@ var (
 	cmdActivateLed        = []byte{0x0d, 0x00, 0x01}
 	cmdKeepAlive          = []byte{0x12}
 	colorPacketLength     = 9
-	rgbProfileUpgrade = []string{"custom", "gradient", "spiralrainbow", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora"}
+	rgbProfileUpgrade = []string{"custom", "gradient", "spiralrainbow", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch"}
 	rgbModes              = []string{
 		"circle",
 		"circleshift",
@@ -125,7 +125,7 @@ var (
 		"cpu-temperature",
 		"flickering",
 		"flame",
-		"aurora","gpu-temperature",
+		"aurora","cyberpunkglitch","gpu-temperature",
 		"gradient",
 		"mousepad",
 		"off",
@@ -1447,6 +1447,12 @@ func (d *Device) setDeviceColor() {
 				{
 
 						r.Aurora(&startTime)
+						buff = append(buff, r.Output...)
+				}
+				case "cyberpunkglitch":
+				{
+
+						r.CyberpunkGlitch(&startTime)
 						buff = append(buff, r.Output...)
 				}
 				case "colorshift":
