@@ -1,61 +1,7 @@
 {
   "devices": {
-    "openrgb-hash-ca4eacfd6d3b48cece11248e4c272a14": {
-      "serial": "openrgb-hash-ca4eacfd6d3b48cece11248e4c272a14",
-      "product": "Lian Li Strimer L Connect",
-      "zones": [
-        {
-          "name": "24 Pin ATX Strip 0",
-          "ledCount": 20
-        },
-        {
-          "name": "24 Pin ATX Strip 1",
-          "ledCount": 20
-        },
-        {
-          "name": "24 Pin ATX Strip 2",
-          "ledCount": 20
-        },
-        {
-          "name": "24 Pin ATX Strip 3",
-          "ledCount": 20
-        },
-        {
-          "name": "24 Pin ATX Strip 4",
-          "ledCount": 20
-        },
-        {
-          "name": "24 Pin ATX Strip 5",
-          "ledCount": 20
-        },
-        {
-          "name": "8 Pin GPU Strip 0",
-          "ledCount": 27
-        },
-        {
-          "name": "8 Pin GPU Strip 1",
-          "ledCount": 27
-        },
-        {
-          "name": "8 Pin GPU Strip 2",
-          "ledCount": 27
-        },
-        {
-          "name": "8 Pin GPU Strip 3",
-          "ledCount": 27
-        },
-        {
-          "name": "8 Pin GPU Strip 4",
-          "ledCount": 27
-        },
-        {
-          "name": "8 Pin GPU Strip 5",
-          "ledCount": 27
-        }
-      ]
-    },
-    "openrgb-import-0": {
-      "serial": "openrgb-import-0",
+    "openrgb-hash-4050b8f368aa115953066ed4a59a54fb": {
+      "serial": "openrgb-hash-4050b8f368aa115953066ed4a59a54fb",
       "product": "ASUS TUF GeForce RTX 4090 Gaming OC",
       "zones": [
         {
@@ -64,8 +10,8 @@
         }
       ]
     },
-    "openrgb-import-2": {
-      "serial": "openrgb-import-2",
+    "openrgb-hash-ca4eacfd6d3b48cece11248e4c272a14": {
+      "serial": "openrgb-hash-ca4eacfd6d3b48cece11248e4c272a14",
       "product": "Lian Li Strimer L Connect",
       "zones": [
         {
