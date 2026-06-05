@@ -9,14 +9,6 @@ import (
 func (r *ActiveRGB) Aurora(startTime *time.Time) {
 	elapsed := time.Since(*startTime).Milliseconds()
 	tSeconds := float64(elapsed) / 1000.0
-
-	// Loop time every 30 seconds to prevent float overflow in sine/cosine functions
-	if tSeconds >= 30.0 {
-		*startTime = time.Now()
-		elapsed = 0
-		tSeconds = 0.0
-	}
-
 	// Respect configured speed slider/value by multiplying time factor
 	// Speed factor typically ranges from 0.1 to 10
 	tScaled := tSeconds * r.RgbModeSpeed
