@@ -263,3 +263,16 @@ func RemoveDevice(serial string) uint8 {
 	SaveDashboardSettings(dashboard, true)
 	return 1
 }
+
+func MigrateDeviceSerial(oldSerial, newSerial string) {
+	modified := false
+	for i, d := range dashboard.Devices {
+		if d == oldSerial {
+			dashboard.Devices[i] = newSerial
+			modified = true
+		}
+	}
+	if modified {
+		SaveDashboardSettings(dashboard, true)
+	}
+}

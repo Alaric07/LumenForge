@@ -4,6 +4,7 @@ import (
 	"LumenForge/src/cluster"
 	"LumenForge/src/common"
 	"LumenForge/src/config"
+	"LumenForge/src/dashboard"
 	"LumenForge/src/logger"
 	"LumenForge/src/openrgb"
 	"LumenForge/src/rgb"
@@ -774,12 +775,21 @@ func newDeviceFromController(dc openrgb.DiscoveredController) *Device {
 	isLegacyASUS := isLegacyASUSMotherboardImport(dc.Name, dc.Vendor)
 
 	var serial string
+	var oldSerial string
 	if isLegacyASUS {
 		serial = "openrgb-mobo-1"
 	} else {
+		oldSerial = fmt.Sprintf("openrgb-import-%d", dc.ID)
 		hashInput := fmt.Sprintf("%s|%s|%s|%s|%d", dc.Name, dc.Vendor, dc.Version, dc.Description, len(dc.Zones))
 		hash := sha256.Sum256([]byte(hashInput))
 		serial = fmt.Sprintf("openrgb-hash-%x", hash[:16])
+	}
+
+	if oldSerial != "" {
+		dashboard.MigrateDeviceSerial(oldSerial, serial)
+		if cluster.Get() != nil {
+			cluster.Get().MigrateDeviceOrderSerial(oldSerial, serial)
+		}
 	}
 
 	product := dc.Name

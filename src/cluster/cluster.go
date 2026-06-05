@@ -832,3 +832,19 @@ func (d *Device) setAutoRefresh() {
 		}
 	}()
 }
+
+func (d *Device) MigrateDeviceOrderSerial(oldSerial, newSerial string) {
+	if d.DeviceProfile == nil {
+		return
+	}
+	modified := false
+	for i, s := range d.DeviceProfile.DeviceOrder {
+		if s == oldSerial {
+			d.DeviceProfile.DeviceOrder[i] = newSerial
+			modified = true
+		}
+	}
+	if modified {
+		d.saveDeviceProfile()
+	}
+}
