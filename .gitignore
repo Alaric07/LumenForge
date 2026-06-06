@@ -32,5 +32,10 @@ LumenForge.spec.template
 update.json
 update.json.sig
 .devcontainer/devcontainer-lock.json
+<<<<<<< Updated upstream
+=======
+# Local runtime/build artifacts
+LumenForge
+>>>>>>> Stashed changes
 nohup.out
 server_debug.log
