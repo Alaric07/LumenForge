@@ -2551,6 +2551,20 @@ func getOpenRGBImportDeviceBySerial(serial string) (*openrgbimport.Device, error
 	return dev, nil
 }
 
+func decodeRequestBody(w http.ResponseWriter, r *http.Request, dst any) bool {
+	err := json.NewDecoder(r.Body).Decode(dst)
+	if err != nil {
+		resp := &Response{
+			Code:    http.StatusOK,
+			Status:  0,
+			Message: "Invalid request body",
+		}
+		resp.Send(w)
+		return false
+	}
+	return true
+}
+
 func setOpenRGBImportColor(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Serial string `json:"serial"`
@@ -2611,14 +2625,7 @@ func setOpenRGBImportBrightness(w http.ResponseWriter, r *http.Request) {
 		Brightness uint8  `json:"brightness"`
 	}
 
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusOK,
-			Status:  0,
-			Message: "Invalid request body",
-		}
-		resp.Send(w)
+	if !decodeRequestBody(w, r, &req) {
 		return
 	}
 
@@ -2663,14 +2670,7 @@ func setOpenRGBImportEffect(w http.ResponseWriter, r *http.Request) {
 		Effect string `json:"effect"`
 	}
 
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusOK,
-			Status:  0,
-			Message: "Invalid request body",
-		}
-		resp.Send(w)
+	if !decodeRequestBody(w, r, &req) {
 		return
 	}
 
@@ -2715,14 +2715,7 @@ func setOpenRGBImportSpeed(w http.ResponseWriter, r *http.Request) {
 		Speed  string `json:"speed"`
 	}
 
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusOK,
-			Status:  0,
-			Message: "Invalid request body",
-		}
-		resp.Send(w)
+	if !decodeRequestBody(w, r, &req) {
 		return
 	}
 
