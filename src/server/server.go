@@ -2744,14 +2744,7 @@ func setOpenRGBImportConfig(w http.ResponseWriter, r *http.Request) {
 		Zones  []openrgbimport.ZoneConfig `json:"zones"`
 	}
 
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusOK,
-			Status:  0,
-			Message: "Invalid request body",
-		}
-		resp.Send(w)
+	if !decodeRequestBody(w, r, &req) {
 		return
 	}
 
