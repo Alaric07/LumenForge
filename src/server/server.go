@@ -2573,14 +2573,7 @@ func setOpenRGBImportColor(w http.ResponseWriter, r *http.Request) {
 		B      int    `json:"b"`
 	}
 
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusOK,
-			Status:  0,
-			Message: "Invalid request body",
-		}
-		resp.Send(w)
+	if !decodeRequestBody(w, r, &req) {
 		return
 	}
 
