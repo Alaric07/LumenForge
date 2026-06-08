@@ -16,8 +16,8 @@ Low-risk cleanup
 - Helper: server.decodeJsonOrRespond[T](w,r,out *T) bool
 - Risk: low. Tests: httptest invalid JSON -> identical response.
 - Quick win: refactor 2–3 handlers.
-- Status: proof-of-concept completed.
-- Note: decodeRequestBody was added in src/server/server.go. setOpenRGBImportBrightness, setOpenRGBImportEffect, setOpenRGBImportSpeed, and setOpenRGBImportColor were refactored. Manual UI testing passed for brightness, effect, speed, and color controls on an OpenRGB imported device. go test ./src/server returned [no test files].
+- Status: completed.
+- Note: decodeRequestBody was added in src/server/server.go. All five OpenRGB import handlers now use decodeRequestBody: setOpenRGBImportColor, setOpenRGBImportBrightness, setOpenRGBImportEffect, setOpenRGBImportSpeed, and setOpenRGBImportConfig. Manual UI testing passed for brightness, effect, speed, RGB Override color apply, and Zone Configuration Save Layout controls on an OpenRGB imported device. go test ./src/server returned [no test files].
 
 3) Template execute error handling
 - Files: server UI handlers
