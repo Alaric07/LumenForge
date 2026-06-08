@@ -109,4 +109,8 @@ Testing strategy
 - Integration smoke: run app in dev with simulated controllers where possible; verify systray/menu and UI pages render.
 
 Next steps
-- If you approve, I'll save this plan to an untitled file and mark the todo items done. After that I can implement the first low-risk helper and refactor a few handlers as a proof-of-concept.
+- Continue PR #1 / Low-risk helpers.
+- Do not modify this plan automatically.
+- Next candidate: inspect whether setOpenRGBImportColor can safely use decodeRequestBody.
+- Leave setOpenRGBImportConfig for later because it touches saved zone config/state.
+- Do not start implementation without explicit approval.
