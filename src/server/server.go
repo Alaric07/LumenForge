@@ -2220,14 +2220,7 @@ func uiTemperatureGraphOverview(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	err := t.ExecuteTemplate(w, "temperatureGraph.html", web)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, "temperatureGraph.html", web)
 }
 
 // uiSchedulerOverview handles overview of scheduler settings
@@ -2321,14 +2314,7 @@ func uiColorOverview(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	err := t.ExecuteTemplate(w, "rgb.html", web)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, "rgb.html", web)
 }
 
 // uiMacrosOverview handles overview of macro profiles
@@ -2433,14 +2419,7 @@ func uiSettings(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	err := t.ExecuteTemplate(w, "settings.html", web)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, "settings.html", web)
 }
 
 // uiXeneon handles kiosk page
