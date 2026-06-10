@@ -82,9 +82,12 @@ func (r *Response) Send(w http.ResponseWriter) {
 	}
 }
 
-func executeTemplateOrRespond(w http.ResponseWriter, t *template.Template, name string, data any) bool {
+func executeTemplateOrRespond(w http.ResponseWriter, t *template.Template, name string, data any, logError ...bool) bool {
 	err := t.ExecuteTemplate(w, name, data)
 	if err != nil {
+		if len(logError) > 0 && logError[0] {
+			fmt.Println(err)
+		}
 		resp := &Response{
 			Code:    http.StatusInternalServerError,
 			Message: language.GetValue("txtUnableToServeWebContent"),
@@ -2151,15 +2154,7 @@ func uiIndex(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	err := t.ExecuteTemplate(w, "index.html", web)
-	if err != nil {
-		fmt.Println(err)
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, "index.html", web, true)
 }
 
 // uiTemperatureOverview handles overview of temperature profiles
@@ -2285,15 +2280,7 @@ func uiRgbCluster(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	err := t.ExecuteTemplate(w, "cluster.html", web)
-	if err != nil {
-		fmt.Println(err)
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, "cluster.html", web, true)
 }
 
 // uiColorOverview handles overview or RGB profiles
@@ -2363,15 +2350,7 @@ func uiLcdOverview(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	err := t.ExecuteTemplate(w, "lcd.html", web)
-	if err != nil {
-		fmt.Println(err)
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, "lcd.html", web, true)
 }
 
 // uiSettings handles index page
