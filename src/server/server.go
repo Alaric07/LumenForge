@@ -2183,15 +2183,7 @@ func uiTemperatureOverview(w http.ResponseWriter, _ *http.Request) {
 		tpl = "temperatureGraph.html"
 	}
 
-	err := t.ExecuteTemplate(w, tpl, web)
-	if err != nil {
-		fmt.Println(err)
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, tpl, web, true)
 }
 
 // uiTemperatureGraphOverview handles overview of graph temperature profiles
