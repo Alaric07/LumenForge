@@ -115,6 +115,13 @@ Testing strategy
 - Integration smoke: run app in dev with simulated controllers where possible; verify systray/menu and UI pages render.
 
 Next steps
-- Continue with inspection-only before any larger refactor.
-- Do not expand systray MenuBuilder/InsertAfter abstractions without explicit approval, because ordering, DBus behavior, IDs, and click mappings are sensitive.
-- Recommend a fresh checkpoint/risk review before choosing the next implementation target.
+- Stop the LumenForge-CoreRefactor branch here as a complete low-risk helper cleanup pass.
+- Completed in this branch:
+  - JSON decode helper
+  - template execution helper for fixed-template handlers
+  - AtoiTrim parsing helper proof-of-concept
+  - tiny systray newMenuLayout helper proof-of-concept
+  - isolated cluster activeRgb panic fix
+- Defer larger work to follow-up branches/PRs.
+- Next possible follow-up branch: inspect uiTemperatureOverview as a tiny dynamic-template helper candidate.
+- Avoid moving into profile helpers, RGB timing, RGB output assembly, OpenRGB lifecycle consolidation, or broader systray MenuBuilder work in this branch.
