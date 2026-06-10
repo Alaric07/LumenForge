@@ -114,7 +114,9 @@ Testing strategy
 
 Next steps
 - Continue PR #1 / Low-risk helpers.
-- Do not modify this plan automatically.
-- Next candidate: inspect whether setOpenRGBImportColor can safely use decodeRequestBody.
-- Leave setOpenRGBImportConfig for later because it touches saved zone config/state.
+- JSON decode helper is completed.
+- Template execute helper is completed for fixed-template handlers.
+- Parsing helper proof-of-concept is completed; ParseFloatTrim is deferred because only one matching site exists.
+- Next candidate: inspect src/systray/tray.go for a tiny, low-risk systray menu utility proof-of-concept.
+- Treat systray as safe-ish, not automatically safe: do not change menu ordering, labels, click handlers, DBus behavior, device/cluster toggle logic, or indexes without explicit approval.
 - Do not start implementation without explicit approval.
