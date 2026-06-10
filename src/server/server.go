@@ -32,6 +32,7 @@ import (
 	"LumenForge/src/version"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
 	"strconv"
 	"strings"
@@ -79,6 +80,19 @@ func (r *Response) Send(w http.ResponseWriter) {
 	if err != nil {
 		return
 	}
+}
+
+func executeTemplateOrRespond(w http.ResponseWriter, t *template.Template, name string, data any) bool {
+	err := t.ExecuteTemplate(w, name, data)
+	if err != nil {
+		resp := &Response{
+			Code:    http.StatusInternalServerError,
+			Message: language.GetValue("txtUnableToServeWebContent"),
+		}
+		resp.Send(w)
+		return false
+	}
+	return true
 }
 
 // homePage returns response on /
@@ -2234,14 +2248,7 @@ func uiSchedulerOverview(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	err := t.ExecuteTemplate(w, "scheduler.html", web)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, "scheduler.html", web)
 }
 
 // uiRgbEditor handles overview of RGB profiles
@@ -2263,14 +2270,7 @@ func uiRgbEditor(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	err := t.ExecuteTemplate(w, "rgb.html", web)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, "rgb.html", web)
 }
 
 // uiRgbCluster handles overview of RGB Cluster
@@ -2352,14 +2352,7 @@ func uiMacrosOverview(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	err := t.ExecuteTemplate(w, "macros.html", web)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, "macros.html", web)
 }
 
 // uiLcdOverview handles overview of LCD profiles
