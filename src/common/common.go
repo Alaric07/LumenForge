@@ -513,6 +513,11 @@ func Atoi(s string) int {
 	return val
 }
 
+// AtoiTrim trims whitespace before converting a string to integer.
+func AtoiTrim(s string) (int, error) {
+	return strconv.Atoi(strings.TrimSpace(s))
+}
+
 // FClamp function restricts the value within the specified range [min, max].
 func FClamp(value, min, max float64) float64 {
 	if value < min {
