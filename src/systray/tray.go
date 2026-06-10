@@ -58,6 +58,14 @@ type MenuLayout struct {
 }
 type MenuServer struct{}
 
+func newMenuLayout(id int32, props map[string]dbus.Variant, children ...dbus.Variant) MenuLayout {
+	return MenuLayout{
+		ID:       id,
+		Props:    props,
+		Children: children,
+	}
+}
+
 // Activate exported method from spec
 func (s *Status) Activate(x, y int32) *dbus.Error { return nil }
 
@@ -129,7 +137,7 @@ func (m *MenuServer) Event(id int32, eventId string, data dbus.Variant, timestam
 					sort.Strings(modes)
 				}
 			}
-			
+
 			idx := actionOffset
 			if idx >= 0 && idx < len(modes) {
 				devices.CallDeviceMethod(serial, "UpdateRgbProfile", -1, modes[idx])
@@ -215,33 +223,26 @@ func addSubMenu(id int32, label string, icon string, items map[int32]string) {
 
 	for _, childId := range childIds {
 		childLabel := items[childId]
-		childLayout := MenuLayout{
-			ID: childId,
-			Props: map[string]dbus.Variant{
-				"label": dbus.MakeVariant(childLabel),
-			},
-		}
+		childLayout := newMenuLayout(childId, map[string]dbus.Variant{
+			"label": dbus.MakeVariant(childLabel),
+		})
 		children = append(children, dbus.MakeVariant(childLayout))
-		menuItems[childId] = childLayout 
+		menuItems[childId] = childLayout
 	}
 
 	if _, exists := menuItems[id]; !exists {
 		menuOrder = append(menuOrder, id)
 	}
-	
+
 	props := map[string]dbus.Variant{
-		"label": dbus.MakeVariant(label),
+		"label":            dbus.MakeVariant(label),
 		"children-display": dbus.MakeVariant("submenu"),
 	}
 	if icon != "" {
 		props["icon-name"] = dbus.MakeVariant(icon)
 	}
 
-	menuItems[id] = MenuLayout{
-		ID: id, 
-		Props: props,
-		Children: children,
-	}
+	menuItems[id] = newMenuLayout(id, props, children...)
 	menuRevision++
 }
 
@@ -253,7 +254,7 @@ func addMenuItem(id int32, props map[string]dbus.Variant) {
 	if _, exists := menuItems[id]; !exists {
 		menuOrder = append(menuOrder, id)
 	}
-	menuItems[id] = MenuLayout{ID: id, Props: props}
+	menuItems[id] = newMenuLayout(id, props)
 	menuRevision++
 }
 
@@ -301,7 +302,7 @@ func SyncBatteryToMenu(battery map[string]stats.BatteryStats) {
 func addAfterHeader(id int32, props map[string]dbus.Variant) {
 	menuMutex.Lock()
 	defer menuMutex.Unlock()
-	menuItems[id] = MenuLayout{ID: id, Props: props}
+	menuItems[id] = newMenuLayout(id, props)
 	insertAfter := int32(2)
 	pos := 0
 	for i, v := range menuOrder {

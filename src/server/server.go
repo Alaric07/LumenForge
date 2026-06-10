@@ -32,6 +32,7 @@ import (
 	"LumenForge/src/version"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
 	"strconv"
 	"strings"
@@ -79,6 +80,22 @@ func (r *Response) Send(w http.ResponseWriter) {
 	if err != nil {
 		return
 	}
+}
+
+func executeTemplateOrRespond(w http.ResponseWriter, t *template.Template, name string, data any, logError ...bool) bool {
+	err := t.ExecuteTemplate(w, name, data)
+	if err != nil {
+		if len(logError) > 0 && logError[0] {
+			fmt.Println(err)
+		}
+		resp := &Response{
+			Code:    http.StatusInternalServerError,
+			Message: language.GetValue("txtUnableToServeWebContent"),
+		}
+		resp.Send(w)
+		return false
+	}
+	return true
 }
 
 // homePage returns response on /
@@ -2137,15 +2154,7 @@ func uiIndex(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	err := t.ExecuteTemplate(w, "index.html", web)
-	if err != nil {
-		fmt.Println(err)
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, "index.html", web, true)
 }
 
 // uiTemperatureOverview handles overview of temperature profiles
@@ -2206,14 +2215,7 @@ func uiTemperatureGraphOverview(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	err := t.ExecuteTemplate(w, "temperatureGraph.html", web)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, "temperatureGraph.html", web)
 }
 
 // uiSchedulerOverview handles overview of scheduler settings
@@ -2234,14 +2236,7 @@ func uiSchedulerOverview(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	err := t.ExecuteTemplate(w, "scheduler.html", web)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, "scheduler.html", web)
 }
 
 // uiRgbEditor handles overview of RGB profiles
@@ -2263,14 +2258,7 @@ func uiRgbEditor(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	err := t.ExecuteTemplate(w, "rgb.html", web)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, "rgb.html", web)
 }
 
 // uiRgbCluster handles overview of RGB Cluster
@@ -2292,15 +2280,7 @@ func uiRgbCluster(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	err := t.ExecuteTemplate(w, "cluster.html", web)
-	if err != nil {
-		fmt.Println(err)
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, "cluster.html", web, true)
 }
 
 // uiColorOverview handles overview or RGB profiles
@@ -2321,14 +2301,7 @@ func uiColorOverview(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	err := t.ExecuteTemplate(w, "rgb.html", web)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, "rgb.html", web)
 }
 
 // uiMacrosOverview handles overview of macro profiles
@@ -2352,14 +2325,7 @@ func uiMacrosOverview(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	err := t.ExecuteTemplate(w, "macros.html", web)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, "macros.html", web)
 }
 
 // uiLcdOverview handles overview of LCD profiles
@@ -2384,15 +2350,7 @@ func uiLcdOverview(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	err := t.ExecuteTemplate(w, "lcd.html", web)
-	if err != nil {
-		fmt.Println(err)
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, "lcd.html", web, true)
 }
 
 // uiSettings handles index page
@@ -2440,14 +2398,7 @@ func uiSettings(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	err := t.ExecuteTemplate(w, "settings.html", web)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, "settings.html", web)
 }
 
 // uiXeneon handles kiosk page
@@ -2551,6 +2502,20 @@ func getOpenRGBImportDeviceBySerial(serial string) (*openrgbimport.Device, error
 	return dev, nil
 }
 
+func decodeRequestBody(w http.ResponseWriter, r *http.Request, dst any) bool {
+	err := json.NewDecoder(r.Body).Decode(dst)
+	if err != nil {
+		resp := &Response{
+			Code:    http.StatusOK,
+			Status:  0,
+			Message: "Invalid request body",
+		}
+		resp.Send(w)
+		return false
+	}
+	return true
+}
+
 func setOpenRGBImportColor(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Serial string `json:"serial"`
@@ -2559,14 +2524,7 @@ func setOpenRGBImportColor(w http.ResponseWriter, r *http.Request) {
 		B      int    `json:"b"`
 	}
 
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusOK,
-			Status:  0,
-			Message: "Invalid request body",
-		}
-		resp.Send(w)
+	if !decodeRequestBody(w, r, &req) {
 		return
 	}
 
@@ -2611,14 +2569,7 @@ func setOpenRGBImportBrightness(w http.ResponseWriter, r *http.Request) {
 		Brightness uint8  `json:"brightness"`
 	}
 
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusOK,
-			Status:  0,
-			Message: "Invalid request body",
-		}
-		resp.Send(w)
+	if !decodeRequestBody(w, r, &req) {
 		return
 	}
 
@@ -2663,14 +2614,7 @@ func setOpenRGBImportEffect(w http.ResponseWriter, r *http.Request) {
 		Effect string `json:"effect"`
 	}
 
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusOK,
-			Status:  0,
-			Message: "Invalid request body",
-		}
-		resp.Send(w)
+	if !decodeRequestBody(w, r, &req) {
 		return
 	}
 
@@ -2715,14 +2659,7 @@ func setOpenRGBImportSpeed(w http.ResponseWriter, r *http.Request) {
 		Speed  string `json:"speed"`
 	}
 
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusOK,
-			Status:  0,
-			Message: "Invalid request body",
-		}
-		resp.Send(w)
+	if !decodeRequestBody(w, r, &req) {
 		return
 	}
 
@@ -2758,14 +2695,7 @@ func setOpenRGBImportConfig(w http.ResponseWriter, r *http.Request) {
 		Zones  []openrgbimport.ZoneConfig `json:"zones"`
 	}
 
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusOK,
-			Status:  0,
-			Message: "Invalid request body",
-		}
-		resp.Send(w)
+	if !decodeRequestBody(w, r, &req) {
 		return
 	}
 

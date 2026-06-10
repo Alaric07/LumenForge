@@ -797,11 +797,8 @@ func GetNVIDIAGpuTemperature(gpuIndex int) float32 {
 		return 0
 	}
 
-	// Convert output to string and trim spaces
-	tempStr := strings.TrimSpace(string(output))
-
 	// Convert temperature to an integer
-	temp, err := strconv.Atoi(tempStr)
+	temp, err := common.AtoiTrim(string(output))
 	if err != nil {
 		return 0
 	}
@@ -835,8 +832,7 @@ func getHwMonTemperature(hwmonDir string, entry os.DirEntry) float32 {
 		return 0
 	}
 
-	tempStr := strings.TrimSpace(string(temp))
-	tempValue, err := strconv.Atoi(tempStr)
+	tempValue, err := common.AtoiTrim(string(temp))
 	if err != nil {
 		return 0
 	}

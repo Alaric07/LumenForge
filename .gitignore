@@ -39,3 +39,6 @@ LumenForge
 >>>>>>> Stashed changes
 nohup.out
 server_debug.log
+
+# Local editor settings
+.vscode/
