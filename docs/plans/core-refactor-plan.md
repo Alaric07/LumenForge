@@ -24,6 +24,8 @@ Low-risk cleanup
 - Duplication: ExecuteTemplate + same error logging/Response.Send.
 - Helper: server.executeTemplateOrRespond(w,tpl,data) bool
 - Risk: low. Tests: simulate template error path.
+- Status: proof-of-concept completed.
+- Note: executeTemplateOrRespond was added in src/server/server.go. uiSchedulerOverview, uiRgbEditor, and uiMacrosOverview were refactored. Manual UI testing passed for /scheduler, /rgb, and /macros. The cluster activeRgb panic was fixed separately in commit 5d93b73d and is not part of the template refactor.
 
 4) Parsing helpers
 - Files: temperatures, display, rgb modules
