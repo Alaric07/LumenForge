@@ -115,13 +115,42 @@ Testing strategy
 - Integration smoke: run app in dev with simulated controllers where possible; verify systray/menu and UI pages render.
 
 Next steps
-- Stop the LumenForge-CoreRefactor branch here as a complete low-risk helper cleanup pass.
-- Completed in this branch:
-  - JSON decode helper
-  - template execution helper for fixed-template handlers
-  - AtoiTrim parsing helper proof-of-concept
-  - tiny systray newMenuLayout helper proof-of-concept
-  - isolated cluster activeRgb panic fix
-- Defer larger work to follow-up branches/PRs.
-- Next possible follow-up branch: inspect uiTemperatureOverview as a tiny dynamic-template helper candidate.
-- Avoid moving into profile helpers, RGB timing, RGB output assembly, OpenRGB lifecycle consolidation, or broader systray MenuBuilder work in this branch.
+- Current status:
+  - LumenForge-CoreRefactor has been merged into LumenForge-Dev.
+  - LumenForge-ActiveRgbRaceFix has been merged into LumenForge-Dev.
+  - LumenForge-TemperatureTemplateHelper has been merged into LumenForge-Dev.
+  - LumenForge-Dev is clean, pushed, and up to date with origin.
+  - Latest known Dev merge checkpoint: e0d24c3f Merge branch 'LumenForge-TemperatureTemplateHelper' into LumenForge-Dev.
+- Completed work:
+  - Low-risk helper cleanup pass is complete.
+  - JSON decode helper is complete.
+  - Template execution helper is complete for fixed-template handlers.
+  - uiTemperatureOverview now uses executeTemplateOrRespond with logging preserved.
+  - AtoiTrim parsing helper proof-of-concept is complete.
+  - Tiny systray newMenuLayout helper proof-of-concept is complete.
+  - Cluster activeRgb nil-pointer panic fix is complete.
+  - Cluster activeRgb lifecycle race follow-up is complete:
+    - activeRgb is now created/assigned before the cluster color loop goroutine starts.
+- Deferred intentionally:
+  - uiDeviceOverview
+  - uiXeneon
+  - ParseFloatTrim, because only one behavior-compatible site exists
+  - broader systray MenuBuilder / InsertAfter abstractions
+  - sweeping activeRgb fixes across device modules
+  - profile helpers
+  - RGB timing normalization
+  - RGB output assembly
+  - OpenRGB lifecycle consolidation
+  - cluster dispatch cleanup
+- Next steps:
+  - Stop here for now.
+  - Future work should start from a new branch based on LumenForge-Dev.
+  - Do not continue old merged branches.
+  - Keep merged branches temporarily as references:
+    - LumenForge-CoreRefactor
+    - LumenForge-ActiveRgbRaceFix
+    - LumenForge-TemperatureTemplateHelper
+  - When resuming, begin with an inspection-only review before approving any implementation.
+  - Next possible tiny candidate: inspect uiDeviceOverview or uiXeneon only if the goal is to finish template helper cleanup.
+  - Next possible activeRgb candidate: inspect one device module at a time, starting with src/devices/cc/cc.go, but do not sweep all devices at once.
+  - Avoid profile helpers, RGB timing, RGB output assembly, OpenRGB lifecycle consolidation, cluster dispatch cleanup, broader systray MenuBuilder work, or sweeping activeRgb fixes unless started as separate inspection-first branches.
