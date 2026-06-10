@@ -33,7 +33,7 @@ Low-risk cleanup
 - Helper: common.AtoiTrim, common.ParseFloatTrim
 - Risk: low. Tests: unit tests for edge cases.
 - Status: proof-of-concept completed.
-- Note: common.AtoiTrim was added in src/common/common.go. GetNVIDIAGpuTemperature and getHwMonTemperature were refactored in src/temperatures/temperatures.go. go test ./src/common ./src/temperatures passed. Manual runtime validation confirmed temperature readings still display and update. Full go build currently requires CGO_CFLAGS_ALLOW='-fno-strict-overflow' because of an unrelated src/audio/pkg-config flag issue.
+- Note: common.AtoiTrim was added in src/common/common.go. GetNVIDIAGpuTemperature and getHwMonTemperature were refactored in src/temperatures/temperatures.go. go test ./src/common ./src/temperatures passed. Manual runtime validation confirmed temperature readings still display and update. common.ParseFloatTrim was inspected but deferred because only one matching behavior-compatible ParseFloat + TrimSpace site currently exists; no implementation is needed yet. Full go build currently requires CGO_CFLAGS_ALLOW='-fno-strict-overflow' because of an unrelated src/audio/pkg-config flag issue.
 
 5) Systray menu utilities
 - Files: src/systray/tray.go
