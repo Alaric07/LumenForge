@@ -510,12 +510,13 @@ func (d *Device) setDeviceColor() {
 		return
 	}
 
+	activeRgb := rgb.Exit()
+	d.activeRgb = activeRgb
+	activeRgb.RGBStartColor = rgb.GenerateRandomColor(1)
+	activeRgb.RGBEndColor = rgb.GenerateRandomColor(1)
+
 	go func() {
 		startTime := time.Now()
-		activeRgb := rgb.Exit()
-		d.activeRgb = activeRgb
-		activeRgb.RGBStartColor = rgb.GenerateRandomColor(1)
-		activeRgb.RGBEndColor = rgb.GenerateRandomColor(1)
 		rand.New(rand.NewSource(time.Now().UnixNano()))
 
 		for {
