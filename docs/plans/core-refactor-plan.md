@@ -40,6 +40,8 @@ Low-risk cleanup
 - Duplication: addMenuItem/addSubMenu/insert logic.
 - Helper: systray.MenuBuilder with AddItem/AddSubMenu/InsertAfter
 - Risk: low. Tests: unit tests assert menu state.
+- Status: proof-of-concept completed.
+- Note: newMenuLayout was added in src/systray/tray.go and approved MenuLayout construction sites in tray.go were refactored. devices_tray.go was intentionally not touched. Manual systray validation passed, including tray menu visibility, menu order, Open Dashboard, Global RGB Cluster submenu, Individual Devices submenu, Toggle All Standalone RGB, and Quit.
 
 Medium-risk refactors
 1) OpenRGB import handlers
@@ -113,10 +115,6 @@ Testing strategy
 - Integration smoke: run app in dev with simulated controllers where possible; verify systray/menu and UI pages render.
 
 Next steps
-- Continue PR #1 / Low-risk helpers.
-- JSON decode helper is completed.
-- Template execute helper is completed for fixed-template handlers.
-- Parsing helper proof-of-concept is completed; ParseFloatTrim is deferred because only one matching site exists.
-- Next candidate: inspect src/systray/tray.go for a tiny, low-risk systray menu utility proof-of-concept.
-- Treat systray as safe-ish, not automatically safe: do not change menu ordering, labels, click handlers, DBus behavior, device/cluster toggle logic, or indexes without explicit approval.
-- Do not start implementation without explicit approval.
+- Continue with inspection-only before any larger refactor.
+- Do not expand systray MenuBuilder/InsertAfter abstractions without explicit approval, because ordering, DBus behavior, IDs, and click mappings are sensitive.
+- Recommend a fresh checkpoint/risk review before choosing the next implementation target.
