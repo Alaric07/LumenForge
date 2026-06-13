@@ -127,8 +127,11 @@ Next steps
   - Template execution helper is complete for fixed-template handlers.
   - uiTemperatureOverview now uses executeTemplateOrRespond with logging preserved.
   - uiDeviceOverview now uses executeTemplateOrRespond with logging preserved.
-  - Dynamic template selection and 404.html behavior were preserved.
-  - Pre-existing invalid path/template-empty behavior was intentionally not changed.
+  - uiDeviceOverview double-response bug has been fixed:
+    - The invalid path variable branch now returns immediately after resp.Send(w).
+    - The empty template branch now returns immediately after resp.Send(w).
+    - This prevents duplicate/superfluous HTTP response writes.
+    - Response contents, status codes, template selection, and executeTemplateOrRespond were not changed.
   - AtoiTrim parsing helper proof-of-concept is complete.
   - Tiny systray newMenuLayout helper proof-of-concept is complete.
   - Cluster activeRgb nil-pointer panic fix is complete.
@@ -139,6 +142,11 @@ Next steps
     - The goroutine now uses the local activeRgb for Exit, random colors, Colorshift, and Colorwarp.
     - This mirrors the cluster activeRgb lifecycle fix.
     - This was intentionally limited to Commander Core / cc.go only.
+- Current known state:
+  - LumenForge-Dev includes the device overview template helper refactor.
+  - LumenForge-Dev includes the Commander Core activeRgb lifecycle follow-up.
+  - The remaining activeRgb follow-ups for src/devices/ccxt/ccxt.go and src/devices/cduo/cduo.go are still deferred.
+  - These should be handled one module at a time in separate inspection-first branches.
 - Deferred intentionally:
   - uiXeneon remains deferred because the /xeneon route is currently commented out and not easily UI-testable.
   - uiTemperatureOverview is complete.
