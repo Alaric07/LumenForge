@@ -2068,6 +2068,7 @@ func uiDeviceOverview(w http.ResponseWriter, r *http.Request) {
 			Message: language.GetValue("txtUnableToProcessDeviceRequest"),
 		}
 		resp.Send(w)
+		return
 	}
 	template := ""
 	device := devices.GetDevice(deviceId)
@@ -2090,6 +2091,7 @@ func uiDeviceOverview(w http.ResponseWriter, r *http.Request) {
 			Message: language.GetValue("txtUnableToProcessDeviceRequest"),
 		}
 		resp.Send(w)
+		return
 	}
 
 	web := templates.Web{}
