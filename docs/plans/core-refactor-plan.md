@@ -120,7 +120,7 @@ Next steps
   - LumenForge-ActiveRgbRaceFix has been merged into LumenForge-Dev.
   - LumenForge-TemperatureTemplateHelper has been merged into LumenForge-Dev.
   - LumenForge-Dev is clean, pushed, and up to date with origin.
-  - Latest known Dev checkpoint: 0d8d928b refactor(server): reuse template helper for device overview.
+  - Latest known Dev checkpoint: 0d6e43cf Merge branch 'LumenForge-CCActiveRgbFix' into LumenForge-Dev.
 - Completed work:
   - Low-risk helper cleanup pass is complete.
   - JSON decode helper is complete.
@@ -134,13 +134,18 @@ Next steps
   - Cluster activeRgb nil-pointer panic fix is complete.
   - Cluster activeRgb lifecycle race follow-up is complete:
     - activeRgb is now created/assigned before the cluster color loop goroutine starts.
+  - First device-module activeRgb follow-up is complete:
+    - src/devices/cc/cc.go now creates and assigns activeRgb before launching its RGB goroutine.
+    - The goroutine now uses the local activeRgb for Exit, random colors, Colorshift, and Colorwarp.
+    - This mirrors the cluster activeRgb lifecycle fix.
+    - This was intentionally limited to Commander Core / cc.go only.
 - Deferred intentionally:
   - uiXeneon remains deferred because the /xeneon route is currently commented out and not easily UI-testable.
   - uiTemperatureOverview is complete.
   - uiDeviceOverview is complete.
   - ParseFloatTrim, because only one behavior-compatible site exists
   - broader systray MenuBuilder / InsertAfter abstractions
-  - sweeping activeRgb fixes across device modules
+  - broader activeRgb fixes across other device modules; handle one module at a time with inspection-first branches
   - profile helpers
   - RGB timing normalization
   - RGB output assembly
@@ -156,5 +161,6 @@ Next steps
     - LumenForge-TemperatureTemplateHelper
   - When resuming, begin with an inspection-only review before approving any implementation.
   - Next possible tiny candidate: inspect uiXeneon only if the goal is to finish template helper cleanup and the route can be tested safely.
-  - Next possible activeRgb candidate: inspect one device module at a time, starting with src/devices/cc/cc.go, but do not sweep all devices at once.
-  - Avoid profile helpers, RGB timing, RGB output assembly, OpenRGB lifecycle consolidation, cluster dispatch cleanup, broader systray MenuBuilder work, or sweeping activeRgb fixes unless started as separate inspection-first branches.
+  - Next possible activeRgb candidate: inspect one device module at a time, but do not sweep all devices at once.
+  - Avoid sweeping activeRgb fixes across all device modules.
+  - Avoid profile helpers, RGB timing, RGB output assembly, OpenRGB lifecycle consolidation, cluster dispatch cleanup, and broader systray MenuBuilder work unless started as separate inspection-first branches.
