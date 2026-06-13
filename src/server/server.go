@@ -2124,15 +2124,7 @@ func uiDeviceOverview(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	err := t.ExecuteTemplate(w, template, web)
-	if err != nil {
-		fmt.Println(err)
-		resp := &Response{
-			Code:    http.StatusInternalServerError,
-			Message: language.GetValue("txtUnableToServeWebContent"),
-		}
-		resp.Send(w)
-	}
+	executeTemplateOrRespond(w, t, template, web, true)
 }
 
 // uiIndex handles index page
