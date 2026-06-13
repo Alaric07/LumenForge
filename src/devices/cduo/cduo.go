@@ -64,7 +64,7 @@ var (
 	ledStartIndex              = 6
 	maxBufferSizePerRequest    = 61
 	i2cPrefix                  = "i2c"
-	rgbProfileUpgrade = []string{
+	rgbProfileUpgrade          = []string{
 		"arc",
 		"nebula",
 		"marquee",
@@ -77,7 +77,7 @@ var (
 		"probe-temperature",
 		"rain",
 		"flame",
-	"aurora","cyberpunkglitch", "tokyonight",}
+		"aurora", "cyberpunkglitch", "tokyonight"}
 	rgbModes = []string{
 		"arc",
 		"circle",
@@ -88,7 +88,7 @@ var (
 		"cpu-temperature",
 		"flickering",
 		"flame",
-		"aurora","cyberpunkglitch", "tokyonight","gpu-temperature",
+		"aurora", "cyberpunkglitch", "tokyonight", "gpu-temperature",
 		"gradient",
 		"marquee",
 		"nebula",
@@ -908,16 +908,18 @@ func (d *Device) setDeviceColor() {
 		return
 	}
 
+	activeRgb := rgb.Exit()
+	d.activeRgb = activeRgb
+
+	// Generate random colors
+	activeRgb.RGBStartColor = rgb.GenerateRandomColor(1)
+	activeRgb.RGBEndColor = rgb.GenerateRandomColor(1)
+
 	go func(lightChannels int) {
 		startTime := time.Now()
-		d.activeRgb = rgb.Exit()
-
-		// Generate random colors
-		d.activeRgb.RGBStartColor = rgb.GenerateRandomColor(1)
-		d.activeRgb.RGBEndColor = rgb.GenerateRandomColor(1)
 		for {
 			select {
-			case <-d.activeRgb.Exit:
+			case <-activeRgb.Exit:
 				return
 			default:
 				buff := make([]byte, 0)
@@ -952,9 +954,9 @@ func (d *Device) setDeviceColor() {
 						r.RGBEndColor = &profile.EndColor
 						r.RGBMiddleColor = &profile.MiddleColor
 					} else {
-						r.RGBStartColor = d.activeRgb.RGBStartColor
-						r.RGBEndColor = d.activeRgb.RGBEndColor
-						r.RGBMiddleColor = d.activeRgb.RGBMiddleColor
+						r.RGBStartColor = activeRgb.RGBStartColor
+						r.RGBEndColor = activeRgb.RGBEndColor
+						r.RGBMiddleColor = activeRgb.RGBMiddleColor
 					}
 
 					if r.RGBMiddleColor == nil {
@@ -1081,38 +1083,38 @@ func (d *Device) setDeviceColor() {
 							buff = append(buff, r.Output...)
 						}
 					case "flickering":
-					{
+						{
 
 							r.Flickering(&startTime)
 							buff = append(buff, r.Output...)
-					}
+						}
 					case "flame":
-					{
+						{
 
 							r.Flame(&startTime)
 							buff = append(buff, r.Output...)
-					}
+						}
 					case "aurora":
-					{
+						{
 
 							r.Aurora(&startTime)
 							buff = append(buff, r.Output...)
-					}
+						}
 					case "cyberpunkglitch":
-					{
+						{
 
 							r.CyberpunkGlitch(&startTime)
 							buff = append(buff, r.Output...)
-					}
+						}
 					case "tokyonight":
-					{
+						{
 
 							r.TokyoNight(&startTime)
 							buff = append(buff, r.Output...)
-					}
+						}
 					case "colorshift":
 						{
-							r.Colorshift(&startTime, d.activeRgb)
+							r.Colorshift(&startTime, activeRgb)
 							buff = append(buff, r.Output...)
 						}
 					case "circleshift":
@@ -1132,7 +1134,7 @@ func (d *Device) setDeviceColor() {
 						}
 					case "colorwarp":
 						{
-							r.Colorwarp(&startTime, d.activeRgb)
+							r.Colorwarp(&startTime, activeRgb)
 							buff = append(buff, r.Output...)
 						}
 					case "nebula":
