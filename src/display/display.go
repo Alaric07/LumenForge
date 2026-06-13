@@ -36,17 +36,16 @@ func Init() {
 	}
 
 	file, err := os.Open(location)
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "file": location}).Warn("Failed to open display file.")
+		return
+	}
 	defer func(file *os.File) {
 		err = file.Close()
 		if err != nil {
 			logger.Log(logger.Fields{"error": err, "file": location}).Warn("Failed to close file.")
 		}
 	}(file)
-
-	if err != nil {
-		logger.Log(logger.Fields{"error": err, "file": location}).Warn("Failed to open display file.")
-		return
-	}
 
 	if err := json.NewDecoder(file).Decode(&displays); err != nil {
 		logger.Log(logger.Fields{
