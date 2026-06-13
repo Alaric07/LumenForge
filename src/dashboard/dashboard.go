@@ -63,6 +63,9 @@ func Init() {
 	location = config.GetConfig().ConfigPath + "/dashboard.json"
 	upgradeFile()
 	file, err := os.Open(location)
+	if err != nil {
+		panic(err.Error())
+	}
 	defer func(file *os.File) {
 		err = file.Close()
 		if err != nil {
@@ -70,9 +73,6 @@ func Init() {
 		}
 	}(file)
 
-	if err != nil {
-		panic(err.Error())
-	}
 	if err = json.NewDecoder(file).Decode(&dashboard); err != nil {
 		panic(err.Error())
 	}
@@ -121,17 +121,16 @@ func upgradeFile() {
 		save := false
 		var data map[string]interface{}
 		file, err := os.Open(location)
+		if err != nil {
+			logger.Log(logger.Fields{"error": err, "file": location}).Error("Unable to open file.")
+			panic(err.Error())
+		}
 		defer func(file *os.File) {
 			err = file.Close()
 			if err != nil {
 				logger.Log(logger.Fields{"error": err, "file": location}).Error("Failed to close file.")
 			}
 		}(file)
-
-		if err != nil {
-			logger.Log(logger.Fields{"error": err, "file": location}).Error("Unable to open file.")
-			panic(err.Error())
-		}
 		if err = json.NewDecoder(file).Decode(&data); err != nil {
 			logger.Log(logger.Fields{"error": err, "file": location}).Error("Unable to decode file.")
 			panic(err.Error())
