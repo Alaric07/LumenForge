@@ -379,6 +379,7 @@ func (d *Device) loadLcdBackground() {
 				// Decode and resize image
 				var src image.Image
 				src, err = jpeg.Decode(file)
+				file.Close()
 				if err != nil {
 					logger.Log(logger.Fields{"error": err, "image": background}).Warn("Unable to decode LCD background image")
 					continue
@@ -462,6 +463,7 @@ func (d *Device) loadLcdBackground() {
 							}
 
 							overlayImg, _, decodeError := image.Decode(overlayFile)
+							overlayFile.Close()
 							if decodeError != nil {
 								logger.Log(logger.Fields{"error": decodeError, "serial": d.Serial, "location": icon}).Error("Unable to decode LCD profile icon")
 								continue
@@ -521,6 +523,7 @@ func (d *Device) loadLcdProfiles() {
 		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "location": lcdProfilesFile}).Error("Unable to load LCD profile")
 		return
 	}
+	defer file.Close()
 	if err = json.NewDecoder(file).Decode(&d.LCDProfiles); err != nil {
 		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "location": lcdProfilesFile}).Error("Unable to decode profile")
 		return
@@ -583,6 +586,7 @@ func (d *Device) loadDeviceProfiles() {
 		}
 		if err = json.NewDecoder(file).Decode(pf); err != nil {
 			logger.Log(logger.Fields{"error": err, "serial": d.Serial, "location": profileLocation}).Warn("Unable to decode profile")
+			file.Close()
 			continue
 		}
 		err = file.Close()

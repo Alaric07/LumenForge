@@ -139,15 +139,17 @@ func Init() {
 		logger.Log(logger.Fields{"error": e, "location": location}).Error("Unable to open LCD image")
 		return
 	}
+	defer func(file *os.File) {
+		closeErr := file.Close()
+		if closeErr != nil {
+			logger.Log(logger.Fields{"error": closeErr, "location": location}).Error("Unable to close LCD image")
+		}
+	}(file)
 
 	// Decode the image
 	img, e := jpeg.Decode(file)
 	if e != nil {
 		logger.Log(logger.Fields{"error": e, "location": location}).Error("Unable to decode LCD image")
-		e = file.Close()
-		if e != nil {
-			logger.Log(logger.Fields{"error": e, "location": location}).Error("Unable to close LCD image")
-		}
 		return
 	}
 
