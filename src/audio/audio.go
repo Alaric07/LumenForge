@@ -77,16 +77,16 @@ func Init() {
 	}
 
 	file, err := os.Open(location)
-	defer func(file *os.File) {
-		err = file.Close()
-		if err != nil {
-			logger.Log(logger.Fields{"error": err, "file": location}).Error("Failed to close file.")
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "file": location}).Error("Failed to decode json")
+		return
+	}
+	defer func(f *os.File) {
+		if closeErr := f.Close(); closeErr != nil {
+			logger.Log(logger.Fields{"error": closeErr, "file": location}).Error("Failed to close file.")
 		}
 	}(file)
 
-	if err != nil {
-		logger.Log(logger.Fields{"error": err, "file": location}).Error("Failed to decode json")
-	}
 	if err = json.NewDecoder(file).Decode(&audio); err != nil {
 		logger.Log(logger.Fields{"error": err, "file": location}).Error("Failed to decode json")
 	}
@@ -272,7 +272,7 @@ func setAudioConfig(frames, rate, channels, pollingRate, debug uint32) error {
 	}
 
 	if msg, ok := audioErrors[rc]; ok {
-		return fmt.Errorf(msg)
+		return fmt.Errorf("%s", msg)
 	}
 
 	return fmt.Errorf("audio engine error (%d)", rc)
