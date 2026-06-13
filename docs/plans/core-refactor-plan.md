@@ -120,7 +120,6 @@ Next steps
   - LumenForge-ActiveRgbRaceFix has been merged into LumenForge-Dev.
   - LumenForge-TemperatureTemplateHelper has been merged into LumenForge-Dev.
   - LumenForge-Dev is clean, pushed, and up to date with origin.
-  - Latest known Dev checkpoint: 0d6e43cf Merge branch 'LumenForge-CCActiveRgbFix' into LumenForge-Dev.
 - Completed work:
   - Low-risk helper cleanup pass is complete.
   - JSON decode helper is complete.
@@ -157,37 +156,20 @@ Next steps
       - audio.Init logs open/decode errors without panicking.
       - config.Init / upgradeFile continue to panic on config open/decode failures as before.
     - fmt.Errorf(msg) in audio.go was changed to fmt.Errorf("%s", msg) to preserve the same error string while satisfying Go format validation.
-- Current known state:
-  - LumenForge-Dev includes the device overview template helper refactor.
-  - LumenForge-Dev includes the Commander Core, Commander Core XT, and Commander Duo activeRgb lifecycle follow-ups.
-  - Remaining activeRgb status:
-    - cluster.go is complete.
-    - cc.go is complete.
-    - ccxt.go is complete.
-    - cduo.go is complete.
-    - Do not sweep other device modules unless a future inspection finds the same pattern and recommends a separate branch.
-- Deferred intentionally:
-  - uiXeneon remains deferred because the /xeneon route is currently commented out and not easily UI-testable.
-  - uiTemperatureOverview is complete.
-  - uiDeviceOverview is complete.
-  - ParseFloatTrim, because only one behavior-compatible site exists
-  - broader systray MenuBuilder / InsertAfter abstractions
-  - profile helpers
-  - RGB timing normalization
-  - RGB output assembly
-  - OpenRGB lifecycle consolidation
-  - cluster dispatch cleanup
-- Next steps:
+  - Backup restore safety fix is complete:
+    - src/backup/backup.go now checks the error from f.Open() when reading _hash.txt during restore integrity verification.
+    - verifyZipIntegrity no longer calls io.ReadAll or Close on a nil ZIP entry reader if opening _hash.txt fails.
+    - verifyZipIntegrity now checks io.ReadAll errors for _hash.txt and returns the error.
+    - Existing restore behavior is preserved: PerformRestore still aborts restore with "Backup verification failed" when verification returns an error.
+    - Backup ZIP format and hash calculation behavior were not changed.
+- Current known state / completed bugfix list:
+  - audio/config file-open nil pointer and config file close fixes are complete.
+  - backup restore hash entry open/read fix is complete.
+  - cluster/cc/ccxt/cduo activeRgb lifecycle fixes are complete.
+  - uiDeviceOverview double-response fix is complete.
+- Recommendations / Next steps:
   - Stop here for now.
   - Future work should start from a new branch based on LumenForge-Dev.
-  - Do not continue old merged branches.
-  - Keep merged branches temporarily as references:
-    - LumenForge-CoreRefactor
-    - LumenForge-ActiveRgbRaceFix
-    - LumenForge-TemperatureTemplateHelper
-  - When resuming, begin with an inspection-only review before approving any implementation.
-  - Next possible bugfix branch: inspect backup.go restore integrity-check handling for ignored f.Open() errors.
-  - Next possible tiny candidate: inspect uiXeneon only if the goal is to finish template helper cleanup and the route can be tested safely.
-  - Next possible activeRgb candidate: inspect one device module at a time, but do not sweep all devices at once.
-  - Avoid sweeping activeRgb fixes across all device modules.
-  - Avoid broad file-loading refactors, profile helper work, RGB timing, RGB output assembly, OpenRGB lifecycle consolidation, cluster dispatch cleanup, and broader systray MenuBuilder work unless started as separate inspection-first branches.
+  - Do not sweep activeRgb across all remaining device modules.
+  - Treat the broad activeRgb audit as backlog only.
+  - Avoid broad file-loading refactors, profile helper work, RGB timing, RGB output assembly, OpenRGB lifecycle consolidation, cluster dispatch cleanup, and broad systray work unless started as separate inspection-first branches.
