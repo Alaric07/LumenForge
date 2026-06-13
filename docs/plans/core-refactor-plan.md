@@ -148,6 +148,15 @@ Next steps
     - Both goroutines now use the local activeRgb for Exit, random colors, Colorshift, and Colorwarp.
     - These fixes mirror the cluster.go and cc.go activeRgb lifecycle fixes.
     - These changes were intentionally limited to ccxt.go and cduo.go.
+  - File-open and resource safety follow-up is complete:
+    - src/audio/audio.go now checks os.Open errors before deferring file.Close().
+    - audio.Init no longer attempts to close or decode a nil file handle if audio.json is missing or inaccessible.
+    - src/config/config.go now closes the config file opened in config.Init.
+    - src/config/config.go now checks os.Open errors before deferring file.Close() in upgradeFile.
+    - Existing behavior was preserved:
+      - audio.Init logs open/decode errors without panicking.
+      - config.Init / upgradeFile continue to panic on config open/decode failures as before.
+    - fmt.Errorf(msg) in audio.go was changed to fmt.Errorf("%s", msg) to preserve the same error string while satisfying Go format validation.
 - Current known state:
   - LumenForge-Dev includes the device overview template helper refactor.
   - LumenForge-Dev includes the Commander Core, Commander Core XT, and Commander Duo activeRgb lifecycle follow-ups.
@@ -177,7 +186,8 @@ Next steps
     - LumenForge-ActiveRgbRaceFix
     - LumenForge-TemperatureTemplateHelper
   - When resuming, begin with an inspection-only review before approving any implementation.
+  - Next possible bugfix branch: inspect backup.go restore integrity-check handling for ignored f.Open() errors.
   - Next possible tiny candidate: inspect uiXeneon only if the goal is to finish template helper cleanup and the route can be tested safely.
   - Next possible activeRgb candidate: inspect one device module at a time, but do not sweep all devices at once.
   - Avoid sweeping activeRgb fixes across all device modules.
-  - Avoid profile helpers, RGB timing, RGB output assembly, OpenRGB lifecycle consolidation, cluster dispatch cleanup, and broader systray MenuBuilder work unless started as separate inspection-first branches.
+  - Avoid broad file-loading refactors, profile helper work, RGB timing, RGB output assembly, OpenRGB lifecycle consolidation, cluster dispatch cleanup, and broader systray MenuBuilder work unless started as separate inspection-first branches.
