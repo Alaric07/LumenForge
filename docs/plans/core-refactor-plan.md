@@ -162,14 +162,23 @@ Next steps
     - verifyZipIntegrity now checks io.ReadAll errors for _hash.txt and returns the error.
     - Existing restore behavior is preserved: PerformRestore still aborts restore with "Backup verification failed" when verification returns an error.
     - Backup ZIP format and hash calculation behavior were not changed.
+  - Dashboard/display file-open safety fix is complete:
+    - src/dashboard/dashboard.go now checks os.Open errors before deferring file.Close() in Init.
+    - src/dashboard/dashboard.go now checks os.Open errors before deferring file.Close() in upgradeFile.
+    - src/display/display.go now checks os.Open errors before deferring file.Close() in Init.
+    - These changes prevent nil file.Close panics if dashboard/display config files are missing or inaccessible.
+    - Existing logging and return/panic behavior was preserved.
 - Current known state / completed bugfix list:
   - audio/config file-open nil pointer and config file close fixes are complete.
   - backup restore hash entry open/read fix is complete.
+  - dashboard/display file-open nil pointer fixes are complete.
   - cluster/cc/ccxt/cduo activeRgb lifecycle fixes are complete.
   - uiDeviceOverview double-response fix is complete.
 - Recommendations / Next steps:
   - Stop here for now.
   - Future work should start from a new branch based on LumenForge-Dev.
+  - Next possible small bugfix branch: inspect lcd.go image file close handling.
+  - Another possible small branch after that: inspect nexus.go overlay icon file close handling.
   - Do not sweep activeRgb across all remaining device modules.
-  - Treat the broad activeRgb audit as backlog only.
-  - Avoid broad file-loading refactors, profile helper work, RGB timing, RGB output assembly, OpenRGB lifecycle consolidation, cluster dispatch cleanup, and broad systray work unless started as separate inspection-first branches.
+  - Treat broad profile read/write file-handle leak audits as backlog only.
+  - Avoid broad file-loading refactors unless started as separate inspection-first branches.
