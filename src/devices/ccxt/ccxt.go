@@ -64,6 +64,8 @@ var (
 	temperaturePullingInterval = 3000
 	ledStartIndex              = 10
 	maxBufferSizePerRequest    = 381
+	fanDiscoveryRetryCount     = 20
+	fanDiscoveryRetryDelay     = 500
 	i2cPrefix                  = "i2c"
 	rgbProfileUpgrade          = []string{
 		"arc",
@@ -305,6 +307,7 @@ func Init(vendorId, productId uint16, serial, path string) *common.Device {
 	d.getLedDevices()       // Get LED devices
 	d.getDevices()          // Get devices connected to a hub
 	d.getRgbDevices()       // Get RGB devices connected to a hub
+	d.retryFanDiscoveryIfNeeded()
 	d.setColorEndpoint()    // Set device color endpoint
 	d.setDefaults()         // Set default speed and color values for fans and pumps
 	d.setAutoRefresh()      // Set auto device refresh
@@ -2692,6 +2695,46 @@ func (d *Device) getDevices() int {
 
 	d.Devices = devices
 	return len(devices)
+}
+
+func (d *Device) retryFanDiscoveryIfNeeded() {
+	if d.hasSpeedDevices() || len(d.RgbDevices) == 0 {
+		return
+	}
+
+	logger.Log(logger.Fields{
+		"serial":          d.Serial,
+		"rgbDevicesCount": len(d.RgbDevices),
+		"retryCount":      fanDiscoveryRetryCount,
+		"retryDelayMs":    fanDiscoveryRetryDelay,
+	}).Warn("No fan/control devices discovered while RGB devices are present; retrying fan/control discovery")
+
+	for attempt := 1; attempt <= fanDiscoveryRetryCount; attempt++ {
+		time.Sleep(time.Duration(fanDiscoveryRetryDelay) * time.Millisecond)
+		registeredCount := d.getDevices()
+		hasSpeedDevices := d.hasSpeedDevices()
+		if hasSpeedDevices {
+			logger.Log(logger.Fields{"serial": d.Serial, "attempt": attempt, "registeredCount": registeredCount, "hasSpeedDevices": hasSpeedDevices}).Info("Fan/control devices discovered after retry")
+			return
+		}
+	}
+
+	logger.Log(logger.Fields{
+		"serial":          d.Serial,
+		"rgbDevicesCount": len(d.RgbDevices),
+		"retryCount":      fanDiscoveryRetryCount,
+		"registeredCount": len(d.Devices),
+		"hasSpeedDevices": d.hasSpeedDevices(),
+	}).Warn("Fan/control discovery retries exhausted with no speed devices discovered")
+}
+
+func (d *Device) hasSpeedDevices() bool {
+	for _, device := range d.Devices {
+		if device.HasSpeed {
+			return true
+		}
+	}
+	return false
 }
 
 // saveDeviceProfile will save device profile for persistent configuration
