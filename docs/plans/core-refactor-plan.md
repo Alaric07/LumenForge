@@ -168,17 +168,23 @@ Next steps
     - src/display/display.go now checks os.Open errors before deferring file.Close() in Init.
     - These changes prevent nil file.Close panics if dashboard/display config files are missing or inaccessible.
     - Existing logging and return/panic behavior was preserved.
+  - LCD/Nexus file descriptor safety fix is complete:
+    - src/devices/lcd/lcd.go now closes the LCD background image file opened during Init on both success and error paths.
+    - src/devices/nexus/nexus.go now closes LCD background image files opened in loadLcdBackground.
+    - src/devices/nexus/nexus.go now closes overlay icon files opened in loadLcdBackground.
+    - src/devices/nexus/nexus.go now closes the LCD profiles file opened in loadLcdProfiles.
+    - src/devices/nexus/nexus.go now closes device profile files in loadDeviceProfiles even when JSON decoding fails.
+    - Existing decode, resize, logging, return, and continue behavior was preserved.
 - Current known state / completed bugfix list:
   - audio/config file-open nil pointer and config file close fixes are complete.
   - backup restore hash entry open/read fix is complete.
   - dashboard/display file-open nil pointer fixes are complete.
+  - LCD/Nexus file descriptor leak fixes are complete.
   - cluster/cc/ccxt/cduo activeRgb lifecycle fixes are complete.
   - uiDeviceOverview double-response fix is complete.
 - Recommendations / Next steps:
   - Stop here for now.
   - Future work should start from a new branch based on LumenForge-Dev.
-  - Next possible small bugfix branch: inspect lcd.go image file close handling.
-  - Another possible small branch after that: inspect nexus.go overlay icon file close handling.
   - Do not sweep activeRgb across all remaining device modules.
   - Treat broad profile read/write file-handle leak audits as backlog only.
   - Avoid broad file-loading refactors unless started as separate inspection-first branches.
