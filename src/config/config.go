@@ -101,6 +101,7 @@ func Init() {
 	if err != nil {
 		panic(err.Error())
 	}
+	defer f.Close()
 	if err = json.NewDecoder(f).Decode(&configuration); err != nil {
 		panic(err.Error())
 	}
@@ -176,16 +177,14 @@ func upgradeFile(cfg string) {
 		save := false
 		var data map[string]interface{}
 		file, err := os.Open(location)
-		defer func(file *os.File) {
-			err = file.Close()
-			if err != nil {
-				panic(err.Error())
-			}
-		}(file)
-
 		if err != nil {
 			panic(err.Error())
 		}
+		defer func(f *os.File) {
+			if closeErr := f.Close(); closeErr != nil {
+				panic(closeErr.Error())
+			}
+		}(file)
 		if err = json.NewDecoder(file).Decode(&data); err != nil {
 			panic(err.Error())
 		}
