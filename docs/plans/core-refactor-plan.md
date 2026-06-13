@@ -120,20 +120,24 @@ Next steps
   - LumenForge-ActiveRgbRaceFix has been merged into LumenForge-Dev.
   - LumenForge-TemperatureTemplateHelper has been merged into LumenForge-Dev.
   - LumenForge-Dev is clean, pushed, and up to date with origin.
-  - Latest known Dev merge checkpoint: e0d24c3f Merge branch 'LumenForge-TemperatureTemplateHelper' into LumenForge-Dev.
+  - Latest known Dev checkpoint: 0d8d928b refactor(server): reuse template helper for device overview.
 - Completed work:
   - Low-risk helper cleanup pass is complete.
   - JSON decode helper is complete.
   - Template execution helper is complete for fixed-template handlers.
   - uiTemperatureOverview now uses executeTemplateOrRespond with logging preserved.
+  - uiDeviceOverview now uses executeTemplateOrRespond with logging preserved.
+  - Dynamic template selection and 404.html behavior were preserved.
+  - Pre-existing invalid path/template-empty behavior was intentionally not changed.
   - AtoiTrim parsing helper proof-of-concept is complete.
   - Tiny systray newMenuLayout helper proof-of-concept is complete.
   - Cluster activeRgb nil-pointer panic fix is complete.
   - Cluster activeRgb lifecycle race follow-up is complete:
     - activeRgb is now created/assigned before the cluster color loop goroutine starts.
 - Deferred intentionally:
-  - uiDeviceOverview
-  - uiXeneon
+  - uiXeneon remains deferred because the /xeneon route is currently commented out and not easily UI-testable.
+  - uiTemperatureOverview is complete.
+  - uiDeviceOverview is complete.
   - ParseFloatTrim, because only one behavior-compatible site exists
   - broader systray MenuBuilder / InsertAfter abstractions
   - sweeping activeRgb fixes across device modules
@@ -151,6 +155,6 @@ Next steps
     - LumenForge-ActiveRgbRaceFix
     - LumenForge-TemperatureTemplateHelper
   - When resuming, begin with an inspection-only review before approving any implementation.
-  - Next possible tiny candidate: inspect uiDeviceOverview or uiXeneon only if the goal is to finish template helper cleanup.
+  - Next possible tiny candidate: inspect uiXeneon only if the goal is to finish template helper cleanup and the route can be tested safely.
   - Next possible activeRgb candidate: inspect one device module at a time, starting with src/devices/cc/cc.go, but do not sweep all devices at once.
   - Avoid profile helpers, RGB timing, RGB output assembly, OpenRGB lifecycle consolidation, cluster dispatch cleanup, broader systray MenuBuilder work, or sweeping activeRgb fixes unless started as separate inspection-first branches.
