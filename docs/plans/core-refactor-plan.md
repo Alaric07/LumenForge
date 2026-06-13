@@ -142,18 +142,27 @@ Next steps
     - The goroutine now uses the local activeRgb for Exit, random colors, Colorshift, and Colorwarp.
     - This mirrors the cluster activeRgb lifecycle fix.
     - This was intentionally limited to Commander Core / cc.go only.
+  - Commander Core XT and Commander Duo activeRgb lifecycle follow-ups are complete:
+    - src/devices/ccxt/ccxt.go now creates and assigns activeRgb before launching its RGB goroutine.
+    - src/devices/cduo/cduo.go now creates and assigns activeRgb before launching its RGB goroutine.
+    - Both goroutines now use the local activeRgb for Exit, random colors, Colorshift, and Colorwarp.
+    - These fixes mirror the cluster.go and cc.go activeRgb lifecycle fixes.
+    - These changes were intentionally limited to ccxt.go and cduo.go.
 - Current known state:
   - LumenForge-Dev includes the device overview template helper refactor.
-  - LumenForge-Dev includes the Commander Core activeRgb lifecycle follow-up.
-  - The remaining activeRgb follow-ups for src/devices/ccxt/ccxt.go and src/devices/cduo/cduo.go are still deferred.
-  - These should be handled one module at a time in separate inspection-first branches.
+  - LumenForge-Dev includes the Commander Core, Commander Core XT, and Commander Duo activeRgb lifecycle follow-ups.
+  - Remaining activeRgb status:
+    - cluster.go is complete.
+    - cc.go is complete.
+    - ccxt.go is complete.
+    - cduo.go is complete.
+    - Do not sweep other device modules unless a future inspection finds the same pattern and recommends a separate branch.
 - Deferred intentionally:
   - uiXeneon remains deferred because the /xeneon route is currently commented out and not easily UI-testable.
   - uiTemperatureOverview is complete.
   - uiDeviceOverview is complete.
   - ParseFloatTrim, because only one behavior-compatible site exists
   - broader systray MenuBuilder / InsertAfter abstractions
-  - broader activeRgb fixes across other device modules; handle one module at a time with inspection-first branches
   - profile helpers
   - RGB timing normalization
   - RGB output assembly
