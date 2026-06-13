@@ -277,9 +277,16 @@ func verifyZipIntegrity(zipPath string) error {
 
 	for _, f := range r.File {
 		if f.Name == hashFileName {
-			rc, _ := f.Open()
-			data, _ := io.ReadAll(rc)
-			err := rc.Close()
+			rc, err := f.Open()
+			if err != nil {
+				return err
+			}
+			data, err := io.ReadAll(rc)
+			if err != nil {
+				_ = rc.Close()
+				return err
+			}
+			err = rc.Close()
 			if err != nil {
 				logger.Log(logger.Fields{"error": err}).Error("Unable to close backup hash file")
 				return err
