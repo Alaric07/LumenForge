@@ -118,6 +118,101 @@ $(document).ready(function () {
         updateSlider();
     }
 
+    const $speedSlider = $("#speedSlider");
+    const $speedSliderValue = $("#speedSliderValue");
+    function updateSpeedSlider() {
+        const min = Number($speedSlider.attr("min"));
+        const max = Number($speedSlider.attr("max"));
+        const value = Number($speedSlider.val());
+
+        const percent = ((value - min) / (max - min)) * 100;
+
+        $speedSlider.css("--slider-progress", percent + "%");
+        $speedSliderValue.text(value.toFixed(1));
+    }
+
+    if ($speedSlider.length) {
+        $speedSlider.on("input", updateSpeedSlider);
+        updateSpeedSlider();
+    }
+
+    $speedSlider.on('change', function () {
+        const deviceId = $("#deviceId").val();
+        const speed = $(this).val();
+        const speedValue = parseFloat(speed);
+
+        const profileVal = $('#clusterRgbProfile').val().split(";");
+        if (profileVal.length < 2) return;
+        const profile = profileVal[1];
+
+        if (profile === "off" || profile === "static" || profile === "cpu-temperature" || profile === "gpu-temperature" || profile === "") {
+            return;
+        }
+
+        $.ajax({
+            url: '/api/color/profile/' + deviceId + '/' + profile,
+            type: 'GET',
+            cache: false,
+            success: function (response) {
+                if (response.status === 1) {
+                    const data = response.data;
+
+                    const pf = {};
+                    pf["deviceId"] = deviceId;
+                    pf["profile"] = profile;
+                    pf["speed"] = speedValue;
+
+                    pf["startColor"] = data.start ? {
+                        red: data.start.red,
+                        green: data.start.green,
+                        blue: data.start.blue,
+                        temperature: data.start.temperature
+                    } : { red: 0, green: 0, blue: 0 };
+
+                    pf["endColor"] = data.end ? {
+                        red: data.end.red,
+                        green: data.end.green,
+                        blue: data.end.blue,
+                        temperature: data.end.temperature
+                    } : { red: 0, green: 0, blue: 0 };
+
+                    pf["middleColor"] = data.middle ? {
+                        red: data.middle.red,
+                        green: data.middle.green,
+                        blue: data.middle.blue,
+                        temperature: data.middle.temperature
+                    } : { red: 0, green: 0, blue: 0 };
+
+                    pf["alternateColors"] = data.alternateColors || false;
+                    pf["rgbDirection"] = data.rgbDirection || 0;
+                    pf["colorZones"] = data.gradients || null;
+                    pf["rgbMinTemp"] = data.minTemp || 0;
+                    pf["rgbMaxTemp"] = data.maxTemp || 0;
+
+                    const json = JSON.stringify(pf, null, 2);
+
+                    $.ajax({
+                        url: '/api/color/change',
+                        type: 'PUT',
+                        data: json,
+                        cache: false,
+                        success: function (res) {
+                            try {
+                                if (res.status === 1) {
+                                    toast.success(res.message);
+                                } else {
+                                    toast.warning(res.message);
+                                }
+                            } catch (err) {
+                                toast.warning(res.message);
+                            }
+                        }
+                    });
+                }
+            }
+        });
+    });
+
     $("#clusterSortable").sortable({
         helper: function(e, tr) {
             var $originals = tr.children();
