@@ -531,5 +531,40 @@ table.dataTable tbody tr:hover {
     caret-color: var(--eq-thumb) !important;
 }
 
+/* Native select/dropdown compatibility */
+select,
+.system-select {
+    color-scheme: dark !important;
+    background-color: #24283b !important;
+    color: #c0caf5 !important;
+    border-color: #414868 !important;
+}
+
+select:hover,
+.system-select:hover {
+    border-color: #7aa2f7 !important;
+}
+
+select:focus,
+.system-select:focus {
+    border-color: #7aa2f7 !important;
+    outline-color: #7aa2f7 !important;
+    box-shadow: 0 0 0 1px rgba(122, 162, 247, 0.25) !important;
+}
+
+select option,
+.system-select option {
+    background-color: #16161e !important;
+    color: #c0caf5 !important;
+}
+
+select option:checked,
+.system-select option:checked,
+select option:hover,
+.system-select option:hover {
+    background-color: #292e42 !important;
+    color: #c0caf5 !important;
+}
+
 
 

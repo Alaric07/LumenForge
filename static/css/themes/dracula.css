@@ -530,3 +530,38 @@ table.dataTable tbody tr:hover {
 .system-input textarea {
     caret-color: var(--eq-thumb) !important;
 }
+
+/* Native select/dropdown compatibility */
+select,
+.system-select {
+    color-scheme: dark !important;
+    background-color: #343746 !important;
+    color: #f8f8f2 !important;
+    border-color: #6272a4 !important;
+}
+
+select:hover,
+.system-select:hover {
+    border-color: #8be9fd !important;
+}
+
+select:focus,
+.system-select:focus {
+    border-color: #8be9fd !important;
+    outline-color: #8be9fd !important;
+    box-shadow: 0 0 0 1px rgba(139, 233, 253, 0.25) !important;
+}
+
+select option,
+.system-select option {
+    background-color: #21222c !important;
+    color: #f8f8f2 !important;
+}
+
+select option:checked,
+.system-select option:checked,
+select option:hover,
+.system-select option:hover {
+    background-color: #44475a !important;
+    color: #f8f8f2 !important;
+}
