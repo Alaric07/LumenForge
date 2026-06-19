@@ -9,22 +9,27 @@ import (
 func (r *ActiveRGB) Flame(startTime *time.Time) {
 	elapsed := time.Since(*startTime).Milliseconds()
 	tSeconds := float64(elapsed) / 1000.0
+	speed := r.RgbModeSpeed
+	if speed <= 0 {
+		speed = 1.0
+	}
+	tScaled := tSeconds * speed
 	buf := map[int][]byte{}
 	for j := 0; j < r.LightChannels; j++ {
 		// Calculate position factor across channels
 		pos := float64(j) / float64(r.LightChannels)
 
 		// Combine sine waves of different frequencies and speeds to create organic flicker
-		v1 := math.Sin(pos*3.0 + tSeconds*2.0)
-		v2 := math.Sin(pos*7.0 - tSeconds*4.5)
-		v3 := math.Sin(pos*15.0 + tSeconds*9.0)
+		v1 := math.Sin(pos*3.0 + tScaled*2.0)
+		v2 := math.Sin(pos*7.0 - tScaled*4.5)
+		v3 := math.Sin(pos*15.0 + tScaled*9.0)
 
 		intensity := (v1 * 0.5) + (v2 * 0.3) + (v3 * 0.2)
 		// Normalize to [0, 1]
 		intensity = (intensity + 1.0) / 2.0
 
 		// Add dynamic spark updates (8 times per second)
-		timeSlot := math.Floor(tSeconds * 8.0)
+		timeSlot := math.Floor(tScaled * 8.0)
 		spark := random01(float64(j), timeSlot)
 		if spark > 0.96 {
 			intensity += 0.25
