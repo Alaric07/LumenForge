@@ -78,8 +78,9 @@ func Init() {
 	}
 	loadThemes()
 
-	if len(dashboard.Theme) == 0 {
+	if len(dashboard.Theme) == 0 || !slices.Contains(dashboard.Themes, dashboard.Theme) {
 		dashboard.Theme = "default"
+		SaveDashboardSettings(dashboard, false)
 	}
 }
 
@@ -182,6 +183,10 @@ func loadThemes() {
 			continue
 		}
 		dashboard.Themes = append(dashboard.Themes, fileName)
+	}
+
+	if !slices.Contains(dashboard.Themes, "default") {
+		dashboard.Themes = append([]string{"default"}, dashboard.Themes...)
 	}
 }
 

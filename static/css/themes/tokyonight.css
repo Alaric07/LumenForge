@@ -1,0 +1,570 @@
+@import url("/static/css/themes/default.css");
+
+:root {
+    --bg-main: #1a1b26;
+    --bg-panel: #16161e;
+    --bg-card: #24283b;
+    --border-subtle: rgba(65, 72, 104, 0.4);
+    --border-mid: #414868;
+    --text-main: #c0caf5;
+    --text-muted: #a9b1d6;
+    --good: #9ece6a;
+    --warn: #e0af68;
+    --bad: #f7768e;
+    --green: #9ece6a;
+    --orange: #ff9e64;
+    --eq-track: #292e42;
+    --eq-thumb: #7aa2f7;
+    --eq-positive: #9ece6a;
+}
+
+/* Tokyo Night UI surface overrides */
+
+body {
+    background: linear-gradient(180deg, var(--bg-panel), var(--bg-main)) !important;
+}
+
+.sidebar {
+    background: linear-gradient(180deg, var(--bg-panel), var(--bg-main)) !important;
+}
+
+.sidebar.collapsed .nav-link::after {
+    background: var(--bg-card) !important;
+}
+
+.card {
+    background: linear-gradient(180deg, var(--bg-card), var(--bg-panel)) !important;
+}
+
+.system-card .card-header {
+    background: linear-gradient(180deg, var(--bg-panel), var(--bg-card)) !important;
+}
+
+.system-card .card-footer {
+    background: linear-gradient(180deg, var(--bg-card), var(--bg-panel)) !important;
+}
+
+.device-container,
+.device-container-pump,
+.device-container-block,
+.device-container-strip {
+    background-color: var(--bg-card) !important;
+    border-color: var(--border-mid) !important;
+}
+
+.row-dark {
+    background: var(--bg-main) !important;
+}
+
+.modal-content {
+    background: linear-gradient(180deg, var(--bg-card), var(--bg-panel)) !important;
+}
+
+.modal .btn-primary {
+    background: linear-gradient(180deg, var(--bg-card), var(--bg-panel)) !important;
+}
+
+.modal .btn-primary:hover {
+    background: linear-gradient(180deg, var(--bg-panel), var(--bg-card)) !important;
+}
+
+.system-select option {
+    background: var(--bg-panel) !important;
+}
+
+.system-slider input[type="range"]::-webkit-slider-runnable-track {
+    background: linear-gradient(
+            to right,
+            var(--green) 0%,
+            var(--green) var(--slider-progress, 50%),
+            var(--eq-track) var(--slider-progress, 50%),
+            var(--eq-track) 100%
+    ) !important;
+}
+
+.system-slider input[type="range"]::-moz-range-track {
+    background: var(--eq-track) !important;
+}
+
+.toggle-track {
+    background: var(--eq-track) !important;
+}
+
+.system-input input:focus {
+    background: var(--bg-panel) !important;
+}
+
+.system-button {
+    background: linear-gradient(180deg, var(--bg-card), var(--bg-panel)) !important;
+}
+
+.system-button:hover {
+    background: linear-gradient(180deg, var(--bg-panel), var(--bg-card)) !important;
+}
+
+.system-button:active {
+    background: linear-gradient(180deg, var(--bg-panel), var(--bg-main)) !important;
+}
+
+.error-card {
+    background: linear-gradient(180deg, var(--bg-card), var(--bg-panel)) !important;
+}
+
+.file-input {
+    background: var(--bg-card) !important;
+}
+
+.file-input::file-selector-button {
+    background: linear-gradient(180deg, var(--bg-card), var(--bg-panel)) !important;
+}
+
+.file-input::file-selector-button:hover {
+    background: linear-gradient(180deg, var(--bg-panel), var(--bg-card)) !important;
+}
+
+table.dataTable thead th {
+    background: linear-gradient(180deg, var(--bg-panel), var(--bg-card)) !important;
+}
+
+.dataTables_paginate .paginate_button {
+    background: linear-gradient(180deg, var(--bg-card), var(--bg-panel)) !important;
+}
+
+.dataTables_paginate .paginate_button:hover {
+    background: linear-gradient(180deg, var(--bg-panel), var(--bg-card)) !important;
+}
+
+.dt-search input:focus {
+    background: var(--bg-panel) !important;
+}
+
+.dt-paging button {
+    background: linear-gradient(180deg, var(--bg-card), var(--bg-panel)) !important;
+}
+
+.dt-paging button:not(:disabled):hover {
+    background: linear-gradient(180deg, var(--bg-panel), var(--bg-card)) !important;
+}
+
+.table {
+    --bs-table-striped-color: var(--text-muted) !important;
+    --bs-table-active-color: var(--text-muted) !important;
+    --bs-table-hover-color: var(--text-muted) !important;
+    color: var(--text-muted) !important;
+    border-color: var(--border-subtle) !important;
+}
+
+.table>:not(:last-child)>:last-child>* {
+    border-bottom-color: var(--border-subtle) !important;
+}
+
+.memory-card {
+    background: linear-gradient(180deg, var(--bg-card), var(--bg-panel)) !important;
+}
+
+.memory-header {
+    background: linear-gradient(180deg, var(--bg-panel), var(--bg-card)) !important;
+}
+
+.memory-stick {
+    background: var(--bg-card) !important;
+}
+
+.add-device-icon {
+    background: linear-gradient(180deg, var(--bg-card), var(--bg-panel)) !important;
+}
+
+.system-input textarea:focus {
+    background: var(--bg-panel) !important;
+}
+
+.eq-scale {
+    color: var(--text-muted) !important;
+}
+
+.eq-band label {
+    color: var(--text-muted) !important;
+}
+
+/* Tokyo Night Dark Semantic Alert button overrides */
+.modal .btn-danger,
+.system-button.danger,
+.delete-profile,
+.delete-speed-profile {
+    background: linear-gradient(180deg, rgba(247, 118, 142, 0.12), rgba(247, 118, 142, 0.06)) !important;
+    border-color: rgba(247, 118, 142, 0.35) !important;
+    color: #f7768e !important;
+    box-shadow: none !important;
+}
+
+.modal .btn-danger:hover,
+.system-button.danger:hover,
+.delete-profile:hover,
+.delete-speed-profile:hover {
+    background: linear-gradient(180deg, rgba(247, 118, 142, 0.2), rgba(247, 118, 142, 0.12)) !important;
+    border-color: rgba(247, 118, 142, 0.5) !important;
+    color: #f7768e !important;
+}
+
+.modal .btn-danger:active,
+.system-button.danger:active,
+.delete-profile:active,
+.delete-speed-profile:active {
+    background: linear-gradient(180deg, rgba(247, 118, 142, 0.1), rgba(247, 118, 142, 0.04)) !important;
+    border-color: rgba(247, 118, 142, 0.3) !important;
+    color: #f7768e !important;
+}
+
+.system-button.success {
+    background: linear-gradient(180deg, #1a2923, #121c18) !important;
+    border-color: rgba(158, 206, 106, 0.4) !important;
+    color: #9ece6a !important;
+}
+
+.system-button.success:hover {
+    background: linear-gradient(180deg, #243a31, #1a2923) !important;
+}
+
+.modal .btn-accent {
+    background: linear-gradient(180deg, #1e283b, #161e2c) !important;
+    border-color: rgba(122, 162, 247, 0.4) !important;
+  color: #7aa2f7 !important;
+}
+
+/* Destructive buttons & warnings overrides */
+.warning-icon {
+    background: linear-gradient(180deg, rgba(247, 118, 142, 0.12), rgba(247, 118, 142, 0.06)) !important;
+    border-color: rgba(247, 118, 142, 0.35) !important;
+    color: #f7768e !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+.warning-title {
+    color: #f7768e !important;
+}
+
+.warning-box {
+    background: rgba(247, 118, 142, 0.06) !important;
+    border-color: rgba(247, 118, 142, 0.25) !important;
+    color: #f7768e !important;
+}
+
+.warning-box i {
+    color: #f7768e !important;
+}
+
+/* Device selectable card border active override */
+.device-selectable.device-selected {
+    border-color: #7aa2f7 !important;
+}
+
+/* Tokyo Night component polish */
+
+/* 1. Sliders & Range Inputs */
+.system-slider input[type="range"] {
+    accent-color: var(--eq-thumb) !important;
+}
+
+.system-slider input[type="range"]::-webkit-slider-runnable-track,
+.eq-slider::-webkit-slider-runnable-track {
+    background: linear-gradient(
+            to right,
+            var(--green) 0%,
+            var(--green) var(--slider-progress, 50%),
+            var(--eq-track) var(--slider-progress, 50%),
+            var(--eq-track) 100%
+    ) !important;
+}
+
+.system-slider input[type="range"]::-moz-range-track,
+.eq-slider::-moz-range-track {
+    background: var(--eq-track) !important;
+}
+
+.system-slider input[type="range"]::-moz-range-progress,
+.eq-slider::-moz-range-progress {
+    background: var(--green) !important;
+}
+
+.system-slider input[type="range"]::-webkit-slider-thumb,
+.eq-slider::-webkit-slider-thumb {
+    background: var(--eq-thumb) !important;
+    border: 2px solid var(--bg-panel) !important;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.5) !important;
+}
+
+.system-slider input[type="range"]::-moz-range-thumb,
+.eq-slider::-moz-range-thumb {
+    background: var(--eq-thumb) !important;
+    border: 2px solid var(--bg-panel) !important;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.5) !important;
+}
+
+.system-slider input[type="range"]::-webkit-slider-thumb:hover,
+.eq-slider::-webkit-slider-thumb:hover,
+.system-slider input[type="range"]::-moz-range-thumb:hover,
+.eq-slider::-moz-range-thumb:hover {
+    background: #7dcfff !important;
+}
+
+/* 2. Toggle Switches */
+.system-toggle .toggle-track {
+    background: var(--eq-track) !important;
+    border-color: var(--border-mid) !important;
+}
+
+.system-toggle input:checked + .toggle-track {
+    background: rgba(158, 206, 106, 0.35) !important;
+    border-color: rgba(158, 206, 106, 0.5) !important;
+}
+
+.system-toggle .toggle-track::after {
+    background: var(--text-main) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+
+.system-toggle:hover .toggle-track {
+    border-color: var(--eq-thumb) !important;
+}
+
+/* 3. Keyboard UI Keycaps & Accent Borders */
+.keyboard-key,
+.keyboard-key-dot,
+.keyboard-key-half,
+.keyboard-key-125,
+.keyboard-key-125-top32,
+.keyboard-key-125-125 {
+    background: linear-gradient(180deg, var(--bg-card), var(--bg-panel)) !important;
+    border-color: var(--border-mid) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5) !important;
+}
+
+.keyboard-key .key-no-color,
+.keyboard-key-dot .key-no-color,
+.keyboard-key-half .key-no-color,
+.keyboard-key-125 .key-no-color,
+.keyboard-key-125-top32 .key-no-color,
+.keyboard-key-125-125 .key-no-color {
+    color: #7dcfff !important;
+}
+
+.keyboard-key:hover,
+.keyboard-key-dot:hover,
+.keyboard-key-half:hover,
+.keyboard-key-125:hover,
+.keyboard-key-125-top32:hover,
+.keyboard-key-125-125:hover {
+    background: linear-gradient(180deg, var(--bg-highlight), var(--bg-card)) !important;
+    border-color: var(--eq-thumb) !important;
+}
+
+.keyboard-key:hover .key-no-color,
+.keyboard-key-dot:hover .key-no-color,
+.keyboard-key-half:hover .key-no-color,
+.keyboard-key-125:hover .key-no-color,
+.keyboard-key-125-top32:hover .key-no-color,
+.keyboard-key-125-125:hover .key-no-color {
+    color: #7aa2f7 !important;
+}
+
+.keyboard-key:active,
+.keyboard-key-dot:active,
+.keyboard-key-half:active,
+.keyboard-key-125:active,
+.keyboard-key-125-top32:active,
+.keyboard-key-125-125:active {
+    background: var(--bg-panel) !important;
+}
+
+/* Device selectable active keycap styling */
+.keyboard-key.device-selected,
+.keyboard-key-dot.device-selected,
+.keyboard-key-half.device-selected,
+.keyboard-key-125.device-selected,
+.keyboard-key-125-top32.device-selected,
+.keyboard-key-125-125.device-selected,
+.keyboard-key.active,
+.keyboard-key-dot.active,
+.keyboard-key-half.active,
+.keyboard-key-125.active,
+.keyboard-key-125-125.active {
+    border-color: var(--eq-thumb) !important;
+    background: linear-gradient(180deg, var(--eq-track), var(--bg-card)) !important;
+    box-shadow: 0 0 6px rgba(122, 162, 247, 0.4) !important;
+}
+
+.keyboard-key.device-selected .key-no-color,
+.keyboard-key-dot.device-selected .key-no-color,
+.keyboard-key-half.device-selected .key-no-color,
+.keyboard-key-125.device-selected .key-no-color,
+.keyboard-key-125-top32.device-selected .key-no-color,
+.keyboard-key-125-125.device-selected .key-no-color,
+.keyboard-key.active .key-no-color,
+.keyboard-key-dot.active .key-no-color,
+.keyboard-key-half.active .key-no-color,
+.keyboard-key-125.active .key-no-color,
+.keyboard-key-125-125.active .key-no-color {
+    color: var(--eq-thumb) !important;
+}
+
+/* 4. Dropdowns, Controls & Buttons */
+.system-select {
+    background-color: var(--bg-card) !important;
+    color: var(--text-muted) !important;
+    border-color: var(--border-subtle) !important;
+}
+
+.system-select:hover {
+    border-color: var(--border-mid) !important;
+    color: var(--text-main) !important;
+}
+
+.system-select:focus {
+    border-color: var(--eq-thumb) !important;
+    box-shadow: 0 0 0 1px rgba(122, 162, 247, 0.25) !important;
+    color: var(--text-main) !important;
+}
+
+.system-select option {
+    background-color: var(--bg-panel) !important;
+    color: var(--text-main) !important;
+}
+
+.system-select.ok {
+    border-color: rgba(158, 206, 106, 0.4) !important;
+}
+
+.system-select.warn {
+    border-color: rgba(224, 175, 104, 0.4) !important;
+}
+
+.system-select.bad {
+    border-color: rgba(247, 118, 142, 0.4) !important;
+}
+
+.system-button {
+    background: linear-gradient(180deg, var(--bg-card), var(--bg-panel)) !important;
+    border-color: var(--border-subtle) !important;
+    color: var(--text-muted) !important;
+}
+
+.system-button:hover {
+    background: linear-gradient(180deg, var(--bg-panel), var(--bg-card)) !important;
+    border-color: var(--border-mid) !important;
+    color: var(--text-main) !important;
+}
+
+.system-button:active {
+    background: linear-gradient(180deg, var(--bg-panel), var(--bg-main)) !important;
+}
+
+.system-button:focus-visible {
+    box-shadow: 0 0 0 2px rgba(122, 162, 247, 0.4) !important;
+}
+
+.system-button.secondary {
+    background: transparent !important;
+    color: var(--text-muted) !important;
+}
+
+.system-button.secondary:hover {
+    background: rgba(192, 202, 245, 0.05) !important;
+    color: var(--text-main) !important;
+}
+
+/* 5. Table & Accent Icons */
+.bi-list,
+.drag-handle i {
+    color: var(--warn) !important;
+}
+
+.bi-list:hover,
+.drag-handle:hover i {
+    color: var(--eq-thumb) !important;
+}
+
+table.dataTable thead th {
+    background: linear-gradient(180deg, var(--bg-panel), var(--bg-card)) !important;
+    color: var(--text-main) !important;
+    border-bottom-color: var(--border-mid) !important;
+}
+
+table.dataTable tbody tr:hover {
+    background: rgba(192, 202, 245, 0.04) !important;
+}
+
+/* 6. Temperature & Value Emphasis */
+.stat {
+    font-weight: 600 !important;
+    letter-spacing: 0.05em !important;
+}
+
+.stat.text-warning {
+    color: var(--warn) !important;
+}
+
+.tempProfiles:hover,
+.tempList:hover,
+.newTemp:hover {
+    outline-color: var(--border-mid) !important;
+}
+
+.tempProfiles-selected,
+.tempList-selected {
+    outline-color: var(--eq-thumb) !important;
+}
+
+.meta-value {
+    color: var(--text-main) !important;
+}
+
+.slider-value {
+    color: var(--text-main) !important;
+}
+
+/* 7. Destructive Actions */
+/* Styled in Tokyo Night Dark Semantic Alert button overrides */
+
+/* Input carets */
+.system-input input,
+.system-input textarea {
+    caret-color: var(--eq-thumb) !important;
+}
+
+/* Native select/dropdown compatibility */
+select,
+.system-select {
+    color-scheme: dark !important;
+    background-color: #24283b !important;
+    color: #c0caf5 !important;
+    border-color: #414868 !important;
+}
+
+select:hover,
+.system-select:hover {
+    border-color: #7aa2f7 !important;
+}
+
+select:focus,
+.system-select:focus {
+    border-color: #7aa2f7 !important;
+    outline-color: #7aa2f7 !important;
+    box-shadow: 0 0 0 1px rgba(122, 162, 247, 0.25) !important;
+}
+
+select option,
+.system-select option {
+    background-color: #16161e !important;
+    color: #c0caf5 !important;
+}
+
+select option:checked,
+.system-select option:checked,
+select option:hover,
+.system-select option:hover {
+    background-color: #292e42 !important;
+    color: #c0caf5 !important;
+}
+
+
+
