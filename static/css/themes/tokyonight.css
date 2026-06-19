@@ -1,0 +1,19 @@
+@import url("/static/css/themes/default.css");
+
+:root {
+    --bg-main: #1a1b26;
+    --bg-panel: #16161e;
+    --bg-card: #24283b;
+    --border-subtle: rgba(65, 72, 104, 0.4);
+    --border-mid: #414868;
+    --text-main: #c0caf5;
+    --text-muted: #a9b1d6;
+    --good: #9ece6a;
+    --warn: #e0af68;
+    --bad: #f7768e;
+    --green: #9ece6a;
+    --orange: #ff9e64;
+    --eq-track: #292e42;
+    --eq-thumb: #7aa2f7;
+    --eq-positive: #9ece6a;
+}
