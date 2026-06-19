@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
+	"image/png"
 	"log"
 	"os"
 	"os/exec"
@@ -38,6 +39,12 @@ var (
 	deviceAnimationScrapbook  = map[string]string{}
 )
 
+type Pixmap struct {
+	Width  int32
+	Height int32
+	Data   []byte
+}
+
 // Standard SNI props
 var props = map[string]dbus.Variant{
 	"Category":   dbus.MakeVariant("ApplicationStatus"),
@@ -45,6 +52,7 @@ var props = map[string]dbus.Variant{
 	"Title":      dbus.MakeVariant("LumenForge"),
 	"Status":     dbus.MakeVariant("Active"),
 	"IconName":   dbus.MakeVariant("cpu"),
+	"IconPixmap": dbus.MakeVariant([]Pixmap{}),
 	"ToolTip":    createTooltip(),
 	"Menu":       dbus.MakeVariant(menuPath),
 	"ItemIsMenu": dbus.MakeVariant(true),
@@ -385,7 +393,16 @@ func Init(ready chan struct{}) {
 	}
 
 	// Status
-	props["IconName"] = dbus.MakeVariant(config.GetConfig().ConfigPath + "/static/img/512.png")
+	iconPath := config.GetConfig().ConfigPath + "/static/img/lumenforge.png"
+	pixmaps, pErr := loadIconPixmap(iconPath)
+	if pErr != nil {
+		logger.Log(logger.Fields{"error": pErr, "path": iconPath}).Warn("Failed to load custom tray icon pixmap, falling back to theme icon")
+		props["IconPixmap"] = dbus.MakeVariant([]Pixmap{})
+		props["IconName"] = dbus.MakeVariant("cpu")
+	} else {
+		props["IconPixmap"] = dbus.MakeVariant(pixmaps)
+		props["IconName"] = dbus.MakeVariant("lumenforge")
+	}
 	status := &Status{}
 	err = conn.Export(status, statusPath, dbusStatusNotifierItem)
 	if err != nil {
@@ -410,6 +427,7 @@ func Init(ready chan struct{}) {
 					{Name: "Title", Type: "s", Access: "read"},
 					{Name: "Status", Type: "s", Access: "read"},
 					{Name: "IconName", Type: "s", Access: "read"},
+					{Name: "IconPixmap", Type: "a(iiay)", Access: "read"},
 					{Name: "ToolTip", Type: "(sa{sv}sas)", Access: "read"},
 					{Name: "Menu", Type: "o", Access: "read"},
 					{Name: "ItemIsMenu", Type: "b", Access: "read"},
@@ -627,4 +645,48 @@ func InitTray() {
 			SyncBatteryToMenu(stats.GetBatteryStats())
 		}
 	}()
+}
+
+func loadIconPixmap(filePath string) ([]Pixmap, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	img, err := png.Decode(file)
+	if err != nil {
+		return nil, err
+	}
+
+	bounds := img.Bounds()
+	width := bounds.Dx()
+	height := bounds.Dy()
+
+	argb := make([]byte, width*height*4)
+	idx := 0
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			r, g, b, a := img.At(x, y).RGBA()
+
+			a8 := byte(a >> 8)
+			r8 := byte(r >> 8)
+			g8 := byte(g >> 8)
+			b8 := byte(b >> 8)
+
+			argb[idx] = a8
+			argb[idx+1] = r8
+			argb[idx+2] = g8
+			argb[idx+3] = b8
+			idx += 4
+		}
+	}
+
+	return []Pixmap{
+		{
+			Width:  int32(width),
+			Height: int32(height),
+			Data:   argb,
+		},
+	}, nil
 }
