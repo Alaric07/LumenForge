@@ -379,6 +379,23 @@ body {
     display: none !important;
 }
 
+.sidebar.collapsed .sidebar-brand {
+    display: none !important;
+}
+
+.sidebar.collapsed .system-button#sidebarToggle {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    padding: 0;
+    margin-left: auto;
+    margin-right: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+}
+
 .nav-link {
     color: var(--text-muted);
     font-size: .95rem;
@@ -498,6 +515,35 @@ small {
     letter-spacing: 0.12em;
     font-size: 0.75rem;
     font-weight: 600;
+}
+
+/* Sidebar Brand Styling */
+.sidebar-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 12px;
+}
+
+.sidebar-brand-icon {
+    width: 64px;
+    height: auto;
+    display: block;
+}
+
+.sidebar-brand-title {
+    text-align: center;
+    color: #ff9f0a; /* readable orange/yellow fallback color */
+    font-weight: 700;
+    font-size: 1.15rem;
+    letter-spacing: 0.05em;
+    margin: 0;
+    background: linear-gradient(135deg, #ff9f0a 0%, #30d158 45%, #00f5ff 70%, #985eff 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 .sidebar-icon {
@@ -3138,6 +3184,14 @@ table.dataTable.compact tbody td {
         letter-spacing: 0.08em;
     }
 
+    .sidebar-brand-title {
+        font-size: 1rem;
+    }
+
+    .sidebar-brand-icon {
+        width: 52px;
+    }
+
     .card-title,
     .settings-label,
     .system-card .card-header,
@@ -3219,6 +3273,14 @@ table.dataTable.compact tbody td {
     .sidebar-title {
         font-size: 0.85rem;
         letter-spacing: 0.14em;
+    }
+
+    .sidebar-brand-title {
+        font-size: 1.3rem;
+    }
+
+    .sidebar-brand-icon {
+        width: 72px;
     }
 
     .card-title,
