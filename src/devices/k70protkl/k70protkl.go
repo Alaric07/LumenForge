@@ -780,10 +780,12 @@ func (d *Device) setupPerformance() {
 		control = []byte{0x45, 0x00, 0x00}
 	}
 
-	_, err = d.transfer(cmdPerformance, []byte{control[2]})
-	if err != nil {
-		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to setup keyboard performance")
-	}
+	/*
+		_, err = d.transfer(cmdPerformance, []byte{control[2]})
+		if err != nil {
+			logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to setup keyboard performance")
+		}
+	*/
 
 	_, err = d.transfer(cmdWritePerformance, control)
 	if err != nil {
@@ -2909,7 +2911,7 @@ func (d *Device) triggerKeyAssignment(value []byte, functionKey bool, modifierKe
 			if key.ActionHold {
 				d.KeyboardKey = key
 			}
-			if d.dispatch != nil && len(d.KeyboardKey.DeviceId) > 0 {
+			if d.dispatch != nil && len(key.DeviceId) > 0 {
 				d.dispatch(key.DeviceId, "CallSniperMode", key.ActionHold)
 			}
 			break

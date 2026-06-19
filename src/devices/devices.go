@@ -11,6 +11,7 @@ import (
 	"LumenForge/src/devices/cc"
 	"LumenForge/src/devices/ccxt"
 	"LumenForge/src/devices/cduo"
+	"LumenForge/src/devices/clipperpromini60"
 	"LumenForge/src/devices/cone"
 	"LumenForge/src/devices/cpro"
 	"LumenForge/src/devices/darkcorergbproWU"
@@ -166,13 +167,13 @@ type Product struct {
 var (
 	mutex               sync.Mutex
 	cls                 *cluster.Device
-	expectedPermissions = []os.FileMode{os.FileMode(0600), os.FileMode(0660)}
-	vendorId            = uint16(6940)  // Corsair
-	scufVendorId        = uint16(11925) // Scuf
-	interfaceId         = 0
-	devices             = make(map[string]*common.Device)
-	deviceList          = make(map[string]Device)
-	legacyDevices       = []uint16{3080, 3081, 3082, 3090, 3091, 3093, 7168}
+	expectedPermissions                             = []os.FileMode{os.FileMode(0600), os.FileMode(0660)}
+	vendorId                                        = uint16(6940)  // Corsair
+	scufVendorId                                    = uint16(11925) // Scuf
+	interfaceId                                     = 0
+	devices                                         = make(map[string]*common.Device)
+	deviceList                                      = make(map[string]Device)
+	legacyDevices                                   = []uint16{3080, 3081, 3082, 3090, 3091, 3093, 7168}
 	Dispatch            dispatcher.DeviceDispatcher = CallDeviceMethod
 )
 
@@ -462,7 +463,7 @@ func GetDeviceClusterStatus(serial string) bool {
 	if !ok {
 		return false
 	}
-	
+
 	var ptr interface{}
 	if dev.Instance != nil {
 		ptr = dev.Instance
@@ -471,7 +472,7 @@ func GetDeviceClusterStatus(serial string) bool {
 	} else {
 		return true
 	}
-	
+
 	v := reflect.ValueOf(ptr)
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
@@ -497,7 +498,7 @@ func GetDeviceRgbProfile(serial string) string {
 	if !ok {
 		return ""
 	}
-	
+
 	var ptr interface{}
 	if dev.Instance != nil {
 		ptr = dev.Instance
@@ -506,7 +507,7 @@ func GetDeviceRgbProfile(serial string) string {
 	} else {
 		return ""
 	}
-	
+
 	v := reflect.ValueOf(ptr)
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
@@ -873,6 +874,7 @@ var deviceRegisterMap = map[uint16]Product{
 	11021: {2, 0, "VANGUARD 96", vanguard96.Init, nil},                     // VANGUARD 96
 	11023: {2, 0, "VANGUARD 96 WIRELESS", vanguard96WU.Init, nil},          // VANGUARD 96 WIRELESS
 	11041: {2, 0, "VANGUARD 99 AIR", vanguard99airWU.Init, nil},            // VANGUARD 99 AIR
+	11057: {2, 0, "CLIPPER MINI PRO 60", clipperpromini60.Init, nil},       // CLIPPER MINI PRO 60
 	7059:  {1, 0, "KATAR PRO", katarpro.Init, nil},                         // KATAR PRO Gaming Mouse
 	7084:  {1, 0, "KATAR PRO XT", katarproxt.Init, nil},                    // KATAR PRO XT Gaming Mouse
 	7005:  {1, 0, "IRONCLAW RGB", ironclaw.Init, nil},                      // IRONCLAW RGB Gaming Mouse
