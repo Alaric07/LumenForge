@@ -47,7 +47,7 @@ $(document).ready(function () {
 
     // Sidebar toggle collapse
     const sidebar = document.querySelector(".sidebar");
-    const key = "openlinkhub-sidebarCollapsed";
+    const key = "lumenforge-sidebarCollapsed";
     if (localStorage.getItem(key) === "true") {
         sidebar.classList.add("collapsed");
     }
