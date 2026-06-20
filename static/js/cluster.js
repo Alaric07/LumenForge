@@ -65,6 +65,81 @@ $(document).ready(function () {
         });
     });
 
+    $('#clusterLightingToggle').on('change', function () {
+        const deviceId = $("#deviceId").val();
+        const checked = $(this).prop('checked');
+
+        const pf = {};
+        pf["deviceId"] = deviceId;
+        pf["channelId"] = 0;
+
+        if (checked) {
+            const lastNonOff = $(this).attr('data-last-non-off') || '';
+            const profileVal = $('#clusterRgbProfile').val().split(";");
+            const dropdownProfile = (profileVal.length >= 2) ? profileVal[1] : '';
+
+            if (lastNonOff && lastNonOff !== 'off') {
+                pf["profile"] = lastNonOff;
+            } else if (dropdownProfile && dropdownProfile !== 'off') {
+                pf["profile"] = dropdownProfile;
+            } else {
+                pf["profile"] = "rainbow";
+            }
+        } else {
+            pf["profile"] = "off";
+        }
+
+        const json = JSON.stringify(pf, null, 2);
+
+        $.ajax({
+            url: '/api/color',
+            type: 'POST',
+            data: json,
+            cache: false,
+            success: function(response) {
+                try {
+                    if (response.status === 1) {
+                        location.reload();
+                    } else {
+                        toast.warning(response.message);
+                    }
+                } catch (err) {
+                    toast.warning(response.message);
+                }
+            }
+        });
+    });
+
+    $('#btnApplySolidColor').on('click', function () {
+        const hex = $('#clusterSolidColor').val();
+        const color = {
+            "red": parseInt(hex.slice(1, 3), 16),
+            "green": parseInt(hex.slice(3, 5), 16),
+            "blue": parseInt(hex.slice(5, 7), 16),
+            "brightness": 1
+        };
+
+        const json = JSON.stringify({ "color": color }, null, 2);
+
+        $.ajax({
+            url: '/api/color/all',
+            type: 'POST',
+            data: json,
+            cache: false,
+            success: function(response) {
+                try {
+                    if (response.status === 1) {
+                        location.reload();
+                    } else {
+                        toast.warning(response.message);
+                    }
+                } catch (err) {
+                    toast.warning(response.message);
+                }
+            }
+        });
+    });
+
     $('#brightnessSlider').on('change', function () {
         const deviceId = $("#deviceId").val();
         const brightness = $(this).val();

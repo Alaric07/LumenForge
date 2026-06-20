@@ -608,6 +608,7 @@
     "txtSlipstreamDirection": "Smjer (samo Slipstream)",
     "txtSlipstreamAlternateColors": "Naizmjenične boje (samo Slipstream)",
     "txtStyle": "Stil",
+    "txtTheme": "Tema",
     "txtSelectedKeys": "Odabrane tipke",
     "txtEnableResetPoint": "Omogući točku resetiranja",
     "txtGpuLiquid": "GPU tekućina",

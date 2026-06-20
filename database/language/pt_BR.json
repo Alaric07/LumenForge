@@ -608,6 +608,7 @@
     "txtSlipstreamDirection": "Direção (somente Slipstream)",
     "txtSlipstreamAlternateColors": "Cores alternadas (somente Slipstream)",
     "txtStyle": "Estilo",
+    "txtTheme": "Tema",
     "txtSelectedKeys": "Teclas selecionadas",
     "txtEnableResetPoint": "Ativar ponto de redefinição",
     "txtGpuLiquid": "Líquido da GPU",

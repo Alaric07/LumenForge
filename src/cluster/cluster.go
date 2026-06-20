@@ -32,6 +32,7 @@ type DeviceProfile struct {
 	OriginalBrightness uint8
 	DeviceOrder        []string
 	RgbOff             bool
+	LastNonOffProfile  string
 }
 
 type Device struct {
@@ -317,6 +318,9 @@ func (d *Device) UpdateRgbProfile(_ int, profile string) uint8 {
 	if pf == nil {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
 		return 0
+	}
+	if profile != "off" {
+		d.DeviceProfile.LastNonOffProfile = profile
 	}
 	d.DeviceProfile.RGBProfile = profile
 	d.saveDeviceProfile()
@@ -796,6 +800,7 @@ func (d *Device) saveDeviceProfile() {
 		deviceProfile.RGBProfile = d.DeviceProfile.RGBProfile
 		deviceProfile.OriginalBrightness = d.DeviceProfile.OriginalBrightness
 		deviceProfile.DeviceOrder = d.DeviceProfile.DeviceOrder
+		deviceProfile.LastNonOffProfile = d.DeviceProfile.LastNonOffProfile
 	}
 
 	if err := common.SaveJsonData(profilePath, deviceProfile); err != nil {

@@ -608,6 +608,7 @@
     "txtSlipstreamDirection": "Richtung (nur Slipstream)",
     "txtSlipstreamAlternateColors": "Abwechselnde Farben (nur Slipstream)",
     "txtStyle": "Stil",
+    "txtTheme": "Thema",
     "txtSelectedKeys": "Ausgewählte Tasten",
     "txtEnableResetPoint": "Rücksetzpunkt aktivieren",
     "txtGpuLiquid": "GPU-Flüssigkeit",

@@ -602,6 +602,7 @@
         "txtSlipstreamDirection": "Направление (только Slipstream)",
         "txtSlipstreamAlternateColors": "Чередование цветов (только Slipstream)",
         "txtStyle": "Стиль",
+        "txtTheme": "Тема",
         "txtSelectedKeys": "Выбранные клавиши",
         "txtEnableResetPoint": "Включить точку сброса",
         "txtGpuLiquid": "Жидкость GPU",

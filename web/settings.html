@@ -85,7 +85,7 @@
 
                                     <!-- Style -->
                                     <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">{{ .Lang "txtStyle" }}</span>
+                                        <span class="settings-label text-ellipsis">{{ .Lang "txtTheme" }}</span>
                                         <label for="theme">
                                             <select id="theme" class="form-select system-select auto-width compact theme">
                                                 {{ range $v := .Dashboard.Themes }}
@@ -96,41 +96,6 @@
                                                 {{ end }}
                                                 {{ end }}
                                             </select>
-                                        </label>
-                                    </div>
-
-                                    <!-- Global RGB -->
-                                    <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">{{ .Lang "txtRgb" }}</span>
-                                        <label for="allDevicesRgb">
-                                            <select id="allDevicesRgb" class="form-select system-select auto-width compact allDevicesRgb">
-                                                <option value="none">None</option>
-                                                {{ range $key, $mode := .RGBModes }}
-                                                <option value="{{ $mode }}">{{ $mode }}</option>
-                                                {{ end }}
-                                            </select>
-                                        </label>
-                                    </div>
-
-                                    <!-- Static color for all devices -->
-                                    <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">{{ .Lang "txtApplyColorToAll" }}</span>
-                                        <div class="settings-actions">
-                                            <div class="system-color compact">
-                                                <label>
-                                                    <input type="color" id="allDevicesColor" class="allDevicesColor system-color compact" value="#ff0000">
-                                                </label>
-                                            </div>
-                                            <button class="system-button applyColorToAll compact">{{ .Lang "txtApplyToAll" }}</button>
-                                        </div>
-                                    </div>
-
-                                    <!-- RGB Turn Off / On -->
-                                    <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">{{ .Lang "txtRgbOnOff" }}</span>
-                                        <label class="system-toggle compact">
-                                            <input type="checkbox" id="checkbox-rgbOff">
-                                            <span class="toggle-track"></span>
                                         </label>
                                     </div>
 

@@ -48,66 +48,6 @@ $(document).ready(function () {
         }
     );
 
-    $('.allDevicesRgb').on('change', function () {
-        const profile = $(this).val();
-        if (profile === "none") {
-            return false;
-        }
-
-        const pf = {
-            "profile": profile
-        };
-
-        const json = JSON.stringify(pf, null, 2);
-
-        $.ajax({
-            url: '/api/color/global',
-            type: 'POST',
-            data: json,
-            cache: false,
-            success: function(response) {
-                try {
-                    if (response.status === 1) {
-                        toast.success(response.message);
-                    } else {
-                        toast.warning(response.message);
-                    }
-                } catch (err) {
-                    toast.warning(response.message);
-                }
-            }
-        });
-    });
-
-    $('.applyColorToAll').on('click', function () {
-        const hex = $('#allDevicesColor').val();
-        const color = {
-            "red": parseInt(hex.slice(1, 3), 16),
-            "green": parseInt(hex.slice(3, 5), 16),
-            "blue": parseInt(hex.slice(5, 7), 16),
-            "brightness": 1
-        };
-
-        const json = JSON.stringify({ "color": color }, null, 2);
-
-        $.ajax({
-            url: '/api/color/all',
-            type: 'POST',
-            data: json,
-            cache: false,
-            success: function(response) {
-                try {
-                    if (response.status === 1) {
-                        toast.success(response.message);
-                    } else {
-                        toast.warning(response.message);
-                    }
-                } catch (err) {
-                    toast.warning(response.message);
-                }
-            }
-        });
-    });
 
     $("#btnBackup").on("click", function() {
         window.location.href = "/api/backup";
@@ -344,7 +284,6 @@ $(document).ready(function () {
     const checkboxBattery = $('#checkbox-battery');
     const checkboxTemperatureBar = $('#checkbox-temperatureBar');
     const checkboxAddDeviceToDashboard = $('#checkbox-addDeviceToDashboard');
-    const checkboxRgbOff = $('#checkbox-rgbOff');
 
     function loadDashboardSettings() {
         // Load current settings
@@ -381,9 +320,6 @@ $(document).ready(function () {
                     if (response.dashboard.addDeviceToDashboard === true) {
                         checkboxAddDeviceToDashboard.attr('Checked','Checked');
                     }
-                    if (response.dashboard.rgbOff === true) {
-                        checkboxRgbOff.attr('Checked','Checked');
-                    }
                 }
             }
         });
@@ -398,7 +334,6 @@ $(document).ready(function () {
             const v_checkboxBattery = checkboxBattery.is(':checked');
             const v_checkboxTemperatureBar = checkboxTemperatureBar.is(':checked');
             const v_checkboxAddDeviceToDashboard = checkboxAddDeviceToDashboard.is(':checked');
-            const v_checkboxRgbOff = checkboxRgbOff.is(':checked');
             const v_languageCode = $("#userLanguage").val();
             const v_theme = $("#theme").val();
             const v_keyboardLayout = $("#keyboardLayout").val();
@@ -413,7 +348,6 @@ $(document).ready(function () {
             pf["showBattery"] = v_checkboxBattery;
             pf["temperatureBar"] = v_checkboxTemperatureBar;
             pf["addDeviceToDashboard"] = v_checkboxAddDeviceToDashboard;
-            pf["rgbOff"] = v_checkboxRgbOff;
             pf["languageCode"] = v_languageCode;
             pf["theme"] = v_theme;
             pf["keyboardLayout"] = parseInt(v_keyboardLayout);

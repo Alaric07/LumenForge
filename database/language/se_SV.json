@@ -602,6 +602,7 @@
     "txtSlipstreamDirection": "Riktning (endast Slipstream)",
     "txtSlipstreamAlternateColors": "Växlande färger (endast Slipstream)",
     "txtStyle": "Stil",
+    "txtTheme": "Tema",
     "txtSelectedKeys": "Valda tangenter",
     "txtEnableResetPoint": "Aktivera återställningspunkt",
     "txtGpuLiquid": "GPU-vätska",

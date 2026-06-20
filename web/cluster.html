@@ -31,13 +31,19 @@
                         <div class="card-body p-4">
                             
                             {{ $activeProfile := $deviceProfile.RGBProfile }}
+                            {{ $selectedProfile := "rainbow" }}
+                            {{ if and (ne $deviceProfile.RGBProfile "off") (ne $deviceProfile.RGBProfile "") }}
+                                {{ $selectedProfile = $deviceProfile.RGBProfile }}
+                            {{ else if ne $deviceProfile.LastNonOffProfile "" }}
+                                {{ $selectedProfile = $deviceProfile.LastNonOffProfile }}
+                            {{ end }}
                             {{ $speed := 1.0 }}
                             {{ $speedDisabled := "" }}
                             {{ if $activeProfile }}
                                 {{ $profileData := index .Device.Rgb.Profiles $activeProfile }}
                                 {{ if $profileData }}
                                     {{ $speed = $profileData.Speed }}
-                                {{ end }}
+                                 {{ end }}
                             {{ end }}
                             {{ if lt $speed 1.0 }}
                                 {{ $speed = 1.0 }}
@@ -75,16 +81,39 @@
                                         <span class="text-warning text-uppercase text-sm fw-bold me-3" style="min-width: 90px; letter-spacing: 1px;">{{ .Lang "txtRgb" }}</span>
                                         <label for="clusterRgbProfile" class="w-100">
                                             <select id="clusterRgbProfile" class="form-select system-select w-100 clusterRgbProfile" name="clusterRgbProfile">
-                                                <option value="">None</option>
                                                 {{ range $key, $mode := $rgbModes }}
-                                                {{ if eq $mode $device.DeviceProfile.RGBProfile }}
+                                                {{ if ne $mode "off" }}
+                                                {{ if eq $mode $selectedProfile }}
                                                 <option value="0;{{ $mode }}" selected>{{ $mode }}</option>
                                                 {{ else }}
                                                 <option value="0;{{ $mode }}">{{ $mode }}</option>
                                                 {{ end }}
                                                 {{ end }}
+                                                {{ end }}
                                             </select>
                                         </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Quick Actions Row -->
+                            <div class="d-flex flex-wrap align-items-center justify-content-center gap-4 mb-4 pb-4 border-bottom border-secondary border-opacity-25">
+                                <div class="d-flex align-items-center">
+                                    <span class="text-warning text-uppercase text-sm fw-bold me-3" style="letter-spacing: 1px;">Cluster Lighting On/Off</span>
+                                    <label class="system-toggle compact m-0">
+                                        <input type="checkbox" id="clusterLightingToggle" data-last-non-off="{{ $deviceProfile.LastNonOffProfile }}" {{ if ne $activeProfile "off" }}checked{{ end }}>
+                                        <span class="toggle-track"></span>
+                                    </label>
+                                </div>
+                                <div class="d-flex align-items-center ms-md-4">
+                                    <span class="text-warning text-uppercase text-sm fw-bold me-3" style="letter-spacing: 1px;">Apply Solid Color</span>
+                                    <div class="settings-actions d-flex align-items-center">
+                                        <div class="system-color compact me-2">
+                                            <label class="m-0">
+                                                <input type="color" id="clusterSolidColor" class="system-color compact" value="#ff0000">
+                                            </label>
+                                        </div>
+                                        <button class="system-button compact" id="btnApplySolidColor">{{ .Lang "txtApply" }}</button>
                                     </div>
                                 </div>
                             </div>
