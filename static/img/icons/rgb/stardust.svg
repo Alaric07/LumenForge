@@ -1,0 +1,17 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#5599FF" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Central large sparkle/star -->
+    <path d="M64 28 L64 100 M28 64 L100 64" stroke-width="6" />
+    <path d="M64 48 Q64 64 48 64 Q64 64 64 80 Q64 64 80 64 Q64 64 64 48 Z" fill="#5599FF" stroke="#5599FF" stroke-width="2"/>
+
+    <!-- Small sparkle top-left -->
+    <path d="M36 28 L36 44 M28 36 L44 36" stroke-width="4" stroke-opacity="0.7"/>
+    
+    <!-- Small sparkle bottom-right -->
+    <path d="M92 84 L92 100 M84 92 L100 92" stroke-width="4" stroke-opacity="0.7"/>
+    
+    <!-- Dots / tiny stars -->
+    <circle cx="32" cy="80" r="4" fill="#5599FF" fill-opacity="0.5" stroke="none"/>
+    <circle cx="96" cy="44" r="4" fill="#5599FF" fill-opacity="0.5" stroke="none"/>
+    <circle cx="64" cy="12" r="3" fill="#5599FF" fill-opacity="0.8" stroke="none"/>
+    <circle cx="64" cy="116" r="3" fill="#5599FF" fill-opacity="0.8" stroke="none"/>
+</svg>

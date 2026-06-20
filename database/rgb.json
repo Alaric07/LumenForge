@@ -693,6 +693,24 @@
         "brightness": 1.0
       },
       "speed": 2
+    },
+    "stardust": {
+      "profileName": "Stardust",
+      "alternateColors": false,
+      "brightness": 1,
+      "start": {
+        "red": 10,
+        "green": 10,
+        "blue": 40,
+        "brightness": 1.0
+      },
+      "end": {
+        "red": 180,
+        "green": 220,
+        "blue": 255,
+        "brightness": 1.0
+      },
+      "speed": 4
     }
   }
 }

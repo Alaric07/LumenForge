@@ -2386,6 +2386,7 @@ func uiSettings(w http.ResponseWriter, _ *http.Request) {
 		"rotator",
 		"spinner",
 		"static",
+		"stardust",
 		"storm",
 		"watercolor",
 		"wave",
