@@ -24,17 +24,17 @@
             {{ end }}
 
             <!-- Settings -->
-            <div class="row g-4 mb-4 align-items-start">
-                <div class="col-md-3">
-                    <div class="stack-gap-4">
-                        <!-- Dashboard Settings -->
+            <div class="page-centered-wrapper">
+                <div class="row g-4 mb-4">
+                    <!-- Row 1 Column 1: Preferences -->
+                    <div class="col-lg-6">
                         <div class="card system-card text-center">
                             <div class="card-header">
-                                {{ .Lang "txtDashboard" }}
+                                <i class="bi bi-sliders pe-2"></i>Preferences
                             </div>
                             <div class="card-body">
                                 <div class="settings-list">
-                                    <!-- Temperature (C / F) -->
+                                    <!-- Show Celsius -->
                                     <div class="settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "txtShowTempInC" }}</span>
                                         <label class="system-toggle compact">
@@ -42,7 +42,7 @@
                                             <span class="toggle-track"></span>
                                         </label>
                                     </div>
-
+                                    <!-- Show Temp Bar -->
                                     <div class="settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "txtShowTemperatureBar" }}</span>
                                         <label class="system-toggle compact">
@@ -50,7 +50,7 @@
                                             <span class="toggle-track"></span>
                                         </label>
                                     </div>
-
+                                    <!-- Show Device Labels -->
                                     <div class="settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "txtShowDeviceLabels" }}</span>
                                         <label class="system-toggle compact">
@@ -58,7 +58,7 @@
                                             <span class="toggle-track"></span>
                                         </label>
                                     </div>
-
+                                    <!-- Add Device to Dashboard -->
                                     <div class="settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "txtAddDeviceToDashboard" }}</span>
                                         <label class="system-toggle compact">
@@ -66,7 +66,6 @@
                                             <span class="toggle-track"></span>
                                         </label>
                                     </div>
-
                                     <!-- Language -->
                                     <div class="settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "txtLanguage" }}</span>
@@ -82,8 +81,7 @@
                                             </select>
                                         </label>
                                     </div>
-
-                                    <!-- Style -->
+                                    <!-- Theme -->
                                     <div class="settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "txtTheme" }}</span>
                                         <label for="theme">
@@ -98,11 +96,10 @@
                                             </select>
                                         </label>
                                     </div>
-
-                                    <!-- Style -->
+                                    <!-- Keyboard Layout -->
                                     <div class="settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "txtKeyboardLayout" }}</span>
-                                        <label for="theme">
+                                        <label for="keyboardLayout">
                                             <select id="keyboardLayout" class="form-select system-select auto-width compact theme">
                                                 {{ range $k, $v := .Dashboard.KeyboardLayouts }}
                                                 {{ if eq $dash.KeyboardLayout $k }}
@@ -114,25 +111,162 @@
                                             </select>
                                         </label>
                                     </div>
-
-                                    <!-- Save settings -->
+                                    <!-- Save preferences button -->
                                     <div class="settings-row">
-                                        <button class="system-button" id="btnSaveDashboardSettings">{{ .Lang "txtSave" }}</button>
+                                        <button class="system-button w-100" id="btnSaveDashboardSettings">{{ .Lang "txtSave" }}</button>
                                     </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Backup and restore -->
+                    <!-- Row 1 Column 2: Automation -->
+                    <div class="col-lg-6">
                         <div class="card system-card text-center">
                             <div class="card-header">
-                                {{ .Lang "txtBackupRestore" }}
-                            </div>
-                            <div class="card-body text-left sentence-text">
-                                {{ .Lang "txtBackupInfo" }}
+                                <i class="bi bi-robot pe-2"></i>Automation
                             </div>
                             <div class="card-body">
                                 <div class="settings-list">
+                                    <!-- RGB Scheduler enable -->
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">{{ .Lang "txtRgbScheduler" }}</span>
+                                        <label class="system-toggle compact">
+                                            <input type="checkbox" id="rgbControl" {{ if .Scheduler.RGBControl }}checked{{end}}>
+                                            <span class="toggle-track"></span>
+                                        </label>
+                                    </div>
+                                    <!-- RGB Off Time -->
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">{{ .Lang "txtRgbOffTime" }}</span>
+                                        <label class="compact">
+                                            <input type="time"
+                                                   id="rgbOff"
+                                                   name="rgbOff"
+                                                   value="{{ .Scheduler.RGBOff }}"
+                                                   class="system-input system-time compact">
+                                        </label>
+                                    </div>
+                                    <!-- RGB On Time -->
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">{{ .Lang "rgbOnTime" }}</span>
+                                        <label class="compact">
+                                            <input type="time"
+                                                   id="rgbOn"
+                                                   name="rgbOn"
+                                                   value="{{ .Scheduler.RGBOn }}"
+                                                   class="system-input system-time compact">
+                                        </label>
+                                    </div>
+                                    <!-- LCD Off during Dark Hours -->
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">{{ .Lang "txtLcdOffDuringDarkHours" }}</span>
+                                        <label class="system-toggle compact">
+                                            <input type="checkbox" id="lcdControl" {{ if .Scheduler.LCDControl }}checked{{end}}>
+                                            <span class="toggle-track"></span>
+                                        </label>
+                                    </div>
+                                    <!-- Save Scheduler button -->
+                                    <div class="settings-row">
+                                        <button class="system-button saveRgbControl w-100">{{ .Lang "txtSave" }}</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4 mb-4">
+                    <!-- Row 2 Column 1: Display & Audio -->
+                    <div class="col-lg-6">
+                        <div class="stack-gap-4">
+                            <!-- Display Configuration -->
+                            <div class="card system-card text-center">
+                                <div class="card-header">
+                                    <i class="bi bi-display pe-2"></i>{{ .Lang "txtDisplay" }}
+                                </div>
+                                <div class="card-body text-left">
+                                    <div class="settings-list">
+                                        {{ range $key, $val := .Displays }}
+                                        <div class="settings-row">
+                                            <span class="settings-label text-ellipsis">{{ $val.Index }}</span>
+                                            <div class="system-input text-input compact">
+                                                <label for="displayWidth_{{ $val.Index }}">
+                                                    <input type="text" id="displayWidth_{{ $val.Index }}" class="displayWidth_{{ $val.Index }}" placeholder="Width" autocomplete="off" value="{{ $val.Width }}">
+                                                </label>
+                                            </div>
+                                            <div class="system-input text-input compact">
+                                                <label for="displayHeight_{{ $val.Index }}">
+                                                    <input type="text" id="displayHeight_{{ $val.Index }}" class="displayHeight_{{ $val.Index }}" placeholder="Height" autocomplete="off" value="{{ $val.Height }}">
+                                                </label>
+                                            </div>
+                                            <label for="displayPosition_{{ $val.Index }}">
+                                                <select id="displayPosition_{{ $val.Index }}" class="form-select system-select auto-width compact displayPosition_{{ $val.Index }}">
+                                                    <option value="0">None</option>
+                                                    <option value="1" {{ if $val.Left }} selected {{ end }}>Left</option>
+                                                    <option value="2" {{ if $val.Top }} selected {{ end }}>Top</option>
+                                                </select>
+                                            </label>
+                                            <button class="system-button updateDisplay" type="button" data-info="{{ $val.Index }}">{{ $save }}</button>
+                                        </div>
+                                        {{ end }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Virtual Audio -->
+                            <div class="card system-card text-center">
+                                <div class="card-header">
+                                    <i class="bi bi-volume-up pe-2"></i>{{ .Lang "txtVirtualAudio" }}
+                                </div>
+                                <div class="card-body text-left">
+                                    {{ if .SystemService }}
+                                    <span class="settings-label text-warning">{{ .Lang "txtVirtualAudioUnavailable" }}</span>
+                                    {{ else }}
+                                    <div class="settings-list">
+                                        <div class="settings-row">
+                                            <span class="settings-label text-ellipsis">{{ .Lang "txtEnable" }}</span>
+                                            <label class="system-toggle compact">
+                                                <input type="checkbox" id="virtualAudio" {{ if $audio.Enabled }}checked{{end}}>
+                                                <span class="toggle-track"></span>
+                                            </label>
+                                        </div>
+
+                                        {{ if $audio.Enabled }}
+                                        <div class="settings-row">
+                                            <span class="settings-label text-ellipsis">{{ .Lang "txtOutputDevice" }}</span>
+                                            <label for="outputDevice">
+                                                <select id="outputDevice" class="form-select system-select max-width-300 compact outputDevice">
+                                                    {{ range $k, $v := .OutputDevices }}
+                                                    <option value="{{ $v.Name }};{{ $v.Desc }};{{ $v.Serial }}" {{ if eq $audio.SinkDesc $v.Desc }}selected{{end}}>{{ $v.Desc }}</option>
+                                                    {{ end }}
+                                                </select>
+                                            </label>
+                                        </div>
+                                        {{ end }}
+
+                                        <div class="settings-row">
+                                            <button class="system-button enableVirtualAudio">{{ .Lang "txtSave" }}</button>
+                                            {{ if $audio.Enabled }}
+                                            <button class="system-button setTargetDevice">{{ .Lang "txtSetTargetDevice" }}</button>
+                                            {{ end }}
+                                        </div>
+                                    </div>
+                                    {{ end }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 2 Column 2: Backup & Restore -->
+                    <div class="col-lg-6">
+                        <div class="card system-card text-center h-100">
+                            <div class="card-header">
+                                <i class="bi bi-cloud-arrow-up pe-2"></i>{{ .Lang "txtBackupRestore" }}
+                            </div>
+                            <div class="card-body text-left sentence-text">
+                                <p class="mb-4">{{ .Lang "txtBackupInfo" }}</p>
+                                <div class="settings-list mt-2">
                                     <div class="settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "txtBackup" }}</span>
                                         <label class="system-toggle compact">
@@ -146,11 +280,11 @@
                                     <div class="settings-row">
                                         <form id="restoreForm" enctype="multipart/form-data" class="file-form full-width">
                                             <input type="file"
-                                                   class="system-input file-input"
+                                                   class="system-input file-input mb-2"
                                                    id="backupFile"
                                                    name="backupFile"
                                                    accept=".zip">
-                                            <button class="system-button danger" type="submit" id="btnRestore">
+                                            <button class="system-button danger w-100" type="submit" id="btnRestore">
                                                 {{ .Lang "txtRestore" }}
                                             </button>
                                         </form>
@@ -160,161 +294,33 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="stack-gap-4">
-                        <!-- RGB Scheduler -->
+
+                <div class="row g-4 mb-4">
+                    <!-- Row 3: Supported Devices full-width -->
+                    <div class="col-12">
                         <div class="card system-card text-center">
                             <div class="card-header">
-                                {{ .Lang "txtRgbScheduler" }}
+                                <i class="bi bi-cpu-fill pe-2"></i>{{ .Lang "txtSupportedDevices" }}
                             </div>
                             <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="dataTable compact" id="dataTable" style="width: 100%;">
+                                        <thead>
+                                        <tr>
+                                            <th>{{ .Lang "txtProductId" }}</th>
+                                            <th>{{ .Lang "txtProductName" }}</th>
+                                            <th>{{ .Lang "txtEnabled" }}</th>
+                                        </tr>
+                                        </thead>
+                                    </table>
+                                </div><br />
                                 <div class="settings-list">
                                     <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">{{ .Lang "txtEnable" }}</span>
+                                        <span class="settings-label text-ellipsis warning">{{ .Lang "txtServiceRestartRequired" }}</span>
                                         <label class="system-toggle compact">
-                                            <input type="checkbox" id="rgbControl" {{ if .Scheduler.RGBControl }}checked{{end}}>
-                                            <span class="toggle-track"></span>
+                                            <button class="system-button" id="btnSaveSupportedDevices">{{ .Lang "txtSave" }}</button>
                                         </label>
                                     </div>
-
-                                    <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">{{ .Lang "txtRgbOffTime" }}</span>
-                                        <label class="compact">
-                                            <input type="time"
-                                                   id="rgbOff"
-                                                   name="rgbOff"
-                                                   value="{{ .Scheduler.RGBOff }}"
-                                                   class="system-input system-time compact">
-                                        </label>
-                                    </div>
-
-                                    <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">{{ .Lang "rgbOnTime" }}</span>
-                                        <label class="compact">
-                                            <input type="time"
-                                                   id="rgbOn"
-                                                   name="rgbOn"
-                                                   value="{{ .Scheduler.RGBOn }}"
-                                                   class="system-input system-time compact">
-                                        </label>
-                                    </div>
-
-                                    <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">{{ .Lang "txtLcdOffDuringDarkHours" }}</span>
-                                        <label class="system-toggle compact">
-                                            <input type="checkbox" id="lcdControl" {{ if .Scheduler.LCDControl }}checked{{end}}>
-                                            <span class="toggle-track"></span>
-                                        </label>
-                                    </div>
-                                    <!-- Save profile -->
-                                    <div class="settings-row">
-                                        <button class="system-button saveRgbControl">{{ .Lang "txtSave" }}</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Virtual Audio -->
-                        <div class="card system-card text-center">
-                            <div class="card-header">
-                                {{ .Lang "txtVirtualAudio" }}
-                            </div>
-                            <div class="card-body text-left">
-                                {{ if .SystemService }}
-                                <span class="settings-label text-warning">{{ .Lang "txtVirtualAudioUnavailable" }}</span>
-                                {{ else }}
-                                <div class="settings-list">
-                                    <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">{{ .Lang "txtEnable" }}</span>
-                                        <label class="system-toggle compact">
-                                            <input type="checkbox" id="virtualAudio" {{ if $audio.Enabled }}checked{{end}}>
-                                            <span class="toggle-track"></span>
-                                        </label>
-                                    </div>
-
-                                    {{ if $audio.Enabled }}
-                                    <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">{{ .Lang "txtOutputDevice" }}</span>
-                                        <label for="outputDevice">
-                                            <select id="outputDevice" class="form-select system-select max-width-300 compact outputDevice">
-                                                {{ range $k, $v := .OutputDevices }}
-                                                <option value="{{ $v.Name }};{{ $v.Desc }};{{ $v.Serial }}" {{ if eq $audio.SinkDesc $v.Desc }}selected{{end}}>{{ $v.Desc }}</option>
-                                                {{ end }}
-                                            </select>
-                                        </label>
-                                    </div>
-                                    {{ end }}
-
-                                    <!-- Enable virtual audio -->
-                                    <div class="settings-row">
-                                        <button class="system-button enableVirtualAudio">{{ .Lang "txtSave" }}</button>
-                                        {{ if $audio.Enabled }}
-                                        <button class="system-button setTargetDevice">{{ .Lang "txtSetTargetDevice" }}</button>
-                                        {{ end }}
-                                    </div>
-                                </div>
-                                {{ end }}
-                            </div>
-                        </div>
-
-                        <!-- Display -->
-                        <div class="card system-card text-center">
-                            <div class="card-header">
-                                {{ .Lang "txtDisplay" }}
-                            </div>
-                            <div class="card-body text-left">
-                                <div class="settings-list">
-                                    {{ range $key, $val := .Displays }}
-                                    <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">{{ $val.Index }}</span>
-                                        <div class="system-input text-input compact">
-                                            <label for="displayWidth_{{ $val.Index }}">
-                                                <input type="text" id="displayWidth_{{ $val.Index }}" class="displayWidth_{{ $val.Index }}" placeholder="Width" autocomplete="off" value="{{ $val.Width }}">
-                                            </label>
-                                        </div>
-                                        <div class="system-input text-input compact">
-                                            <label for="displayHeight_{{ $val.Index }}">
-                                                <input type="text" id="displayHeight_{{ $val.Index }}" class="displayHeight_{{ $val.Index }}" placeholder="Height" autocomplete="off" value="{{ $val.Height }}">
-                                            </label>
-                                        </div>
-                                        <label for="displayPosition_{{ $val.Index }}">
-                                            <select id="displayPosition_{{ $val.Index }}" class="form-select system-select auto-width compact displayPosition_{{ $val.Index }}">
-                                                <option value="0">None</option>
-                                                <option value="1" {{ if $val.Left }} selected {{ end }}>Left</option>
-                                                <option value="2" {{ if $val.Top }} selected {{ end }}>Top</option>
-                                            </select>
-                                        </label>
-                                        <button class="system-button updateDisplay" type="button" data-info="{{ $val.Index }}">{{ $save }}</button>
-                                    </div>
-                                    {{ end }}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="card system-card text-center">
-                        <div class="card-header">
-                            {{ .Lang "txtSupportedDevices" }}
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="dataTable compact" id="dataTable" style="width: 100%;">
-                                    <thead>
-                                    <tr>
-                                        <th>{{ .Lang "txtProductId" }}</th>
-                                        <th>{{ .Lang "txtProductName" }}</th>
-                                        <th>{{ .Lang "txtEnabled" }}</th>
-                                    </tr>
-                                    </thead>
-                                </table>
-                            </div><br />
-                            <div class="settings-list">
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis warning">{{ .Lang "txtServiceRestartRequired" }}</span>
-                                    <label class="system-toggle compact">
-                                        <button class="system-button" id="btnSaveSupportedDevices">{{ .Lang "txtSave" }}</button>
-                                    </label>
                                 </div>
                             </div>
                         </div>
