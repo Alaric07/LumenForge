@@ -10,7 +10,8 @@ func (r *ActiveRGB) Visor(startTime *time.Time) {
 	buf := map[int][]byte{}
 	elapsed := time.Since(*startTime).Milliseconds()
 
-	ledsPerSecond := 10.0 / r.RgbModeSpeed // tweak base speed here
+	baseSpeed := math.Max(35.0, float64(r.LightChannels)/4.0)
+	ledsPerSecond := baseSpeed / r.RgbModeSpeed
 
 	// Total distance for one sweep (forth+back)
 	cycleLength := float64((r.LightChannels - 1) * 2)
