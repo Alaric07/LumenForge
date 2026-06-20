@@ -2371,6 +2371,7 @@ func uiSettings(w http.ResponseWriter, _ *http.Request) {
 	web.RGBModes = []string{
 		"circle",
 		"circleshift",
+		"comet",
 		"colorpulse",
 		"colorshift",
 		"colorwarp",
