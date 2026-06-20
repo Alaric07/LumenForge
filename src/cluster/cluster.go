@@ -850,3 +850,15 @@ func (d *Device) MigrateDeviceOrderSerial(oldSerial, newSerial string) {
 		d.saveDeviceProfile()
 	}
 }
+
+// UpdateControllerProduct updates the Product name of a controller by serial
+func (d *Device) UpdateControllerProduct(serial string, product string) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	for _, c := range d.Controllers {
+		if c.Serial == serial {
+			c.Product = product
+			break
+		}
+	}
+}

@@ -323,6 +323,10 @@ type Device struct {
 	RGBModes            []string
 	queue               chan []byte
 	instance            *common.Device
+	clusterMutex        sync.Mutex
+	clusterColors       map[int][]byte
+	clusterExpected     []int
+	clusterReceived     map[int]bool
 }
 
 /*
@@ -406,6 +410,8 @@ func Init(vendorId, productId uint16, serial, path string) *common.Device {
 		timer:              &time.Ticker{},
 		lcdTimer:           &time.Ticker{},
 		timerSpeed:         &time.Ticker{},
+		clusterColors:      make(map[int][]byte),
+		clusterReceived:    make(map[int]bool),
 	}
 
 	// Generate maximum amount of LEDs port can hold
@@ -508,6 +514,19 @@ func (d *Device) GetRgbProfiles() interface{} {
 func (d *Device) Stop() {
 	d.Exit = true
 	logger.Log(logger.Fields{"serial": d.Serial, "product": d.Product}).Info("Stopping device...")
+
+	d.clusterMutex.Lock()
+	d.clusterExpected = nil
+	d.clusterColors = make(map[int][]byte)
+	d.clusterReceived = make(map[int]bool)
+	d.clusterMutex.Unlock()
+
+	for _, rgbDevice := range d.RgbDevices {
+		if rgbDevice != nil && rgbDevice.LedChannels > 0 {
+			cluster.Get().RemoveDeviceControllerBySerial(fmt.Sprintf("%s-port-%d", d.Serial, rgbDevice.ChannelId))
+		}
+	}
+
 	if d.activeRgb != nil {
 		d.activeRgb.Stop()
 	}
@@ -575,6 +594,19 @@ func (d *Device) Stop() {
 func (d *Device) StopDirty() uint8 {
 	d.Exit = true
 	logger.Log(logger.Fields{"serial": d.Serial, "product": d.Product}).Info("Stopping device...")
+
+	d.clusterMutex.Lock()
+	d.clusterExpected = nil
+	d.clusterColors = make(map[int][]byte)
+	d.clusterReceived = make(map[int]bool)
+	d.clusterMutex.Unlock()
+
+	for _, rgbDevice := range d.RgbDevices {
+		if rgbDevice != nil && rgbDevice.LedChannels > 0 {
+			cluster.Get().RemoveDeviceControllerBySerial(fmt.Sprintf("%s-port-%d", d.Serial, rgbDevice.ChannelId))
+		}
+	}
+
 	if d.activeRgb != nil {
 		d.activeRgb.Stop()
 	}
@@ -1001,18 +1033,41 @@ func (d *Device) setupClusterController() {
 		return
 	}
 
-	lightChannels := 0
-	for k := range d.RgbDevices {
-		lightChannels += int(d.RgbDevices[k].LedChannels)
-	}
-	clusterController := &common.ClusterController{
-		Product:      d.Product,
-		Serial:       d.Serial,
-		LedChannels:  uint32(lightChannels),
-		WriteColorEx: d.writeColorCluster,
-	}
+	d.clusterMutex.Lock()
+	d.clusterExpected = make([]int, 0)
+	d.clusterColors = make(map[int][]byte)
+	d.clusterReceived = make(map[int]bool)
 
-	cluster.Get().AddDeviceController(clusterController)
+	keys := make([]int, 0)
+	for k := range d.RgbDevices {
+		keys = append(keys, k)
+	}
+	sort.Ints(keys)
+
+	for _, k := range keys {
+		rgbDevice := d.RgbDevices[k]
+		if rgbDevice != nil && rgbDevice.LedChannels > 0 {
+			d.clusterExpected = append(d.clusterExpected, rgbDevice.ChannelId)
+
+			name := d.Product
+			if len(rgbDevice.Label) > 0 && rgbDevice.Label != "Set Label" {
+				name = fmt.Sprintf("%s - %s", d.Product, rgbDevice.Label)
+			} else {
+				name = fmt.Sprintf("%s - %s", d.Product, rgbDevice.Name)
+			}
+
+			clusterController := &common.ClusterController{
+				Product:      name,
+				Serial:       fmt.Sprintf("%s-port-%d", d.Serial, rgbDevice.ChannelId),
+				LedChannels:  uint32(rgbDevice.LedChannels),
+				WriteColorEx: d.writeColorCluster,
+				ChannelId:    rgbDevice.ChannelId,
+			}
+			cluster.Get().AddDeviceController(clusterController)
+		}
+	}
+	sort.Ints(d.clusterExpected)
+	d.clusterMutex.Unlock()
 }
 
 // setupOpenRGBController will create RGBController object for OpenRGB Client Integration
@@ -2317,6 +2372,16 @@ func (d *Device) UpdateRGBDeviceLabel(channelId int, label string) uint8 {
 
 	d.RgbDevices[channelId].Label = label
 	d.saveDeviceProfile()
+
+	serial := fmt.Sprintf("%s-port-%d", d.Serial, channelId)
+	productName := d.Product
+	if len(label) > 0 && label != "Set Label" {
+		productName = fmt.Sprintf("%s - %s", d.Product, label)
+	} else {
+		productName = fmt.Sprintf("%s - %s", d.Product, d.RgbDevices[channelId].Name)
+	}
+	cluster.Get().UpdateControllerProduct(serial, productName)
+
 	return 1
 }
 
@@ -3015,15 +3080,19 @@ func (d *Device) ProcessSetRgbCluster(enabled bool) uint8 {
 	d.setDeviceColor()
 
 	if enabled {
-		clusterController := &common.ClusterController{
-			Product:      d.Product,
-			Serial:       d.Serial,
-			LedChannels:  uint32(lightChannels),
-			WriteColorEx: d.writeColorCluster,
-		}
-		cluster.Get().AddDeviceController(clusterController)
+		d.setupClusterController()
 	} else {
-		cluster.Get().RemoveDeviceControllerBySerial(d.Serial)
+		d.clusterMutex.Lock()
+		d.clusterExpected = nil
+		d.clusterColors = make(map[int][]byte)
+		d.clusterReceived = make(map[int]bool)
+		d.clusterMutex.Unlock()
+
+		for _, rgbDevice := range d.RgbDevices {
+			if rgbDevice != nil && rgbDevice.LedChannels > 0 {
+				cluster.Get().RemoveDeviceControllerBySerial(fmt.Sprintf("%s-port-%d", d.Serial, rgbDevice.ChannelId))
+			}
+		}
 	}
 	return 1
 }
@@ -3499,12 +3568,8 @@ func (d *Device) writeColorEx(data []byte, _ int) {
 	}
 }
 
-// writeColorCluster will write data to the device from cluster client
-func (d *Device) writeColorCluster(data []byte, _ int) {
-	if !d.DeviceProfile.RGBCluster {
-		return
-	}
-
+// writePhysicalColorCluster will write the assembled color buffer to the device
+func (d *Device) writePhysicalColorCluster(data []byte) {
 	d.deviceLock.Lock()
 	defer d.deviceLock.Unlock()
 
@@ -3530,6 +3595,85 @@ func (d *Device) writeColorCluster(data []byte, _ int) {
 				logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to write to endpoint")
 			}
 		}
+	}
+}
+
+// writeColorCluster will write data to the device from cluster client
+func (d *Device) writeColorCluster(data []byte, channelId int) {
+	if d.DeviceProfile == nil || !d.DeviceProfile.RGBCluster {
+		return
+	}
+
+	d.clusterMutex.Lock()
+	if d.Exit {
+		d.clusterMutex.Unlock()
+		return
+	}
+
+	// Defensive check: is this channelId expected?
+	expected := false
+	for _, id := range d.clusterExpected {
+		if id == channelId {
+			expected = true
+			break
+		}
+	}
+	if !expected {
+		d.clusterMutex.Unlock()
+		return
+	}
+
+	// Validate data length matches LedChannels * 3
+	var expectedLeds int
+	for _, dev := range d.RgbDevices {
+		if dev != nil && dev.ChannelId == channelId {
+			expectedLeds = int(dev.LedChannels)
+			break
+		}
+	}
+	if len(data) != expectedLeds*3 {
+		logger.Log(logger.Fields{"serial": d.Serial, "channelId": channelId, "len": len(data), "expected": expectedLeds * 3}).Warn("Data length mismatch in cluster write, adjusting or skipping")
+		if len(data) > expectedLeds*3 {
+			data = data[:expectedLeds*3]
+		} else {
+			padded := make([]byte, expectedLeds*3)
+			copy(padded, data)
+			data = padded
+		}
+	}
+
+	// Copy data to stage buffer
+	copied := make([]byte, len(data))
+	copy(copied, data)
+	d.clusterColors[channelId] = copied
+	d.clusterReceived[channelId] = true
+
+	// Check if all expected channels have written
+	allReceived := true
+	for _, id := range d.clusterExpected {
+		if !d.clusterReceived[id] {
+			allReceived = false
+			break
+		}
+	}
+
+	var assembled []byte
+	if allReceived {
+		// Assemble unified buffer in order of physical channel IDs (sorted)
+		assembled = make([]byte, 0)
+		for _, id := range d.clusterExpected {
+			assembled = append(assembled, d.clusterColors[id]...)
+		}
+
+		// Clear received/staging state for the next batch
+		d.clusterReceived = make(map[int]bool)
+		d.clusterColors = make(map[int][]byte)
+	}
+	d.clusterMutex.Unlock()
+
+	if len(assembled) > 0 {
+		// Perform physical write
+		d.writePhysicalColorCluster(assembled)
 	}
 }
 
