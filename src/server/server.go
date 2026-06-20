@@ -2379,6 +2379,7 @@ func uiSettings(w http.ResponseWriter, _ *http.Request) {
 		"flickering",
 		"gpu-temperature",
 		"off",
+		"plasmacore",
 		"rainbow",
 		"pastelrainbow",
 		"rotator",
