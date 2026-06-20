@@ -6,63 +6,110 @@
     <!-- Top -->
     <button class="system-button secondary mb-3" id="sidebarToggle">☰</button>
     <div>
-        {{ $menu := .Slice
-        ( .Dict "page" "lcd" "url" "/lcd" "icon" "icon-lcd.svg" "alt" "LCD" "lang" "txtLcd" )
-        ( .Dict "page" "macros" "url" "/macros" "icon" "icon-macro.svg" "alt" "Macros" "lang" "txtMacros" )
-        ( .Dict "page" "rgbCluster" "url" "/rgbCluster" "icon" "icon-cluster.svg" "alt" "RGB Cluster" "lang" "txtRgbCluster" )
-        ( .Dict "page" "rgb" "url" "/rgb" "icon" "icon-rgb.svg" "alt" "RGB Editor" "lang" "txtRgbEditor" )
-        ( .Dict "page" "temperature" "url" "/temperature" "icon" "icon-temperature.svg" "alt" "Temperature Profiles" "lang" "txtProfiles" )
-        ( .Dict "page" "settings" "url" "/settings" "icon" "icon-settings.svg" "alt" "Settings" "lang" "txtSettings" )
-        }}
         <div class="sidebar-brand mb-4">
             <img src="/static/img/lumenforge-main.png" alt="LumenForge" class="sidebar-brand-icon">
             <h6 class="sidebar-brand-title">{{ .Title }}</h6>
         </div>
-        <nav class="nav flex-column sidebar-nav">
-            <!-- Dashboard -->
+        
+        <!-- Standalone Dashboard Link -->
+        <nav class="nav flex-column sidebar-nav mb-3">
             <a class='nav-link {{ if eq .Page "index" }}active{{ end }}' href="/" data-label="{{ .Lang "txtDashboard" }}">
-            <img src="/static/img/icons/icon-dashboard.svg" class="sidebar-icon" alt="">
-            {{ .Lang "txtDashboard" }}
+                <img src="/static/img/icons/icon-dashboard.svg" class="sidebar-icon" alt="">
+                <span class="sidebar-text">{{ .Lang "txtDashboard" }}</span>
             </a>
-
-            <!-- Devices -->
-            {{ range .Devices }}
-            {{ if eq .Hidden true }}
-            {{ continue }}
-            {{ end }}
-            <a class="nav-link {{ if eq $dev.Serial .Serial }}active{{ end }}" href="/device/{{ .Serial }}" data-label="{{ .Product }}">
-                <img src="/static/img/icons/{{ .Image }}" alt="{{ .Product }}" class="sidebar-icon">
-                <span class="sidebar-text">{{ .Product }}</span>
-                
-                <!-- Add a battery on each device for easy parsing later on. It's invisible by default -->
-                <span class="battery battery-full" title="Battery 92%" id="batteryLevel_{{ .Serial }}">
-                  <svg viewBox="0 0 24 12" class="battery-icon">
-                    <rect x="1" y="1" width="20" height="10" rx="2" ry="2" />
-                    <rect x="21" y="4" width="2" height="4" rx="1" />
-                    <rect class="battery-level" x="3" y="3" width="16" height="6" />
-                  </svg>
-                </span>
-            </a>
-            {{ end }}
         </nav>
+
+        <!-- Collapsible Lighting Section -->
+        {{ $isLightingActive := or (eq .Page "rgbCluster") (eq .Page "rgb") }}
+        <div class="sidebar-section">
+            <div class="nav-link sidebar-section-toggle {{ if $isLightingActive }}sidebar-section-expanded active-parent{{ else }}sidebar-section-collapsed{{ end }}" data-section="lighting" data-label="Lighting">
+                <img src="/static/img/icons/icon-rgb.svg" class="sidebar-icon" alt="">
+                <span class="sidebar-text">Lighting</span>
+                <i class="bi bi-chevron-down section-chevron ms-auto"></i>
+            </div>
+            <div class="sidebar-section-content {{ if $isLightingActive }}show{{ end }}" id="section-lighting" data-active="{{ if $isLightingActive }}true{{ else }}false{{ end }}">
+                <nav class="nav flex-column sidebar-nav ps-3 pt-1 pb-1">
+                    <a class="nav-link {{ if eq .Page "rgbCluster" }}active{{ end }}" href="/rgbCluster" data-label="{{ .Lang "txtRgbCluster" }}">
+                        <img src="/static/img/icons/icon-cluster.svg" class="sidebar-icon" alt="">
+                        <span class="sidebar-text">{{ .Lang "txtRgbCluster" }}</span>
+                    </a>
+                    <a class="nav-link {{ if eq .Page "rgb" }}active{{ end }}" href="/rgb" data-label="{{ .Lang "txtRgbEditor" }}">
+                        <img src="/static/img/icons/icon-rgb.svg" class="sidebar-icon" alt="">
+                        <span class="sidebar-text">{{ .Lang "txtRgbEditor" }}</span>
+                    </a>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Collapsible Devices Section -->
+        {{ $isDeviceActive := and (not (eq $dev nil)) (not (eq $dev.Serial "cluster")) }}
+        <div class="sidebar-section">
+            <div class="nav-link sidebar-section-toggle {{ if $isDeviceActive }}sidebar-section-expanded active-parent{{ else }}sidebar-section-collapsed{{ end }}" data-section="devices" data-label="Devices">
+                <img src="/static/img/icons/icon-device.svg" class="sidebar-icon" alt="">
+                <span class="sidebar-text">Devices</span>
+                <i class="bi bi-chevron-down section-chevron ms-auto"></i>
+            </div>
+            <div class="sidebar-section-content {{ if $isDeviceActive }}show{{ end }}" id="section-devices" data-active="{{ if $isDeviceActive }}true{{ else }}false{{ end }}">
+                <nav class="nav flex-column sidebar-nav ps-3 pt-1 pb-1">
+                    {{ range .Devices }}
+                    {{ if eq .Hidden true }}
+                    {{ continue }}
+                    {{ end }}
+                    <a class="nav-link {{ if and (not (eq $dev nil)) (eq $dev.Serial .Serial) }}active{{ end }}" href="/device/{{ .Serial }}" data-label="{{ .Product }}">
+                        <img src="/static/img/icons/{{ .Image }}" alt="{{ .Product }}" class="sidebar-icon">
+                        <span class="sidebar-text">{{ .Product }}</span>
+                        <!-- Battery indicator -->
+                        <span class="battery battery-full" title="Battery 92%" id="batteryLevel_{{ .Serial }}">
+                          <svg viewBox="0 0 24 12" class="battery-icon">
+                            <rect x="1" y="1" width="20" height="10" rx="2" ry="2" />
+                            <rect x="21" y="4" width="2" height="4" rx="1" />
+                            <rect class="battery-level" x="3" y="3" width="16" height="6" />
+                          </svg>
+                        </span>
+                    </a>
+                    {{ end }}
+                </nav>
+            </div>
+        </div>
+
+        <!-- Collapsible System Section -->
+        {{ $isSystemActive := or (eq .Page "lcd") (eq .Page "macros") (eq .Page "temperature") (eq .Page "settings") }}
+        <div class="sidebar-section">
+            <div class="nav-link sidebar-section-toggle {{ if $isSystemActive }}sidebar-section-expanded active-parent{{ else }}sidebar-section-collapsed{{ end }}" data-section="system" data-label="System">
+                <img src="/static/img/icons/icon-settings.svg" class="sidebar-icon" alt="">
+                <span class="sidebar-text">System</span>
+                <i class="bi bi-chevron-down section-chevron ms-auto"></i>
+            </div>
+            <div class="sidebar-section-content {{ if $isSystemActive }}show{{ end }}" id="section-system" data-active="{{ if $isSystemActive }}true{{ else }}false{{ end }}">
+                <nav class="nav flex-column sidebar-nav ps-3 pt-1 pb-1">
+                    <a class="nav-link {{ if eq .Page "lcd" }}active{{ end }}" href="/lcd" data-label="{{ .Lang "txtLcd" }}">
+                        <img src="/static/img/icons/icon-lcd.svg" class="sidebar-icon" alt="">
+                        <span class="sidebar-text">{{ .Lang "txtLcd" }}</span>
+                    </a>
+                    <a class="nav-link {{ if eq .Page "macros" }}active{{ end }}" href="/macros" data-label="{{ .Lang "txtMacros" }}">
+                        <img src="/static/img/icons/icon-macro.svg" class="sidebar-icon" alt="">
+                        <span class="sidebar-text">{{ .Lang "txtMacros" }}</span>
+                    </a>
+                    <a class="nav-link {{ if eq .Page "temperature" }}active{{ end }}" href="/temperature" data-label="{{ .Lang "txtProfiles" }}">
+                        <img src="/static/img/icons/icon-temperature.svg" class="sidebar-icon" alt="">
+                        <span class="sidebar-text">{{ .Lang "txtProfiles" }}</span>
+                    </a>
+                    <a class="nav-link {{ if eq .Page "settings" }}active{{ end }}" href="/settings" data-label="{{ .Lang "txtSettings" }}">
+                        <img src="/static/img/icons/icon-settings.svg" class="sidebar-icon" alt="">
+                        <span class="sidebar-text">{{ .Lang "txtSettings" }}</span>
+                    </a>
+                </nav>
+            </div>
+        </div>
     </div>
 
-    <!-- Bottom -->
+    <!-- Bottom Meta -->
     <div class="mt-auto">
-        <div class="divider"></div>
-        <nav class="nav flex-column sidebar-nav">
-            <!-- Bottom Links -->
-            {{ range $menu }}
-            <a class="nav-link {{ if eq $.Page .page }}active{{ end }}" href="{{ .url }}" data-label="{{ $.Lang .lang }}" >
-                <img src="/static/img/icons/{{ .icon }}" class="sidebar-icon" alt="{{ .alt }}">
-                {{ $.Lang .lang }}
-            </a>
-            {{ end }}
-
-            <!-- GitHub Page -->
+        <!-- GitHub Link in footer -->
+        <nav class="nav flex-column sidebar-nav mb-3">
             <a class="nav-link" href="https://github.com/Alaric07/LumenForge" target="_blank" data-label="GitHub">
                 <img src="/static/img/icons/icon-github.svg" class="sidebar-icon" alt="">
-                GitHub
+                <span class="sidebar-text">GitHub</span>
             </a>
         </nav>
         <div class="divider"></div>

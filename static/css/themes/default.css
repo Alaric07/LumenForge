@@ -3345,3 +3345,75 @@ table.dataTable.compact tbody td {
         padding: 56px;
     }
 }
+
+/* Sidebar section styling for grouped/collapsible navigation */
+.sidebar-section {
+    margin-bottom: 6px;
+}
+
+.sidebar-section-toggle {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.sidebar-section-toggle .sidebar-icon {
+    flex: 0 0 auto;
+}
+
+.sidebar-section-toggle .sidebar-text {
+    flex: 1 1 auto;
+}
+
+.sidebar-section-toggle .section-chevron {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease;
+    transform-origin: center;
+    font-size: 12px;
+}
+
+.sidebar-section-toggle.sidebar-section-collapsed .section-chevron {
+    transform: rotate(-90deg);
+}
+
+.sidebar-section-toggle.sidebar-section-expanded .section-chevron {
+    transform: rotate(0deg);
+}
+
+/* Active parent state when a child page is selected */
+.sidebar .nav-link.active-parent {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.sidebar .nav-link.active-parent .sidebar-icon {
+    opacity: 1;
+    filter: brightness(1.15);
+}
+
+/* Custom non-bootstrap collapsible container styling */
+.sidebar-section-content {
+    display: none;
+}
+
+.sidebar-section-content.show {
+    display: block;
+}
+
+/* Collapsed sidebar visibility overrides */
+.sidebar.collapsed .sidebar-section-toggle .section-chevron {
+    display: none !important;
+}
+
+.sidebar.collapsed .sidebar-section-content {
+    display: block !important;
+}
+
+.sidebar.collapsed .sidebar-section-content nav {
+    padding-left: 0 !important;
+}

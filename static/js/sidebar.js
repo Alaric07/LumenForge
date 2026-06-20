@@ -79,4 +79,51 @@ $(document).ready(function () {
             }
         });
     });
+
+    // Sidebar section collapse handling
+    $('.sidebar-section-toggle').on('click', function () {
+        const section = $(this).attr('data-section');
+        const $content = $('#section-' + section);
+        const isExpanded = $content.hasClass('show');
+
+        if (isExpanded) {
+            $content.slideUp(200, function() {
+                $content.removeClass('show');
+            });
+            $(this).removeClass('sidebar-section-expanded').addClass('sidebar-section-collapsed');
+            localStorage.setItem('lumenforge-sidebar-expanded-' + section, 'false');
+        } else {
+            $content.addClass('show').hide().slideDown(200);
+            $(this).removeClass('sidebar-section-collapsed').addClass('sidebar-section-expanded');
+            localStorage.setItem('lumenforge-sidebar-expanded-' + section, 'true');
+        }
+    });
+
+    // Initialize states from localStorage on load
+    $('.sidebar-section-content').each(function () {
+        const id = $(this).attr('id');
+        const section = id.replace('section-', '');
+        const isActive = $(this).attr('data-active') === 'true';
+        const $toggle = $(`.sidebar-section-toggle[data-section="${section}"]`);
+
+        if (isActive) {
+            // Active page state overrides localStorage: must open
+            $(this).addClass('show').show();
+            $toggle.removeClass('sidebar-section-collapsed').addClass('sidebar-section-expanded');
+        } else {
+            // Not active, read from localStorage
+            const state = localStorage.getItem('lumenforge-sidebar-expanded-' + section);
+            if (state === 'false') {
+                $(this).removeClass('show').hide();
+                $toggle.removeClass('sidebar-section-expanded').addClass('sidebar-section-collapsed');
+            } else if (state === 'true') {
+                $(this).addClass('show').show();
+                $toggle.removeClass('sidebar-section-collapsed').addClass('sidebar-section-expanded');
+            } else {
+                // Default fallback if no localStorage is set (collapse non-active sections)
+                $(this).removeClass('show').hide();
+                $toggle.removeClass('sidebar-section-expanded').addClass('sidebar-section-collapsed');
+            }
+        }
+    });
 });
