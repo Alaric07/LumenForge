@@ -18,19 +18,21 @@
             {{ template "temperature-bar" . }}
             {{ end }}
 
-            <!-- LCD -->
-            <div class="row g-4 mb-4 align-items-start">
-                <!-- Upload -->
-                {{ template "lcd-upload" . }}
+            <div class="page-centered-wrapper">
+                <!-- LCD -->
+                <div class="row g-4 mb-4 align-items-start">
+                    <!-- Upload -->
+                    {{ template "lcd-upload" . }}
 
-                <!-- Arc -->
-                {{ template "lcd-arc" . }}
+                    <!-- Arc -->
+                    {{ template "lcd-arc" . }}
 
-                <!-- Double Arc -->
-                {{ template "lcd-doublearc" . }}
+                    <!-- Double Arc -->
+                    {{ template "lcd-doublearc" . }}
 
-                <!-- Animation -->
-                {{ template "lcd-animation" . }}
+                    <!-- Animation -->
+                    {{ template "lcd-animation" . }}
+                </div>
             </div>
         </main>
     </div>

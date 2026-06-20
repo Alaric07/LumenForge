@@ -184,91 +184,97 @@
             </div>
 
             <!-- Temperature Profiles -->
-            <div class="row g-4 mb-4 align-items-start">
-                <div class="col-md-2">
-                    <div class="card system-card margin-top-20-all newTemp" data-bs-toggle="modal" data-bs-target="#newTempModal">
-                        <div class="card-header">
-                            {{ .Lang "txtNewProfile" }}
+            <div class="page-centered-wrapper">
+                <div class="row g-4 mb-4 align-items-start">
+                    <div class="col-lg-4 col-md-5 col-12">
+                        <div class="card system-card margin-top-20-all newTemp" data-bs-toggle="modal" data-bs-target="#newTempModal">
+                            <div class="card-header">
+                                {{ .Lang "txtNewProfile" }}
+                            </div>
+                            <div class="card-body">
+                                {{ .Lang "txtCreateNewProfile" }}
+                            </div>
                         </div>
-                        <div class="card-body">
-                            {{ .Lang "txtCreateNewProfile" }}
-                        </div>
-                    </div>
 
-                    {{ range $key, $value := .Temperatures }}
-                    {{ if eq $value.Hidden true }}
-                    {{ continue }}
-                    {{ else if eq $key "Normal" }}
-                    {{ continue }}
-                    {{ else if eq $key "Performance" }}
-                    {{ continue }}
-                    {{ else if eq $key "Quiet" }}
-                    {{ continue }}
-                    {{ else }}
+                        {{ range $key, $value := .Temperatures }}
+                        {{ if eq $value.Hidden true }}
+                        {{ continue }}
+                        {{ else if eq $key "Normal" }}
+                        {{ continue }}
+                        {{ else if eq $key "Performance" }}
+                        {{ continue }}
+                        {{ else if eq $key "Quiet" }}
+                        {{ continue }}
+                        {{ else }}
 
-                    <div class="card system-card margin-top-20-all tempProfiles" id="{{ $key }}">
-                        <div class="card-header">
-                            {{ $key }}
-                        </div>
-                        <div class="card-body">
-                            <div class="settings-list">
-                                <!-- Profile points -->
-                                <!--<div class="settings-row">
-                                    <span class="settings-label text-ellipsis">{{ $root.Lang "txtModes" }}</span>
-                                    <span class="settings-label">{{ len $value.Profiles }}</span>
-                                </div>-->
+                        <div class="card system-card margin-top-20-all tempProfiles" id="{{ $key }}">
+                            <div class="card-header">
+                                {{ $key }}
+                            </div>
+                            <div class="card-body">
+                                <div class="settings-list">
+                                    <!-- Profile points -->
+                                    <!--<div class="settings-row">
+                                        <span class="settings-label text-ellipsis">{{ $root.Lang "txtModes" }}</span>
+                                        <span class="settings-label">{{ len $value.Profiles }}</span>
+                                    </div>-->
 
-                                <!-- Sensor -->
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">{{ $root.Lang "txtSensor" }}</span>
-                                    <span class="settings-label">{{ $value.SensorString }}</span>
-                                </div>
-                                
-                                <!-- Zero RPM -->
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">{{ $root.Lang "txtZeroRpm" }}</span>
-                                    <span class="settings-label">{{ if $value.ZeroRpm }}Enabled{{ else }}Disabled{{ end }}</span>
-                                </div>
+                                    <!-- Sensor -->
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">{{ $root.Lang "txtSensor" }}</span>
+                                        <span class="settings-label">{{ $value.SensorString }}</span>
+                                    </div>
+                                    
+                                    <!-- Zero RPM -->
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">{{ $root.Lang "txtZeroRpm" }}</span>
+                                        <span class="settings-label">{{ if $value.ZeroRpm }}Enabled{{ else }}Disabled{{ end }}</span>
+                                    </div>
 
-                                <!-- Delete profile -->
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">{{ $root.Lang "txtDeleteProfile" }}</span>
-                                    <span class="settings-label">
-                                        <span title="Delete Profile"
-                                              class="system-button danger delete-speed-profile"
-                                              data-bs-toggle="modal"
-                                              data-bs-target="#deleteTempModal"
-                                              data-info="{{ $key }}">
-                                            <i class="bi bi-trash svg-icon svg-icon-sm svg-icon-heavy"></i>
+                                    <!-- Delete profile -->
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">{{ $root.Lang "txtDeleteProfile" }}</span>
+                                        <span class="settings-label">
+                                            <span title="Delete Profile"
+                                                  class="system-button danger delete-speed-profile"
+                                                  data-bs-toggle="modal"
+                                                  data-bs-target="#deleteTempModal"
+                                                  data-info="{{ $key }}">
+                                                <i class="bi bi-trash svg-icon svg-icon-sm svg-icon-heavy"></i>
+                                            </span>
                                         </span>
-                                    </span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                        {{ end }}
+                        {{ end }}
                     </div>
-                    {{ end }}
-                    {{ end }}
-                </div>
-                <div class="col-md-5 temp-graph-container graph-window">
-                    <div class="card system-card">
-                        <div class="card-body">
-                            <div class="temp-graph-canvas-container">
-                                <div style="flex: 1;">
-                                    <canvas id="graphPump" class="temp-graph-canvas"></canvas>
-                                    <button class="system-button btn-secondary" type="button" id="updatePump">{{ .Lang "txtSave" }}</button>
+                    <div class="col-lg-8 col-md-7 col-12">
+                        <div class="row g-4">
+                            <div class="col-xl-6 col-12 temp-graph-container graph-window">
+                                <div class="card system-card">
+                                    <div class="card-body">
+                                        <div class="temp-graph-canvas-container">
+                                            <div style="flex: 1;">
+                                                <canvas id="graphPump" class="temp-graph-canvas"></canvas>
+                                                <button class="system-button btn-secondary" type="button" id="updatePump">{{ .Lang "txtSave" }}</button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="col-md-5 temp-graph-container graph-window">
-                    <div class="card system-card">
-                        <div class="card-body">
-                            <div class="temp-graph-canvas-container">
-                                <div style="flex: 1;">
-                                    <canvas id="graphFans" class="temp-graph-canvas"></canvas>
-                                    <button class="system-button btn-secondary" type="button" id="updateFans">{{ .Lang "txtSave" }}</button>
+                            <div class="col-xl-6 col-12 temp-graph-container graph-window">
+                                <div class="card system-card">
+                                    <div class="card-body">
+                                        <div class="temp-graph-canvas-container">
+                                            <div style="flex: 1;">
+                                                <canvas id="graphFans" class="temp-graph-canvas"></canvas>
+                                                <button class="system-button btn-secondary" type="button" id="updateFans">{{ .Lang "txtSave" }}</button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
