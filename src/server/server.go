@@ -2372,6 +2372,7 @@ func uiSettings(w http.ResponseWriter, _ *http.Request) {
 		"circle",
 		"circleshift",
 		"comet",
+		"datastream",
 		"colorpulse",
 		"colorshift",
 		"colorwarp",

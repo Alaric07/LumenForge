@@ -675,6 +675,24 @@
         "brightness": 1.0
       },
       "speed": 2
+    },
+    "datastream": {
+      "profileName": "Data Stream",
+      "alternateColors": false,
+      "brightness": 1,
+      "start": {
+        "red": 0,
+        "green": 255,
+        "blue": 180,
+        "brightness": 1.0
+      },
+      "end": {
+        "red": 0,
+        "green": 0,
+        "blue": 255,
+        "brightness": 1.0
+      },
+      "speed": 2
     }
   }
 }
