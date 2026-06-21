@@ -7,6 +7,7 @@ package server
 import (
 	"LumenForge/src/audio"
 	"LumenForge/src/backup"
+	"LumenForge/src/cluster"
 	"LumenForge/src/common"
 	"LumenForge/src/config"
 	"LumenForge/src/dashboard"
@@ -1408,6 +1409,60 @@ func getDashboardSettings(w http.ResponseWriter, _ *http.Request) {
 	resp.Send(w)
 }
 
+// getDashboardLighting will get dashboard lighting status
+func getDashboardLighting(w http.ResponseWriter, _ *http.Request) {
+	type lightingResponse struct {
+		Effect               string `json:"effect"`
+		Brightness           int    `json:"brightness"`
+		ClusterMembers       int    `json:"clusterMembers"`
+		NonClusterRgbDevices int    `json:"nonClusterRgbDevices"`
+	}
+
+	cl := cluster.Get()
+	effect := "off"
+	brightness := 0
+	clusterMembers := 0
+
+	if cl != nil {
+		if cl.DeviceProfile != nil {
+			effect = cl.DeviceProfile.RGBProfile
+			if cl.DeviceProfile.BrightnessSlider != nil {
+				brightness = int(*cl.DeviceProfile.BrightnessSlider)
+			}
+		}
+		clusterMembers = len(cl.Controllers)
+	}
+	if effect == "" {
+		effect = "off"
+	}
+
+	nonClusterCount := 0
+	for _, dev := range devices.GetDevices() {
+		if dev.Serial == "cluster" {
+			continue
+		}
+		if devices.CallDeviceMethod(dev.Serial, "GetRgbProfiles") != nil && !devices.GetDeviceClusterStatus(dev.Serial) {
+			nonClusterCount++
+		}
+	}
+
+	res := lightingResponse{
+		Effect:               effect,
+		Brightness:           brightness,
+		ClusterMembers:       clusterMembers,
+		NonClusterRgbDevices: nonClusterCount,
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	data, err := json.Marshal(res)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	_, _ = w.Write(data)
+}
+
 // getDashboardDevices will get dashboard devices
 func getDashboardDevices(w http.ResponseWriter, _ *http.Request) {
 	resp := &Response{
@@ -2780,6 +2835,7 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/macro/", http.MethodGet, getMacro)
 	handleFunc(r, "/api/macro/keyInfo/", http.MethodGet, getKeyName)
 	handleFunc(r, "/api/dashboard", http.MethodGet, getDashboardSettings)
+	handleFunc(r, "/api/dashboard/lighting", http.MethodGet, getDashboardLighting)
 	handleFunc(r, "/api/dashboard/devices/get", http.MethodGet, getDashboardDevices)
 	handleFunc(r, "/api/keyboard/assignmentsTypes/", http.MethodGet, getKeyAssignmentTypes)
 	handleFunc(r, "/api/keyboard/assignmentsModifiers/", http.MethodGet, getKeyAssignmentModifiers)

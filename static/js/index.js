@@ -35,12 +35,32 @@ $(document).ready(function () {
 
     let showLabels = false;
 
+    function updateLightingStatus() {
+        if ($("#lighting-cluster-effect").length === 0) return;
+        $.ajax({
+            url: '/api/dashboard/lighting',
+            type: 'GET',
+            dataType: 'json',
+            success: function (data) {
+                $("#lighting-cluster-effect").text(data.effect || 'off');
+                $("#lighting-cluster-members").text(data.clusterMembers || 0);
+                $("#lighting-non-cluster").text(data.nonClusterRgbDevices || 0);
+                $("#lighting-brightness").text((data.brightness ?? 0) + '%');
+            },
+            error: function (err) {
+                console.error("Failed to fetch lighting status:", err);
+            }
+        });
+    }
+
     function loadDevices() {
         const devicePlaceholder = $(".device-placeholder");
         devicePlaceholder.removeClass("ready").empty();
 
         const devicePlaceholder2 = $("#system-cards-add");
         devicePlaceholder2.removeClass("ready");
+
+        updateLightingStatus();
 
         $.ajax({
             url: '/api/dashboard/devices/get',
@@ -52,42 +72,46 @@ $(document).ready(function () {
                 let completed = 0;
                 const total = response.devices.length;
 
-                $.each(response.devices, function (index, value) {
-                    $.ajax({
-                        url: '/api/devices/' + value,
-                        type: 'GET',
-                        success: function (dev) {
-                            if (dev.device) {
-                                results[index] = renderDevice(dev);
-                            }
-                            completed++;
-
-                            if (completed === total) {
-                                let finalHtml = "";
-                                let openRgbBuffer = "";
-
-                                results.forEach(res => {
-                                    if (!res) return;
-                                    if (typeof res === "string") {
-                                        if (openRgbBuffer !== "") {
-                                            finalHtml += `<div class="row g-4 mb-4 align-items-start">` + openRgbBuffer + `</div>`;
-                                            openRgbBuffer = "";
-                                        }
-                                        finalHtml += res;
-                                    } else if (res.isOpenRGB) {
-                                        openRgbBuffer += res.html;
-                                    }
-                                });
-                                if (openRgbBuffer !== "") {
-                                    finalHtml += `<div class="row g-4 mb-4 align-items-start">` + openRgbBuffer + `</div>`;
+                if (total === 0) {
+                    devicePlaceholder.addClass("ready");
+                } else {
+                    $.each(response.devices, function (index, value) {
+                        $.ajax({
+                            url: '/api/devices/' + value,
+                            type: 'GET',
+                            success: function (dev) {
+                                if (dev.device) {
+                                    results[index] = renderDevice(dev);
                                 }
+                                completed++;
 
-                                devicePlaceholder.append(finalHtml);
-                                devicePlaceholder.addClass("ready");
+                                if (completed === total) {
+                                    let finalHtml = "";
+                                    let openRgbBuffer = "";
+
+                                    results.forEach(res => {
+                                        if (!res) return;
+                                        if (typeof res === "string") {
+                                            if (openRgbBuffer !== "") {
+                                                finalHtml += `<div class="row g-4 mb-4 align-items-start">` + openRgbBuffer + `</div>`;
+                                                openRgbBuffer = "";
+                                            }
+                                            finalHtml += res;
+                                        } else if (res.isOpenRGB) {
+                                            openRgbBuffer += res.html;
+                                        }
+                                    });
+                                    if (openRgbBuffer !== "") {
+                                        finalHtml += `<div class="row g-4 mb-4 align-items-start">` + openRgbBuffer + `</div>`;
+                                    }
+
+                                    devicePlaceholder.append(finalHtml);
+                                    devicePlaceholder.addClass("ready");
+                                }
                             }
-                        }
+                        });
                     });
-                });
+                }
                 devicePlaceholder2.addClass("ready");
             }
         });
@@ -396,6 +420,7 @@ $(document).ready(function () {
 
     function autoRefresh() {
         setInterval(function(){
+            updateLightingStatus();
             $.ajax({
                 url:'/api/devices/',
                 type:'get',

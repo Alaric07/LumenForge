@@ -20,51 +20,87 @@
             {{ end }}
 
             <!-- Dashboard -->
-            <div class="row align-items-start">
-                <!-- Device placeholder -->
-                <div id="system-cards" class="device-placeholder"></div>
-
-                <!-- Add new device -->
-                <div id="system-cards-add" class="col-md-2">
-                    <div class="card system-card text-center">
+            <!-- Dashboard Utility Section -->
+            <div class="row g-4 mb-4 align-items-start" id="dashboard-utility-row">
+                <!-- Dashboard Overview Card -->
+                <div class="col-md-3" id="dashboard-overview-card">
+                    <div class="card system-card">
+                        <div class="card-header header-split">
+                            <span class="header-left">{{ .Lang "txtDashboardOverview" }}</span>
+                            <span class="header-right"></span>
+                        </div>
                         <div class="card-body">
-                            <div class="add-device-widget">
-                                <div class="add-device-icon">
-                                    <i class="bi bi-plus-lg"></i>
+                            <!-- Section 1: Lighting Status -->
+                            <div class="mb-3">
+                                <div class="fw-bold mb-2" style="font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted);">
+                                    {{ .Lang "txtLightingStatus" }}
                                 </div>
-                                <div class="add-device-title">
-                                    {{ $root.Lang "txtAddDeviceToDashboard" }}
-                                </div>
-                                <label class="add-device-select">
-                                    <select class="system-select" id="dashboardDeviceSelect">
-                                        <option selected disabled>{{ $root.Lang "txtSelectDevice" }}</option>
-                                        {{ range .Devices }}
-                                        {{ if eq .Hidden true }}
-                                        {{ continue }}
-                                        {{ end }}
-
-                                        {{ if .GetDevice }}
-                                        <option value="{{ .Serial }}">{{ .Product }}</option>
-                                        {{ end }}
-                                        {{ end }}
-                                    </select>
-                                </label>
-                                <label class="full-width">
-                                    <div class="settings-list">
-                                        <div class="settings-row">
-                                            <button class="system-button btn-accent add-device-btn addDeviceToDashboard" id="addDeviceToDashboard">
-                                                {{ $root.Lang "txtSave" }}
-                                            </button>
-                                            <button class="system-button danger add-device-btn deleteDeviceFromDashboard" id="deleteDeviceFromDashboard">
-                                                {{ $root.Lang "txtDelete" }}
-                                            </button>
-                                        </div>
+                                <div class="settings-list">
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">{{ .Lang "txtClusterEffect" }}</span>
+                                        <span class="meta-value text-capitalize" id="lighting-cluster-effect">-</span>
                                     </div>
-                                </label>
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">{{ .Lang "txtClusterMembers" }}</span>
+                                        <span class="meta-value" id="lighting-cluster-members">-</span>
+                                    </div>
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">{{ .Lang "txtNonClusterRgbDevices" }}</span>
+                                        <span class="meta-value" id="lighting-non-cluster">-</span>
+                                    </div>
+                                    <div class="settings-row">
+                                        <span class="settings-label text-ellipsis">{{ .Lang "txtBrightness" }}</span>
+                                        <span class="meta-value" id="lighting-brightness">-</span>
+                                    </div>
+                                    <div class="settings-row mt-3">
+                                        <a href="/rgbCluster" class="system-button w-100 d-block text-center text-decoration-none">{{ .Lang "txtOpenRgbCluster" }}</a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Section 2: Dashboard Devices -->
+                            <div id="system-cards-add">
+                                <hr class="my-3" style="border-top: 1px solid var(--border-subtle); opacity: 1;">
+                                <div class="add-device-widget">
+                                    <div class="fw-bold mb-2 align-self-start" style="font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted);">
+                                        {{ .Lang "txtDashboardDevices" }}
+                                    </div>
+                                    <label class="add-device-select w-100 mb-2">
+                                        <select class="system-select w-100" id="dashboardDeviceSelect">
+                                            <option selected disabled>{{ .Lang "txtSelectDevice" }}</option>
+                                            {{ range .Devices }}
+                                            {{ if eq .Hidden true }}
+                                            {{ continue }}
+                                            {{ end }}
+
+                                            {{ if .GetDevice }}
+                                            <option value="{{ .Serial }}">{{ .Product }}</option>
+                                            {{ end }}
+                                            {{ end }}
+                                        </select>
+                                    </label>
+                                    <label class="full-width">
+                                        <div class="settings-list">
+                                            <div class="settings-row">
+                                                <button class="system-button btn-accent add-device-btn addDeviceToDashboard" id="addDeviceToDashboard">
+                                                    {{ .Lang "txtAdd" }}
+                                                </button>
+                                                <button class="system-button danger add-device-btn deleteDeviceFromDashboard" id="deleteDeviceFromDashboard">
+                                                    {{ .Lang "txtRemove" }}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Device placeholder -->
+            <div class="row align-items-start">
+                <div id="system-cards" class="device-placeholder"></div>
             </div>
         </main>
     </div>
