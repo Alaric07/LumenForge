@@ -5295,6 +5295,42 @@ func ProcessRemoveDashboardDevice(r *http.Request) *Payload {
 	return &Payload{Message: language.GetValue("txtUnableToRemoveDashboardDevice"), Code: http.StatusOK, Status: 0}
 }
 
+// ProcessUpdateDashboardDeviceOrder updates the persisted dashboard device order.
+func ProcessUpdateDashboardDeviceOrder(r *http.Request) *Payload {
+	req := &Payload{}
+	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+		logger.Log(map[string]interface{}{"error": err}).Error("Unable to decode JSON")
+		return &Payload{Message: language.GetValue("txtUnableToValidateRequest"), Code: http.StatusOK, Status: 0}
+	}
+
+	if req.DeviceOrder == nil {
+		return &Payload{Message: language.GetValue("txtUnableToValidateRequest"), Code: http.StatusOK, Status: 0}
+	}
+
+	for _, serial := range req.DeviceOrder {
+		if len(serial) == 0 || !common.AlphanumericDashRegex.MatchString(serial) {
+			return &Payload{Message: language.GetValue("txtUnableToValidateRequest"), Code: http.StatusOK, Status: 0}
+		}
+	}
+
+	status, order := dashboard.UpdateDeviceOrder(req.DeviceOrder)
+	if status == 0 {
+		return &Payload{
+			Message:     language.GetValue("txtUnableToSaveDashboardSettings"),
+			Code:        http.StatusOK,
+			Status:      0,
+			DeviceOrder: order,
+		}
+	}
+
+	return &Payload{
+		Message:     language.GetValue("txtDashboardSettingsUpdated"),
+		Code:        http.StatusOK,
+		Status:      1,
+		DeviceOrder: order,
+	}
+}
+
 // ProcessUpdateDeviceEqualizer will process POST request from a client to update device equalizer
 func ProcessUpdateDeviceEqualizer(r *http.Request) *Payload {
 	req := &Payload{}

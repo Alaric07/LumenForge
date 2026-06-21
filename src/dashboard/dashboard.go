@@ -268,6 +268,47 @@ func RemoveDevice(serial string) uint8 {
 	return 1
 }
 
+// UpdateDeviceOrder reconciles a requested order with the selected dashboard devices.
+func UpdateDeviceOrder(order []string) (uint8, []string) {
+	selected := make(map[string]struct{}, len(dashboard.Devices))
+	current := make([]string, 0, len(dashboard.Devices))
+	for _, serial := range dashboard.Devices {
+		if _, exists := selected[serial]; exists {
+			continue
+		}
+		selected[serial] = struct{}{}
+		current = append(current, serial)
+	}
+
+	seen := make(map[string]struct{}, len(current))
+	reconciled := make([]string, 0, len(current))
+	for _, serial := range order {
+		if _, exists := selected[serial]; !exists {
+			continue
+		}
+		if _, exists := seen[serial]; exists {
+			continue
+		}
+		seen[serial] = struct{}{}
+		reconciled = append(reconciled, serial)
+	}
+
+	for _, serial := range current {
+		if _, exists := seen[serial]; exists {
+			continue
+		}
+		reconciled = append(reconciled, serial)
+	}
+
+	updated := dashboard
+	updated.Devices = reconciled
+	if SaveDashboardSettings(updated, false) == 0 {
+		return 0, dashboard.Devices
+	}
+	dashboard = updated
+	return 1, dashboard.Devices
+}
+
 func MigrateDeviceSerial(oldSerial, newSerial string) {
 	modified := false
 	for i, d := range dashboard.Devices {

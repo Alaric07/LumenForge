@@ -55,7 +55,11 @@ $(document).ready(function () {
 
     function loadDevices() {
         const devicePlaceholder = $(".device-placeholder");
-        devicePlaceholder.removeClass("ready").empty();
+        destroyDashboardSortable(devicePlaceholder);
+        devicePlaceholder
+            .removeClass("ready")
+            .children('.dashboard-device-item, .dashboard-card-placeholder')
+            .remove();
 
         const devicePlaceholder2 = $("#system-cards-add");
         devicePlaceholder2.removeClass("ready");
@@ -81,31 +85,21 @@ $(document).ready(function () {
                             type: 'GET',
                             success: function (dev) {
                                 if (dev.device) {
-                                    results[index] = renderDevice(dev);
+                                    results[index] = {
+                                        serial: value,
+                                        view: renderDevice(dev)
+                                    };
                                 }
+                            },
+                            error: function () {
+                                console.warn("Dashboard device is unavailable:", value);
+                            },
+                            complete: function () {
                                 completed++;
 
                                 if (completed === total) {
-                                    let finalHtml = "";
-                                    let openRgbBuffer = "";
-
-                                    results.forEach(res => {
-                                        if (!res) return;
-                                        if (typeof res === "string") {
-                                            if (openRgbBuffer !== "") {
-                                                finalHtml += `<div class="row g-4 mb-4 align-items-start">` + openRgbBuffer + `</div>`;
-                                                openRgbBuffer = "";
-                                            }
-                                            finalHtml += res;
-                                        } else if (res.isOpenRGB) {
-                                            openRgbBuffer += res.html;
-                                        }
-                                    });
-                                    if (openRgbBuffer !== "") {
-                                        finalHtml += `<div class="row g-4 mb-4 align-items-start">` + openRgbBuffer + `</div>`;
-                                    }
-
-                                    devicePlaceholder.append(finalHtml);
+                                    renderDashboardDeviceResults(devicePlaceholder, results);
+                                    initializeDashboardSortable(devicePlaceholder);
                                     devicePlaceholder.addClass("ready");
                                 }
                             }
@@ -113,6 +107,111 @@ $(document).ready(function () {
                     });
                 }
                 devicePlaceholder2.addClass("ready");
+            }
+        });
+    }
+
+    function renderDashboardDeviceResults(devicePlaceholder, results) {
+        results.forEach(function (result) {
+            if (!result?.view) return;
+
+            const item = createDashboardDeviceItem(result.serial, result.view);
+            if (item) {
+                devicePlaceholder.append(item);
+            }
+        });
+    }
+
+    function createDashboardDeviceItem(serial, view) {
+        let columnClasses = "col-12";
+        let content;
+
+        if (typeof view === "object" && view.isOpenRGB) {
+            const column = $(view.html.trim()).first();
+            columnClasses = column.attr("class") || columnClasses;
+            content = column.contents();
+        } else if (typeof view === "string") {
+            const row = $(view.trim()).first();
+            const columns = row.children();
+
+            if (columns.length === 0) return null;
+
+            if (columns.length === 1) {
+                const column = columns.first();
+                columnClasses = column.attr("class") || columnClasses;
+                content = column.contents();
+            } else {
+                content = row;
+            }
+        }
+
+        if (!content || content.length === 0) return null;
+
+        const item = $('<div>')
+            .addClass(columnClasses)
+            .addClass('dashboard-device-item')
+            .attr('data-serial', serial)
+            .append(content);
+
+        const header = item.find('.card-header').first();
+        if (header.length > 0) {
+            header.prepend(`
+                <span class="dashboard-drag-handle drag-handle" title="Drag to reorder" aria-label="Drag to reorder">
+                    <i class="bi bi-grip-vertical" aria-hidden="true"></i>
+                </span>
+            `);
+        }
+
+        return item;
+    }
+
+    function destroyDashboardSortable(devicePlaceholder) {
+        if (devicePlaceholder.hasClass('ui-sortable')) {
+            devicePlaceholder.sortable('destroy');
+        }
+    }
+
+    function initializeDashboardSortable(devicePlaceholder) {
+        destroyDashboardSortable(devicePlaceholder);
+        const items = devicePlaceholder.children('.dashboard-device-item');
+        const handles = items.find('.dashboard-drag-handle');
+        if (items.length < 2) {
+            handles.hide();
+            return;
+        }
+        handles.show();
+
+        devicePlaceholder.sortable({
+            items: '> .dashboard-device-item',
+            handle: '.dashboard-drag-handle',
+            tolerance: 'pointer',
+            placeholder: 'card-placeholder dashboard-card-placeholder',
+            forcePlaceholderSize: true,
+            start: function (_, ui) {
+                ui.placeholder.addClass(ui.item.attr('class'));
+                ui.placeholder.height(ui.item.outerHeight());
+            },
+            update: function () {
+                const deviceOrder = devicePlaceholder.children('.dashboard-device-item').map(function () {
+                    return $(this).attr('data-serial');
+                }).get();
+
+                $.ajax({
+                    url: '/api/dashboard/devices/order',
+                    type: 'PUT',
+                    data: JSON.stringify({deviceOrder: deviceOrder}),
+                    contentType: 'application/json',
+                    success: function (response) {
+                        if (response.status !== 1) {
+                            toast.warning(response.message);
+                            loadDevices();
+                        }
+                    },
+                    error: function () {
+                        toast.warning(i18n.t('txtUnableToSaveDashboardSettings'));
+                        loadDevices();
+                    }
+                });
             }
         });
     }

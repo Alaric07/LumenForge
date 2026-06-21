@@ -20,10 +20,9 @@
             {{ end }}
 
             <!-- Dashboard -->
-            <!-- Dashboard Utility Section -->
-            <div class="row g-4 mb-4 align-items-start" id="dashboard-utility-row">
+            <div id="system-cards" class="device-placeholder row g-4 align-items-start">
                 <!-- Dashboard Overview Card -->
-                <div class="col-md-3" id="dashboard-overview-card">
+                <div class="col-12 col-md-3" id="dashboard-overview-card">
                     <div class="card system-card">
                         <div class="card-header header-split">
                             <span class="header-left">{{ .Lang "txtDashboardOverview" }}</span>
@@ -96,11 +95,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- Device placeholder -->
-            <div class="row align-items-start">
-                <div id="system-cards" class="device-placeholder"></div>
             </div>
         </main>
     </div>

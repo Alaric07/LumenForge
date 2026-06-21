@@ -2672,17 +2672,6 @@ table.dataTable.compact tbody td {
     cursor: grab;
 }
 
-#system-cards {
-    visibility: hidden;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-}
-
-#system-cards.ready {
-    visibility: visible;
-    opacity: 1;
-}
-
 #system-cards-add {
     visibility: hidden;
     opacity: 0;
@@ -2707,6 +2696,40 @@ table.dataTable.compact tbody td {
 
 .dashboard-grouped-row {
     align-items: flex-start;
+}
+
+.dashboard-device-item .card-header .header-left {
+    flex: 1;
+}
+
+.dashboard-drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    line-height: 1;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+}
+
+.dashboard-drag-handle:hover,
+.dashboard-drag-handle:focus-visible {
+    color: var(--text-main);
+}
+
+.dashboard-drag-handle:active {
+    cursor: grabbing;
+}
+
+.dashboard-card-placeholder {
+    margin: 0;
 }
 
 .ui-sortable-helper,

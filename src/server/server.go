@@ -1495,6 +1495,18 @@ func removeDashboardDevice(w http.ResponseWriter, r *http.Request) {
 	resp.Send(w)
 }
 
+// updateDashboardDeviceOrder persists dashboard devices in the requested order.
+func updateDashboardDeviceOrder(w http.ResponseWriter, r *http.Request) {
+	request := requests.ProcessUpdateDashboardDeviceOrder(r)
+	resp := &Response{
+		Code:    request.Code,
+		Status:  request.Status,
+		Message: request.Message,
+		Devices: request.DeviceOrder,
+	}
+	resp.Send(w)
+}
+
 // setDashboardSettings handles dashboard settings change
 func setDashboardSettings(w http.ResponseWriter, r *http.Request) {
 	request := requests.ProcessDashboardSettingsChange(r)
@@ -2969,6 +2981,7 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/macro/new", http.MethodPut, newMacroProfile)
 	handleFunc(r, "/api/color/change", http.MethodPut, updateRgbProfile)
 	handleFunc(r, "/api/cluster/order", http.MethodPut, updateClusterOrder)
+	handleFunc(r, "/api/dashboard/devices/order", http.MethodPut, updateDashboardDeviceOrder)
 
 	// DELETE
 	handleFunc(r, "/api/keyboard/profile/delete", http.MethodDelete, deleteKeyboardProfile)
