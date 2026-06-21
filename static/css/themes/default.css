@@ -3395,6 +3395,14 @@ table.dataTable.compact tbody td {
     margin-bottom: 6px;
 }
 
+.sidebar.sidebar-sections-initializing .sidebar-section {
+    visibility: hidden;
+}
+
+.sidebar.sidebar-sections-initializing .section-chevron {
+    transition: none;
+}
+
 .sidebar-section-toggle {
     cursor: pointer;
     user-select: none;

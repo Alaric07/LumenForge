@@ -80,50 +80,51 @@ $(document).ready(function () {
         });
     });
 
-    // Sidebar section collapse handling
-    $('.sidebar-section-toggle').on('click', function () {
-        const section = $(this).attr('data-section');
-        const $content = $('#section-' + section);
-        const isExpanded = $content.hasClass('show');
+    function setSidebarSectionState($content, $toggle, expanded, animate) {
+        $content.stop(true, true);
+        $toggle.toggleClass('sidebar-section-expanded', expanded);
+        $toggle.toggleClass('sidebar-section-collapsed', !expanded);
 
-        if (isExpanded) {
-            $content.slideUp(200, function() {
+        if (!animate) {
+            $content.toggleClass('show', expanded).toggle(expanded);
+            return;
+        }
+        if (expanded) {
+            $content.addClass('show').hide().slideDown(200);
+        } else {
+            $content.slideUp(200, function () {
                 $content.removeClass('show');
             });
-            $(this).removeClass('sidebar-section-expanded').addClass('sidebar-section-collapsed');
-            localStorage.setItem('lumenforge-sidebar-expanded-' + section, 'false');
-        } else {
-            $content.addClass('show').hide().slideDown(200);
-            $(this).removeClass('sidebar-section-collapsed').addClass('sidebar-section-expanded');
-            localStorage.setItem('lumenforge-sidebar-expanded-' + section, 'true');
         }
-    });
+    }
 
-    // Initialize states from localStorage on load
+    // Resolve active-page and persisted states once before revealing sections.
     $('.sidebar-section-content').each(function () {
         const id = $(this).attr('id');
         const section = id.replace('section-', '');
         const isActive = $(this).attr('data-active') === 'true';
         const $toggle = $(`.sidebar-section-toggle[data-section="${section}"]`);
+        const storedState = localStorage.getItem('lumenforge-sidebar-expanded-' + section);
+        const expanded = isActive || storedState === 'true';
 
-        if (isActive) {
-            // Active page state overrides localStorage: must open
-            $(this).addClass('show').show();
-            $toggle.removeClass('sidebar-section-collapsed').addClass('sidebar-section-expanded');
-        } else {
-            // Not active, read from localStorage
-            const state = localStorage.getItem('lumenforge-sidebar-expanded-' + section);
-            if (state === 'false') {
-                $(this).removeClass('show').hide();
-                $toggle.removeClass('sidebar-section-expanded').addClass('sidebar-section-collapsed');
-            } else if (state === 'true') {
-                $(this).addClass('show').show();
-                $toggle.removeClass('sidebar-section-collapsed').addClass('sidebar-section-expanded');
-            } else {
-                // Default fallback if no localStorage is set (collapse non-active sections)
-                $(this).removeClass('show').hide();
-                $toggle.removeClass('sidebar-section-expanded').addClass('sidebar-section-collapsed');
-            }
-        }
+        setSidebarSectionState($(this), $toggle, expanded, false);
+    });
+    $('.sidebar').removeClass('sidebar-sections-initializing');
+
+    // Sidebar section collapse handling
+    $('.sidebar-section-toggle').on('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const section = $(this).attr('data-section');
+        const $content = $('#section-' + section);
+        const expanded = !$(this).hasClass('sidebar-section-expanded');
+
+        setSidebarSectionState($content, $(this), expanded, true);
+        localStorage.setItem('lumenforge-sidebar-expanded-' + section, String(expanded));
+    });
+
+    $('.sidebar-section-content .nav-link').on('click', function (event) {
+        event.stopPropagation();
     });
 });
