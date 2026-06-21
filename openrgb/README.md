@@ -3,7 +3,7 @@
 > [!IMPORTANT]
 > This document describes the inherited, secondary direction where LumenForge exposes supported native devices to an OpenRGB client. It does **not** describe importing OpenRGB-backed devices into LumenForge. For the primary LumenForge workflow, see [OpenRGB Device Import](../docs/openrgb-import.md).
 
-With the release of the 0.6.2 version of LumenForge or the latest commit, LumenForge supports native OpenRGB Client / Server communication.
+This inherited OpenLinkHub-era functionality allows LumenForge to expose supported native devices through an OpenRGB-compatible target server.
 
 This effectively resolves any device communication issue that occurs when two programs attempt to communicate with the same device. 
 
@@ -61,4 +61,4 @@ In OpenRGB, click on Client tab connect to 6743 port.
 | MM700                  |
 | MM800                  |
 
-As new releases are rolled out, more devices will be added to the integration.
+Supported devices may change as inherited compatibility and LumenForge support evolve.
