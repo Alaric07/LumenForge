@@ -118,6 +118,165 @@ $(document).ready(function () {
     }
 
     function renderDevice(dev) {
+        const groupedHtml = renderGroupedDashboardDevice(dev);
+        if (groupedHtml) {
+            return groupedHtml;
+        }
+        return renderFlatDevice(dev);
+    }
+
+    function renderGroupedDashboardDevice(dev) {
+        if (!isGroupedDashboardDevice(dev)) {
+            return null;
+        }
+
+        const parent = dev.device;
+        const serial = parent.serial;
+        const label = showLabels && parent.DeviceProfile?.Label
+            ? parent.DeviceProfile.Label
+            : "";
+        const childRows = [];
+
+        $.each(parent.devices, function (_, device) {
+            const row = renderGroupedDashboardChildRow(serial, parent, device);
+            if (row !== "") {
+                childRows.push(row);
+            }
+        });
+
+        if (childRows.length === 0) {
+            return null;
+        }
+
+        return `
+        <div class="row g-4 mb-4 align-items-start">
+            <div class="col-md-4 col-lg-3">
+                <div class="card system-card dashboard-grouped-card">
+                    <div class="card-header header-split">
+                        <span class="header-left">${parent.product}</span>
+                        <span class="header-right">${label}</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="settings-list">
+                            ${childRows.join("")}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        `;
+    }
+
+    function isGroupedDashboardDevice(dev) {
+        const parent = dev.device;
+        if (!parent || parent.IsOpenRGB || parent.IsPSU || parent.devices === null || typeof parent.devices === "undefined") {
+            return false;
+        }
+
+        const product = (parent.product || parent.Product || "").toLowerCase();
+        const productLooksSupported = product.includes("commander") ||
+            product.includes("hydro") ||
+            product.includes("h100") ||
+            product.includes("h115") ||
+            product.includes("h150") ||
+            product.includes("h170") ||
+            product.includes("vengeance") ||
+            product.includes("memory");
+
+        let hasGroupedMetric = false;
+        let hasMemoryMetric = false;
+        let hasControllerMetric = false;
+
+        $.each(parent.devices, function (_, device) {
+            if (device.HasSpeed || device.HasTemps || device.temperature > 0 || device.rpm > 0) {
+                hasGroupedMetric = true;
+            }
+            if (device.speed > 0 || device.size > 0 || device.memoryType > 0 || device.sku) {
+                hasMemoryMetric = true;
+            }
+            if (device.IsTemperatureProbe || device.ContainsPump || device.HasSpeed || device.rpm > 0) {
+                hasControllerMetric = true;
+            }
+        });
+
+        if (!hasGroupedMetric) {
+            return false;
+        }
+
+        if (parent.AIO || hasMemoryMetric) {
+            return true;
+        }
+
+        return productLooksSupported && hasControllerMetric;
+    }
+
+    function renderGroupedDashboardChildRow(serial, parent, device) {
+        if (device.HasSpeed === false && device.HasTemps === false && !(device.temperature > 0) && !(device.rpm > 0)) {
+            return "";
+        }
+
+        const rowName = device?.label && device.label !== "Set Label"
+            ? device.label
+            : device.name;
+        const values = [];
+
+        if (device.temperature > 0) {
+            let tempString = i18n.t('txtTemperature');
+            if (device.AIO || device.IsCpuBlock || parent.AIO || device.ContainsPump) {
+                tempString = i18n.t('txtLiquidTemp');
+            }
+            values.push(`<span>${tempString}: <span id="temp-${serial}-${device.channelId}">${device.temperatureString}</span></span>`);
+        }
+
+        if (device.HasSpeed) {
+            values.push(`<span>${i18n.t('txtSpeed')}: <span id="speed-${serial}-${device.channelId}">${device.rpm} RPM</span></span>`);
+        }
+
+        if (device.gpuTemperature > 0) {
+            let tempString = i18n.t('txtTemperature');
+            if (device.AIO || device.IsCpuBlock) {
+                tempString = i18n.t('txtGpuLiquid');
+            }
+            values.push(`<span>${tempString}: <span id="gpuTemp-${serial}-${device.channelId}">${device.gpuTemperatureString}</span></span>`);
+        }
+
+        if (device.gpuRpm > 0) {
+            values.push(`<span>${i18n.t('txtGpuPump')}: <span id="gpuSpeed-${serial}-${device.channelId}">${device.gpuRpm} RPM</span></span>`);
+        }
+
+        if (device.speed > 0) {
+            values.push(`<span>${i18n.t('txtSpeed')}: ${device.speed} MHz</span>`);
+        }
+
+        if (device.size > 0) {
+            values.push(`<span>${i18n.t('txtMemorySize')}: ${device.size} GG</span>`);
+        }
+
+        if (device.HasWatts) {
+            values.push(`<span>${i18n.t('txtWatts')}: <span id="watts-${serial}-${device.channelId}">${device.watts} W</span></span>`);
+        }
+
+        if (device.HasAmps) {
+            values.push(`<span>${i18n.t('txtAmps')}: <span id="amps-${serial}-${device.channelId}">${device.amps} A</span></span>`);
+        }
+
+        if (device.HasVolts) {
+            values.push(`<span>${i18n.t('txtVolts')}: <span id="volts-${serial}-${device.channelId}">${device.volts} V</span></span>`);
+        }
+
+        if (values.length === 0) {
+            return "";
+        }
+
+        return `
+                            <div class="settings-row dashboard-grouped-row">
+                                <span class="settings-label text-ellipsis">${rowName}</span>
+                                <span class="meta-value dashboard-grouped-values">${values.join("")}</span>
+                            </div>
+        `;
+    }
+
+    function renderFlatDevice(dev) {
         let html = `<div class="row g-4 mb-4 align-items-start">`;
         const label = showLabels && dev.device.DeviceProfile?.Label
             ? dev.device.DeviceProfile.Label

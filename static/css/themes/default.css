@@ -2694,6 +2694,21 @@ table.dataTable.compact tbody td {
     opacity: 1;
 }
 
+.dashboard-grouped-values {
+    display: inline-flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.35rem 0.75rem;
+}
+
+.dashboard-grouped-values > span {
+    white-space: nowrap;
+}
+
+.dashboard-grouped-row {
+    align-items: flex-start;
+}
+
 .ui-sortable-helper,
 .card-placeholder {
     pointer-events: none;
