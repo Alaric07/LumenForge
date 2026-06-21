@@ -1,4 +1,8 @@
-# Servidor OpenRGB
+# Servidor de Destino OpenRGB Legado (Herdado)
+
+> [!IMPORTANT]
+> Este documento descreve a direção secundária herdada, na qual o LumenForge expõe dispositivos nativos compatíveis para um cliente OpenRGB. Ele **não** descreve a importação de dispositivos OpenRGB para o LumenForge. Para o fluxo principal, consulte [Importação de Dispositivos OpenRGB](../docs/openrgb-import.md).
+
 Com o lançamento da versão 0.6.2 do LumenForge ou o commit mais recente, o LumenForge suporta comunicação nativa de Cliente/Servidor OpenRGB.
 
 Isso resolve efetivamente qualquer problema de comunicação de dispositivo que ocorre quando dois programas tentam se comunicar com o mesmo dispositivo.
@@ -26,7 +30,7 @@ systemctl stop LumenForge
 Desabilite o dispositivo no aplicativo OpenRGB, para que não seja processado lá e clique no botão Aplicar. Depois disso, você pode fazer uma nova varredura de dispositivos ou reiniciar o aplicativo OpenRGB.
 Para cada dispositivo que você deseja integrar, você terá que desabilitá-lo no OpenRGB.
 
-![Dispositivo OpenRGB](https://github.com/Alaric07/LumenForge/blob/main/static/img/openrgb-device.png?raw=true)
+![Dispositivo desativado no OpenRGB para o servidor de destino herdado](../static/img/openrgb-device.png)
 
 ### Passo 4
 ```bash
@@ -36,12 +40,12 @@ systemctl start LumenForge
 ### Passo 5
 - Ative a Integração OpenRGB
 
-![Integração OpenRGB](https://github.com/Alaric07/LumenForge/blob/main/static/img/openrgb.png?raw=true)
+![Opção de integração OpenRGB herdada no LumenForge](../static/img/openrgb.png)
 
 ### Passo 6
 No OpenRGB, clique na aba Cliente e conecte à porta 6743.
 
-![Cliente OpenRGB](https://github.com/Alaric07/LumenForge/blob/main/static/img/openrgb-client.png?raw=true)
+![Cliente OpenRGB conectado ao servidor de destino herdado do LumenForge](../static/img/openrgb-client.png)
 
 ## Dispositivos suportados
 | Dispositivo            |

@@ -5,78 +5,102 @@ USER_TO_CHECK="lumenforge"
 DIST="/etc/lsb-release"
 SYSTEMD_FILE="/etc/systemd/system/LumenForge.service"
 PRODUCT="LumenForge"
+SOURCE_DIR="$(cd "$(dirname "$0")" && pwd)"
+INSTALL_DIR="/opt/$PRODUCT"
 
-if [ ! -f $PRODUCT ]; then
-  echo "No binary file. Exit"
-  exit 0
+copy_release_assets() {
+  echo "Installing release assets without replacing existing runtime data..."
+
+  mkdir -p "$INSTALL_DIR"
+  install -m 755 "$SOURCE_DIR/$PRODUCT" "$INSTALL_DIR/$PRODUCT"
+
+  for directory in web static docs api openrgb; do
+    rm -rf "$INSTALL_DIR/$directory"
+    cp -a "$SOURCE_DIR/$directory" "$INSTALL_DIR/$directory"
+  done
+
+  mkdir -p "$INSTALL_DIR/database"
+  for directory in external keyboard language motherboard nexus xeneon; do
+    rm -rf "$INSTALL_DIR/database/$directory"
+    cp -a "$SOURCE_DIR/database/$directory" "$INSTALL_DIR/database/$directory"
+  done
+
+  mkdir -p "$INSTALL_DIR/database/lcd"
+  install -m 644 "$SOURCE_DIR/database/lcd/background.jpg" "$INSTALL_DIR/database/lcd/background.jpg"
+  rm -rf "$INSTALL_DIR/database/lcd/images"
+  cp -a "$SOURCE_DIR/database/lcd/images" "$INSTALL_DIR/database/lcd/images"
+  install -m 644 "$SOURCE_DIR/database/rgb.json" "$INSTALL_DIR/database/rgb.json"
+
+  # Runtime-owned directories are created when absent and never cleared on upgrade.
+  mkdir -p \
+    "$INSTALL_DIR/database/key-assignments" \
+    "$INSTALL_DIR/database/led" \
+    "$INSTALL_DIR/database/macros" \
+    "$INSTALL_DIR/database/profiles" \
+    "$INSTALL_DIR/database/rgb" \
+    "$INSTALL_DIR/database/temperatures"
+
+  # Remove the old standalone upgrader; upgrades now run install.sh from a new source checkout.
+  rm -f "$INSTALL_DIR/upgrade.sh"
+
+  for file in 99-lumenforge.rules install.sh; do
+    if [ -f "$SOURCE_DIR/$file" ]; then
+      install -m 755 "$SOURCE_DIR/$file" "$INSTALL_DIR/$file"
+    fi
+  done
+  for file in README.md LICENSE CHANGELOG.md; do
+    if [ -f "$SOURCE_DIR/$file" ]; then
+      install -m 644 "$SOURCE_DIR/$file" "$INSTALL_DIR/$file"
+    fi
+  done
+}
+
+if [ ! -f "$SOURCE_DIR/$PRODUCT" ]; then
+  echo "Binary not found at $SOURCE_DIR/$PRODUCT"
+  exit 1
 fi
 
-if [ -f $DIST ]; then
+if [ -f "$DIST" ]; then
   SYSTEMD_FILE="/etc/systemd/system/LumenForge.service"
 else
   SYSTEMD_FILE="/usr/lib/systemd/system/LumenForge.service"
 fi
 
-echo "Checking if application username $USER_TO_CHECK exists..."
+already_installed=false
+if [ -f "$SYSTEMD_FILE" ]; then
+  already_installed=true
+fi
+
+echo "Checking if application user $USER_TO_CHECK exists..."
+if ! getent group "$USER_TO_CHECK" >/dev/null; then
+  echo "Creating application group $USER_TO_CHECK..."
+  groupadd -r "$USER_TO_CHECK"
+fi
+
 if id "$USER_TO_CHECK" &>/dev/null; then
-    echo "Application username $USER_TO_CHECK found. Skipping username creation..."
+  echo "Application user $USER_TO_CHECK found."
 else
-    echo "Application username $USER_TO_CHECK not found. Creating application username..."
-    sudo useradd -r "$USER_TO_CHECK" --shell=/bin/false
-    if id "$USER_TO_CHECK" &>/dev/null; then
-      echo "Application username $USER_TO_CHECK created."
-      if [ -f $SYSTEMD_FILE ]; then
-        cat > $SYSTEMD_FILE <<- EOM
-[Unit]
-Description=Open source interface for iCUE LINK System Hub, Corsair AIOs and Hubs
-After=sleep.target
-StartLimitIntervalSec=60
-StartLimitBurst=5
-
-[Service]
-User=$USER_TO_CHECK
-Group=$USER_TO_CHECK
-WorkingDirectory=/opt/$PRODUCT
-ExecStart=/opt/$PRODUCT/$PRODUCT
-ExecReload=/bin/kill -s HUP \$MAINPID
-RestartSec=5
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-EOM
-        sudo systemctl daemon-reload
-      fi
-    fi
+  echo "Creating application user $USER_TO_CHECK..."
+  useradd -r -g "$USER_TO_CHECK" -d "$INSTALL_DIR" -s /bin/false "$USER_TO_CHECK"
 fi
 
-if [ -f $SYSTEMD_FILE ]; then
-  echo "$PRODUCT is already installed. Performing upgrade"
-  sudo systemctl stop $PRODUCT
-  mkdir -p /opt/LumenForge && cp -r "$(cd "$(dirname "$0")" && pwd)"/. /opt/LumenForge/
-  chmod -R 755 /opt/$PRODUCT/
-  chown -R "$USER_TO_CHECK":"$USER_TO_CHECK" /opt/$PRODUCT/
-  cp /opt/$PRODUCT/99-lumenforge.rules /etc/udev/rules.d/
-  echo "Reloading udev..."
-  sudo udevadm control --reload-rules
-  sudo udevadm trigger
-  sudo systemctl start $PRODUCT
-  echo "Done"
-  exit 0
+if [ "$already_installed" = true ]; then
+  echo "$PRODUCT is already installed. Performing upgrade..."
+  systemctl stop "$PRODUCT" || true
+else
+  echo "Installing $PRODUCT..."
 fi
 
-echo "Installation is running..."
-mkdir -p /opt/LumenForge && cp -r "$(cd "$(dirname "$0")" && pwd)"/. /opt/LumenForge/
-# Permissions
+copy_release_assets
+
 echo "Setting permissions..."
-chmod -R 755 /opt/$PRODUCT/
-chown -R "$USER_TO_CHECK":"$USER_TO_CHECK" /opt/$PRODUCT/
+chmod -R 755 "$INSTALL_DIR"
+chown -R "$USER_TO_CHECK":"$USER_TO_CHECK" "$INSTALL_DIR"
 
-# systemd file
-echo "Creating systemd file..."
-cat > $SYSTEMD_FILE <<- EOM
+echo "Writing systemd service..."
+cat > "$SYSTEMD_FILE" <<- EOM
 [Unit]
-Description=Open source interface for iCUE LINK System Hub, Corsair AIOs and Hubs
+Description=LumenForge unified Linux RGB, cooling, and device control hub
 After=sleep.target
 StartLimitIntervalSec=60
 StartLimitBurst=5
@@ -94,22 +118,19 @@ Restart=always
 WantedBy=multi-user.target
 EOM
 
-echo "Running systemctl daemon-reload"
-sudo systemctl daemon-reload
-
 echo "Setting udev device permissions..."
-sudo rm -f /etc/udev/rules.d/99-corsair*.rules
-sudo cp 99-lumenforge.rules /etc/udev/rules.d/
+install -m 644 "$SOURCE_DIR/99-lumenforge.rules" /etc/udev/rules.d/99-lumenforge.rules
 
 echo "Reloading udev..."
-sudo udevadm control --reload-rules
-sudo udevadm trigger
+udevadm control --reload-rules
+udevadm trigger
 
-echo "Setting service to state: enabled"
-sudo systemctl enable $PRODUCT
+echo "Reloading systemd and enabling service..."
+systemctl daemon-reload
+systemctl enable "$PRODUCT"
 
 echo "Starting $PRODUCT..."
-sudo systemctl start $PRODUCT
+systemctl start "$PRODUCT"
 
 echo "Done. You can access WebUI console via: http://127.0.0.1:27003/"
 exit 0

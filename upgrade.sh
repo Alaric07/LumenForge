@@ -1,27 +1,7 @@
 #!/bin/sh
 
-set -e
-CURRENT_USER=$SUDO_USER
-PRODUCT="LumenForge"
-PRODUCT_FILE="/opt/$PRODUCT/$PRODUCT"
+# Compatibility wrapper. The allowlisted install.sh path handles both installs and upgrades.
+set -eu
 
-if [ ! -f $PRODUCT ]; then
-  echo "No binary file. Exit"
-  exit 0
-fi
-
-if [ -f $PRODUCT_FILE ]; then
-  echo "Performing upgrade..."
-  sudo systemctl stop $PRODUCT
-  cp LumenForge "/opt/$PRODUCT/"
-  cp -r web/ "/opt/$PRODUCT/"
-  cp -r static/ "/opt/$PRODUCT/"
-  cp -r database/ "/opt/$PRODUCT/"
-  sudo cp 99-lumenforge.rules /etc/udev/rules.d/
-  sudo udevadm control --reload-rules
-  sudo udevadm trigger
-  chmod -R 755 /opt/$PRODUCT
-  chown -R "$CURRENT_USER":root /opt/$PRODUCT
-  sudo systemctl start $PRODUCT
-  exit 0
-fi
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec /bin/bash "$SCRIPT_DIR/install.sh" "$@"

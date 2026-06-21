@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# NOT SUPPORTED FOR LUMENFORGE ALPHA: retained for future validation only.
+# Build from source and use install.sh for the currently supported install path.
 set -euo pipefail
 
 REPO_API="https://api.github.com/repos/Alaric07/LumenForge/releases/latest"
@@ -238,7 +240,7 @@ if [[ "$SERVICE_EXISTS" == false ]]; then
 
   cat > "$SYSTEMD_FILE" <<-EOM
 [Unit]
-Description=Open source interface for iCUE LINK System Hub, Corsair AIOs and Hubs
+Description=LumenForge unified Linux RGB, cooling, and device control hub
 After=default.target
 StartLimitIntervalSec=60
 StartLimitBurst=5

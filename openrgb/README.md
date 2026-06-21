@@ -1,4 +1,8 @@
-# OpenRGB Server
+# Legacy OpenRGB Target Server (Inherited)
+
+> [!IMPORTANT]
+> This document describes the inherited, secondary direction where LumenForge exposes supported native devices to an OpenRGB client. It does **not** describe importing OpenRGB-backed devices into LumenForge. For the primary LumenForge workflow, see [OpenRGB Device Import](../docs/openrgb-import.md).
+
 With the release of the 0.6.2 version of LumenForge or the latest commit, LumenForge supports native OpenRGB Client / Server communication.
 
 This effectively resolves any device communication issue that occurs when two programs attempt to communicate with the same device. 
@@ -26,7 +30,7 @@ systemctl stop LumenForge
 Disable device in the OpenRGB application, so it's not processed there and click Apply button. After that you can either Rescan Devices or restart OpenRGB application. 
 For each device you want integration, you'll have to disable it in OpenRGB. 
 
-![OpenRGB Device](https://github.com/Alaric07/LumenForge/blob/main/static/img/openrgb-device.png?raw=true)
+![Device disabled in OpenRGB for inherited target-server control](../static/img/openrgb-device.png)
 
 ### Step 4
 ```bash
@@ -36,12 +40,12 @@ systemctl start LumenForge
 ### Step 5
 - Toggle OpenRGB Integration
 
-![OpenRGB Integration](https://github.com/Alaric07/LumenForge/blob/main/static/img/openrgb.png?raw=true)
+![Inherited OpenRGB integration toggle in LumenForge](../static/img/openrgb.png)
 
 ### Step 6
 In OpenRGB, click on Client tab connect to 6743 port. 
 
-![OpenRGB Client](https://github.com/Alaric07/LumenForge/blob/main/static/img/openrgb-client.png?raw=true)
+![OpenRGB client connected to the inherited LumenForge target server](../static/img/openrgb-client.png)
 
 ## Supported devices
 | Device                 |

@@ -1,4 +1,5 @@
 #!/bin/sh
+# LEGACY/UNVALIDATED: SysV init installation is not a supported LumenForge alpha path.
 # Adapted by https://github.com/0xalwayslucky/Sysd2v
 # Set as file /etc/init.d/ and run `update-rc.d LumenForge defaults`
 ### BEGIN INIT INFO
@@ -7,13 +8,13 @@
 # Required-Stop:	$local_fs $syslog
 # Default-Start:	2 3 4 5
 # Default-Stop:		0 1 6
-# Short-Description: Open source interface for iCUE LINK System Hub, Corsair AIOs and Hubs
+# Short-Description: LumenForge unified Linux RGB, cooling, and device control hub
 ### END INIT INFO
 
 . /lib/lsb/init-functions
 prog=LumenForge
 PIDFILE=/var/run/$prog.pid
-DESC="Open source interface for iCUE LINK System Hub, Corsair AIOs and Hubs"
+DESC="LumenForge unified Linux RGB, cooling, and device control hub"
 WORKDIR=/opt/LumenForge
 USER=lumenforge
 GROUP=lumenforge

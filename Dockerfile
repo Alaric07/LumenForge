@@ -1,3 +1,5 @@
+# NOT VALIDATED FOR LUMENFORGE ALPHA.
+# This inherited build still copies the whole database directory and needs release-asset cleanup before Docker is supported.
 FROM golang:1.25.0-bookworm AS build
 ARG GIT_TAG
 ENV DEBIAN_FRONTEND=noninteractive

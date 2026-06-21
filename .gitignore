@@ -7,12 +7,18 @@ ppa/
 build.sh
 changelog.sh
 build_local.sh
+# Built application
 LumenForge
 Buildfile
+# Local runtime state
 config.json
-stdout.log
 dashboard.json
 display.json
+stdout.log
+stdout.log.*
+nohup.out
+server_debug.log
+database/openrgbimport-zones.json
 database/temperatures/*.json
 database/profiles/*.json
 database/rgb/*.json
@@ -28,17 +34,11 @@ flatpak/
 flatpak-build/
 copr/
 LumenForge.spec.template
+# Local archives and release/build output
 *.tar.gz
 update.json
 update.json.sig
 .devcontainer/devcontainer-lock.json
-<<<<<<< Updated upstream
-=======
-# Local runtime/build artifacts
-LumenForge
->>>>>>> Stashed changes
-nohup.out
-server_debug.log
 
 # Local editor settings
 .vscode/

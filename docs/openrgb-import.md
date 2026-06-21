@@ -1,167 +1,66 @@
-OpenRGB Import – Design & Behavior
-Overview
+# OpenRGB Device Import
 
-OpenRGB import in LumenForge (OLH) is designed to prioritize stability, usability, and persistence over perfect automatic detection.
+LumenForge can use a running OpenRGB SDK Server as a bridge to devices supported by OpenRGB. In this primary LumenForge workflow, OpenRGB provides device access and LumenForge acts as an SDK client/importer:
 
-Instead of attempting to fully parse OpenRGB’s internal payload structures (which vary significantly by device), OLH uses a config-driven model:
+```text
+OpenRGB-supported device -> OpenRGB SDK Server -> LumenForge -> Dashboard / RGB Cluster
+```
 
-Detect devices
-Create a usable default configuration
-Allow user edits
-Persist the result as the source of truth
-Core Principles
-1. Saved Config is the Source of Truth
+Imported devices can appear alongside LumenForge's native devices and participate in dashboard and RGB Cluster workflows where the available OpenRGB metadata and LumenForge's importer support it.
 
-The file:
+OpenRGB support alone does not guarantee complete LumenForge support. Device names, zones, LED counts, effects, and control behavior vary by vendor and by the metadata exposed through the OpenRGB SDK protocol.
 
+## Setup
+
+1. Open the official OpenRGB application, or start a headless OpenRGB instance with its SDK Server enabled.
+2. In the OpenRGB GUI, open the **SDK Server** tab and start the server.
+3. Confirm the SDK Server is listening on `127.0.0.1:6742`, or note the custom port you selected.
+4. Set `openRGBPort` in LumenForge's `config.json` to the same port. New LumenForge configs default to `6742`.
+5. Start or restart LumenForge.
+6. Open the LumenForge dashboard and verify the imported devices and their zone layouts.
+
+LumenForge currently connects to OpenRGB on `127.0.0.1`. The SDK Server must therefore be reachable on the same machine and port configured by `openRGBPort`.
+
+## Import Configuration
+
+LumenForge stores the last known OpenRGB zone layout in:
+
+```text
 database/openrgbimport-zones.json
+```
 
-represents the last known good configuration.
+This is generated runtime state and is not shipped with personal device data. When the file is missing, LumenForge creates an empty store and populates it as devices are discovered.
 
-If a valid config exists → it is always used
-Auto-detection does not override saved configs
-User edits persist across restarts
-2. Auto-Detection is Only for First-Time Setup
+For each imported device, the saved configuration is the source of truth:
 
-Auto-detection is used only when:
+- First discovery creates a best-effort starting layout.
+- Saved zone names and LED counts persist across restarts.
+- Automatic discovery does not overwrite an existing saved layout.
+- Users can correct zone names and LED counts when OpenRGB metadata is incomplete.
 
-A device is first discovered
-No saved config exists
+To reset all imported layouts, stop LumenForge and remove `database/openrgbimport-zones.json`. LumenForge will regenerate it on the next import. Back up the file first if you may want the current layouts later.
 
-It provides a starting point, not a final answer.
+## Device and Zone Limitations
 
-3. Zone Names Matter More Than LED Counts
-Correct zone structure and naming is the primary goal
-LED counts are best-effort defaults
-Users are expected to verify counts via OpenRGB if needed
-4. LED Counts Are User-Editable
+LumenForge favors stable saved layouts over aggressive protocol parsing because OpenRGB controller payloads vary significantly between devices and vendors.
 
-OLH intentionally allows users to:
+- Known device families may receive conservative starting layouts.
+- Unknown devices may begin with a minimal one-zone layout.
+- LED counts are best-effort defaults and should be checked against OpenRGB.
+- Some devices may import only partially or may not expose enough metadata for useful control.
+- Imported effects and controls depend on both the OpenRGB device implementation and LumenForge's importer.
 
-Modify LED counts per zone
-Use OpenRGB as the reference for correct values
+## LED Count Safety
 
-OLH does not enforce strict limits or attempt to fully infer counts.
+Sending an invalid or excessive LED count can destabilize some OpenRGB device implementations or the SDK Server. When a zone count is increased, LumenForge applies the candidate layout and checks that OpenRGB remains reachable before saving it.
 
-5. Known Devices Use Trusted Defaults
+Use the OpenRGB UI as the reference for zone structure and LED counts. Make small changes and confirm device behavior before increasing counts further.
 
-For certain devices, OLH uses predefined configurations instead of relying on parsing.
+## Two OpenRGB Directions
 
-GPU (Generic)
-1 zone
-Default LED count: 1
-Fully user-editable
-ASUS Motherboard
-Aura Mainboard
-RGB Header 1
-RGB Header 2
-RGB Header 3
-Default LED count: 1 per zone
-Logical mapping (not parser-driven)
-Lian Li Strimer
-Each strip is treated as a zone:
-24 Pin ATX Strip 0–5
-Default LED count: 20 per strip
-Fully user-editable
-Unknown Devices
-Fallback:
-Zone 1
-LED count: 1
-Safety Model
-Problem
+LumenForge contains two distinct OpenRGB integrations:
 
-Setting LED counts too high can cause the OpenRGB server to crash.
+1. **Import into LumenForge (primary):** LumenForge connects as an SDK client to an external or headless OpenRGB SDK Server and imports OpenRGB-backed devices into the LumenForge UI.
+2. **Expose LumenForge devices to OpenRGB (inherited/secondary):** inherited OpenLinkHub functionality can run a legacy OpenRGB-compatible target listener so an OpenRGB client can control supported native devices.
 
-Solution
-
-OLH uses a soft warning + runtime validation model:
-
-Step 1: Detect Risky Change
-
-If a user increases LED count beyond the current saved value:
-
-Show warning:
-
-Increasing LED count beyond the current saved value may crash the OpenRGB server.
-
-Step 2: Apply First
-
-The new configuration is applied to OpenRGB before saving.
-
-Step 3: Health Check
-
-OLH performs a short retry-based health check:
-
-4 attempts
-500ms delay between attempts
-Verifies OpenRGB is still reachable
-Step 4: Save or Reject
-✅ If OpenRGB is still healthy → save config
-❌ If OpenRGB is unavailable → do not save, revert to previous config
-Result
-
-The JSON config always represents a working configuration, not just the last attempted value.
-
-Why Not Fully Parse OpenRGB?
-
-OpenRGB payloads:
-
-vary significantly by device/vendor
-contain inconsistent structures
-are not reliably parseable in a generic way
-
-Attempting full parsing leads to:
-
-fragile logic
-incorrect assumptions
-inconsistent results across devices
-
-Instead, OLH uses:
-
-trusted defaults for known devices
-user correction for fine-tuning
-runtime validation for safety
-What NOT to Do
-
-❌ Do not:
-
-attempt to fully parse all OpenRGB payload structures generically
-rely on parser-derived LED counts as authoritative
-overwrite saved config after risky changes without validation
-enforce strict LED caps based on assumptions
-Debugging / Usage Notes
-Starting the OpenRGB Server
-
-LumenForge is designed to connect to your existing standalone OpenRGB server. You do not need to run complicated background terminal commands to start the server! 
-You can simply use the official OpenRGB GUI:
-1. Open the official OpenRGB application.
-2. Navigate to the **SDK Server** tab.
-3. Click **Start Server** (ensure it binds to the default port `6742`).
-4. Launch LumenForge. It will automatically detect and connect to your running OpenRGB GUI instance.
-
-Finding Correct LED Counts
-
-Use OpenRGB:
-
-Open OpenRGB UI
-Select the device
-Inspect zones and LED counts
-Enter those values into OLH
-Resetting Config
-
-If needed, delete or edit:
-
-database/openrgbimport-zones.json
-
-Then restart OLH to regenerate defaults.
-
-Summary
-
-OLH’s OpenRGB import is designed to be:
-
-Stable (saved config persists)
-Flexible (user-editable)
-Safe (runtime validation prevents bad saves)
-Practical (no reliance on fragile parsing)
-
-The system favors real-world behavior and user control over perfect automatic detection.
+The second direction does not import OpenRGB-backed devices into LumenForge and is not the primary workflow documented here. Its older screenshots and instructions are retained separately in [`openrgb/README.md`](../openrgb/README.md) for inherited compatibility and are explicitly labeled as such.

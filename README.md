@@ -1,264 +1,168 @@
-# LumenForge interface for Linux
-An open-source Linux interface for iCUE LINK Hub and other Corsair AIOs, Hubs.
-Manage RGB lighting, fan speeds, system metrics, as well as keyboards, mice, and headsets via a web dashboard.
+# LumenForge
 
-![Build](https://github.com/Alaric07/LumenForge/actions/workflows/go.yml/badge.svg)
-[![](https://dcbadge.limes.pink/api/server/https://discord.gg/mPHcasZRPy?style=flat)](https://discord.gg/mPHcasZRPy)
+LumenForge is an experimental Linux RGB, cooling, and device-control hub built as a fork of [OpenLinkHub](https://github.com/jurkovic-nikola/OpenLinkHub). It keeps OpenLinkHub's Corsair and Linux control foundation while adding OpenRGB-backed device import, RGB Cluster workflows, dashboard improvements, and mixed-device lighting control.
 
-**Available in other languages:** [Portuguese (Brazil)](README-pt_BR.md)
+LumenForge complements OpenLinkHub and OpenRGB; it does not replace either project. Hardware support varies, and OpenRGB-imported devices depend on both OpenRGB support and the metadata LumenForge can obtain for that device.
 
 ## Features
 
-- Web-based UI accessible at `http://localhost:27003`
-- Control AIO coolers, fans, hubs, pumps, LCDs and RGB lighting
-- Manage keyboards, mice and headsets
-- Support for DDR4 and DDR5 memory
-- Custom fan profiles, temperature sensors and RGB editor
-- If you need system tray menu - https://github.com/Alaric07/lumenforge-tray
+- Web UI at `http://127.0.0.1:27003`
+- RGB Cluster for synchronizing lighting across mixed supported devices
+- OpenRGB-backed device import where supported by OpenRGB and available import metadata
+- Dashboard overview with grouped device cards, lighting status, and card ordering
+- Corsair hardware support inherited from OpenLinkHub
+- Cooling profiles, fan curves, pumps, temperature sensors, and system metrics where supported
+- RGB editor and custom lighting effects
+- LCD support where supported
+- Inherited keyboard, mouse, headset, memory, motherboard PWM, XENEON, and other device support where supported
+
+Related documentation:
+
 - [Supported device list](docs/supported-devices.md)
-- [SCUF Controller Audio Config](docs/scuf-controller.md)
-- [KDE System Monitor Sensor Face](https://github.com/Alaric07/lumenforge-sensorfaces)
+- [OpenRGB device import](docs/openrgb-import.md)
 - [Memory DDR4 / DDR5](docs/memory-configuration.md)
 - [Motherboard PWM](docs/motherboard-pwm.md)
-- [OpenRGB Integration](openrgb/README.md)
+- [SCUF controller audio configuration](docs/scuf-controller.md)
 - [XENEON EDGE KDE](docs/xeneon-edge-kde.md)
+- [HTTP API](api/README.md)
 
-![Web UI](https://github.com/Alaric07/LumenForge/blob/main/static/img/ui.png?raw=true)
+![LumenForge dashboard](static/img/ui.png)
 
-## Info
-- This project was created out of necessity to control fans and pumps on workstations after switching everything to Linux.
-- I take no responsibility for this code at all. Use this at your own risk.
-- Most of the devices are actually tested on live hardware.
-- Take care and have fun!
-- This project is not an official Corsair product.
-## Installation (recommended)
+## Project Status
+
+LumenForge exists because I wanted the OpenLinkHub-style UI and control model with broader mixed-device RGB control. OpenRGB import brings supported OpenRGB-backed devices into LumenForge's dashboard and RGB Cluster workflows.
+
+This is experimental alpha software developed and tested primarily against my own Linux setup. Use it at your own risk. LumenForge is not an official Corsair, OpenRGB, or OpenLinkHub product.
+
+## Alpha Installation
+
+The currently supported alpha installation path is to build from source. Package repositories, release archives, containers, and automatic remote installation are not yet validated for LumenForge.
+
+### Requirements
+
+- Go 1.25 or newer
+- A C compiler and `pkg-config`
+- libudev development files
+- PipeWire development files
+- USB utilities
+
+Debian or Ubuntu:
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Alaric07/LumenForge/main/remote-install.sh | bash
-```
-This script will:
-- Open a new system group called lumenforge 
-- Add your current user to lumenforge 
-- Install LumenForge in your home directory. 
-- Create a user systemd service 
-- Copy 99-lumenforge.rules to /etc/udev/rules.d/ 
-- Start the service after installation. 
-- You can use this script for installation or upgrade purposes.
-- Before running this script, uninstall any previously installed versions of LumenForge
-
-## Installation (automatic)
-1. Download either .deb or .rpm package from the latest Release, depending on your Linux distribution
-2. Open a terminal
-3. Navigate to the folder where the package is downloaded
-```bash
-# Debian-Based (deb)
-$ sudo apt install ./LumenForge_?.?.?_amd64.deb 
-
-# RPM-based (rpm)
-$ sudo dnf install ./LumenForge-?.?.?-1.x86_64.rpm
+sudo apt-get update
+sudo apt-get install build-essential git libudev-dev libpipewire-0.3-dev pkg-config usbutils
 ```
 
-## Installation (PPA)
+Fedora or other RPM-based distributions:
+
 ```bash
-$ sudo add-apt-repository ppa:Alaric07/lumenforge
-$ sudo apt update
-$ sudo apt-get install lumenforge
+sudo dnf install gcc git libudev-devel pipewire-devel pkg-config usbutils
 ```
 
-## Installation (Copr)
+### Build
+
 ```bash
-$ sudo dnf copr enable Alaric07/LumenForge
-$ sudo dnf install LumenForge
+git clone https://github.com/Alaric07/LumenForge.git
+cd LumenForge
+CGO_CFLAGS_ALLOW='-fno-strict-overflow' go build -o LumenForge
 ```
 
-## Installation (manual)
-### 1. Requirements
-- libudev-dev
-- usbutils
-- libpipewire-dev
-- pkg-config
-- go 1.25.0 - https://go.dev/dl/
-```bash
-# Required packages (deb)
-$ sudo apt-get install libudev-dev
-$ sudo apt-get install usbutils
-$ sudo apt-get install libpipewire-0.3-dev
-$ sudo apt-get install pkg-config
+Run directly from the repository:
 
-# Required packages (rpm)
-$ sudo dnf install libudev-devel
-$ sudo dnf install usbutils
-$ sudo dnf install pipewire-devel
-$ sudo dnf install pkg-config
-```
-Or use the provided devcontainer in VScode. This is useful for immutable distributions.
-### 2. Build & install
 ```bash
-$ git clone https://github.com/Alaric07/LumenForge.git
-$ cd LumenForge/
-$ CGO_CFLAGS_ALLOW='-fno-strict-overflow' go build .
-$ chmod +x install.sh
-$ sudo ./install.sh
+./LumenForge
 ```
 
-### 3. Installation from compiled build
+Hardware access may require appropriate udev permissions. To install LumenForge under `/opt/LumenForge` as a system service instead:
+
 ```bash
-# Download latest build from https://github.com/Alaric07/LumenForge/releases/latest
-$ wget "https://github.com/Alaric07/LumenForge/releases/latest/download/LumenForge_$(curl -s https://api.github.com/repos/Alaric07/LumenForge/releases/latest | jq -r '.tag_name')_amd64.tar.gz"
-$ tar xf LumenForge_?.?.?_amd64.tar.gz
-$ cd /home/$USER/LumenForge/
-$ chmod +x install.sh
-$ sudo ./install.sh
-```
-### 4. Immutable distributions (Bazzite OS, SteamOS, etc...)
-```bash
-# Do not install RPM or DEB packages on immutable distributions, they will not work.
-# This same procedure may be followed to update an existing installation.
-# Download the latest tar.gz from the Release page, or use the following command to download the latest release.
-$ wget "https://github.com/Alaric07/LumenForge/releases/latest/download/LumenForge_$(curl -s https://api.github.com/repos/Alaric07/LumenForge/releases/latest | jq -r '.tag_name')_amd64.tar.gz"
-
-# Extract the package to your home directory
-$ tar xf LumenForge_?.?.?_amd64.tar.gz -C /home/$USER/
-
-# Go to the extract folder
-$ cd /home/$USER/LumenForge
-
-# Make install-user-space.sh executable
-$ chmod +x install-user-space.sh
-
-# Run install-user-space.sh. Enter your password for sudo when asked to copy 99-lumenforge.rules file
-$ ./install-user-space.sh
-
-# Restart 
-$ systemctl reboot
-
-# Check if service is running
-$ systemctl status --user LumenForge.service
+chmod +x install.sh
+sudo ./install.sh
 ```
 
-### 5. Usage (non-immutable distributions)
-```bash
-sudo systemctl start LumenForge.service
-xdg-open http://127.0.0.1:27003
-```
+Then open `http://127.0.0.1:27003`.
 
-### 6. Configuration
-`/opt/LumenForge/config.json`
+### Immutable Distributions
+
+Immutable distributions may require a user-space installation flow, but this has not yet been validated for LumenForge.
+
+### Distribution Status
+
+The following installation channels are not yet validated or advertised as supported for this alpha:
+
+- `.deb` and `.rpm` packages
+- PPA and Copr repositories
+- GitHub release tarballs
+- `remote-install.sh`
+- User-space installation on immutable distributions
+
+Docker support is also not yet validated. The inherited `Dockerfile` may require review before use.
+
+## Configuration
+
+LumenForge creates `config.json` on first run. It is stored in the working directory, which is `/opt/LumenForge/config.json` for the system-service installation. Current generated defaults are:
+
 ```json
 {
   "debug": false,
   "listenPort": 27003,
   "listenAddress": "127.0.0.1",
-  "cpuSensorChip": "k10temp",
+  "cpuSensorChip": "",
   "manual": false,
   "frontend": true,
-  "metrics": true,
-  "resumeDelay": 15000,
+  "metrics": false,
   "memory": false,
   "memorySmBus": "i2c-0",
-  "memoryType": 4,
+  "memoryType": 5,
   "exclude": [],
-  "decodeMemorySku": true,
   "memorySku": "",
+  "resumeDelay": 15000,
   "logFile": "",
   "logLevel": "info",
-  "enhancementKits": [],
+  "enhancementKits": "",
   "temperatureOffset": 0,
   "amdGpuIndex": 0,
   "amdsmiPath": "",
+  "checkDevicePermission": false,
+  "graphProfiles": true,
   "cpuTempFile": "",
-  "graphProfiles": false,
-  "ramTempViaHwmon": false,
+  "ramTempViaHwmon": true,
   "nvidiaGpuIndex": [0],
   "defaultNvidiaGPU": 0,
+  "openRGBPort": 6742,
   "enableGamepad": true,
   "enableMotherboard": false,
-  "motherboardBiosOnExit": false
+  "motherboardBiosOnExit": false,
+  "memoryRegisterOverride": "",
+  "enableSystemTray": false
 }
 ```
-- listenPort: HTTP server port.
-- listenAddress: Address for HTTP server to listen on.
-- cpuSensorChip: CPU sensor chip for temperature. `k10temp` or `zenpower` for AMD and `coretemp` for Intel
-- manual: set to true if you want to use your own UI for device control. Setting this to true will disable temperature monitoring and automatic device speed adjustments.
-- frontend: set to false if you do not need the WebUI console, and you are making your own UI app.
-- metrics: enable or disable Prometheus metrics
-- resumeDelay: amount of time in milliseconds for the program to reinitialize all devices after sleep / resume
-- memory: Enable overview / control over the memory
-- memorySmBus: i2c smbus sensor id
-- memoryType: 4 for DDR4, 5 for DDR5
-- exclude: list of device IDs in uint16 format to exclude from program control
-- decodeMemorySku: set to false to manually define `memorySku` value.
-- memorySku: Memory part number, e.g. (CMT64GX5M2B5600Z40)
-- You can find the memory part number by running the following command: `sudo dmidecode -t memory | grep 'Part Number'`
-- logFile: custom location for logging. Default is empty.
-  - Defining `-` for logFile will send all logs to standard console output.
-  - If you change the location of logging, make sure the application username has permission to write to that folder.
-- logLevel: log level to log in console or file.
-- enhancementKits: DDR4/DDR5 Light Enhancement Kits addresses.
-- If your kit is installed in the first and third slot, the value would be: `"enhancementKits": [80,82],`. This value is a byte value converted from hexadecimal output in `i2cdetect`
-  - When kits are used, you need to set `decodeMemorySku` to `false` and define `memorySku`
-- temperatureOffset: Temperature offset for AMD Threadripper CPUs
-- amdGpuIndex: GPU device index. You can find your GPU index via `amd-smi static --asic --json`
-- amdsmiPath: Manual path to amd-smi binary (not recommended). A better way is to define `amd-smi` path in `$PATH` variable if missing.
-- cpuTempFile: custom hwmon temperature input file, e.g. tempX_input. Use in combination with `cpuSensorChip`.
-- graphProfiles: Setting this value to `true` will enable graph-based temperature profiles on `/temperature` endpoint and enable temperature interpolation.
-- ramTempViaHwmon: Switch to true if you want to monitor RAM temperature via the hwmon system. With this option, you don't have to unload modules to get the temperature. (Require 6.11+ kernel)
-- nvidiaGpuIndex: NVIDIA multi-gpu setup.
-- defaultNvidiaGPU: default index of NVIDIA GPU, default is 0.
-  - If you use vfio-pci/pass-through, you have to set it to -1 to avoid conflicts with NVIDIA modules.
-- enableGamepad: Enable or disable Virtual Gamepad used for SCUF controllers.
-- enableMotherboard: Enable control of motherboard PWM headers.
-- motherboardBiosOnExit: Switch PWM headers to BIOS mode when program exits.
 
-### 7. Progressive Web App (PWA) UI
-The web UI supports installation as a progressive web app (PWA). With a supported browser, this allows the UI to appear as a standalone application.
-Chromium-based browsers support PWAs; Firefox currently does not.
-GNOME 'Web,' also known as 'Epiphany', is a good option for PWAs on GNOME systems.
+`openRGBPort` is the port used to connect to an external OpenRGB server for device discovery and import. See the [OpenRGB import guide](docs/openrgb-import.md) for setup and limitations.
+
+## Progressive Web App
+
+The web UI can be installed as a progressive web app in supported Chromium-based browsers. Firefox does not currently provide the same PWA installation support.
 
 ## Uninstall
+
+Back up any desired runtime configuration from `/opt/LumenForge` before removing a system-service installation.
+
 ```bash
-# Stop service
 sudo systemctl stop LumenForge.service
-
-# Remove application directory
-sudo rm -rf /opt/LumenForge/
-
-# Remove systemd file (file location can be found by running sudo systemctl status LumenForge.service)
-sudo rm /etc/systemd/system/LumenForge.service
-# or
-sudo rm /usr/lib/systemd/system/LumenForge.service
-
-# Reload systemd
+sudo systemctl disable LumenForge.service
+sudo rm -f /etc/systemd/system/LumenForge.service
+sudo rm -f /usr/lib/systemd/system/LumenForge.service
 sudo systemctl daemon-reload
-
-# Remove udev rules
 sudo rm -f /etc/udev/rules.d/99-lumenforge.rules
-sudo rm -f /etc/udev/rules.d/98-corsair-memory.rules
-
-# Reload udev
 sudo udevadm control --reload-rules
 sudo udevadm trigger
-```
-## Running in Docker
-As an alternative, LumenForge can be run in Docker, using the Dockerfile in this repository to build it locally. A configuration file has to be mounted to /opt/LumenForge/config.json
-```bash
-$ docker build . -t lumenforge
-$ # To build a specific version, you can use the GIT_TAG build argument
-$ docker build --build-arg GIT_TAG=0.1.3-beta -t lumenforge .
-
-$ docker run --privileged lumenforge
-
-# For WebUI access, networking is required
-$ docker run --network host --privileged lumenforge
+sudo rm -rf /opt/LumenForge
 ```
 
-## LCD
-- LCD images / animations are located in `/opt/LumenForge/database/lcd/images/`
-## Dashboard
-- Device Dashboard is accessible by browser via the link `http://127.0.0.1:27003/`
-- Device Dashboard allows you to control your devices.
-## RGB
-- RGB configuration is located at `database/rgb/your-device-serial.json` file
-- RGB can be configured via the RGB Editor in the Dashboard
-## API
-- LumenForge ships with a built-in HTTP server for device overview and control.
-- Documentation is available at [API Page](api/README.md)
+## Runtime Notes
+
+- LCD images and animations are stored in `/opt/LumenForge/database/lcd/images/` for a system installation.
+- The dashboard is available at `http://127.0.0.1:27003/`.
+- Per-device RGB state is generated under `database/rgb/` and can be edited through the RGB editor.
+- LumenForge includes an HTTP server for device overview and control; see the [API documentation](api/README.md).

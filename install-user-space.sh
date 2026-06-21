@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# NOT SUPPORTED FOR LUMENFORGE ALPHA: retained for future validation only.
+# Build from source and use install.sh for the currently supported install path.
+
 set -e
 CURRENT_DIR=$(pwd)
 PRODUCT="LumenForge"
@@ -42,7 +45,7 @@ mkdir -p "/home/$USER_TO_CHECK/.config/systemd/user"
 
 cat > "$SYSTEMD_FILE" <<- EOM
 [Unit]
-Description=Open source interface for iCUE LINK System Hub, Corsair AIOs and Hubs
+Description=LumenForge unified Linux RGB, cooling, and device control hub
 After=default.target
 StartLimitIntervalSec=60
 StartLimitBurst=5
