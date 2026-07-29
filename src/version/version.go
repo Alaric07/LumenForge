@@ -17,7 +17,7 @@ type BuildInfo struct {
 }
 
 // Version is the tracked development fallback. Authorized release builds may override it through -ldflags.
-var Version = "0.2.0-alpha-dev"
+var Version = "0.2.1-alpha-dev"
 var buildInfo *BuildInfo
 
 // GetBuildInfo will return BuildInfo struct
