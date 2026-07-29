@@ -4,6 +4,8 @@ This changelog covers LumenForge development beginning with the fork from
 OpenLinkHub. Earlier upstream history remains available through the Git history
 and the OpenLinkHub repository.
 
+## Unreleased
+
 ## 0.2.0-alpha - 2026-07-29
 
 ### Added

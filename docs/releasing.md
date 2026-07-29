@@ -6,7 +6,7 @@ It is not needed for ordinary source builds or installation.
 ## Development and Release Versions
 
 Ordinary tracked builds use the development fallback version
-`0.2.0-alpha-dev`. Both development and release builds use the shared build
+`0.2.1-alpha-dev`. Both development and release builds use the shared build
 script:
 
 ```bash
@@ -21,7 +21,7 @@ not inject that tag into the build.
 The current release-build form is:
 
 ```bash
-VERSION=v0.2.0-alpha ./scripts/build.sh
+VERSION=v0.2.1-alpha ./scripts/build.sh
 ```
 
 ## Alpha Release Checklist
@@ -35,7 +35,7 @@ VERSION=v0.2.0-alpha ./scripts/build.sh
 5. Build with the authorized release version supplied through `VERSION`.
 6. Confirm the binary reports the intended release version.
 7. Merge the approved release into `main`.
-8. Create the matching Git tag, such as `v0.2.0-alpha`.
+8. Create the matching Git tag, such as `v0.2.1-alpha`.
 9. Push the approved branch and tag.
 10. Move the tracked development fallback to the next selected development
     version after release.
