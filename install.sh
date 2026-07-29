@@ -25,7 +25,7 @@ if [[ $EUID -ne 0 ]]; then
   fail "install.sh must be run as root."
 fi
 
-for command in readlink getent install cp find mktemp mv rm rmdir chmod chown \
+for command in bash readlink getent install cp find mkdir mktemp mv rm rmdir chmod chown \
   stat cat systemctl udevadm groupadd useradd nologin; do
   require_command "$command"
 done
@@ -53,6 +53,7 @@ required_files=(
   99-lumenforge.rules
   database/lcd/background.jpg
   database/rgb.json
+  scripts/stage-release-docs.sh
 )
 
 for relative_path in "${required_directories[@]}"; do
@@ -285,9 +286,10 @@ STAGING_DIR="$(mktemp -d /opt/.LumenForge.stage.XXXXXX)"
 install -d -o root -g root -m 0755 "$STAGING_DIR"
 install -o root -g root -m 0755 "$SOURCE_DIR/$PRODUCT" "$STAGING_DIR/$PRODUCT"
 
-for directory in web static docs api openrgb; do
+for directory in web static api openrgb; do
   cp -a -- "$SOURCE_DIR/$directory" "$STAGING_DIR/$directory"
 done
+bash "$SOURCE_DIR/scripts/stage-release-docs.sh" "$SOURCE_DIR/docs" "$STAGING_DIR/docs"
 install -d -o root -g root -m 0755 "$STAGING_DIR/database"
 for directory in external keyboard language motherboard nexus xeneon; do
   cp -a -- "$SOURCE_DIR/database/$directory" "$STAGING_DIR/database/$directory"
