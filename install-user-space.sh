@@ -80,6 +80,7 @@ required_files=(
   "$PERMISSION_FILE"
   database/lcd/background.jpg
   database/rgb.json
+  scripts/stage-release-docs.sh
 )
 for relative_path in "${required_directories[@]}"; do
   [[ -d $SOURCE_DIR/$relative_path ]] ||
@@ -128,7 +129,7 @@ fi
 
 if ! "${PRIVILEGED_CMD[@]}" bash -c '
   for command in bash getent id groupadd usermod udevadm chown install cp find \
-    mktemp mv rm rmdir stat chmod; do
+    mkdir mktemp mv readlink rm rmdir stat chmod; do
     command -v "$command" >/dev/null 2>&1 || {
       echo "Error: privileged command $command is required." >&2
       exit 1
@@ -434,9 +435,10 @@ trap cleanup EXIT
 STAGING_DIR="$(mktemp -d /opt/.LumenForge.stage.XXXXXX)"
 install -d -o root -g root -m 0755 "$STAGING_DIR"
 install -o root -g root -m 0755 "$SOURCE_DIR/$PRODUCT" "$STAGING_DIR/$PRODUCT"
-for directory in web static docs api openrgb; do
+for directory in web static api openrgb; do
   cp -a -- "$SOURCE_DIR/$directory" "$STAGING_DIR/$directory"
 done
+bash "$SOURCE_DIR/scripts/stage-release-docs.sh" "$SOURCE_DIR/docs" "$STAGING_DIR/docs"
 install -d -o root -g root -m 0755 "$STAGING_DIR/database"
 for directory in external keyboard language motherboard nexus xeneon; do
   cp -a -- "$SOURCE_DIR/database/$directory" "$STAGING_DIR/database/$directory"
