@@ -12,6 +12,7 @@ import (
 	"LumenForge/src/devices"
 	"LumenForge/src/devices/lcd"
 	"LumenForge/src/display"
+	"LumenForge/src/externalsources"
 	"LumenForge/src/inputmanager"
 	"LumenForge/src/keyboards"
 	"LumenForge/src/language"
@@ -22,6 +23,7 @@ import (
 	"LumenForge/src/scheduler"
 	"LumenForge/src/temperatures"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -69,7 +71,7 @@ type Payload struct {
 	HwmonDeviceId                 string                `json:"hwmonDeviceId"`
 	HwmonDevice                   string                `json:"hwmonDevice"`
 	TemperatureInputId            string                `json:"temperatureInputId"`
-	ExternalExecutable            string                `json:"externalExecutable"`
+	ExternalSourceID              string                `json:"externalSourceId"`
 	GpuIndex                      uint8                 `json:"gpuIndex"`
 	Enabled                       bool                  `json:"enabled"`
 	OnRelease                     bool                  `json:"onRelease"`
@@ -460,22 +462,14 @@ func ProcessNewTemperatureProfile(r *http.Request) *Payload {
 	}
 
 	if sensor == temperatures.SensorTypeExternalExecutable {
-		if !common.AlphanumericUnderDashPath.MatchString(req.ExternalExecutable) {
-			return &Payload{
-				Message: language.GetValue("txtInvalidExternalFile"),
-				Code:    http.StatusOK,
-				Status:  0,
-			}
+		if err = externalsources.ValidateSelection(config.GetPaths(), req.ExternalSourceID); err != nil {
+			logger.Log(logger.Fields{
+				"externalSourceId": req.ExternalSourceID,
+				"error":            err,
+				"caller":           "ProcessNewTemperatureProfile()",
+			}).Error("Unable to validate external source selection")
+			return &Payload{Message: externalSourceSelectionMessage(err), Code: http.StatusOK, Status: 0}
 		}
-
-		if !common.FileExists(req.ExternalExecutable) {
-			return &Payload{
-				Message: language.GetValue("txtInvalidExternalFile"),
-				Code:    http.StatusOK,
-				Status:  0,
-			}
-		}
-		deviceId = req.ExternalExecutable
 	}
 
 	gpuIndex := req.GpuIndex
@@ -490,6 +484,7 @@ func ProcessNewTemperatureProfile(r *http.Request) *Payload {
 	newTemperatureProfile := &temperatures.NewTemperatureProfile{
 		Profile:            profile,
 		DeviceId:           deviceId,
+		ExternalSourceID:   req.ExternalSourceID,
 		Static:             static,
 		ZeroRpm:            zeroRpm,
 		Linear:             linear,
@@ -512,6 +507,19 @@ func ProcessNewTemperatureProfile(r *http.Request) *Payload {
 			Code:    http.StatusOK,
 			Status:  0,
 		}
+	}
+}
+
+func externalSourceSelectionMessage(err error) string {
+	switch {
+	case errors.Is(err, externalsources.ErrRegistryMissing):
+		return language.GetValue("txtNoExternalSourcesConfigured")
+	case errors.Is(err, externalsources.ErrRegistryInvalid):
+		return language.GetValue("txtExternalSourceRegistryUnavailable")
+	case errors.Is(err, externalsources.ErrSourceUnknown):
+		return language.GetValue("txtSelectRegisteredExternalSource")
+	default:
+		return language.GetValue("txtUnableToValidateExternalSource")
 	}
 }
 
@@ -726,9 +734,26 @@ func ProcessUpdateRgbProfile(r *http.Request) *Payload {
 	}
 
 	// Speed
-	if req.Speed < 1 || req.Speed > 10 {
-		return &Payload{Message: language.GetValue("txtInvalidSpeed"), Code: http.StatusOK, Status: 0}
+	speed := req.Speed
+	storedSpeed := speed
+	if rgb.HasSpeedControl(profile) {
+		minimumSpeed, maximumSpeed := rgb.ProfileSpeedRange(profile)
+		if speed < minimumSpeed || speed > maximumSpeed {
+			return &Payload{Message: language.GetValue("txtInvalidSpeed"), Code: http.StatusOK, Status: 0}
+		}
+	} else {
+		results := devices.CallDeviceMethod(deviceId, "GetRgbProfile", profile)
+		if len(results) == 0 {
+			return &Payload{Message: language.GetValue("txtRgbProfileNotUpdated"), Code: http.StatusOK, Status: 0}
+		}
+
+		currentProfile, ok := results[0].Interface().(*rgb.Profile)
+		if !ok || currentProfile == nil {
+			return &Payload{Message: language.GetValue("txtRgbProfileNotUpdated"), Code: http.StatusOK, Status: 0}
+		}
+		storedSpeed = currentProfile.Speed
 	}
+	speed = rgb.ProfileSpeedForUpdate(profile, speed, storedSpeed)
 
 	if req.RgbMinTemp < 0 || req.RgbMinTemp > 100 {
 		return &Payload{Message: language.GetValue("txtUnableToValidateRequest"), Code: http.StatusOK, Status: 0}
@@ -752,7 +777,7 @@ func ProcessUpdateRgbProfile(r *http.Request) *Payload {
 	middleColor.Brightness = 1
 
 	rgbProfile := rgb.Profile{
-		Speed:           req.Speed,
+		Speed:           speed,
 		Brightness:      1,
 		StartColor:      startColor,
 		MiddleColor:     middleColor,
@@ -3050,17 +3075,22 @@ func ProcessChangeLinkAdapter(r *http.Request) *Payload {
 		req.AdapterId,
 	)
 
-	if len(results) > 0 {
-		switch results[0].Uint() {
-		case 0:
-			return &Payload{Message: language.GetValue("txtUnableToChangeRgbStrip"), Code: http.StatusOK, Status: 0}
-		case 2:
-			return &Payload{Message: language.GetValue("txtUnableToChangeRgbStripNoLink"), Code: http.StatusOK, Status: 0}
-		case 1:
-			return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 1}
-		}
+	if len(results) == 0 {
+		return &Payload{Message: language.GetValue("txtUnableToChangeRgbStrip"), Code: http.StatusOK, Status: 0}
 	}
-	return &Payload{Message: language.GetValue("txtUnableToChangeRgbStrip"), Code: http.StatusOK, Status: 0}
+	messageKey, status := linkAdapterResult(results[0].Uint())
+	return &Payload{Message: language.GetValue(messageKey), Code: http.StatusOK, Status: status}
+}
+
+func linkAdapterResult(result uint64) (messageKey string, status int) {
+	switch result {
+	case 1:
+		return "txtLinkAdapterUpdated", 1
+	case 2:
+		return "txtUnableToChangeRgbStripNoLink", 0
+	default:
+		return "txtUnableToChangeRgbStrip", 0
+	}
 }
 
 // ProcessExternalHubDeviceType will process POST request from a client for external-LED hub
@@ -4460,7 +4490,18 @@ func ProcessGetRgbOverride(r *http.Request) *Payload {
 
 // ProcessSetRgbOverride will process setting RGB override
 func ProcessSetRgbOverride(r *http.Request) *Payload {
-	req := &Payload{}
+	type rgbOverrideUpdate struct {
+		DeviceId    string    `json:"deviceId"`
+		ChannelId   int       `json:"channelId"`
+		SubDeviceId int       `json:"subDeviceId"`
+		Enabled     bool      `json:"enabled"`
+		StartColor  rgb.Color `json:"startColor"`
+		EndColor    rgb.Color `json:"endColor"`
+		MiddleColor rgb.Color `json:"middleColor"`
+		Speed       *float64  `json:"speed"`
+	}
+
+	req := &rgbOverrideUpdate{}
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		logger.Log(map[string]interface{}{"error": err}).Error("Unable to decode JSON")
@@ -4487,8 +4528,39 @@ func ProcessSetRgbOverride(r *http.Request) *Payload {
 		return &Payload{Message: language.GetValue("txtNonExistingChannelId"), Code: http.StatusOK, Status: 0}
 	}
 
-	if req.Speed < 0 || req.Speed > 10 {
-		return &Payload{Message: language.GetValue("txtInvalidSpeedValue"), Code: http.StatusOK, Status: 0}
+	speed := 0.0
+	if req.Speed != nil {
+		speed = *req.Speed
+		if speed < 0 || speed > 10 {
+			return &Payload{Message: language.GetValue("txtInvalidSpeedValue"), Code: http.StatusOK, Status: 0}
+		}
+	} else {
+		results := devices.CallDeviceMethod(
+			req.DeviceId,
+			"ProcessGetRgbOverride",
+			req.ChannelId,
+			req.SubDeviceId,
+		)
+		if len(results) == 0 {
+			return &Payload{Message: language.GetValue("txtRgbOverrideFailed"), Code: http.StatusOK, Status: 0}
+		}
+
+		currentOverride := results[0]
+		for currentOverride.Kind() == reflect.Interface || currentOverride.Kind() == reflect.Pointer {
+			if currentOverride.IsNil() {
+				return &Payload{Message: language.GetValue("txtRgbOverrideFailed"), Code: http.StatusOK, Status: 0}
+			}
+			currentOverride = currentOverride.Elem()
+		}
+		if currentOverride.Kind() != reflect.Struct {
+			return &Payload{Message: language.GetValue("txtRgbOverrideFailed"), Code: http.StatusOK, Status: 0}
+		}
+
+		currentSpeed := currentOverride.FieldByName("RgbModeSpeed")
+		if !currentSpeed.IsValid() || !currentSpeed.CanFloat() {
+			return &Payload{Message: language.GetValue("txtRgbOverrideFailed"), Code: http.StatusOK, Status: 0}
+		}
+		speed = currentSpeed.Float()
 	}
 
 	results := devices.CallDeviceMethod(
@@ -4500,7 +4572,7 @@ func ProcessSetRgbOverride(r *http.Request) *Payload {
 		req.StartColor,
 		req.EndColor,
 		req.MiddleColor,
-		req.Speed,
+		speed,
 	)
 
 	if len(results) > 0 {

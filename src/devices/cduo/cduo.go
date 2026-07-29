@@ -240,7 +240,7 @@ type Device struct {
 // Init will initialize a new device
 func Init(vendorId, productId uint16, serial, path string) *common.Device {
 	// Set global working directory
-	pwd = config.GetConfig().ConfigPath
+	pwd = config.GetPaths().MutableDataRoot
 
 	// Open device, return if failure
 	dev, err := hid.Open(vendorId, productId, serial)
@@ -2527,10 +2527,7 @@ func (d *Device) updateDeviceSpeed() {
 						}
 					case temperatures.SensorTypeExternalExecutable:
 						{
-							temp = temperatures.GetExternalBinaryTemperature(profiles.Device)
-							if temp == 0 {
-								logger.Log(logger.Fields{"temperature": temp, "serial": d.Serial, "binary": profiles.Device}).Warn("Unable to get temperature from binary.")
-							}
+							temp = temperatures.GetExternalSourceTemperature(profiles.ExternalSourceID)
 						}
 					case temperatures.SensorTypeMultiGPU:
 						{

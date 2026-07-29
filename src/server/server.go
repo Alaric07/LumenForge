@@ -15,8 +15,11 @@ import (
 	"LumenForge/src/devices/lcd"
 	"LumenForge/src/devices/openrgbimport"
 	"LumenForge/src/display"
+	"LumenForge/src/externalsources"
 	"LumenForge/src/inputmanager"
 	"LumenForge/src/language"
+	"LumenForge/src/lifecycle"
+	"LumenForge/src/localnetwork"
 	"LumenForge/src/logger"
 	"LumenForge/src/macro"
 	"LumenForge/src/media"
@@ -31,9 +34,12 @@ import (
 	"LumenForge/src/temperatures"
 	"LumenForge/src/templates"
 	"LumenForge/src/version"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -58,7 +64,34 @@ type Header struct {
 }
 
 var headers []Header
-var server = &http.Server{}
+var (
+	server      *http.Server
+	serveDone   chan struct{}
+	serverMutex sync.Mutex
+
+	discoverOpenRGBImports = openrgbimport.DiscoverPreview
+	importOpenRGBImports   = func(ctx context.Context, keys []string) (openrgbimport.ImportResult, error) {
+		return openrgbimport.ImportControllers(ctx, keys, openRGBImportRegistryHooks())
+	}
+	removeOpenRGBImports = func(ctx context.Context, serials []string) (openrgbimport.RemoveResult, error) {
+		return openrgbimport.RemoveConfiguredImports(ctx, serials, openRGBImportRegistryHooks())
+	}
+	refreshOpenRGBImports = openrgbimport.RefreshManager
+	mediaInputControl     = inputmanager.InputControlKeyboard
+)
+
+const (
+	openRGBImportRequestLimit = 64 << 10
+	openRGBImportBatchLimit   = 64
+)
+
+func openRGBImportRegistryHooks() openrgbimport.RegistryHooks {
+	return openrgbimport.RegistryHooks{
+		Register: devices.RegisterOpenRGBImport,
+		Remove:   devices.RemoveOpenRGBImport,
+		Lookup:   devices.LookupOpenRGBImport,
+	}
+}
 
 // Send will process response and send it back to a client
 func (r *Response) Send(w http.ResponseWriter) {
@@ -264,10 +297,18 @@ func getDevices(w http.ResponseWriter, r *http.Request) {
 	} else {
 		resp := &Response{
 			Code:   http.StatusOK,
-			Device: devices.GetDevice(deviceId),
+			Device: snapshotDeviceForResponse(devices.GetDevice(deviceId)),
 		}
 		resp.Send(w)
 	}
+}
+
+func snapshotDeviceForResponse(device interface{}) interface{} {
+	if openrgbDevice, ok := device.(*openrgbimport.Device); ok {
+		snapshot := openrgbDevice.Snapshot()
+		return &snapshot
+	}
+	return device
 }
 
 // getDeviceLed returns response on /led
@@ -401,6 +442,35 @@ func getTemperature(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	resp.Send(w)
+}
+
+// getExternalSources returns only registry ids and human-readable names.
+func getExternalSources(w http.ResponseWriter, _ *http.Request) {
+	entries, missing, err := externalsources.List(config.GetPaths())
+	if err != nil {
+		logger.Log(logger.Fields{
+			"error":  err,
+			"caller": "getExternalSources()",
+		}).Error("Unable to load external source registry")
+		(&Response{
+			Code:    http.StatusOK,
+			Status:  0,
+			Message: "The external source registry is unavailable",
+			Data:    []externalsources.Info{},
+		}).Send(w)
+		return
+	}
+
+	message := ""
+	if missing {
+		message = "No external sources are configured"
+	}
+	(&Response{
+		Code:    http.StatusOK,
+		Status:  1,
+		Message: message,
+		Data:    entries,
+	}).Send(w)
 }
 
 // getTemperatureGraph returns response on for temperature graph
@@ -898,25 +968,25 @@ func mediaPlaybackControl(w http.ResponseWriter, r *http.Request) {
 
 		switch mediaPlaybackAction {
 		case "previous":
-			inputmanager.InputControlKeyboard(inputmanager.MediaPrev, false)
+			mediaInputControl(inputmanager.MediaPrev, false)
 			break
 		case "stop":
-			inputmanager.InputControlKeyboard(inputmanager.MediaStop, false)
+			mediaInputControl(inputmanager.MediaStop, false)
 			break
 		case "play":
-			inputmanager.InputControlKeyboard(inputmanager.MediaPrev, false)
+			mediaInputControl(inputmanager.MediaPlayPause, false)
 			break
 		case "next":
-			inputmanager.InputControlKeyboard(inputmanager.MediaNext, false)
+			mediaInputControl(inputmanager.MediaNext, false)
 			break
 		case "volumeDown":
-			inputmanager.InputControlKeyboard(inputmanager.VolumeDown, false)
+			mediaInputControl(inputmanager.VolumeDown, false)
 			break
 		case "volumeUp":
-			inputmanager.InputControlKeyboard(inputmanager.VolumeUp, false)
+			mediaInputControl(inputmanager.VolumeUp, false)
 			break
 		case "mute":
-			inputmanager.InputControlKeyboard(inputmanager.VolumeMute, false)
+			mediaInputControl(inputmanager.VolumeMute, false)
 			break
 		default:
 			resp.Message = "Invalid playback action"
@@ -2175,16 +2245,19 @@ func uiDeviceOverview(w http.ResponseWriter, r *http.Request) {
 	web := templates.Web{}
 	web.Title = dashboard.GetDashboard().PageTitle
 	web.Devices = devices.GetDevices()
-	web.Device = device
 	if openrgbDevice, ok := device.(*openrgbimport.Device); ok {
+		snapshot := openrgbDevice.Snapshot()
+		web.Device = &snapshot
 		web.OpenRGBImportDevice = true
-		web.OpenRGBImportConfig = openrgbDevice.Config
-		web.OpenRGBImportDisplaySerial = openrgbDevice.DisplaySerial
-		web.OpenRGBImportDisplaySerialLabel = openrgbDevice.DisplaySerialLabel
-		web.OpenRGBImportEffect = openrgbDevice.GetEffect()
-		web.OpenRGBImportSpeed = openrgbDevice.GetSpeed()
-		web.OpenRGBImportBrightness = openrgbDevice.GetBrightness()
-		web.OpenRGBImportRGBCluster = openrgbDevice.GetRGBCluster()
+		web.OpenRGBImportConfig = snapshot.Config
+		web.OpenRGBImportDisplaySerial = snapshot.DisplaySerial
+		web.OpenRGBImportDisplaySerialLabel = snapshot.DisplaySerialLabel
+		web.OpenRGBImportEffect = snapshot.Effect
+		web.OpenRGBImportSpeed = snapshot.Speed
+		web.OpenRGBImportBrightness = snapshot.Brightness
+		web.OpenRGBImportRGBCluster = snapshot.RGBCluster
+	} else {
+		web.Device = device
 	}
 	web.Lcd = lcd.GetLcdDevices()
 	web.LCDImages = lcd.GetLcdImages()
@@ -2584,6 +2657,107 @@ func decodeRequestBody(w http.ResponseWriter, r *http.Request, dst any) bool {
 	return true
 }
 
+func decodeOpenRGBImportRequest(w http.ResponseWriter, r *http.Request, dst any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, openRGBImportRequestLimit)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(dst); err != nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Invalid request body"}).Send(w)
+		return false
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Invalid request body"}).Send(w)
+		return false
+	}
+	return true
+}
+
+func discoverOpenRGBImportControllers(w http.ResponseWriter, r *http.Request) {
+	if r.ContentLength > openRGBImportRequestLimit {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Request body is too large"}).Send(w)
+		return
+	}
+	data, err := discoverOpenRGBImports(r.Context())
+	if err != nil {
+		(&Response{
+			Code:    http.StatusOK,
+			Status:  0,
+			Message: err.Error(),
+			Data:    data,
+		}).Send(w)
+		return
+	}
+	(&Response{
+		Code:    http.StatusOK,
+		Status:  1,
+		Message: "OpenRGB controller discovery completed",
+		Data:    data,
+	}).Send(w)
+}
+
+func importOpenRGBImportControllers(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Keys []string `json:"keys"`
+	}
+	if !decodeOpenRGBImportRequest(w, r, &request) {
+		return
+	}
+	if len(request.Keys) == 0 {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "At least one OpenRGB selection key is required"}).Send(w)
+		return
+	}
+	if len(request.Keys) > openRGBImportBatchLimit {
+		(&Response{Code: http.StatusOK, Status: 0, Message: fmt.Sprintf("Too many OpenRGB selections; maximum batch size is %d", openRGBImportBatchLimit)}).Send(w)
+		return
+	}
+	data, err := importOpenRGBImports(r.Context(), request.Keys)
+	if err != nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: err.Error(), Data: data}).Send(w)
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "OpenRGB controllers imported", Data: data}).Send(w)
+}
+
+func removeOpenRGBImportControllers(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Serials []string `json:"serials"`
+	}
+	if !decodeOpenRGBImportRequest(w, r, &request) {
+		return
+	}
+	if len(request.Serials) == 0 {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "At least one OpenRGB import serial is required"}).Send(w)
+		return
+	}
+	if len(request.Serials) > openRGBImportBatchLimit {
+		(&Response{Code: http.StatusOK, Status: 0, Message: fmt.Sprintf("Too many OpenRGB imports; maximum batch size is %d", openRGBImportBatchLimit)}).Send(w)
+		return
+	}
+	data, err := removeOpenRGBImports(r.Context(), request.Serials)
+	if err != nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: err.Error(), Data: data}).Send(w)
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "OpenRGB imports removed", Data: data}).Send(w)
+}
+
+func refreshOpenRGBImportManager(w http.ResponseWriter, r *http.Request) {
+	if r.ContentLength > openRGBImportRequestLimit {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Request body is too large"}).Send(w)
+		return
+	}
+	if err := refreshOpenRGBImports(r.Context()); err != nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: err.Error()}).Send(w)
+		return
+	}
+	(&Response{
+		Code:    http.StatusOK,
+		Status:  1,
+		Message: "OpenRGB import reconciliation requested",
+		Data:    map[string]bool{"queued": true},
+	}).Send(w)
+}
+
 func setOpenRGBImportColor(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Serial string `json:"serial"`
@@ -2817,8 +2991,9 @@ func handleFunc(mux *http.ServeMux, path, method string, handler func(w http.Res
 
 // setRoutes will set up all routes
 func setRoutes() http.Handler {
+	protection := newLocalAPIProtection(config.GetConfig().ListenPort)
 	r := http.NewServeMux()
-	fs := http.FileServer(http.Dir("./static"))
+	fs := http.FileServer(http.Dir(config.GetPaths().StaticAssetRoot))
 	r.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	// GET
@@ -2839,6 +3014,7 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/color/override/", http.MethodGet, getCommanderDuoOverride)
 	handleFunc(r, "/api/temperatures/", http.MethodGet, getTemperature)
 	handleFunc(r, "/api/temperatures/graph/", http.MethodGet, getTemperatureGraph)
+	handleFunc(r, "/api/external-sources", http.MethodGet, getExternalSources)
 	handleFunc(r, "/api/input/media", http.MethodGet, getMediaKeys)
 	handleFunc(r, "/api/input/keyboard", http.MethodGet, getInputKeys)
 	handleFunc(r, "/api/input/mouse", http.MethodGet, getMouseButtons)
@@ -2864,9 +3040,14 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/devices/probes/", http.MethodGet, getTemperatureProbes)
 	handleFunc(r, "/api/devices/mouse", http.MethodGet, getMouseDevice)
 	handleFunc(r, "/api/media/playback", http.MethodGet, getMediaPlayback)
-	handleFunc(r, "/api/media/", http.MethodGet, mediaPlaybackControl)
+	handleFunc(r, "/api/security/token", http.MethodGet, protection.tokenHandler)
 
 	// POST
+	handleFunc(r, "/api/media/", http.MethodPost, mediaPlaybackControl)
+	handleFunc(r, "/api/openrgbimport/discover", http.MethodPost, discoverOpenRGBImportControllers)
+	handleFunc(r, "/api/openrgbimport/import", http.MethodPost, importOpenRGBImportControllers)
+	handleFunc(r, "/api/openrgbimport/remove", http.MethodPost, removeOpenRGBImportControllers)
+	handleFunc(r, "/api/openrgbimport/refresh", http.MethodPost, refreshOpenRGBImportManager)
 	handleFunc(r, "/api/openrgbimport/speed", http.MethodPost, setOpenRGBImportSpeed)
 	handleFunc(r, "/api/openrgbimport/effect", http.MethodPost, setOpenRGBImportEffect)
 	handleFunc(r, "/api/openrgbimport/brightness", http.MethodPost, setOpenRGBImportBrightness)
@@ -3010,7 +3191,7 @@ func setRoutes() http.Handler {
 		handleFunc(r, "/settings", http.MethodGet, uiSettings)
 		//handleFunc(r, "/xeneon", http.MethodGet, uiXeneon)
 	}
-	return r
+	return protection.wrap(r)
 }
 
 // Init will start a new web server used for metrics and fan control
@@ -3032,26 +3213,56 @@ func Init() {
 
 	if config.GetConfig().ListenPort > 0 {
 		templates.Init()
-		server = &http.Server{
-			Addr: fmt.Sprintf(
-				"%s:%v",
-				config.GetConfig().ListenAddress,
-				config.GetConfig().ListenPort,
-			),
+		address := httpListenAddress(config.GetConfig())
+		srv := &http.Server{
+			Addr:    address,
 			Handler: setRoutes(),
 		}
+		serverMutex.Lock()
+		server = srv
+		serveDone = make(chan struct{})
+		done := serveDone
+		serverMutex.Unlock()
 
 		fmt.Println(
 			fmt.Sprintf("[Server] Running REST and WebUI on %s. WebUI is accessible via: http://%s",
-				server.Addr,
-				server.Addr,
+				srv.Addr,
+				srv.Addr,
 			),
 		)
-		err := server.ListenAndServe()
-		if err != nil {
-			logger.Log(logger.Fields{"error": err}).Fatal("Unable to start REST server")
-		}
+		go func() {
+			defer close(done)
+			err := srv.ListenAndServe()
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				logger.Log(logger.Fields{"error": err}).Error("Unable to run REST server")
+				lifecycle.Request(1)
+			}
+		}()
 	} else {
 		logger.Log(logger.Fields{}).Info("REST server is disabled")
+	}
+}
+
+func httpListenAddress(cfg config.Configuration) string {
+	return localnetwork.Address(cfg.ListenPort)
+}
+
+// Shutdown stops accepting requests and waits for active requests until ctx expires.
+func Shutdown(ctx context.Context) error {
+	serverMutex.Lock()
+	srv := server
+	done := serveDone
+	serverMutex.Unlock()
+	if srv == nil {
+		return nil
+	}
+	if err := srv.Shutdown(ctx); err != nil {
+		return err
+	}
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }

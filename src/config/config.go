@@ -7,52 +7,64 @@ package config
 import (
 	"LumenForge/src/common"
 	"encoding/json"
+	"io"
+	"net"
 	"os"
-	"os/user"
 	"slices"
 	"strings"
 )
 
 type Configuration struct {
-	Debug                     bool     `json:"debug"`
-	ListenPort                int      `json:"listenPort"`
-	ListenAddress             string   `json:"listenAddress"`
-	CPUSensorChip             string   `json:"cpuSensorChip"`
-	Manual                    bool     `json:"manual"`
-	Frontend                  bool     `json:"frontend"`
-	Metrics                   bool     `json:"metrics"`
-	Memory                    bool     `json:"memory"`
-	MemorySmBus               string   `json:"memorySmBus"`
-	MemoryType                int      `json:"memoryType"`
-	Exclude                   []uint16 `json:"exclude"`
-	MemorySku                 string   `json:"memorySku"`
-	ConfigPath                string   `json:",omitempty"`
-	ResumeDelay               int      `json:"resumeDelay"`
-	LogFile                   string   `json:"logFile"`
-	LogLevel                  string   `json:"logLevel"`
-	EnhancementKits           []byte   `json:"enhancementKits"`
-	TemperatureOffset         int      `json:"temperatureOffset"`
-	AMDGpuIndex               int      `json:"amdGpuIndex"`
-	AMDSmiPath                string   `json:"amdsmiPath"`
-	CheckDevicePermission     bool     `json:"checkDevicePermission"`
-	GraphProfiles             bool     `json:"graphProfiles"`
-	CpuTempFile               string   `json:"cpuTempFile"`
-	RamTempViaHwmon           bool     `json:"ramTempViaHwmon"`
-	NvidiaGpuIndex            []int    `json:"nvidiaGpuIndex"`
-	DefaultNvidiaGPU          int      `json:"defaultNvidiaGPU"`
-	OpenRGBPort               int      `json:"openRGBPort"`
-	EnableOpenRGBTargetServer bool     `json:"enableOpenRGBTargetServer,omitempty"` // Deprecated: legacy target listener compatibility.
-	EnableGamepad             bool     `json:"enableGamepad"`
-	EnableMotherboard         bool     `json:"enableMotherboard"`
-	MotherboardBiosOnExit     bool     `json:"motherboardBiosOnExit"`
-	MemoryRegisterOverride    []byte   `json:"memoryRegisterOverride"`
-	EnableSystemTray          bool     `json:"enableSystemTray"`
+	Debug    bool `json:"debug"`
+	Manual   bool `json:"manual"`
+	Frontend bool `json:"frontend"`
+	Metrics  bool `json:"metrics"`
+
+	// Deprecated: retained only so existing config.json files continue to
+	// decode and preserve a legacy value when configuration is saved.
+	ListenAddress string `json:"listenAddress,omitempty"`
+	ListenPort    int    `json:"listenPort"`
+
+	LogFile  string `json:"logFile"`
+	LogLevel string `json:"logLevel"`
+
+	EnableSystemTray          bool `json:"enableSystemTray"`
+	EnableGamepad             bool `json:"enableGamepad"`
+	EnableMotherboard         bool `json:"enableMotherboard"`
+	EnableOpenRGBTargetServer bool `json:"enableOpenRGBTargetServer,omitempty"` // Optional inherited target listener.
+	MotherboardBiosOnExit     bool `json:"motherboardBiosOnExit"`
+
+	CheckDevicePermission bool `json:"checkDevicePermission"`
+	GraphProfiles         bool `json:"graphProfiles"`
+	ResumeDelay           int  `json:"resumeDelay"`
+	TemperatureOffset     int  `json:"temperatureOffset"`
+
+	CPUSensorChip string `json:"cpuSensorChip"`
+	CpuTempFile   string `json:"cpuTempFile"`
+
+	Memory                 bool   `json:"memory"`
+	MemoryType             int    `json:"memoryType"`
+	MemorySmBus            string `json:"memorySmBus"`
+	MemorySku              string `json:"memorySku"`
+	MemoryRegisterOverride []byte `json:"memoryRegisterOverride"`
+	RamTempViaHwmon        bool   `json:"ramTempViaHwmon"`
+	EnhancementKits        []byte `json:"enhancementKits"`
+
+	AMDGpuIndex      int    `json:"amdGpuIndex"`
+	AMDSmiPath       string `json:"amdsmiPath"`
+	NvidiaGpuIndex   []int  `json:"nvidiaGpuIndex"`
+	DefaultNvidiaGPU int    `json:"defaultNvidiaGPU"`
+
+	OpenRGBPort int `json:"openRGBPort"`
+
+	Exclude []uint16 `json:"exclude"`
 }
 
 var (
-	location      = ""
-	configuration Configuration
-	upgrade       = map[string]any{
+	location                      = ""
+	configuration                 Configuration
+	legacyListenAddressConfigured bool
+	upgrade                       = map[string]any{
 		"memorySku":              "",
 		"resumeDelay":            15000,
 		"logLevel":               "info",
@@ -79,19 +91,20 @@ var (
 
 // Init will initialize a new config object
 func Init() {
-	setSystemService()
-
-	var configPath = ""
-
-	pwd, _ := os.Getwd()
-	isAtomic := common.FileExists(pwd + "/atomic")
-	if isAtomic {
-		pwd = "/etc/LumenForge"
-		configPath = "/etc/LumenForge"
-	} else {
-		configPath = pwd
+	resolvedPaths, err := ResolveRuntimePaths()
+	if err != nil {
+		panic(err.Error())
 	}
-	location = pwd + "/config.json"
+	initWithPaths(resolvedPaths)
+}
+
+func initWithPaths(resolvedPaths Paths) {
+	if err := EnsureRuntimeDirectories(resolvedPaths); err != nil {
+		panic(err.Error())
+	}
+	runtimePaths = resolvedPaths
+	systemService = resolvedPaths.Mode == ServiceModeSystem
+	location = resolvedPaths.ConfigurationFile
 
 	// Create or upgrade
 	upgradeFile(location)
@@ -101,15 +114,52 @@ func Init() {
 		panic(err.Error())
 	}
 	defer f.Close()
-	if err = json.NewDecoder(f).Decode(&configuration); err != nil {
+	configuration, legacyListenAddressConfigured, err = decodeConfiguration(f)
+	if err != nil {
 		panic(err.Error())
 	}
-	configuration.ConfigPath = configPath
+}
+
+func decodeConfiguration(reader io.Reader) (Configuration, bool, error) {
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return Configuration{}, false, err
+	}
+
+	var decoded Configuration
+	if err = json.Unmarshal(data, &decoded); err != nil {
+		return Configuration{}, false, err
+	}
+
+	var fields map[string]json.RawMessage
+	if err = json.Unmarshal(data, &fields); err != nil {
+		return Configuration{}, false, err
+	}
+	_, hasLegacyListenAddress := fields["listenAddress"]
+	return decoded, hasLegacyListenAddress, nil
 }
 
 // GetConfig will return structs.Configuration struct
 func GetConfig() Configuration {
 	return configuration
+}
+
+// IgnoredListenAddress returns a configured legacy non-loopback value that
+// should produce a one-time startup warning.
+func IgnoredListenAddress() (string, bool) {
+	if !legacyListenAddressConfigured {
+		return "", false
+	}
+
+	address := strings.TrimSpace(configuration.ListenAddress)
+	host := strings.TrimSuffix(strings.TrimPrefix(address, "["), "]")
+	if strings.EqualFold(host, "localhost") {
+		return "", false
+	}
+	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+		return "", false
+	}
+	return configuration.ListenAddress, true
 }
 
 // UpdateSupportedDevices will update the Exclude slice based on the enabled flag for each product ID
@@ -138,43 +188,51 @@ func IsSystemService() bool {
 func upgradeFile(cfg string) {
 	if !common.FileExists(cfg) {
 		value := &Configuration{
-			Debug:                  false,
-			ListenPort:             27003,
-			ListenAddress:          "127.0.0.1",
-			CPUSensorChip:          "",
-			Manual:                 false,
-			Frontend:               true,
-			Metrics:                false,
+			Debug:    false,
+			Manual:   false,
+			Frontend: true,
+			Metrics:  false,
+
+			ListenPort: 27003,
+
+			LogFile:  "",
+			LogLevel: "info",
+
+			EnableSystemTray:      false,
+			EnableGamepad:         true,
+			EnableMotherboard:     false,
+			MotherboardBiosOnExit: false,
+
+			CheckDevicePermission: false,
+			GraphProfiles:         true,
+			ResumeDelay:           15000,
+			TemperatureOffset:     0,
+
+			CPUSensorChip: "",
+			CpuTempFile:   "",
+
 			Memory:                 false,
-			MemorySmBus:            "i2c-0",
 			MemoryType:             5,
-			Exclude:                make([]uint16, 0),
+			MemorySmBus:            "i2c-0",
 			MemorySku:              "",
-			ResumeDelay:            15000,
-			LogLevel:               "info",
-			LogFile:                "",
-			EnhancementKits:        make([]byte, 0),
-			TemperatureOffset:      0,
-			AMDGpuIndex:            0,
-			AMDSmiPath:             "",
-			CheckDevicePermission:  false,
-			CpuTempFile:            "",
-			GraphProfiles:          true,
-			RamTempViaHwmon:        true,
-			NvidiaGpuIndex:         []int{0},
-			DefaultNvidiaGPU:       0,
-			OpenRGBPort:            6742,
-			EnableGamepad:          true,
-			EnableMotherboard:      false,
-			MotherboardBiosOnExit:  false,
 			MemoryRegisterOverride: make([]byte, 0),
-			EnableSystemTray:       false,
+			RamTempViaHwmon:        true,
+			EnhancementKits:        make([]byte, 0),
+
+			AMDGpuIndex:      0,
+			AMDSmiPath:       "",
+			NvidiaGpuIndex:   []int{0},
+			DefaultNvidiaGPU: 0,
+
+			OpenRGBPort: 6742,
+
+			Exclude: make([]uint16, 0),
 		}
 		saveConfigSettings(value)
 	} else {
 		save := false
 		var data map[string]interface{}
-		file, err := os.Open(location)
+		file, err := os.Open(cfg)
 		if err != nil {
 			panic(err.Error())
 		}
@@ -209,8 +267,12 @@ func saveConfigSettings(data any) {
 	}
 
 	// Create profile filename
-	file, err := os.Create(location)
+	file, err := os.OpenFile(location, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
+		panic(err.Error())
+	}
+	if err = file.Chmod(0o600); err != nil {
+		_ = file.Close()
 		panic(err.Error())
 	}
 
@@ -225,27 +287,4 @@ func saveConfigSettings(data any) {
 	if err != nil {
 		panic(err.Error())
 	}
-}
-
-// setSystemService will check and set systemService state
-func setSystemService() {
-	uid := os.Getuid()
-	if uid < 1000 {
-		systemService = true
-		return
-	}
-
-	if os.Getenv("DISPLAY") != "" ||
-		os.Getenv("WAYLAND_DISPLAY") != "" ||
-		os.Getenv("XDG_SESSION_TYPE") != "" {
-		systemService = false
-	}
-
-	u, err := user.Current()
-	if err != nil {
-		systemService = true
-		return
-	}
-
-	systemService = !strings.HasPrefix(u.HomeDir, "/home/")
 }

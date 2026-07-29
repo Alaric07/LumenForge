@@ -1,11 +1,49 @@
-> [!NOTE]
-> If you’re using a Slipstream Wireless dongle and your device is on the supported list, but you still can't see it on the dashboard, you’ll need to re-pair your device with the dongle via iCUE. This is a one-time operation for the lifetime of your device.
+# Supported Devices
+
+This page lists native LumenForge device support inherited from or built on the
+OpenLinkHub foundation. A device or family in the table has a recognition and
+control path in LumenForge. That does not guarantee that every firmware
+revision, connection mode, or listed feature has been tested on every system.
+
+Devices brought into LumenForge through OpenRGB are documented separately.
+Their support depends on OpenRGB, the metadata its SDK Server provides, and the
+LumenForge importer. See [OpenRGB Device Import](openrgb-import.md).
+
+**PID** means USB Product ID. In `lsusb` output it is commonly the last four
+hexadecimal characters of the `vendor:product` pair. Compare the PID of the
+device that is actually connected instead of relying only on its marketing
+name. Not every entry is exposed through USB in the same way; memory devices in
+particular may be discovered through a different hardware path.
+
+The **Attached devices / known capabilities** column serves two purposes:
+
+- controller and hub rows may list hardware that can be attached to them;
+- keyboard, mouse, headset, and other rows may list known controls or features.
+
+A blank cell means that the table has no additional detail for that row, not
+that the device necessarily has no supported function.
+
+## Find your USB PID
+
+If the `lsusb` command is available, list the USB devices visible to Linux:
+
+```bash
+lsusb
+```
+
+Each line normally includes a pair such as `1b1c:abcd`. In that example,
+`1b1c` is the vendor ID and `abcd` is the product ID to compare with the
+**PID** column. The values are machine-specific.
+
+## Slipstream pairing
 
 > [!NOTE]
-> This list describes native LumenForge device support inherited from the OpenLinkHub foundation. OpenRGB-imported devices are not listed here; their support depends on OpenRGB device support, metadata exposed through the OpenRGB SDK Server, and LumenForge importer behavior. See [OpenRGB Device Import](openrgb-import.md) for OpenRGB-backed devices.
+> If a supported device connected through a Slipstream Wireless dongle does not
+> appear in the dashboard, re-pair it with that dongle in iCUE. This is a
+> one-time operation for the lifetime of the device/dongle pairing.
 
 ## Supported devices
-| Device                        | PID                                                    | Sub Devices                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Device                        | PID                                                    | Attached devices / known capabilities                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 |-------------------------------|--------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | iCUE LINK System Hub          | `0c3f`                                                 | <details><summary>Show</summary>iCUE LINK QX RGB<br />iCUE LINK RX<br/>iCUE LINK RX RGB<br/>iCUE LINK RX MAX<br/>iCUE LINK RX MAX RGB<br/>iCUE LINK LX RGB<br />iCUE LINK H100i<br/>iCUE LINK H115i<br/>iCUE LINK H150i<br/>iCUE LINK H170i<br/>XC7 Elite<br/>XG7<br/>XD5 Elite<br/>XD5 Elite LCD <br/>XD6 Elite<br/>XD6 Elite LCD<br/>VRM Cooling Module<br />iCUE LINK TITAN H100i<br />iCUE LINK TITAN H150i<br />iCUE LINK TITAN H115i<br />iCUE LINK TITAN H170i<br />LCD Pump Cover<br />iCUE LINK XG3 HYBRID<br />iCUE LINK ADAPTER<br />iCUE LINK LS350 Aurora RGB<br />iCUE LINK LS430 Aurora RGB<br />iCUE COMMANDER DUO<br />iCUE LINK HX1000i<br />iCUE LINK HX1200i<br />iCUE LINK HX1500i</details> |
 | iCUE COMMANDER Core           | `0c32`<br />`0c1c`                                     | <details><summary>Show</summary>H100i ELITE CAPELLIX<br />H115i ELITE CAPELLIX<br />H150i ELITE CAPELLIX<br />H170i ELITE CAPELLIX<br />H100i ELITE LCD<br />H150i ELITE LCD<br />H170i ELITE LCD<br />H100i ELITE LCD XT<br />H115i ELITE LCD XT<br />H150i ELITE LCD XT<br />H170i ELITE LCD XT<br />H100i ELITE CAPELLIX XT<br />H115i ELITE CAPELLIX XT<br />H150i ELITE CAPELLIX XT<br />H170i ELITE CAPELLIX XT<br />1x Temperature Probe<br /> 4-LED RGB Fan<br /> 8-LED RGB Fan<br /> QL Fan Series<br /> LL Fan Series<br /> ML Fan Series<br />Any PWM Fan</details>                                                                                                                                    |

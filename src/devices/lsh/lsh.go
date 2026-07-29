@@ -308,7 +308,7 @@ var (
 		"cpu-temperature",
 		"flickering",
 		"flame",
-		"aurora","cyberpunkglitch", "tokyonight","gpu-temperature",
+		"aurora", "cyberpunkglitch", "tokyonight", "gpu-temperature",
 		"gradient",
 		"liquid-temperature",
 		"led",
@@ -344,13 +344,13 @@ var (
 		"pastelspiralrainbow",
 		"probe-temperature",
 		"flame",
-	"aurora","cyberpunkglitch", "tokyonight",}
+		"aurora", "cyberpunkglitch", "tokyonight"}
 )
 
 // Init will initialize a new device
 func Init(vendorId, productId uint16, serial, path string) *common.Device {
 	// Set global working directory
-	pwd = config.GetConfig().ConfigPath
+	pwd = config.GetPaths().MutableDataRoot
 
 	// Open device, return if failure
 	dev, err := hid.Open(vendorId, productId, serial)
@@ -746,20 +746,21 @@ func (d *Device) StopDirty() uint8 {
 
 // loadDeviceMetadata will load device meta data
 func (d *Device) loadDeviceMetadata() {
-	deviceMetadata := pwd + "/database/external/lsh.json"
+	deviceMetadata := filepath.Join(config.GetPaths().ShippedDeviceDefinitionsRoot, "lsh.json")
 	if common.FileExists(deviceMetadata) {
 		file, err := os.Open(deviceMetadata)
 		if err != nil {
 			logger.Log(logger.Fields{"error": err, "serial": d.Serial, "location": deviceMetadata}).Fatal("Unable to load devices metadata")
 			return
 		}
+		defer func() {
+			if err = file.Close(); err != nil {
+				logger.Log(logger.Fields{"location": deviceMetadata, "serial": d.Serial}).Warn("Failed to close devices metadata")
+			}
+		}()
 		if err = json.NewDecoder(file).Decode(&d.supportedDevices); err != nil {
 			logger.Log(logger.Fields{"error": err, "serial": d.Serial, "location": deviceMetadata}).Fatal("Unable to decode devices metadata")
 			return
-		}
-		err = file.Close()
-		if err != nil {
-			logger.Log(logger.Fields{"location": deviceMetadata, "serial": d.Serial}).Warn("Failed to close devices metadata")
 		}
 	} else {
 		logger.Log(logger.Fields{"serial": d.Serial, "location": deviceMetadata}).Fatal("Unable to load devices metadata")
@@ -768,20 +769,21 @@ func (d *Device) loadDeviceMetadata() {
 
 // loadExternalDevices will load external device definitions
 func (d *Device) loadExternalDevices() {
-	externalDevicesFile := pwd + "/database/external/linkadapter.json"
+	externalDevicesFile := filepath.Join(config.GetPaths().ShippedDeviceDefinitionsRoot, "linkadapter.json")
 	if common.FileExists(externalDevicesFile) {
 		file, err := os.Open(externalDevicesFile)
 		if err != nil {
 			logger.Log(logger.Fields{"error": err, "serial": d.Serial, "location": externalDevicesFile}).Warn("Unable to load external devices metadata")
 			return
 		}
+		defer func() {
+			if err = file.Close(); err != nil {
+				logger.Log(logger.Fields{"location": externalDevicesFile, "serial": d.Serial}).Warn("Failed to close external devices metadata")
+			}
+		}()
 		if err = json.NewDecoder(file).Decode(&d.LinkAdapter); err != nil {
 			logger.Log(logger.Fields{"error": err, "serial": d.Serial, "location": externalDevicesFile}).Warn("Unable to decode external devices metadata")
 			return
-		}
-		err = file.Close()
-		if err != nil {
-			logger.Log(logger.Fields{"location": externalDevicesFile, "serial": d.Serial}).Warn("Failed to close external devices metadata")
 		}
 	} else {
 		logger.Log(logger.Fields{"serial": d.Serial, "location": externalDevicesFile}).Warn("Unable to load external devices metadata")
@@ -3180,10 +3182,7 @@ func (d *Device) updateDeviceSpeed() {
 						}
 					case temperatures.SensorTypeExternalExecutable:
 						{
-							temp = temperatures.GetExternalBinaryTemperature(profiles.Device)
-							if temp == 0 {
-								logger.Log(logger.Fields{"temperature": temp, "serial": d.Serial, "binary": profiles.Device}).Warn("Unable to get temperature from binary.")
-							}
+							temp = temperatures.GetExternalSourceTemperature(profiles.ExternalSourceID)
 						}
 					case temperatures.SensorTypeMultiGPU:
 						{
@@ -4782,35 +4781,35 @@ func (d *Device) generateRgbEffect(k int, channels uint8, startTime *time.Time, 
 			buff = r.Output
 		}
 	case "flickering":
-	{
+		{
 
 			r.Flickering(startTime)
 			buff = r.Output
-	}
+		}
 	case "flame":
-	{
+		{
 
 			r.Flame(startTime)
 			buff = r.Output
-	}
+		}
 	case "aurora":
-	{
+		{
 
 			r.Aurora(startTime)
 			buff = r.Output
-	}
+		}
 	case "cyberpunkglitch":
-	{
+		{
 
 			r.CyberpunkGlitch(startTime)
 			buff = r.Output
-	}
+		}
 	case "tokyonight":
-	{
+		{
 
 			r.TokyoNight(startTime)
 			buff = r.Output
-	}
+		}
 	case "colorshift":
 		{
 			r.Colorshift(startTime, d.activeRgb)

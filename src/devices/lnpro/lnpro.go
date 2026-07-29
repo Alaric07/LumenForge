@@ -118,7 +118,7 @@ var (
 	maxBufferSizePerRequest = 50
 	maximumLedAmount        = 204
 	deviceUpdateDelay       = 5
-	rgbProfileUpgrade = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch"}
+	rgbProfileUpgrade       = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch"}
 	rgbModes                = []string{
 		"circle",
 		"circleshift",
@@ -128,7 +128,7 @@ var (
 		"cpu-temperature",
 		"flickering",
 		"flame",
-		"aurora","cyberpunkglitch","gpu-temperature",
+		"aurora", "cyberpunkglitch", "gpu-temperature",
 		"gradient",
 		"off",
 		"rainbow",
@@ -156,7 +156,7 @@ var (
 // Init will initialize a new device
 func Init(vendorId, productId uint16, serial, _ string) *common.Device {
 	// Set global working directory
-	pwd = config.GetConfig().ConfigPath
+	pwd = config.GetPaths().MutableDataRoot
 
 	// Open device, return if failure
 	dev, err := hid.Open(vendorId, productId, serial)
@@ -350,20 +350,21 @@ func (d *Device) StopDirty() uint8 {
 
 // loadExternalDevices will load external device definitions
 func (d *Device) loadExternalDevices() {
-	externalDevicesFile := pwd + "/database/external/lnpro.json"
+	externalDevicesFile := filepath.Join(config.GetPaths().ShippedDeviceDefinitionsRoot, "lnpro.json")
 	if common.FileExists(externalDevicesFile) {
 		file, err := os.Open(externalDevicesFile)
 		if err != nil {
 			logger.Log(logger.Fields{"error": err, "serial": d.Serial, "location": externalDevicesFile}).Warn("Unable to load external devices metadata")
 			return
 		}
+		defer func() {
+			if err = file.Close(); err != nil {
+				logger.Log(logger.Fields{"location": externalDevicesFile, "serial": d.Serial}).Warn("Failed to close external devices metadata")
+			}
+		}()
 		if err = json.NewDecoder(file).Decode(&d.ExternalLedDevice); err != nil {
 			logger.Log(logger.Fields{"error": err, "serial": d.Serial, "location": externalDevicesFile}).Warn("Unable to decode external devices metadata")
 			return
-		}
-		err = file.Close()
-		if err != nil {
-			logger.Log(logger.Fields{"location": externalDevicesFile, "serial": d.Serial}).Warn("Failed to close external devices metadata")
 		}
 	} else {
 		logger.Log(logger.Fields{"serial": d.Serial, "location": externalDevicesFile}).Warn("Unable to load external devices metadata")
@@ -1258,7 +1259,7 @@ func (d *Device) setDeviceColor(resetColor bool) {
 	if d.DeviceProfile.RgbOff {
 		return
 	}
-	
+
 	// Are all devices under static mode?
 	// In static mode, we only need to send color once;
 	// there is no need for continuous packet sending.
@@ -1424,29 +1425,29 @@ func (d *Device) setDeviceColor(resetColor bool) {
 							buff[d.Devices[k].PortId] = append(buff[d.Devices[k].PortId], r.Output...)
 						}
 					case "flickering":
-					{
+						{
 
 							r.Flickering(&startTime)
 							buff[d.Devices[k].PortId] = append(buff[d.Devices[k].PortId], r.Output...)
-					}
+						}
 					case "flame":
-					{
+						{
 
 							r.Flame(&startTime)
 							buff[d.Devices[k].PortId] = append(buff[d.Devices[k].PortId], r.Output...)
-					}
+						}
 					case "aurora":
-					{
+						{
 
 							r.Aurora(&startTime)
 							buff[d.Devices[k].PortId] = append(buff[d.Devices[k].PortId], r.Output...)
-					}
+						}
 					case "cyberpunkglitch":
-					{
+						{
 
 							r.CyberpunkGlitch(&startTime)
 							buff[d.Devices[k].PortId] = append(buff[d.Devices[k].PortId], r.Output...)
-					}
+						}
 					case "colorshift":
 						{
 							r.Colorshift(&startTime, d.activeRgb)
