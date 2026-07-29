@@ -34,14 +34,29 @@ local command-line client for POST, PUT, PATCH, or DELETE requests.
 
 Related documentation:
 
+**User guides**
+
 - [Supported device list](docs/supported-devices.md)
 - [Configuration reference](docs/configuration.md)
 - [Backup and restore](docs/backup-restore.md)
 - [OpenRGB device import](docs/openrgb-import.md)
-- [Memory DDR4 / DDR5](docs/memory-configuration.md)
-- [Motherboard PWM](docs/motherboard-pwm.md)
 - [SCUF controller audio configuration](docs/scuf-controller.md)
 - [XENEON EDGE KDE](docs/xeneon-edge-kde.md)
+
+**Advanced hardware setup**
+
+- [Memory DDR4 / DDR5](docs/memory-configuration.md) — advanced setup that
+  requires direct motherboard SMBus/I2C access.
+
+**Hardware support development**
+
+- [Motherboard PWM bring-up](docs/motherboard-pwm.md) — for maintainers,
+  contributors adding board support, or deliberate validation of an existing
+  definition. Do not use this as the first troubleshooting step merely because
+  fans do not appear.
+
+**Technical reference**
+
 - [HTTP API](api/README.md)
 
 ![LumenForge dashboard](static/img/ui.png)
