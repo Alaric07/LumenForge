@@ -56,8 +56,25 @@ This is experimental alpha software developed and tested primarily against my ow
 
 The required starting point for this alpha is a local source build from a fresh checkout. Choose the user or system service according to how LumenForge will run. Package repositories and release archives are not yet validated for LumenForge.
 
+### Before You Install
+
+The provided service installers currently support Linux systems that use
+systemd. Choose one installation mode and keep using that mode for later
+upgrades:
+
+| Installation mode | Use it when |
+| --- | --- |
+| User-service installation | LumenForge will run for a normal desktop user. This is the recommended desktop mode and the only mode that supports LumenForge's system tray. |
+| System-service installation | LumenForge must start at boot independently of a desktop login, such as on a headless or system-wide setup. The system tray is unavailable in this mode. |
+
+Only one LumenForge service mode should be installed or active at a time. Both
+installers need administrator access for the root-owned application tree and
+hardware-access rules; the user-service installer requests that access only
+when required.
+
 ### Requirements
 
+- Linux with systemd for the provided service installers
 - Go 1.25 or newer
 - A C compiler and `pkg-config`
 - libudev development files
@@ -144,16 +161,51 @@ sudo systemctl restart LumenForge.service
 
 Because the system service is outside the logged-in user's graphical and session D-Bus environment, it does not provide the desktop system tray. Open the dashboard directly at `http://127.0.0.1:27003`.
 
+### After Installation
+
+1. Follow any reboot or logout-and-login instruction printed by the installer.
+   This is required when the current desktop session has not yet acquired the
+   `lumenforge` device-access group.
+2. Verify that the service mode you selected is active. A successful status
+   check reports `active (running)`:
+
+   ```bash
+   # User service
+   systemctl --user status LumenForge.service
+
+   # System service
+   sudo systemctl status LumenForge.service
+   ```
+
+3. Open the dashboard at <http://127.0.0.1:27003>.
+4. Confirm that the devices you expect LumenForge to manage appear in the
+   dashboard.
+5. If the service is not active or expected devices are missing, inspect its
+   status and recent logs:
+
+   ```bash
+   # User service
+   journalctl --user -u LumenForge.service -n 100 --no-pager
+
+   # System service
+   sudo journalctl -u LumenForge.service -n 100 --no-pager
+   ```
+
 ### Upgrades
 
 There is no separate upgrade script. Installation and upgrade use the same
-mode-specific installer.
+mode-specific installer. For the current alpha, use a fresh source checkout as
+the supported upgrade input, build it, and rerun the same installer mode used
+for the existing installation.
+
+If validated release archives are published in the future, their release notes
+may provide an additional supported upgrade input. Current GitHub release
+tarballs are not yet a validated upgrade path.
 
 #### User-Service Upgrade
 
-Obtain a fresh source checkout or extracted release directory, then build
-LumenForge or use the included release binary as appropriate. Run the installer
-as the desktop user:
+Build LumenForge in the fresh source checkout, then run the installer as the
+desktop user:
 
 ```bash
 ./install-user-space.sh
@@ -166,8 +218,7 @@ membership.
 
 #### System-Service Upgrade
 
-Obtain a fresh source checkout or extracted release directory, then build
-LumenForge or use the included release binary as appropriate. Run:
+Build LumenForge in the fresh source checkout, then run:
 
 ```bash
 sudo ./install.sh
@@ -177,8 +228,7 @@ Always use the same installer mode as the existing installation. Never run
 either installer from `/opt/LumenForge`; both intentionally refuse to run from
 the installed directory. To switch service modes, first stop, disable, and
 remove the existing service using the appropriate [uninstall](#uninstall)
-instructions, then run the other installer from a fresh source or release
-directory.
+instructions, then run the other installer from a fresh source checkout.
 
 Both installer paths replace only the root-owned immutable application tree.
 Configuration, profiles, generated state, and uploads remain in the external

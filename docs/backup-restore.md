@@ -5,24 +5,87 @@ configuration and mutable runtime state. Restore is an alpha feature: make a
 separate copy of important state before testing it, and treat every uploaded
 backup as untrusted input.
 
-## Backup format
+## Create a backup
 
-A LumenForge backup contains:
+1. Open the LumenForge dashboard and select **Settings**.
+2. Find **Backup and Restore** and select **Backup**.
+3. Wait for the browser to finish downloading the ZIP file, then store it
+   somewhere separate from the LumenForge installation.
 
-```text
-config.json
-database/
-database/**                 optional files and subdirectories
-dashboard.json              optional
-display.json                optional
-_hash.txt
+The **Backup** button always creates one complete snapshot of all supported
+LumenForge configuration and mutable state that currently exists. Users cannot
+select individual backup components. Creating a backup does not require a
+service restart.
+
+## Restore a backup
+
+1. Before restoring, create a new backup or separately copy any current state
+   you may need.
+2. In **Settings**, find **Backup and Restore** and select the LumenForge backup
+   ZIP file.
+3. Select **Restore**.
+4. When the dashboard reports success, make no further dashboard changes and
+   restart LumenForge immediately.
+
+A successful restore response means the files were replaced; it does not mean
+the running process reloaded them. Restart the service mode used by the
+installation:
+
+```bash
+# User service
+systemctl --user restart LumenForge.service
+
+# System service
+sudo systemctl restart LumenForge.service
 ```
 
-`config.json` and `_hash.txt` must each appear exactly once. Directories are
-accepted only beneath `database/`. Every other entry must be a regular file at
-one of the paths shown above. Absolute paths, traversal, backslashes,
-non-canonical or duplicate paths, symbolic links, devices, FIFOs, sockets, and
-other special entries are rejected.
+After the restart, LumenForge loads the restored configuration, profiles, and
+mutable state. Confirm that the dashboard shows the expected restored state and
+currently available hardware. If the service does not start or the restored
+state is not as expected, inspect the service status and logs described under
+[Troubleshooting](#troubleshooting).
+
+## What the snapshot contains and replaces
+
+A generated LumenForge backup contains:
+
+```text
+config.json                 always included
+database/                   mutable database snapshot
+database/**                 all existing files and subdirectories
+dashboard.json              included automatically when present
+display.json                included automatically when present
+_hash.txt                   always included
+```
+
+`dashboard.json` and `display.json` do not exist on every installation. The
+**Backup** button includes each file automatically when it is present; this is
+not a user-selectable option.
+
+Restore uses snapshot semantics:
+
+- `database/` replaces the complete live mutable database. Files present only
+  in the live database, including files created after the backup, are removed.
+- A present `dashboard.json` or `display.json` replaces the corresponding live
+  file.
+- If `dashboard.json` or `display.json` is absent from the backup, its live copy
+  is removed.
+- The archived `logFile` and `amdsmiPath` values never replace the current
+  host's values. All other archived configuration fields, including unknown
+  fields, are retained.
+
+External Source Registry files are not part of this snapshot and are never
+backed up or restored.
+
+## Technical details
+
+### Valid archive format and limits
+
+`config.json` and `_hash.txt` must each appear exactly once in a valid backup.
+Directories are accepted only beneath `database/`. Every other entry must be a
+regular file at one of the paths shown above. Absolute paths, traversal,
+backslashes, non-canonical or duplicate paths, symbolic links, devices, FIFOs,
+sockets, and other special entries are rejected.
 
 The compressed HTTP upload limit is 5 MiB. After opening the ZIP, restore also
 enforces these uncompressed limits:
@@ -40,6 +103,8 @@ limits are intentionally above LumenForge's current profiles and 5 MiB media
 upload limit while preventing a small compressed upload from expanding without
 bound.
 
+### Integrity validation
+
 `_hash.txt` is the SHA-256 digest of the concatenated regular-file contents in
 archive order, excluding `_hash.txt` itself. It detects accidental corruption;
 it is not a signature and does not prove who created the backup. Restore also
@@ -47,10 +112,7 @@ checks ZIP decompression and CRC errors and validates the JSON syntax of
 `config.json`, `dashboard.json`, `display.json`, and every `.json` file beneath
 `database/`. Non-JSON mutable files, such as LCD media, remain supported.
 
-External Source Registry files are not part of this format and are never
-backed up or restored.
-
-## Restore behavior
+### Restore staging, commit, and rollback
 
 Restore validates the complete archive before creating private staging
 directories beside the configured destinations. Staging directories use mode
@@ -69,15 +131,7 @@ power loss during the bounded rename sequence can still leave an intermediate
 state, and a filesystem failure can prevent rollback. Check the local service
 log if restore reports a commit or rollback failure.
 
-Restore uses snapshot semantics:
-
-- `database/` replaces the complete live mutable database; files present only
-  in the old database are removed.
-- A present `dashboard.json` or `display.json` replaces the live file.
-- If either optional file is absent from the backup, its live copy is removed.
-- The archived `logFile` and `amdsmiPath` values never replace the current
-  host's values. All other archived configuration fields, including unknown
-  fields, are retained.
+### Restore paths and runtime coordination
 
 Installed user services restore `config.json` beneath
 `$XDG_CONFIG_HOME/lumenforge/` (falling back to `~/.config/lumenforge/`) and
@@ -94,23 +148,6 @@ assets, templates, `go.mod`, installer scripts, or other application content.
 Backup creation and restore are serialized with each other. Ordinary runtime
 profile or device writes are not globally paused, so restart immediately after
 a successful restore and do not make further dashboard changes first.
-
-## Required restart
-
-LumenForge does not restart itself. A successful response means that files were
-replaced, not that the running process reloaded them.
-
-For a user-service installation:
-
-```bash
-systemctl --user restart LumenForge.service
-```
-
-For a system-service installation:
-
-```bash
-sudo systemctl restart LumenForge.service
-```
 
 ## Troubleshooting
 

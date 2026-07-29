@@ -1450,7 +1450,7 @@ $ lfcurl -X POST http://127.0.0.1:27003/api/mouse/updateKeyAssignment -d '{"devi
 ```
 ### Set headset Zone colors
 ```bash
-$ lfcurl -X POST http://127.0.0.1:27003/api/mouse/zoneColors -d '{"deviceId":"EXAMPLE-DEVICE-002", "colorZones":{"0":{"red":255, "green":255, "blue":255},"1":{"red":255, "green":255, "blue":255}}}' --silent | jq
+$ lfcurl -X POST http://127.0.0.1:27003/api/headset/zoneColors -d '{"deviceId":"EXAMPLE-DEVICE-002", "colorZones":{"0":{"red":255, "green":255, "blue":255},"1":{"red":255, "green":255, "blue":255}}}' --silent | jq
 ```
 ### Change headset sleep mode
 ```bash
