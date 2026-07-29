@@ -38,10 +38,12 @@ Related documentation:
 
 - [Supported device list](docs/supported-devices.md)
 - [Configuration reference](docs/configuration.md)
+- [Cooling profiles and fan curves](docs/cooling-profiles.md)
 - [Backup and restore](docs/backup-restore.md)
 - [OpenRGB device import](docs/openrgb-import.md)
 - [SCUF controller audio configuration](docs/scuf-controller.md)
 - [XENEON EDGE KDE](docs/xeneon-edge-kde.md)
+- [Troubleshooting](docs/troubleshooting.md)
 
 **Advanced hardware setup**
 
