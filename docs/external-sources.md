@@ -136,18 +136,25 @@ temperature.
 4. Create `external-sources.json` at the user-service path listed above.
 5. Set the registry permissions, normally with
    `chmod 600 ~/.config/lumenforge/external-sources.json`.
-6. Restart LumenForge with
-   `systemctl --user restart LumenForge.service`.
-7. Hard-refresh the browser so it fetches the current registry list.
-8. Open the temperature page and create a cooling profile.
-9. Select `External Source` as the sensor type.
-10. Select the registry entry by its display `name`.
-11. Save the profile and assign it to the appropriate channel as needed.
+6. Hard-refresh the browser so the dashboard fetches the current registry list.
+7. Open **Cooling Profiles** and create a cooling profile.
+8. Select `External Source` as the sensor type.
+9. Select the registry entry by its display `name`.
+10. Save the profile and assign it to the appropriate channel as needed.
 
 For a system-service installation, use the root-owned registry rules above and
-restart with:
+the same dashboard steps. Saving the registry does not normally require
+restarting either service mode because LumenForge loads and validates the file
+on demand.
+
+If the source list still does not update after a hard refresh, restarting the
+applicable service is an optional troubleshooting step:
 
 ```bash
+# User service
+systemctl --user restart LumenForge.service
+
+# System service
 sudo systemctl restart LumenForge.service
 ```
 
@@ -179,10 +186,10 @@ hardware sensor. LumenForge passes `42.5\n` as a fixed argument directly to
 
 The registry is loaded and validated on demand when the API lists sources,
 when a profile selection is validated, and whenever a selected source is
-executed. A service restart is therefore not required for the server to notice
-a saved registry change. The browser dropdown is populated by an API request,
-so hard-refresh the page after changing the file. The selected executable is
-also revalidated immediately before execution.
+executed. A service restart is therefore not normally required for LumenForge
+to notice a saved registry change. The dashboard dropdown is populated by an
+HTTP API request, so hard-refresh the page after changing the file. The
+selected executable is also revalidated immediately before execution.
 
 Only `External Source` (sensor type `7`) displays the registry dropdown. Other
 sensor types retain their existing device and sensor selectors. The dropdown
