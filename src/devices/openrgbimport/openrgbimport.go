@@ -413,16 +413,6 @@ func sanitizeZoneName(name string) string {
 func buildDefaultDeviceConfig(serial string, dc openrgb.DiscoveredController) *DeviceConfig {
 	cfg := &DeviceConfig{Serial: serial, Product: dc.Name}
 
-	if isLegacyASUSMotherboardImport(dc.Name, dc.Vendor) {
-		cfg.Zones = []ZoneConfig{
-			{Name: "Aura Mainboard", LedCount: 1},
-			{Name: "RGB Header 1", LedCount: 1},
-			{Name: "RGB Header 2", LedCount: 1},
-			{Name: "RGB Header 3", LedCount: 1},
-		}
-		return cfg
-	}
-
 	if len(dc.Zones) > 0 {
 		zoneLimit := len(dc.Zones)
 		if zoneLimit > 128 {
