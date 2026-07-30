@@ -544,10 +544,14 @@ func identifyingMetadataMatches(cfg *DeviceConfig, controller openrgb.Discovered
 }
 
 func internalSerialForController(controller openrgb.DiscoveredController) string {
-	if isLegacyASUSMotherboardImport(controller.Name, controller.Vendor) {
-		return "openrgb-mobo-1"
-	}
-	hashInput := fmt.Sprintf("%s|%s|%s|%s|%d", controller.Name, controller.Vendor, controller.Version, controller.Description, len(controller.Zones))
+	hashInput := fmt.Sprintf(
+		"%s|%s|%s|%s|%d",
+		controller.Name,
+		controller.Vendor,
+		controller.Version,
+		controller.Description,
+		len(controller.Zones),
+	)
 	hash := sha256.Sum256([]byte(hashInput))
 	return fmt.Sprintf("openrgb-hash-%x", hash[:16])
 }

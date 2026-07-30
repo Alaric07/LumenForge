@@ -246,18 +246,6 @@ func pickDisplaySerialAndLabel(dc openrgb.DiscoveredController) (string, string)
 	return fallback, "FALLBACK"
 }
 
-func isLegacyASUSMotherboardImport(name, vendor string) bool {
-	nameLower := strings.ToLower(name)
-	vendorLower := strings.ToLower(vendor)
-	isGPU := strings.Contains(nameLower, "geforce") || strings.Contains(nameLower, "rtx") || strings.Contains(nameLower, "gtx") || strings.Contains(nameLower, "radeon") || strings.Contains(nameLower, "gpu") || strings.Contains(nameLower, "graphics") || strings.Contains(nameLower, "vga")
-	if isGPU {
-		return false
-	}
-	isAsus := strings.Contains(nameLower, "asus") || strings.Contains(vendorLower, "asus")
-	isMobo := strings.Contains(nameLower, "motherboard") || strings.Contains(nameLower, "mainboard") || strings.Contains(nameLower, "rog strix") || strings.Contains(nameLower, "tuf") || strings.Contains(nameLower, "aura") || strings.Contains(vendorLower, "aura") || strings.Contains(nameLower, "prime")
-	return isAsus && isMobo
-}
-
 func getConfigPath() string {
 	return configStorePath()
 }
@@ -896,69 +884,11 @@ func (d *Device) SaveDeviceConfig(cfg *DeviceConfig) error {
 	return nil
 }
 
-func Init() *common.Device {
-	d := &Device{
-		Product:       "Imported ASUS Motherboard",
-		Serial:        "openrgb-mobo-1",
-		IsOpenRGB:     true,
-		DisplaySerial: "",
-		colorCount:    4,
-		brightness:    100,
-		lastColor:     []byte{99, 213, 255}, // default #63d5ff
-		effect:        "static",
-		speed:         2.0,
-		stopChan:      nil,
-		doneChan:      nil,
-		running:       false,
-		LEDCount:      4,
-	}
-
-	controllerId, err := openrgb.FindControllerIDByNameOrVendor(
-		"asus rog strix z890-e gaming wifi",
-		"asus aura",
-	)
-	if err != nil {
-		d.controllerId = -1
-	} else {
-		d.controllerId = controllerId
-	}
-
-	cfg := resolveDeviceConfig(d.Serial, openrgb.DiscoveredController{
-		Name:   d.Product,
-		Vendor: "asus aura",
-	})
-	d.RGBModes = rgbModes
-	d.loadRgb()
-	if cfg != nil {
-		defaultBrightness := uint8(100)
-		d.Config = cfg
-		d.ZoneAmount = len(cfg.Zones)
-		d.colorCount = configLedCount(cfg)
-		d.DeviceProfile = &DeviceProfile{
-			Active:           true,
-			RGBProfile:       "static",
-			BrightnessSlider: &defaultBrightness,
-			ZoneColors:       buildZoneColorsFromConfig(cfg, d.lastColor),
-		}
-		d.loadDeviceProfiles()
-		d.saveDeviceProfile()
-		d.setupClusterController()
-	}
-
-	d.createDevice()
-	return d.instance
-}
-
 func newOfflineDevice(serial string, cfg DeviceConfig) *Device {
 	colorCount := configLedCount(&cfg)
 	productName := strings.TrimSpace(cfg.Product)
 	if productName == "" {
 		productName = "Imported OpenRGB Device"
-	}
-	if serial == "openrgb-mobo-1" {
-		if strings.TrimSpace(cfg.Product) == "" {
-			productName = "Imported ASUS Motherboard"
-		}
 	}
 
 	d := &Device{
@@ -1156,97 +1086,6 @@ func migrateDeviceData(dc openrgb.DiscoveredController, newSerial string) {
 			_ = os.Remove(oldPath)
 		}
 	}
-}
-
-func newDeviceFromController(dc openrgb.DiscoveredController) *Device {
-	isLegacyASUS := isLegacyASUSMotherboardImport(dc.Name, dc.Vendor)
-
-	var serial string
-	if isLegacyASUS {
-		serial = "openrgb-mobo-1"
-	} else {
-		hashInput := fmt.Sprintf("%s|%s|%s|%s|%d", dc.Name, dc.Vendor, dc.Version, dc.Description, len(dc.Zones))
-		hash := sha256.Sum256([]byte(hashInput))
-		serial = fmt.Sprintf("openrgb-hash-%x", hash[:16])
-	}
-
-	if !isLegacyASUS {
-		migrateDeviceData(dc, serial)
-	}
-
-	product := dc.Name
-	displaySerial := ""
-	displaySerialLabel := ""
-	colorCount := dc.LEDCount
-
-	if product == "" {
-		product = fmt.Sprintf("Imported OpenRGB Controller %d", dc.ID)
-	}
-
-	displaySerial, displaySerialLabel = pickDisplaySerialAndLabel(dc)
-
-	cfg := resolveDeviceConfig(serial, dc)
-
-	if isConfigValidForController(cfg, dc) {
-		colorCount = configLedCount(cfg)
-	}
-
-	d := &Device{
-		Product:            product,
-		Serial:             serial,
-		IsOpenRGB:          true,
-		DisplaySerial:      displaySerial,
-		DisplaySerialLabel: displaySerialLabel,
-		controllerId:       dc.ID,
-		colorCount:         colorCount,
-		brightness:         100,
-		lastColor:          []byte{99, 213, 255},
-		effect:             "static",
-		speed:              2.0,
-		stopChan:           nil,
-		doneChan:           nil,
-		running:            false,
-		LEDCount:           colorCount,
-		Version:            dc.Version,
-		Description:        dc.Description,
-	}
-
-	d.RGBModes = rgbModes
-	d.loadRgb()
-
-	if isConfigValidForController(cfg, dc) {
-		defaultBrightness := uint8(100)
-		d.Config = cfg
-		d.ZoneAmount = len(cfg.Zones)
-		d.DeviceProfile = &DeviceProfile{
-			Active:           true,
-			RGBProfile:       "static",
-			BrightnessSlider: &defaultBrightness,
-			ZoneColors:       buildZoneColorsFromConfig(cfg, d.lastColor),
-		}
-		d.loadDeviceProfiles()
-		d.saveDeviceProfile()
-		d.setupClusterController()
-
-		// Apply initial state so the device lights up on boot
-		if !d.DeviceProfile.RGBCluster {
-			if d.effect == "static" || d.effect == "off" {
-				d.mu.Lock()
-				frame := d.buildZoneFrame()
-				d.mu.Unlock()
-				if len(frame) > 0 {
-					conn, _ := openrgb.SendFramePersistent(d.openrgbConn, uint32(d.controllerId), frame)
-					d.openrgbConn = conn
-				}
-			} else {
-				go func() {
-					_ = d.SetEffect(d.effect)
-				}()
-			}
-		}
-	}
-
-	return d
 }
 
 func (d *Device) resolveDeviceIcon() string {

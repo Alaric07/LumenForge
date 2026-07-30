@@ -797,7 +797,7 @@ func TestDeliberateDiscoveryUsesOneDeadlineAndReleasesLifecycleGates(t *testing.
 
 func TestDiscoveryPreviewConfiguredStatesFailureAndTargetConflict(t *testing.T) {
 	_, _ = setupLifecycleTest(t)
-	enabled := testConfig("openrgb-mobo-1", "Enabled")
+	enabled := testConfig("openrgb-enabled", "Enabled")
 	enabled.ExternalSerial = "enabled-external"
 	disabled := testConfig("openrgb-hash-legacy-short", "Disabled")
 	disabled.ExternalSerial = "disabled-external"
@@ -1487,19 +1487,6 @@ func TestStoreIdentityMatchesSelectedKindAndLegacyFallback(t *testing.T) {
 	if storeIdentityMatches(legacyConfig, legacySerial, controllerIdentity{}, differentExternal) {
 		t.Fatal("different usable external serials allowed unsafe legacy reuse")
 	}
-
-	motherboard := openrgb.DiscoveredController{
-		Name:     "ASUS ROG Strix Z890-E Gaming WiFi",
-		Vendor:   "ASUS Aura",
-		Serial:   "none",
-		LEDCount: 1,
-		Zones:    []openrgb.DiscoveredZone{{Name: "Aura", LEDCount: 1}},
-	}
-	motherboardConfig := testConfig("openrgb-mobo-1", "Imported ASUS Motherboard")
-	motherboardConfig.Vendor = motherboard.Vendor
-	if !storeIdentityMatches(motherboardConfig, motherboardConfig.Serial, controllerIdentity{}, motherboard) {
-		t.Fatal("legacy openrgb-mobo-1 was not recognized across product presentation drift")
-	}
 }
 
 func TestFullExternalIdentityPresentationDriftKeepsConfiguredState(t *testing.T) {
@@ -1933,19 +1920,6 @@ func TestDisabledLegacySerialsAndArtifactsAreReused(t *testing.T) {
 		controller openrgb.DiscoveredController
 		wantSerial string
 	}{
-		{
-			name: "motherboard",
-			controller: openrgb.DiscoveredController{
-				Name:        "ASUS ROG Strix Z890-E Gaming WiFi",
-				Vendor:      "ASUS Aura",
-				Description: "Motherboard",
-				Version:     "1.0",
-				Serial:      "none",
-				LEDCount:    1,
-				Zones:       []openrgb.DiscoveredZone{{Name: "Aura", LEDCount: 1}},
-			},
-			wantSerial: "openrgb-mobo-1",
-		},
 		{
 			name:       "shortened hash",
 			controller: lifecycleController("Legacy Short Hash", "unknown", "", 2),
