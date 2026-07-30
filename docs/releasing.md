@@ -32,12 +32,14 @@ VERSION=v0.2.1-alpha ./scripts/build.sh
 3. Review the accumulated changes as an alpha release candidate.
 4. Change the changelog heading from `Unreleased` to the release version and
    date.
-5. Build with the authorized release version supplied through `VERSION`.
-6. Confirm the binary reports the intended release version.
-7. Merge the approved release into `main`.
-8. Create the matching Git tag, such as `v0.2.1-alpha`.
-9. Push the approved branch and tag.
-10. Move the tracked development fallback to the next selected development
+5. Review any `Upgrade Notes` in the changelog and include required manual
+   migration steps in the published release notes.
+6. Build with the authorized release version supplied through `VERSION`.
+7. Confirm the binary reports the intended release version.
+8. Merge the approved release into `main`.
+9. Create the matching Git tag, such as `v0.2.1-alpha`.
+10. Push the approved branch and tag.
+11. Move the tracked development fallback to the next selected development
     version after release.
 
 The exact release process may change as release automation is finalized.

@@ -324,9 +324,9 @@ func TestInitAllLoadsValidLegacyStoreAndNormalizesEmptySerialInMemory(t *testing
 		},
 		{
 			name:       "valid legacy entry",
-			mapSerial:  "openrgb-mobo-1",
-			config:     DeviceConfig{Serial: "openrgb-mobo-1", Product: "Legacy Device", Zones: []ZoneConfig{{Name: "Legacy Zone", LedCount: 4}}},
-			wantSerial: "openrgb-mobo-1",
+			mapSerial:  "openrgb-legacy-valid",
+			config:     DeviceConfig{Serial: "openrgb-legacy-valid", Product: "Legacy Device", Zones: []ZoneConfig{{Name: "Legacy Zone", LedCount: 4}}},
+			wantSerial: "openrgb-legacy-valid",
 			wantName:   "Legacy Zone",
 		},
 	}
