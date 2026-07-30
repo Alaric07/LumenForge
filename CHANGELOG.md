@@ -14,11 +14,11 @@ and the OpenLinkHub repository.
 
 ### Upgrade Notes
 
-- Existing OpenRGB imports preserve their saved layouts during upgrades. Users
-  with an ASUS motherboard imported by 0.2.0-alpha must remove its complete
-  entry from `database/openrgbimport-zones.json` and import it again to receive
-  the corrected onboard and addressable-header zones. Using **Remove** in the
-  web interface is not sufficient because it preserves the saved configuration.
+- Existing OpenRGB imports created by 0.2.0-alpha may retain stale controller
+  identity or zone information. Stop LumenForge, back up and remove
+  `database/openrgbimport-zones.json`, restart the service, and re-import the
+  desired OpenRGB controllers. Saved cluster layouts and RGB profiles are
+  preserved during this process.
 
 ## 0.2.0-alpha - 2026-07-29
 
