@@ -411,7 +411,6 @@ func sanitizeZoneName(name string) string {
 }
 
 func buildDefaultDeviceConfig(serial string, dc openrgb.DiscoveredController) *DeviceConfig {
-	nameLower := strings.ToLower(dc.Name)
 	cfg := &DeviceConfig{Serial: serial, Product: dc.Name}
 
 	if isLegacyASUSMotherboardImport(dc.Name, dc.Vendor) {
@@ -420,26 +419,6 @@ func buildDefaultDeviceConfig(serial string, dc openrgb.DiscoveredController) *D
 			{Name: "RGB Header 1", LedCount: 1},
 			{Name: "RGB Header 2", LedCount: 1},
 			{Name: "RGB Header 3", LedCount: 1},
-		}
-		return cfg
-	}
-
-	if strings.Contains(nameLower, "strimer") {
-		// Compatibility fallback for current OpenRGB-reported zone lengths.
-		// These defaults ensure stable initialization, though they remain user-editable.
-		cfg.Zones = []ZoneConfig{
-			{Name: "24 Pin ATX Strip 0", LedCount: 20},
-			{Name: "24 Pin ATX Strip 1", LedCount: 20},
-			{Name: "24 Pin ATX Strip 2", LedCount: 20},
-			{Name: "24 Pin ATX Strip 3", LedCount: 20},
-			{Name: "24 Pin ATX Strip 4", LedCount: 20},
-			{Name: "24 Pin ATX Strip 5", LedCount: 20},
-			{Name: "8 Pin GPU Strip 0", LedCount: 27},
-			{Name: "8 Pin GPU Strip 1", LedCount: 27},
-			{Name: "8 Pin GPU Strip 2", LedCount: 27},
-			{Name: "8 Pin GPU Strip 3", LedCount: 27},
-			{Name: "8 Pin GPU Strip 4", LedCount: 27},
-			{Name: "8 Pin GPU Strip 5", LedCount: 27},
 		}
 		return cfg
 	}
