@@ -41,6 +41,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -2302,21 +2303,84 @@ func uiIndex(w http.ResponseWriter, _ *http.Request) {
 	executeTemplateOrRespond(w, t, "index.html", web, true)
 }
 
+type devicesWorkspaceSummary struct {
+	Product      string
+	Serial       string
+	Firmware     string
+	Image        string
+	Unavailable  bool
+	HasBattery   bool
+	BatteryLevel uint16
+}
+
+func devicesWorkspaceSummaryForSerial(
+	deviceList map[string]*common.Device,
+	batteryStats map[string]stats.BatteryStats,
+	serial string,
+) (*devicesWorkspaceSummary, bool) {
+	device, ok := deviceList[serial]
+	if !ok || device == nil || device.Hidden || device.Serial != serial {
+		return nil, false
+	}
+
+	summary := &devicesWorkspaceSummary{
+		Product:     device.Product,
+		Serial:      device.Serial,
+		Firmware:    device.Firmware,
+		Image:       device.Image,
+		Unavailable: device.Unavailable,
+	}
+	if battery, found := batteryStats[serial]; found {
+		summary.HasBattery = true
+		summary.BatteryLevel = battery.Level
+	}
+
+	return summary, true
+}
+
 // uiDevices handles the devices workspace
-func uiDevices(w http.ResponseWriter, _ *http.Request) {
+func uiDevices(w http.ResponseWriter, r *http.Request) {
+	deviceList := devices.GetDevices()
+	batteryStats := stats.GetBatteryStats()
+
+	for header := range headers {
+		w.Header().Set(headers[header].Key, headers[header].Value)
+	}
+
+	// Reject malformed encoding anywhere in the query, while deliberately
+	// ignoring well-formed keys other than the optional device selection.
+	query, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		http.Error(w, "Invalid device selection", http.StatusBadRequest)
+		return
+	}
+
+	var selectedDevice *devicesWorkspaceSummary
+	if values, found := query["device"]; found {
+		if len(values) != 1 || values[0] == "" || !common.AlphanumericDashSemiColon.MatchString(values[0]) {
+			http.Error(w, "Invalid device selection", http.StatusBadRequest)
+			return
+		}
+
+		selectedDevice, found = devicesWorkspaceSummaryForSerial(deviceList, batteryStats, values[0])
+		if !found {
+			http.NotFound(w, r)
+			return
+		}
+	}
+
 	web := templates.Web{}
 	web.Title = dashboard.GetDashboard().PageTitle
-	web.Devices = devices.GetDevices()
-	web.BatteryStats = stats.GetBatteryStats()
+	web.Devices = deviceList
+	if selectedDevice != nil {
+		web.Device = selectedDevice
+	}
+	web.BatteryStats = batteryStats
 	web.BuildInfo = version.GetBuildInfo()
 	web.Dashboard = dashboard.GetDashboard()
 	web.Page = "devices"
 
 	t := templates.GetTemplate()
-	for header := range headers {
-		w.Header().Set(headers[header].Key, headers[header].Value)
-	}
-
 	executeTemplateOrRespond(w, t, "devices.html", web, true)
 }
 

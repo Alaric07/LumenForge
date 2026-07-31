@@ -86,7 +86,8 @@
 
 .lf-global-link:focus-visible,
 .lf-device-item:focus-visible,
-.lf-brand:focus-visible {
+.lf-brand:focus-visible,
+.lf-legacy-controls-link:focus-visible {
     outline: 2px solid var(--lf-shell-accent);
     outline-offset: 2px;
 }
@@ -210,6 +211,15 @@
     transform: translateX(2px);
 }
 
+.lf-device-item-active,
+.lf-device-item-active:hover {
+    border-color: var(--lf-shell-accent);
+    border-color: color-mix(in srgb, var(--lf-shell-accent) 36%, var(--lf-shell-border));
+    background: var(--lf-shell-panel-raised);
+    background: color-mix(in srgb, var(--lf-shell-accent) 12%, var(--lf-shell-panel-raised));
+    transform: none;
+}
+
 .lf-device-image-frame {
     width: 48px;
     height: 48px;
@@ -322,6 +332,128 @@
     max-width: 600px;
     margin: 9px 0 0;
     font-size: 13px;
+}
+
+.lf-selected-device-header {
+    min-width: 0;
+}
+
+.lf-selected-device-header .lf-workspace-title {
+    overflow-wrap: anywhere;
+}
+
+.lf-selected-device-summary {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(150px, 220px) minmax(0, 1fr);
+    gap: clamp(22px, 4vw, 42px);
+    margin-top: 24px;
+    padding: clamp(22px, 4vw, 38px);
+    border: 1px solid var(--lf-shell-border);
+    border-radius: 16px;
+    background: var(--lf-shell-panel);
+    background: color-mix(in srgb, var(--lf-shell-panel) 72%, transparent);
+}
+
+.lf-selected-device-visual {
+    min-width: 0;
+}
+
+.lf-selected-device-image-frame {
+    width: 100%;
+    min-height: 180px;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    border: 1px solid var(--lf-shell-border-subtle);
+    border-radius: 14px;
+    background: var(--lf-shell-panel-raised);
+}
+
+.lf-selected-device-image {
+    width: 100%;
+    max-width: 180px;
+    height: 150px;
+    object-fit: contain;
+}
+
+.lf-selected-device-image-fallback {
+    width: 64px;
+    height: 64px;
+    opacity: 0.65;
+}
+
+.lf-selected-device-content {
+    min-width: 0;
+    align-self: center;
+}
+
+.lf-selected-device-unavailable {
+    width: fit-content;
+    margin: 0 0 14px;
+    padding: 4px 8px;
+    border: 1px solid var(--lf-shell-bad);
+    border: 1px solid color-mix(in srgb, var(--lf-shell-bad) 35%, transparent);
+    border-radius: 999px;
+    color: var(--lf-shell-bad);
+    background: var(--lf-shell-panel-raised);
+    background: color-mix(in srgb, var(--lf-shell-bad) 9%, transparent);
+    font-size: 11px;
+    font-weight: 650;
+}
+
+.lf-device-summary-meta {
+    display: grid;
+    gap: 0;
+    margin: 0;
+}
+
+.lf-device-summary-meta-row {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(82px, 110px) minmax(0, 1fr);
+    gap: 16px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--lf-shell-border-subtle);
+}
+
+.lf-device-summary-label,
+.lf-device-summary-value {
+    min-width: 0;
+    margin: 0;
+}
+
+.lf-device-summary-label {
+    color: var(--lf-shell-muted);
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.lf-device-summary-value {
+    color: var(--lf-shell-text);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+.lf-legacy-controls-link {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 22px;
+    padding: 9px 14px;
+    border: 1px solid var(--lf-shell-accent);
+    border-radius: 9px;
+    color: var(--lf-shell-text);
+    background: var(--lf-shell-panel-raised);
+    text-decoration: none;
+}
+
+.lf-legacy-controls-link:hover {
+    color: var(--lf-shell-text);
+    background: color-mix(in srgb, var(--lf-shell-accent) 12%, var(--lf-shell-panel-raised));
 }
 
 .lf-workspace-empty {
@@ -461,6 +593,14 @@
     .lf-device-workspace {
         min-height: auto;
         padding: 24px 16px;
+    }
+
+    .lf-selected-device-summary {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .lf-selected-device-image-frame {
+        min-height: 150px;
     }
 
     .lf-workspace-empty {
