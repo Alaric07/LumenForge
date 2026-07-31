@@ -77,8 +77,15 @@ var (
 	removeOpenRGBImports = func(ctx context.Context, serials []string) (openrgbimport.RemoveResult, error) {
 		return openrgbimport.RemoveConfiguredImports(ctx, serials, openRGBImportRegistryHooks())
 	}
-	refreshOpenRGBImports = openrgbimport.RefreshManager
-	mediaInputControl     = inputmanager.InputControlKeyboard
+	refreshOpenRGBImports           = openrgbimport.RefreshManager
+	lookupOpenRGBImportForLighting  = devices.LookupOpenRGBImport
+	setOpenRGBImportBrightnessValue = func(device *openrgbimport.Device, brightness uint8) error {
+		return device.SetBrightness(brightness)
+	}
+	setOpenRGBImportEffectValue = func(device *openrgbimport.Device, effect string) error {
+		return device.SetEffect(effect)
+	}
+	mediaInputControl = inputmanager.InputControlKeyboard
 )
 
 const (
@@ -2790,6 +2797,22 @@ func getOpenRGBImportDeviceBySerial(serial string) (*openrgbimport.Device, error
 	return dev, nil
 }
 
+func getOpenRGBImportLightingDeviceBySerial(serial string) (*openrgbimport.Device, error) {
+	if serial == "" || !common.AlphanumericDashRegex.MatchString(serial) {
+		return nil, fmt.Errorf("invalid OpenRGB device serial")
+	}
+
+	wrapper, device, ok := lookupOpenRGBImportForLighting(serial)
+	if !ok || wrapper == nil || device == nil || wrapper.Hidden || wrapper.Unavailable || wrapper.Serial != serial {
+		return nil, fmt.Errorf("OpenRGB device is not available")
+	}
+	wrapperDevice, ok := wrapper.Instance.(*openrgbimport.Device)
+	if !ok || wrapperDevice == nil || wrapperDevice != device || !device.MatchesOpenRGBImport(serial) {
+		return nil, fmt.Errorf("OpenRGB device is not available")
+	}
+	return device, nil
+}
+
 func decodeRequestBody(w http.ResponseWriter, r *http.Request, dst any) bool {
 	err := json.NewDecoder(r.Body).Decode(dst)
 	if err != nil {
@@ -2954,38 +2977,27 @@ func setOpenRGBImportColor(w http.ResponseWriter, r *http.Request) {
 
 func setOpenRGBImportBrightness(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Serial     string `json:"serial"`
-		Brightness uint8  `json:"brightness"`
+		Serial     *string `json:"serial"`
+		Brightness *int    `json:"brightness"`
 	}
 
-	if !decodeRequestBody(w, r, &req) {
+	if !decodeOpenRGBImportRequest(w, r, &req) {
+		return
+	}
+	if req.Serial == nil || *req.Serial == "" || req.Brightness == nil || *req.Brightness < 0 || *req.Brightness > 100 {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Invalid brightness request"}).Send(w)
 		return
 	}
 
-	serial := req.Serial
-	if serial == "" {
-		serial = "openrgb-mobo-1"
-	}
-
-	dev, err := getOpenRGBImportDeviceBySerial(serial)
+	dev, err := getOpenRGBImportLightingDeviceBySerial(*req.Serial)
 	if err != nil {
-		resp := &Response{
-			Code:    http.StatusOK,
-			Status:  0,
-			Message: err.Error(),
-		}
-		resp.Send(w)
+		(&Response{Code: http.StatusOK, Status: 0, Message: "OpenRGB device is not available"}).Send(w)
 		return
 	}
 
-	err = dev.SetBrightness(req.Brightness)
+	err = setOpenRGBImportBrightnessValue(dev, uint8(*req.Brightness))
 	if err != nil {
-		resp := &Response{
-			Code:    http.StatusOK,
-			Status:  0,
-			Message: err.Error(),
-		}
-		resp.Send(w)
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Unable to set brightness"}).Send(w)
 		return
 	}
 
@@ -2999,38 +3011,31 @@ func setOpenRGBImportBrightness(w http.ResponseWriter, r *http.Request) {
 
 func setOpenRGBImportEffect(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Serial string `json:"serial"`
-		Effect string `json:"effect"`
+		Serial *string `json:"serial"`
+		Effect *string `json:"effect"`
 	}
 
-	if !decodeRequestBody(w, r, &req) {
+	if !decodeOpenRGBImportRequest(w, r, &req) {
+		return
+	}
+	if req.Serial == nil || *req.Serial == "" || req.Effect == nil || *req.Effect == "" {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Invalid effect request"}).Send(w)
 		return
 	}
 
-	serial := req.Serial
-	if serial == "" {
-		serial = "openrgb-mobo-1"
-	}
-
-	dev, err := getOpenRGBImportDeviceBySerial(serial)
+	dev, err := getOpenRGBImportLightingDeviceBySerial(*req.Serial)
 	if err != nil {
-		resp := &Response{
-			Code:    http.StatusOK,
-			Status:  0,
-			Message: err.Error(),
-		}
-		resp.Send(w)
+		(&Response{Code: http.StatusOK, Status: 0, Message: "OpenRGB device is not available"}).Send(w)
+		return
+	}
+	if !dev.SupportsEffect(*req.Effect) {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Unsupported effect"}).Send(w)
 		return
 	}
 
-	err = dev.SetEffect(req.Effect)
+	err = setOpenRGBImportEffectValue(dev, *req.Effect)
 	if err != nil {
-		resp := &Response{
-			Code:    http.StatusOK,
-			Status:  0,
-			Message: err.Error(),
-		}
-		resp.Send(w)
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Unable to set effect"}).Send(w)
 		return
 	}
 

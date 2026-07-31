@@ -57,8 +57,13 @@ var (
 	renameConfigStore = os.Rename
 	sendConfigFrame   = openrgb.SendFrame
 	sendClusterFrame  = openrgb.SendFramePersistent
+	sendLightingColor = openrgb.SendColorContext
+	sendLightingFrame = openrgb.SendFrameContext
 	checkConfigHealth = openrgb.HealthCheck
 	getConfigCluster  = cluster.Get
+	deviceProfileDir  = func() string {
+		return filepath.Join(config.GetPaths().MutableDataRoot, "database", "profiles")
+	}
 )
 
 type ConfigStore struct {
@@ -129,13 +134,16 @@ type Device struct {
 	brightness uint8
 	lastColor  []byte
 
-	effect              string
-	speed               float64
-	rgbRunner           *rgb.ActiveRGB
-	stopChan            chan struct{}
-	doneChan            chan struct{}
-	running             bool
-	openrgbConn         net.Conn
+	effect      string
+	speed       float64
+	rgbRunner   *rgb.ActiveRGB
+	stopChan    chan struct{}
+	doneChan    chan struct{}
+	running     bool
+	openrgbConn net.Conn
+	// Effect transitions acquire effectTransitionMu before mu and retain it
+	// while stopEffectLoopLocked temporarily releases mu to wait for a worker.
+	effectTransitionMu  sync.Mutex
 	mu                  sync.Mutex
 	clusterMutationMu   sync.Mutex
 	lifecycleDetached   bool
@@ -1178,6 +1186,26 @@ func (d *Device) Snapshot() DeviceSnapshot {
 	}
 }
 
+// MatchesOpenRGBImport verifies the immutable importer identity and current lifecycle state.
+func (d *Device) MatchesOpenRGBImport(serial string) bool {
+	if d == nil {
+		return false
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return serial != "" && d.Serial == serial && d.IsOpenRGB && !d.lifecycleInactiveLocked()
+}
+
+// SupportsEffect reports whether the importer currently exposes effect.
+func (d *Device) SupportsEffect(effect string) bool {
+	if d == nil || effect == "" {
+		return false
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return slices.Contains(d.RGBModes, effect)
+}
+
 func (d *Device) GetDeviceTemplate() string {
 	return "openrgb.html"
 }
@@ -1282,7 +1310,7 @@ func (d *Device) resumeDesiredState(ctx context.Context) error {
 	}
 	d.mu.Unlock()
 
-	return d.setEffectContext(ctx, effect, false)
+	return d.setEffectContext(ctx, effect, false, false)
 }
 
 func (d *Device) recordOutputFailureLocked(err error) {
@@ -1457,13 +1485,19 @@ func (d *Device) SetBrightness(brightness uint8) error {
 	}
 
 	if brightness > 100 {
-		brightness = 100
+		return fmt.Errorf("brightness must be between 0 and 100")
 	}
 
+	previousBrightness := d.brightness
+	previousProfile := cloneDeviceProfile(d.DeviceProfile)
 	d.brightness = brightness
 	if d.DeviceProfile != nil {
 		d.DeviceProfile.BrightnessSlider = &brightness
-		d.saveDeviceProfile()
+		if err := d.saveDeviceProfileChecked(); err != nil {
+			d.brightness = previousBrightness
+			*d.DeviceProfile = *previousProfile
+			return fmt.Errorf("save brightness: %w", err)
+		}
 	}
 
 	// If an effect is running, let the effect loop pick up the new brightness.
@@ -1472,7 +1506,7 @@ func (d *Device) SetBrightness(brightness uint8) error {
 	}
 
 	if d.Config != nil && d.ZoneAmount > 0 {
-		err := openrgb.SendFrame(uint32(d.controllerId), d.buildZoneFrame())
+		err := sendLightingFrame(context.Background(), uint32(d.controllerId), d.buildZoneFrame())
 		if err != nil {
 			d.recordOutputFailureLocked(err)
 		}
@@ -1481,7 +1515,7 @@ func (d *Device) SetBrightness(brightness uint8) error {
 
 	scaled := d.applyBrightness(d.lastColor)
 
-	err := openrgb.SendColor(uint32(d.controllerId), d.colorCount, scaled)
+	err := sendLightingColor(context.Background(), uint32(d.controllerId), d.colorCount, scaled)
 	if err != nil {
 		d.recordOutputFailureLocked(err)
 	}
@@ -1506,39 +1540,63 @@ func (d *Device) SetSpeed(speed string) {
 }
 
 func (d *Device) SetEffect(effect string) error {
-	return d.setEffectContext(context.Background(), effect, true)
+	return d.setEffectContext(context.Background(), effect, true, true)
 }
 
-func (d *Device) setEffectContext(ctx context.Context, effect string, reportFailure bool) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	d.mu.Lock()
+func (d *Device) validateEffectTransitionLocked(expectedSerial string) error {
 	if d.lifecycleInactiveLocked() {
-		err := d.lifecycleMutationErrorLocked()
-		d.mu.Unlock()
-		return err
+		return d.lifecycleMutationErrorLocked()
+	}
+	if expectedSerial == "" || d.Serial != expectedSerial || !d.IsOpenRGB {
+		return fmt.Errorf("OpenRGB import identity is not active")
 	}
 
 	d.resolveControllerId()
-
 	if d.controllerId < 0 {
-		d.mu.Unlock()
 		return fmt.Errorf("controllerId not set")
 	}
-
 	if d.DeviceProfile != nil && d.DeviceProfile.RGBCluster {
-		d.mu.Unlock()
 		return fmt.Errorf("device is controlled by RGB cluster")
 	}
+	return nil
+}
 
-	// stop previous loop if any
-	d.stopEffectLoopLocked()
+func (d *Device) setEffectContext(ctx context.Context, effect string, reportFailure, validateEffect bool) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	d.effectTransitionMu.Lock()
+	defer d.effectTransitionMu.Unlock()
 
+	d.mu.Lock()
+	expectedSerial := d.Serial
+	if err := d.validateEffectTransitionLocked(expectedSerial); err != nil {
+		d.mu.Unlock()
+		return err
+	}
+	if validateEffect && (effect == "" || !slices.Contains(d.RGBModes, effect)) {
+		d.mu.Unlock()
+		return fmt.Errorf("unsupported OpenRGB effect")
+	}
+
+	previousEffect := d.effect
+	previousProfile := cloneDeviceProfile(d.DeviceProfile)
 	d.effect = effect
 	if d.DeviceProfile != nil {
 		d.DeviceProfile.RGBProfile = effect
-		d.saveDeviceProfile()
+		if err := d.saveDeviceProfileChecked(); err != nil {
+			d.effect = previousEffect
+			*d.DeviceProfile = *previousProfile
+			d.mu.Unlock()
+			return fmt.Errorf("save effect: %w", err)
+		}
+	}
+
+	// Persistence succeeded, so replacing the prior effect can now proceed.
+	d.stopEffectLoopLocked()
+	if err := d.validateEffectTransitionLocked(expectedSerial); err != nil {
+		d.mu.Unlock()
+		return err
 	}
 
 	// off just sets black and exits
@@ -1556,7 +1614,7 @@ func (d *Device) setEffectContext(ctx context.Context, effect string, reportFail
 			d.mu.Unlock()
 			return err
 		}
-		err := openrgb.SendColorContext(ctx, uint32(controllerID), colorCount, []byte{0, 0, 0})
+		err := sendLightingColor(ctx, uint32(controllerID), colorCount, []byte{0, 0, 0})
 		if err != nil && reportFailure && ctx.Err() == nil {
 			d.recordOutputFailureLocked(err)
 		}
@@ -1578,7 +1636,7 @@ func (d *Device) setEffectContext(ctx context.Context, effect string, reportFail
 			}
 			frame := d.buildZoneFrame()
 			controllerID := d.controllerId
-			err := openrgb.SendFrameContext(ctx, uint32(controllerID), frame)
+			err := sendLightingFrame(ctx, uint32(controllerID), frame)
 			if err != nil && reportFailure && ctx.Err() == nil {
 				d.recordOutputFailureLocked(err)
 			}
@@ -1589,7 +1647,7 @@ func (d *Device) setEffectContext(ctx context.Context, effect string, reportFail
 		scaled := d.applyBrightness(d.lastColor)
 		controllerID := d.controllerId
 		colorCount := d.colorCount
-		err := openrgb.SendColorContext(ctx, uint32(controllerID), colorCount, scaled)
+		err := sendLightingColor(ctx, uint32(controllerID), colorCount, scaled)
 		if err != nil && reportFailure && ctx.Err() == nil {
 			d.recordOutputFailureLocked(err)
 		}
@@ -1836,12 +1894,42 @@ func (d *Device) GetRGBCluster() bool {
 	return d.DeviceProfile.RGBCluster
 }
 
+func (d *Device) saveDeviceProfileChecked() error {
+	if d.DeviceProfile == nil {
+		return nil
+	}
+
+	profileDir := deviceProfileDir()
+	if err := os.MkdirAll(profileDir, 0o755); err != nil {
+		return fmt.Errorf("prepare profile directory: %w", err)
+	}
+
+	profilePath := d.DeviceProfile.Path
+	if len(profilePath) == 0 {
+		profilePath = filepath.Join(profileDir, d.Serial+".json")
+		d.DeviceProfile.Path = profilePath
+	}
+	d.DeviceProfile.Serial = d.Serial
+	d.DeviceProfile.Product = d.Product
+
+	data, err := json.MarshalIndent(d.DeviceProfile, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode profile: %w", err)
+	}
+
+	if err = os.WriteFile(profilePath, data, 0o644); err != nil {
+		return fmt.Errorf("write profile: %w", err)
+	}
+	d.loadDeviceProfiles()
+	return nil
+}
+
 func (d *Device) saveDeviceProfile() {
 	if d.DeviceProfile == nil {
 		return
 	}
 
-	profileDir := filepath.Join(config.GetPaths().MutableDataRoot, "database", "profiles")
+	profileDir := deviceProfileDir()
 	_ = os.MkdirAll(profileDir, 0o755)
 
 	profilePath := d.DeviceProfile.Path
@@ -1863,7 +1951,7 @@ func (d *Device) saveDeviceProfile() {
 
 func (d *Device) loadDeviceProfiles() {
 	profileList := make(map[string]*DeviceProfile)
-	profileDir := filepath.Join(config.GetPaths().MutableDataRoot, "database", "profiles")
+	profileDir := deviceProfileDir()
 	_ = os.MkdirAll(profileDir, 0o755)
 
 	files, err := os.ReadDir(profileDir)

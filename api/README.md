@@ -379,23 +379,22 @@ request-context/manager failure and use HTTP `200`, `status: 0`.
 
 The remaining endpoints act only on an imported controller currently present
 in LumenForge's active device registry. Merely appearing in discovery is not
-enough. Every body has an optional string `serial`; when omitted or empty it
-uses the legacy default `openrgb-mobo-1`. New clients should always send the
-actual serial returned by import.
+enough. Brightness and effect requests require the nonempty internal `serial`
+returned by import. Other active-device controls retain the legacy
+`openrgb-mobo-1` default when `serial` is omitted or empty; new clients should
+always send the actual serial.
 
-If no registry entry matches, the response is HTTP `200` with `status: 0` and
-`message: "Device not found"`. A matching non-import device returns
-`"Invalid device instance"`. A temporarily unavailable import can remain in
-the registry, but operations that require OpenRGB output can return lifecycle,
-controller, or transport error text. Devices controlled by RGB Cluster reject
-direct color and effect operations with
-`"device is controlled by RGB cluster"`.
+For brightness and effect, a missing, stale, hidden, unavailable, mismatched, or
+non-import target returns HTTP `200` with `status: 0` and a generic availability
+message. Other active-device controls retain their existing lookup errors. A
+temporarily unavailable import can remain in the registry. Devices controlled
+by RGB Cluster reject direct color and effect operations.
 
 Color, brightness, and effect operations update live or in-memory state and,
 when an active device profile exists, LumenForge attempts to save that profile.
-The profile-save helper suppresses directory-creation, serialization, and file
-write errors, so a successful endpoint response does not guarantee that the
-profile change reached durable storage.
+Brightness and effect changes are persisted before new synchronous output; a
+profile-save failure returns `status: 0` without applying new output. The color
+endpoint retains its legacy best-effort profile-save behavior.
 
 #### Set Color
 
@@ -432,8 +431,8 @@ missing-controller, and RGB Cluster errors return `status: 0`.
 
 | Field | Type | Rules |
 | --- | --- | --- |
-| `serial` | string | Optional legacy default; actual import serial recommended. |
-| `brightness` | unsigned integer | JSON decoder accepts `0`-`255`; the device clamps `101`-`255` to `100`. Negative, fractional, or greater-than-255 values make the body invalid. Omitted is `0`. |
+| `serial` | string | Required nonempty internal import serial. |
+| `brightness` | integer | Required value from `0` through `100`, inclusive. Values outside that range are rejected rather than clamped. |
 
 ```bash
 lfcurl --silent -X POST \
@@ -447,10 +446,12 @@ Success is:
 {"code":200,"status":1,"message":"Brightness set"}
 ```
 
-Brightness is updated in the active device profile when one exists, and
-LumenForge attempts the profile save described above. A running effect reads
-the new value on subsequent frames; otherwise LumenForge sends an updated frame
-immediately. This does not change importer configuration.
+Malformed JSON, unknown fields, trailing JSON, missing fields, and oversized
+bodies are rejected. Brightness is updated in the active device profile when
+one exists, and the profile must save successfully before new output is sent. A
+running effect reads the new value on subsequent frames; otherwise LumenForge
+sends an updated frame immediately. Persistence or synchronous output failure
+returns `status: 0`. This does not change importer configuration.
 
 #### Set Effect
 
@@ -459,14 +460,8 @@ the requested effect:
 
 | Field | Type | Rules |
 | --- | --- | --- |
-| `serial` | string | Optional legacy default; actual import serial recommended. |
-| `effect` | string | The handler does not validate this field. Implemented names are listed below; clients should use them. An omitted string is empty. |
-
-Implemented effect names are `circle`, `circleshift`, `colorpulse`,
-`colorshift`, `colorwarp`, `cpu-temperature`, `flickering`, `flame`, `aurora`,
-`cyberpunkglitch`, `gpu-temperature`, `gradient`, `off`, `rainbow`,
-`pastelrainbow`, `pastelspiralrainbow`, `rotator`, `spinner`,
-`spiralrainbow`, `static`, `storm`, `watercolor`, and `wave`.
+| `serial` | string | Required nonempty internal import serial. |
+| `effect` | string | Required exact name from the selected imported controller's current supported-effect list. Matching is case-sensitive; arbitrary names are rejected. |
 
 ```bash
 lfcurl --silent -X POST \
@@ -480,13 +475,14 @@ Success is:
 {"code":200,"status":1,"message":"Effect set"}
 ```
 
-The effect name is updated in the active device profile before output starts,
-and LumenForge attempts the profile save described above. `off` sends black,
-`static` sends the current in-memory color, and other implemented names run their
-animation. Because validation is absent, an unknown name remains in active
-state and may reach persistent storage even though it has no defined public
-effect behaviour; do not rely on that fallback. This endpoint does not change
-layout or importer membership.
+Malformed JSON, unknown fields, trailing JSON, missing fields, and oversized
+bodies are rejected. The supported effect name is saved in the active device
+profile before the previous effect is stopped or new output begins. A
+persistence failure leaves the previous effect state in place and returns
+`status: 0`. `off` sends black, `static` sends the current in-memory color, and
+other supported names start their animation. Synchronous output failure returns
+`status: 0`; starting an animated effect does not confirm that a hardware frame
+has been produced. This endpoint does not change layout or importer membership.
 
 #### Set Effect Speed
 
