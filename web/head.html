@@ -30,6 +30,9 @@
     <link href="/static/css/toastr.min.css" rel="stylesheet">
     <link href="/static/css/jquery-ui.min.css" rel="stylesheet">
     <link href="/static/css/themes/{{ .Dashboard.Theme }}.css" rel="stylesheet">
+    {{ if eq .Page "devices" }}
+    <link href="/static/css/app-shell.css" rel="stylesheet">
+    {{ end }}
 
     <!-- PWA -->
     <link rel="manifest" href="/static/manifest.json">

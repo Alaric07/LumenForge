@@ -2302,6 +2302,24 @@ func uiIndex(w http.ResponseWriter, _ *http.Request) {
 	executeTemplateOrRespond(w, t, "index.html", web, true)
 }
 
+// uiDevices handles the devices workspace
+func uiDevices(w http.ResponseWriter, _ *http.Request) {
+	web := templates.Web{}
+	web.Title = dashboard.GetDashboard().PageTitle
+	web.Devices = devices.GetDevices()
+	web.BatteryStats = stats.GetBatteryStats()
+	web.BuildInfo = version.GetBuildInfo()
+	web.Dashboard = dashboard.GetDashboard()
+	web.Page = "devices"
+
+	t := templates.GetTemplate()
+	for header := range headers {
+		w.Header().Set(headers[header].Key, headers[header].Value)
+	}
+
+	executeTemplateOrRespond(w, t, "devices.html", web, true)
+}
+
 // uiTemperatureOverview handles overview of temperature profiles
 func uiTemperatureOverview(w http.ResponseWriter, _ *http.Request) {
 	web := templates.Web{}
@@ -3179,6 +3197,7 @@ func setRoutes() http.Handler {
 
 	if config.GetConfig().Frontend {
 		handleFunc(r, "/", http.MethodGet, uiIndex)
+		handleFunc(r, "/devices", http.MethodGet, uiDevices)
 		handleFunc(r, "/device/", http.MethodGet, uiDeviceOverview)
 		handleFunc(r, "/temperature", http.MethodGet, uiTemperatureOverview)
 		handleFunc(r, "/temperatureGraphs", http.MethodGet, uiTemperatureGraphOverview)

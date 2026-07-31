@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+{{ template "head" . }}
+<body>
+    <div class="lf-app-shell">
+        <aside class="lf-global-nav" aria-label="Application navigation">
+            <a class="lf-brand" href="/" aria-label="LumenForge dashboard" title="LumenForge dashboard">
+                <img class="lf-brand-mark" src="/static/img/lumenforge-main.png" alt="">
+                <span class="lf-brand-name">LumenForge</span>
+            </a>
+
+            <nav class="lf-global-links">
+                <a class="lf-global-link" href="/" aria-label="Dashboard" title="Dashboard">
+                    <img class="lf-global-icon" src="/static/img/icons/icon-dashboard.svg" alt="">
+                    <span class="lf-global-label">Dashboard</span>
+                </a>
+                <a class="lf-global-link lf-global-link-active" href="/devices" aria-label="Devices" title="Devices" aria-current="page">
+                    <img class="lf-global-icon" src="/static/img/icons/icon-device.svg" alt="">
+                    <span class="lf-global-label">Devices</span>
+                </a>
+                <a class="lf-global-link" href="/rgbCluster" aria-label="Lighting" title="Lighting">
+                    <img class="lf-global-icon" src="/static/img/icons/icon-cluster.svg" alt="">
+                    <span class="lf-global-label">Lighting</span>
+                </a>
+                <a class="lf-global-link" href="/temperature" aria-label="Cooling profiles" title="Cooling profiles">
+                    <img class="lf-global-icon" src="/static/img/icons/icon-temperature.svg" alt="">
+                    <span class="lf-global-label">Cooling profiles</span>
+                </a>
+                <a class="lf-global-link" href="/lcd" aria-label="LCD" title="LCD">
+                    <img class="lf-global-icon" src="/static/img/icons/icon-lcd.svg" alt="">
+                    <span class="lf-global-label">LCD</span>
+                </a>
+                <a class="lf-global-link" href="/macros" aria-label="Macros" title="Macros">
+                    <img class="lf-global-icon" src="/static/img/icons/icon-macro.svg" alt="">
+                    <span class="lf-global-label">Macros</span>
+                </a>
+                <a class="lf-global-link" href="/settings" aria-label="Settings" title="Settings">
+                    <img class="lf-global-icon" src="/static/img/icons/icon-settings.svg" alt="">
+                    <span class="lf-global-label">Settings</span>
+                </a>
+            </nav>
+        </aside>
+
+        <aside class="lf-device-panel" aria-labelledby="lf-device-list-title">
+            <header class="lf-panel-header">
+                <p class="lf-section-kicker">Hardware</p>
+                <h2 class="lf-panel-title" id="lf-device-list-title">Devices</h2>
+                <p class="lf-panel-description">Configured hardware</p>
+            </header>
+
+            <div class="lf-device-list">
+                {{ $batteryStats := .BatteryStats }}
+                {{ $hasVisibleDevices := false }}
+                {{ range .Devices }}
+                    {{ if . }}
+                        {{ if not .Hidden }}
+                            {{ $hasVisibleDevices = true }}
+                            {{ $device := . }}
+                            <a class="lf-device-item" href="/device/{{ .Serial }}">
+                                <span class="lf-device-image-frame">
+                                    {{ if .Image }}
+                                        <img class="lf-device-image" src="/static/img/icons/{{ .Image }}" alt="">
+                                    {{ else }}
+                                        <img class="lf-device-image lf-device-image-fallback" src="/static/img/icons/icon-device.svg" alt="">
+                                    {{ end }}
+                                </span>
+                                <span class="lf-device-details">
+                                    <span class="lf-device-product">{{ .Product }}</span>
+                                    <span class="lf-device-meta">
+                                        {{ if .Firmware }}<span class="lf-device-firmware">Firmware {{ .Firmware }}</span>{{ end }}
+                                        {{ range $serial, $battery := $batteryStats }}
+                                            {{ if eq $serial $device.Serial }}<span class="lf-device-battery">Battery {{ $battery.Level }}%</span>{{ end }}
+                                        {{ end }}
+                                        {{ if .Unavailable }}<span class="lf-device-unavailable">Unavailable</span>{{ end }}
+                                    </span>
+                                </span>
+                                <span class="lf-device-chevron" aria-hidden="true">›</span>
+                            </a>
+                        {{ end }}
+                    {{ end }}
+                {{ end }}
+                {{ if not $hasVisibleDevices }}
+                    <p class="lf-device-list-empty" role="status">No devices available</p>
+                {{ end }}
+            </div>
+        </aside>
+
+        <main class="lf-device-workspace">
+            <header class="lf-workspace-header">
+                <p class="lf-section-kicker">Devices workspace</p>
+                <h1 class="lf-workspace-title">Manage your hardware</h1>
+                {{ if $hasVisibleDevices }}
+                    <p class="lf-workspace-description">Select a device to open its existing controls and settings.</p>
+                {{ else }}
+                    <p class="lf-workspace-description">Device controls will be available when configured hardware is detected.</p>
+                {{ end }}
+            </header>
+
+            <section class="lf-workspace-empty" aria-labelledby="lf-empty-title">
+                <span class="lf-empty-icon-frame" aria-hidden="true">
+                    <img class="lf-empty-icon" src="/static/img/icons/icon-device.svg" alt="">
+                </span>
+                <h2 class="lf-empty-title" id="lf-empty-title">{{ if $hasVisibleDevices }}Select a device{{ else }}No devices available{{ end }}</h2>
+                <p class="lf-empty-description">{{ if $hasVisibleDevices }}Choose hardware from the device list to continue.{{ else }}Configured devices will appear in the device list.{{ end }}</p>
+            </section>
+        </main>
+    </div>
+</body>
+</html>
