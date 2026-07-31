@@ -2303,6 +2303,23 @@ func uiIndex(w http.ResponseWriter, _ *http.Request) {
 	executeTemplateOrRespond(w, t, "index.html", web, true)
 }
 
+type openRGBWorkspaceZoneSummary struct {
+	Name     string
+	LEDCount int
+}
+
+type openRGBWorkspaceSummary struct {
+	DisplayIdentifier      string
+	DisplayIdentifierLabel string
+	HasMetadata            bool
+	Vendor                 string
+	Location               string
+	Description            string
+	Effect                 string
+	Brightness             uint8
+	Zones                  []openRGBWorkspaceZoneSummary
+}
+
 type devicesWorkspaceSummary struct {
 	Product      string
 	Serial       string
@@ -2311,6 +2328,47 @@ type devicesWorkspaceSummary struct {
 	Unavailable  bool
 	HasBattery   bool
 	BatteryLevel uint16
+	OpenRGB      *openRGBWorkspaceSummary
+}
+
+func openRGBWorkspaceDisplayIdentifierLabel(label string) string {
+	switch label {
+	case "SERIAL":
+		return "Serial"
+	case "VERSION":
+		return "Firmware"
+	case "FALLBACK":
+		return "OpenRGB ID"
+	default:
+		return ""
+	}
+}
+
+func openRGBWorkspaceSummaryFromSnapshot(snapshot openrgbimport.DeviceSnapshot) *openRGBWorkspaceSummary {
+	summary := &openRGBWorkspaceSummary{
+		DisplayIdentifier:      snapshot.DisplaySerial,
+		DisplayIdentifierLabel: openRGBWorkspaceDisplayIdentifierLabel(snapshot.DisplaySerialLabel),
+		Description:            snapshot.Description,
+		Effect:                 snapshot.Effect,
+		Brightness:             snapshot.Brightness,
+	}
+	if snapshot.Config == nil {
+		summary.HasMetadata = summary.DisplayIdentifier != "" || summary.Description != ""
+		return summary
+	}
+
+	summary.Vendor = snapshot.Config.Vendor
+	summary.Location = snapshot.Config.Location
+	summary.HasMetadata = summary.DisplayIdentifier != "" || summary.Vendor != "" ||
+		summary.Location != "" || summary.Description != ""
+	summary.Zones = make([]openRGBWorkspaceZoneSummary, len(snapshot.Config.Zones))
+	for index, zone := range snapshot.Config.Zones {
+		summary.Zones[index] = openRGBWorkspaceZoneSummary{
+			Name:     zone.Name,
+			LEDCount: zone.LedCount,
+		}
+	}
+	return summary
 }
 
 func devicesWorkspaceSummaryForSerial(
@@ -2333,6 +2391,13 @@ func devicesWorkspaceSummaryForSerial(
 	if battery, found := batteryStats[serial]; found {
 		summary.HasBattery = true
 		summary.BatteryLevel = battery.Level
+	}
+	if openRGBDevice, isOpenRGB := device.Instance.(*openrgbimport.Device); isOpenRGB &&
+		openRGBDevice != nil && openRGBDevice.Serial == serial {
+		snapshot := openRGBDevice.Snapshot()
+		if snapshot.IsOpenRGB && snapshot.Serial == serial {
+			summary.OpenRGB = openRGBWorkspaceSummaryFromSnapshot(snapshot)
+		}
 	}
 
 	return summary, true

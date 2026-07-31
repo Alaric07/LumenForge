@@ -117,7 +117,7 @@
 
                         <dl class="lf-device-summary-meta">
                             <div class="lf-device-summary-meta-row">
-                                <dt class="lf-device-summary-label">Serial</dt>
+                                <dt class="lf-device-summary-label">{{ if .Device.OpenRGB }}Internal ID{{ else }}Serial{{ end }}</dt>
                                 <dd class="lf-device-summary-value">{{ .Device.Serial }}</dd>
                             </div>
                             {{ if .Device.Firmware }}
@@ -133,6 +133,78 @@
                                 </div>
                             {{ end }}
                         </dl>
+
+                        {{ with .Device.OpenRGB }}
+                            <section class="lf-openrgb-overview">
+                                <h2 class="lf-openrgb-title">OpenRGB controller</h2>
+
+                                <div class="lf-openrgb-grid{{ if not .HasMetadata }} lf-openrgb-grid-single{{ end }}">
+                                    {{ if .HasMetadata }}
+                                        <section class="lf-openrgb-panel">
+                                            <h3 class="lf-openrgb-subtitle">Controller metadata</h3>
+                                            <dl class="lf-device-summary-meta lf-openrgb-panel-meta">
+                                                {{ if and .DisplayIdentifier .DisplayIdentifierLabel }}
+                                                    <div class="lf-device-summary-meta-row">
+                                                        <dt class="lf-device-summary-label">{{ .DisplayIdentifierLabel }}</dt>
+                                                        <dd class="lf-device-summary-value">{{ .DisplayIdentifier }}</dd>
+                                                    </div>
+                                                {{ end }}
+                                                {{ if .Vendor }}
+                                                    <div class="lf-device-summary-meta-row">
+                                                        <dt class="lf-device-summary-label">Vendor</dt>
+                                                        <dd class="lf-device-summary-value">{{ .Vendor }}</dd>
+                                                    </div>
+                                                {{ end }}
+                                                {{ if .Location }}
+                                                    <div class="lf-device-summary-meta-row">
+                                                        <dt class="lf-device-summary-label">Location</dt>
+                                                        <dd class="lf-device-summary-value">{{ .Location }}</dd>
+                                                    </div>
+                                                {{ end }}
+                                                {{ if .Description }}
+                                                    <div class="lf-device-summary-meta-row">
+                                                        <dt class="lf-device-summary-label">Description</dt>
+                                                        <dd class="lf-device-summary-value">{{ .Description }}</dd>
+                                                    </div>
+                                                {{ end }}
+                                            </dl>
+                                        </section>
+                                    {{ end }}
+
+                                    <section class="lf-openrgb-panel">
+                                        <h3 class="lf-openrgb-subtitle">Lighting summary</h3>
+                                        <dl class="lf-device-summary-meta lf-openrgb-panel-meta">
+                                            {{ if .Effect }}
+                                                <div class="lf-device-summary-meta-row">
+                                                    <dt class="lf-device-summary-label">Effect</dt>
+                                                    <dd class="lf-device-summary-value">{{ .Effect }}</dd>
+                                                </div>
+                                            {{ end }}
+                                            <div class="lf-device-summary-meta-row">
+                                                <dt class="lf-device-summary-label">Brightness</dt>
+                                                <dd class="lf-device-summary-value">{{ .Brightness }}%</dd>
+                                            </div>
+                                        </dl>
+                                    </section>
+                                </div>
+
+                                <section class="lf-openrgb-zones">
+                                    <h3 class="lf-openrgb-subtitle">Configured zones</h3>
+                                    {{ if .Zones }}
+                                        <ul class="lf-openrgb-zone-list">
+                                            {{ range .Zones }}
+                                                <li class="lf-openrgb-zone-item">
+                                                    <span class="lf-openrgb-zone-name">{{ .Name }}</span>
+                                                    <span class="lf-openrgb-zone-led-count">{{ .LEDCount }} {{ if eq .LEDCount 1 }}LED{{ else }}LEDs{{ end }}</span>
+                                                </li>
+                                            {{ end }}
+                                        </ul>
+                                    {{ else }}
+                                        <p class="lf-openrgb-zones-empty">No configured zones</p>
+                                    {{ end }}
+                                </section>
+                            </section>
+                        {{ end }}
 
                         <a class="lf-legacy-controls-link" href="/device/{{ .Device.Serial }}">Open full controls</a>
                     </div>

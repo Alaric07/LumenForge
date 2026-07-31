@@ -437,6 +437,101 @@
     overflow-wrap: anywhere;
 }
 
+.lf-openrgb-overview {
+    min-width: 0;
+    margin-top: 24px;
+    padding-top: 22px;
+    border-top: 1px solid var(--lf-shell-border);
+}
+
+.lf-openrgb-title,
+.lf-openrgb-subtitle {
+    margin: 0;
+    color: var(--lf-shell-text);
+}
+
+.lf-openrgb-title {
+    font-size: 18px;
+    font-weight: 650;
+}
+
+.lf-openrgb-grid {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+}
+
+.lf-openrgb-grid-single {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.lf-openrgb-panel,
+.lf-openrgb-zones {
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid var(--lf-shell-border-subtle);
+    border-radius: 12px;
+    background: var(--lf-shell-panel-raised);
+}
+
+.lf-openrgb-subtitle {
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.lf-openrgb-panel-meta {
+    margin-top: 10px;
+}
+
+.lf-openrgb-zones {
+    margin-top: 14px;
+}
+
+.lf-openrgb-zone-list {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 9px;
+    margin: 13px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.lf-openrgb-zone-item {
+    min-width: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 11px;
+    border: 1px solid var(--lf-shell-border-subtle);
+    border-radius: 9px;
+}
+
+.lf-openrgb-zone-name {
+    min-width: 0;
+    color: var(--lf-shell-text);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.lf-openrgb-zone-led-count {
+    flex: 0 0 auto;
+    color: var(--lf-shell-muted);
+    font-size: 10px;
+    white-space: nowrap;
+}
+
+.lf-openrgb-zones-empty {
+    margin: 12px 0 0;
+    color: var(--lf-shell-muted);
+    font-size: 12px;
+}
+
 .lf-legacy-controls-link {
     min-height: 40px;
     display: inline-flex;
@@ -530,6 +625,10 @@
         padding-right: 8px;
         padding-left: 8px;
     }
+
+    .lf-openrgb-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 @media (max-width: 760px) {
@@ -601,6 +700,15 @@
 
     .lf-selected-device-image-frame {
         min-height: 150px;
+    }
+
+    .lf-openrgb-panel,
+    .lf-openrgb-zones {
+        padding: 14px;
+    }
+
+    .lf-openrgb-zone-list {
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .lf-workspace-empty {

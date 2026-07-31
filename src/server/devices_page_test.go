@@ -83,7 +83,30 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 
 	visibleSerial := "lf-devices-page-visible"
 	visibleProduct := "Visible <Test> & Device"
-	visibleInstance := &openrgbimport.Device{Serial: visibleSerial, Product: visibleProduct}
+	visibleDisplayIdentifier := "ORGB <Display> & ID"
+	visibleVendor := "Vendor <North> & Co"
+	visibleLocation := "Desk <Left> & Rear"
+	visibleDescription := "Imported <Controller> & Lighting"
+	visibleZoneOne := "Zone <One> & Main"
+	visibleZoneTwo := "Zone Two"
+	visibleInstance := &openrgbimport.Device{
+		Product:            visibleProduct,
+		Serial:             visibleSerial,
+		IsOpenRGB:          true,
+		DisplaySerial:      visibleDisplayIdentifier,
+		DisplaySerialLabel: "SERIAL",
+		Description:        visibleDescription,
+		Config: &openrgbimport.DeviceConfig{
+			Serial:   visibleSerial,
+			Product:  visibleProduct,
+			Vendor:   visibleVendor,
+			Location: visibleLocation,
+			Zones: []openrgbimport.ZoneConfig{
+				{Name: visibleZoneOne, LedCount: 1},
+				{Name: visibleZoneTwo, LedCount: 12},
+			},
+		},
+	}
 	visible := &common.Device{
 		Product:     visibleProduct,
 		Serial:      visibleSerial,
@@ -126,6 +149,28 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		devices.RemoveOpenRGBImport(hiddenSerial, hiddenInstance)
+	})
+
+	zeroZoneSerial := "lf-devices-page-openrgb-zero-zones"
+	zeroZoneInstance := &openrgbimport.Device{
+		Product:   "OpenRGB Zero Zones",
+		Serial:    zeroZoneSerial,
+		IsOpenRGB: true,
+		Config: &openrgbimport.DeviceConfig{
+			Serial: zeroZoneSerial,
+			Zones:  []openrgbimport.ZoneConfig{},
+		},
+	}
+	zeroZone := &common.Device{
+		Product:  zeroZoneInstance.Product,
+		Serial:   zeroZoneSerial,
+		Instance: zeroZoneInstance,
+	}
+	if err := devices.RegisterOpenRGBImport(zeroZone, zeroZoneInstance); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		devices.RemoveOpenRGBImport(zeroZoneSerial, zeroZoneInstance)
 	})
 
 	unselectedRecorder := requestDevicesPage(t, router, "")
@@ -186,6 +231,23 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"test-firmware",
 		"href=\"/device/" + visibleSerial + "\"",
 		"Open full controls",
+		"<dt class=\"lf-device-summary-label\">Internal ID</dt>",
+		"<dd class=\"lf-device-summary-value\">" + visibleSerial + "</dd>",
+		"<h2 class=\"lf-openrgb-title\">OpenRGB controller</h2>",
+		"<h3 class=\"lf-openrgb-subtitle\">Controller metadata</h3>",
+		"<dt class=\"lf-device-summary-label\">Serial</dt>",
+		"<dd class=\"lf-device-summary-value\">ORGB &lt;Display&gt; &amp; ID</dd>",
+		"Vendor &lt;North&gt; &amp; Co",
+		"Desk &lt;Left&gt; &amp; Rear",
+		"Imported &lt;Controller&gt; &amp; Lighting",
+		"<dt class=\"lf-device-summary-label\">Effect</dt>",
+		"<dd class=\"lf-device-summary-value\">static</dd>",
+		"<dt class=\"lf-device-summary-label\">Brightness</dt>",
+		"<dd class=\"lf-device-summary-value\">0%</dd>",
+		"Zone &lt;One&gt; &amp; Main",
+		"<span class=\"lf-openrgb-zone-led-count\">1 LED</span>",
+		visibleZoneTwo,
+		"<span class=\"lf-openrgb-zone-led-count\">12 LEDs</span>",
 		"class=\"lf-device-item lf-device-item-active\" href=\"/devices?device=" + visibleSerial + "\" aria-current=\"page\"",
 		"class=\"lf-device-item\" href=\"/devices?device=" + otherSerial + "\"",
 		"Unavailable",
@@ -199,6 +261,11 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"class=\"lf-device-item lf-device-item-active\" href=\"/devices?device=" + otherSerial + "\"",
 		"<dt class=\"lf-device-summary-label\">Battery</dt>",
 		"Battery 0%",
+		visibleDisplayIdentifier,
+		visibleVendor,
+		visibleLocation,
+		visibleDescription,
+		visibleZoneOne,
 	} {
 		if strings.Contains(selectedBody, excluded) {
 			t.Errorf("selected GET /devices response unexpectedly contains %q", excluded)
@@ -212,6 +279,17 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	}
 	if strings.Count(selectedBody, "<h1 ") != 1 {
 		t.Errorf("selected GET /devices contains %d h1 elements, want 1", strings.Count(selectedBody, "<h1 "))
+	}
+	for _, label := range []string{"Internal ID", "Serial"} {
+		markup := "<dt class=\"lf-device-summary-label\">" + label + "</dt>"
+		if count := strings.Count(selectedBody, markup); count != 1 {
+			t.Errorf("selected OpenRGB response contains %q %d times, want 1", markup, count)
+		}
+	}
+	for _, zoneName := range []string{"Zone &lt;One&gt; &amp; Main", visibleZoneTwo} {
+		if count := strings.Count(selectedBody, zoneName); count != 1 {
+			t.Errorf("selected GET /devices contains zone name %q %d times, want 1", zoneName, count)
+		}
 	}
 
 	selectedWithUnrelatedRecorder := requestDevicesPage(t, router, "device="+url.QueryEscape(visibleSerial)+"&foo=bar")
@@ -235,6 +313,35 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	}
 	if !strings.Contains(fallbackRecorder.Body.String(), "class=\"lf-selected-device-image lf-selected-device-image-fallback\" src=\"/static/img/icons/icon-device.svg\"") {
 		t.Error("selected device without an image does not render the generic fallback")
+	}
+	if strings.Contains(fallbackRecorder.Body.String(), "class=\"lf-openrgb-overview\"") {
+		t.Error("generic selected device unexpectedly renders the OpenRGB overview")
+	}
+
+	zeroZoneRecorder := requestDevicesPage(t, router, "device="+url.QueryEscape(zeroZoneSerial))
+	if zeroZoneRecorder.Code != http.StatusOK {
+		t.Fatalf("zero-zone OpenRGB GET /devices status = %d: %s", zeroZoneRecorder.Code, zeroZoneRecorder.Body.String())
+	}
+	zeroZoneBody := zeroZoneRecorder.Body.String()
+	for _, expected := range []string{
+		"<h2 class=\"lf-openrgb-title\">OpenRGB controller</h2>",
+		"No configured zones",
+		"href=\"/device/" + zeroZoneSerial + "\"",
+	} {
+		if !strings.Contains(zeroZoneBody, expected) {
+			t.Errorf("zero-zone OpenRGB response does not contain %q", expected)
+		}
+	}
+	if strings.Contains(zeroZoneBody, "class=\"lf-openrgb-zone-item\"") {
+		t.Error("zero-zone OpenRGB response renders a fabricated zone item")
+	}
+	for _, excluded := range []string{"Controller metadata", "<dt class=\"lf-device-summary-label\">SERIAL</dt>"} {
+		if strings.Contains(zeroZoneBody, excluded) {
+			t.Errorf("zero-zone OpenRGB response unexpectedly contains %q", excluded)
+		}
+	}
+	if !strings.Contains(zeroZoneBody, "class=\"lf-openrgb-grid lf-openrgb-grid-single\"") {
+		t.Error("zero-zone OpenRGB response does not let the lighting summary use the available width")
 	}
 
 	stats.UpdateBatteryStats(visibleSerial, visibleProduct, 37, 0)
@@ -316,11 +423,146 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		t.Error("mismatched device wrapper serial produced a selected summary")
 	}
 
+	nonOpenRGBSummary, ok := devicesWorkspaceSummaryForSerial(
+		map[string]*common.Device{
+			"ordinary-device": {Serial: "ordinary-device", Product: "Ordinary Device", Instance: &struct{}{}},
+		},
+		map[string]stats.BatteryStats{},
+		"ordinary-device",
+	)
+	if !ok || nonOpenRGBSummary == nil {
+		t.Fatal("ordinary device did not produce a generic selected summary")
+	}
+	if nonOpenRGBSummary.OpenRGB != nil {
+		t.Error("ordinary device produced an OpenRGB selected summary")
+	}
+	var nonOpenRGBRendered bytes.Buffer
+	if err := templates.GetTemplate().ExecuteTemplate(&nonOpenRGBRendered, "devices.html", templates.Web{
+		Devices: map[string]*common.Device{
+			"ordinary-device": {Serial: "ordinary-device", Product: "Ordinary Device"},
+		},
+		Device:       nonOpenRGBSummary,
+		BatteryStats: map[string]stats.BatteryStats{},
+		Page:         "devices",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	nonOpenRGBBody := nonOpenRGBRendered.String()
+	if !strings.Contains(nonOpenRGBBody, "class=\"lf-selected-device-summary\"") ||
+		!strings.Contains(nonOpenRGBBody, "<dt class=\"lf-device-summary-label\">Serial</dt>") ||
+		!strings.Contains(nonOpenRGBBody, "<dd class=\"lf-device-summary-value\">ordinary-device</dd>") ||
+		strings.Contains(nonOpenRGBBody, "<dt class=\"lf-device-summary-label\">Internal ID</dt>") ||
+		strings.Contains(nonOpenRGBBody, "class=\"lf-openrgb-overview\"") {
+		t.Error("ordinary device template did not preserve the generic selected summary")
+	}
+
+	mismatchedOpenRGBSummary, ok := devicesWorkspaceSummaryForSerial(
+		map[string]*common.Device{
+			"requested-openrgb": {
+				Serial:   "requested-openrgb",
+				Product:  "Mismatched OpenRGB",
+				Instance: &openrgbimport.Device{Serial: "different-openrgb", IsOpenRGB: true},
+			},
+		},
+		map[string]stats.BatteryStats{},
+		"requested-openrgb",
+	)
+	if !ok || mismatchedOpenRGBSummary == nil {
+		t.Fatal("mismatched OpenRGB instance did not preserve the generic summary")
+	}
+	if mismatchedOpenRGBSummary.OpenRGB != nil {
+		t.Error("mismatched OpenRGB instance produced an OpenRGB selected summary")
+	}
+
+	for _, test := range []struct {
+		internalLabel string
+		displayLabel  string
+	}{
+		{internalLabel: "SERIAL", displayLabel: "Serial"},
+		{internalLabel: "VERSION", displayLabel: "Firmware"},
+		{internalLabel: "FALLBACK", displayLabel: "OpenRGB ID"},
+	} {
+		summary := openRGBWorkspaceSummaryFromSnapshot(openrgbimport.DeviceSnapshot{
+			DisplaySerial:      "display-identifier",
+			DisplaySerialLabel: test.internalLabel,
+		})
+		if summary.DisplayIdentifierLabel != test.displayLabel {
+			t.Errorf("OpenRGB identifier label %q = %q, want %q", test.internalLabel, summary.DisplayIdentifierLabel, test.displayLabel)
+		}
+		if !summary.HasMetadata {
+			t.Errorf("OpenRGB identifier label %q did not mark metadata as present", test.internalLabel)
+		}
+	}
+
+	emptyOpenRGB := openRGBWorkspaceSummaryFromSnapshot(openrgbimport.DeviceSnapshot{Brightness: 100})
+	if emptyOpenRGB == nil || emptyOpenRGB.Brightness != 100 || emptyOpenRGB.HasMetadata || len(emptyOpenRGB.Zones) != 0 {
+		t.Fatalf("empty OpenRGB conversion = %#v", emptyOpenRGB)
+	}
+	var emptyOpenRGBRendered bytes.Buffer
+	if err := templates.GetTemplate().ExecuteTemplate(&emptyOpenRGBRendered, "devices.html", templates.Web{
+		Devices: map[string]*common.Device{
+			"empty-openrgb": {Product: "Empty OpenRGB", Serial: "empty-openrgb"},
+		},
+		Device: &devicesWorkspaceSummary{
+			Product: "Empty OpenRGB",
+			Serial:  "empty-openrgb",
+			OpenRGB: emptyOpenRGB,
+		},
+		BatteryStats: map[string]stats.BatteryStats{},
+		Page:         "devices",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	emptyOpenRGBBody := emptyOpenRGBRendered.String()
+	for _, expected := range []string{
+		"OpenRGB controller",
+		"Lighting summary",
+		"100%",
+		"No configured zones",
+		"class=\"lf-openrgb-grid lf-openrgb-grid-single\"",
+	} {
+		if !strings.Contains(emptyOpenRGBBody, expected) {
+			t.Errorf("empty OpenRGB template response does not contain %q", expected)
+		}
+	}
+	for _, excluded := range []string{
+		"Controller metadata",
+		"<dt class=\"lf-device-summary-label\">Vendor</dt>",
+		"<dt class=\"lf-device-summary-label\">Location</dt>",
+		"<dt class=\"lf-device-summary-label\">Description</dt>",
+		"<dt class=\"lf-device-summary-label\">Effect</dt>",
+		"class=\"lf-openrgb-zone-item\"",
+	} {
+		if strings.Contains(emptyOpenRGBBody, excluded) {
+			t.Errorf("empty OpenRGB template response unexpectedly contains %q", excluded)
+		}
+	}
+
 	escapedSerial := "lf;device:escaped"
 	escapedProduct := "Escaped <Product> & Name"
+	escapedOpenRGBSnapshot := openrgbimport.DeviceSnapshot{
+		DisplaySerial:      "Identifier <Value> & More",
+		DisplaySerialLabel: "SERIAL",
+		Description:        "Description <Value> & More",
+		Effect:             "Effect <Value> & More",
+		Brightness:         42,
+		Config: &openrgbimport.DeviceConfig{
+			Vendor:   "Vendor <Value> & More",
+			Location: "Location <Value> & More",
+			Zones: []openrgbimport.ZoneConfig{
+				{Name: "Zone <Value> & More", LedCount: 4},
+			},
+		},
+	}
+	escapedOpenRGB := openRGBWorkspaceSummaryFromSnapshot(escapedOpenRGBSnapshot)
+	escapedOpenRGBSnapshot.Config.Zones[0].Name = "mutated source zone"
+	if len(escapedOpenRGB.Zones) != 1 || escapedOpenRGB.Zones[0].Name != "Zone <Value> & More" {
+		t.Fatal("OpenRGB workspace summary retained the snapshot zone slice")
+	}
 	escapedSummary := &devicesWorkspaceSummary{
 		Product: escapedProduct,
 		Serial:  escapedSerial,
+		OpenRGB: escapedOpenRGB,
 	}
 	var rendered bytes.Buffer
 	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{
@@ -349,5 +591,29 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	}
 	if strings.Contains(escapedBody, escapedProduct) {
 		t.Error("escaped template response contains raw product HTML")
+	}
+	for _, expected := range []string{
+		"Identifier &lt;Value&gt; &amp; More",
+		"Vendor &lt;Value&gt; &amp; More",
+		"Location &lt;Value&gt; &amp; More",
+		"Description &lt;Value&gt; &amp; More",
+		"Effect &lt;Value&gt; &amp; More",
+		"Zone &lt;Value&gt; &amp; More",
+	} {
+		if !strings.Contains(escapedBody, expected) {
+			t.Errorf("escaped OpenRGB response does not contain %q", expected)
+		}
+	}
+	for _, raw := range []string{
+		"Identifier <Value> & More",
+		"Vendor <Value> & More",
+		"Location <Value> & More",
+		"Description <Value> & More",
+		"Effect <Value> & More",
+		"Zone <Value> & More",
+	} {
+		if strings.Contains(escapedBody, raw) {
+			t.Errorf("escaped OpenRGB response contains raw metadata %q", raw)
+		}
 	}
 }
