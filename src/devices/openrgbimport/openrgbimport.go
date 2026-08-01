@@ -13,6 +13,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"path/filepath"
@@ -1630,6 +1631,13 @@ func (d *Device) setEffectContext(ctx context.Context, effect string, reportFail
 		}
 	}
 
+	return d.applyPersistedEffectTransitionLocked(ctx, effect, reportFailure, expectedSerial)
+}
+
+// applyPersistedEffectTransitionLocked replaces the active output after its
+// desired profile state has been persisted. The caller holds effectTransitionMu
+// and d.mu; this method releases d.mu before returning.
+func (d *Device) applyPersistedEffectTransitionLocked(ctx context.Context, effect string, reportFailure bool, expectedSerial string) error {
 	// Persistence succeeded, so replacing the prior effect can now proceed.
 	d.stopEffectLoopLocked()
 	if err := d.validateEffectTransitionLocked(expectedSerial); err != nil {
@@ -2715,40 +2723,114 @@ func (d *Device) ProcessGetRgbOverride(channelId, subDeviceId int) interface{} {
 	return d.DeviceProfile.RGBOverride
 }
 
-func (d *Device) ProcessSetRgbOverride(channelId, subDeviceId int, enabled bool, startColor, endColor, middleColor rgb.Color, speed float64) uint8 {
+func validRGBOverrideNumber(value, minimum, maximum float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0) && value >= minimum && value <= maximum
+}
+
+func validRGBOverrideColor(color rgb.Color) bool {
+	return validRGBOverrideNumber(color.Red, 0, 255) &&
+		validRGBOverrideNumber(color.Green, 0, 255) &&
+		validRGBOverrideNumber(color.Blue, 0, 255) &&
+		validRGBOverrideNumber(color.Temperature, 0, 105)
+}
+
+// SetRGBOverride applies one complete controller-wide OpenRGB override. A nil
+// speed preserves the current override speed or uses the established default.
+func (d *Device) SetRGBOverride(expectedSerial string, channelId, subDeviceId int, enabled bool, startColor, endColor, middleColor rgb.Color, speed *float64) error {
+	if d == nil {
+		return fmt.Errorf("OpenRGB import is not available")
+	}
+	if channelId != 0 || subDeviceId != 0 {
+		return fmt.Errorf("OpenRGB RGB override selectors must be zero")
+	}
+	if !validRGBOverrideColor(startColor) || !validRGBOverrideColor(middleColor) || !validRGBOverrideColor(endColor) {
+		return fmt.Errorf("OpenRGB RGB override color is invalid")
+	}
+	if speed != nil && !validRGBOverrideNumber(*speed, 0, 10) {
+		return fmt.Errorf("OpenRGB RGB override speed is invalid")
+	}
+
+	d.effectTransitionMu.Lock()
+	defer d.effectTransitionMu.Unlock()
+
 	d.mu.Lock()
 	if d.lifecycleInactiveLocked() {
+		err := d.lifecycleMutationErrorLocked()
 		d.mu.Unlock()
-		return 0
+		return err
+	}
+	if expectedSerial == "" || d.Serial != expectedSerial || !d.IsOpenRGB {
+		d.mu.Unlock()
+		return fmt.Errorf("OpenRGB import identity is not active")
+	}
+	d.resolveControllerId()
+	if d.controllerId < 0 {
+		d.mu.Unlock()
+		return fmt.Errorf("controllerId not set")
+	}
+	if d.DeviceProfile == nil || !d.DeviceProfile.Active {
+		d.mu.Unlock()
+		return fmt.Errorf("active OpenRGB device profile is not available")
+	}
+
+	resolvedSpeed := 5.0
+	if d.DeviceProfile.RGBOverride != nil {
+		resolvedSpeed = d.DeviceProfile.RGBOverride.RgbModeSpeed
+	}
+	if speed != nil {
+		resolvedSpeed = *speed
+	}
+	if !validRGBOverrideNumber(resolvedSpeed, 0, 10) {
+		d.mu.Unlock()
+		return fmt.Errorf("OpenRGB RGB override speed is invalid")
+	}
+
+	effect := d.DeviceProfile.RGBProfile
+	clustered := d.DeviceProfile.RGBCluster
+	if !clustered && (effect == "" || !slices.Contains(d.RGBModes, effect)) {
+		d.mu.Unlock()
+		return fmt.Errorf("unsupported OpenRGB effect")
+	}
+
+	startColor.Brightness = 1
+	middleColor.Brightness = 1
+	endColor.Brightness = 1
+	previousProfile := cloneDeviceProfile(d.DeviceProfile)
+	d.DeviceProfile.RGBOverride = &RGBOverride{
+		Enabled:        enabled,
+		RGBStartColor:  startColor,
+		RGBMiddleColor: middleColor,
+		RGBEndColor:    endColor,
+		RgbModeSpeed:   resolvedSpeed,
+	}
+	if err := d.saveDeviceProfileChecked(); err != nil {
+		*d.DeviceProfile = *previousProfile
+		d.mu.Unlock()
+		return fmt.Errorf("save OpenRGB RGB override: %w", err)
+	}
+
+	if d.DeviceProfile != nil && d.DeviceProfile.RGBCluster {
+		d.mu.Unlock()
+		return nil
 	}
 	if d.DeviceProfile == nil {
 		d.mu.Unlock()
+		return fmt.Errorf("active OpenRGB device profile is not available after save")
+	}
+
+	effect = d.DeviceProfile.RGBProfile
+	return d.applyPersistedEffectTransitionLocked(context.Background(), effect, true, expectedSerial)
+}
+
+func (d *Device) ProcessSetRgbOverride(channelId, subDeviceId int, enabled bool, startColor, endColor, middleColor rgb.Color, speed float64) uint8 {
+	if d == nil {
 		return 0
 	}
-
-	if d.DeviceProfile.RGBOverride == nil {
-		d.DeviceProfile.RGBOverride = &RGBOverride{}
-	}
-
-	if speed < 0 || speed > 10 {
-		d.mu.Unlock()
-		return 0
-	}
-
-	d.DeviceProfile.RGBOverride.Enabled = enabled
-	d.DeviceProfile.RGBOverride.RGBStartColor = startColor
-	d.DeviceProfile.RGBOverride.RGBEndColor = endColor
-	d.DeviceProfile.RGBOverride.RGBMiddleColor = middleColor
-	d.DeviceProfile.RGBOverride.RgbModeSpeed = speed
-	d.DeviceProfile.RGBOverride.RGBStartColor.Brightness = 1
-	d.DeviceProfile.RGBOverride.RGBEndColor.Brightness = 1
-	d.DeviceProfile.RGBOverride.RGBMiddleColor.Brightness = 1
-
-	d.saveDeviceProfile()
-	effect := d.DeviceProfile.RGBProfile
+	d.mu.Lock()
+	expectedSerial := d.Serial
 	d.mu.Unlock()
-
-	_ = d.SetEffect(effect)
-
+	if err := d.SetRGBOverride(expectedSerial, channelId, subDeviceId, enabled, startColor, endColor, middleColor, &speed); err != nil {
+		return 0
+	}
 	return 1
 }

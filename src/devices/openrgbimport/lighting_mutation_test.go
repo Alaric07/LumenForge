@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"net"
 	"os"
 	"path/filepath"
@@ -64,6 +65,9 @@ func installLightingDeviceTestSeams(t *testing.T) (string, *lightingOutputCalls)
 		return calls.err
 	}
 	sendLightingPersistentFrame = func(conn net.Conn, _ uint32, _ []byte) (net.Conn, error) {
+		if calls.beforeOutput != nil {
+			calls.beforeOutput()
+		}
 		calls.persistentFrames++
 		select {
 		case calls.persistentOutput <- struct{}{}:
@@ -1081,6 +1085,481 @@ func TestOpenRGBStaticOverrideOutputFailure(t *testing.T) {
 	if !bytes.Equal(device.lastColor, lastColorBefore) {
 		t.Fatal("failed Static override output changed lastColor")
 	}
+}
+
+func testRGBOverrideColors() (rgb.Color, rgb.Color, rgb.Color) {
+	return rgb.Color{Red: 0, Green: 0, Blue: 0, Brightness: 0.2, Temperature: 20, Position: 0.1, Hex: "000000"},
+		rgb.Color{Red: 40, Green: 50, Blue: 60, Brightness: 0.3, Temperature: 45, Position: 0.5, Hex: "28323c"},
+		rgb.Color{Red: 200, Green: 210, Blue: 220, Brightness: 0.4, Temperature: 80, Position: 0.9, Hex: "c8d2dc"}
+}
+
+func normalizedTestRGBOverride(enabled bool, start, middle, end rgb.Color, speed float64) RGBOverride {
+	start.Brightness = 1
+	middle.Brightness = 1
+	end.Brightness = 1
+	return RGBOverride{
+		Enabled:        enabled,
+		RGBStartColor:  start,
+		RGBMiddleColor: middle,
+		RGBEndColor:    end,
+		RgbModeSpeed:   speed,
+	}
+}
+
+func TestOpenRGBProcessSetRgbOverrideNilReceiver(t *testing.T) {
+	var device *Device
+	if got := device.ProcessSetRgbOverride(0, 0, false, rgb.Color{}, rgb.Color{}, rgb.Color{}, 0); got != 0 {
+		t.Fatalf("nil ProcessSetRgbOverride() = %d, want 0", got)
+	}
+}
+
+func TestOpenRGBRGBOverrideMutationAndPersistence(t *testing.T) {
+	t.Run("enable complete black override before Static output", func(t *testing.T) {
+		profileDir, calls := installLightingDeviceTestSeams(t)
+		device := newStaticOverrideTestDevice(100)
+		device.DeviceProfile.RGBOverride = nil
+		start, middle, end := testRGBOverrideColors()
+		speed := 4.5
+		want := normalizedTestRGBOverride(true, start, middle, end, speed)
+		var observed RGBOverride
+		var observationErr error
+		calls.beforeOutput = func() {
+			profile, err := loadLightingDeviceProfile(profileDir)
+			observationErr = err
+			if err == nil && profile.RGBOverride != nil {
+				observed = *profile.RGBOverride
+			}
+		}
+
+		if err := device.SetRGBOverride(device.Serial, 0, 0, true, start, end, middle, &speed); err != nil {
+			t.Fatalf("SetRGBOverride: %v", err)
+		}
+		if observationErr != nil {
+			t.Fatalf("load profile during output: %v", observationErr)
+		}
+		if observed != want {
+			t.Fatalf("persisted override observed before output = %#v, want %#v", observed, want)
+		}
+		if calls.frames != 1 || calls.colors != 0 || !bytes.Equal(calls.frameValues[0], make([]byte, device.colorCount*3)) {
+			t.Fatalf("black Static output = colors %d, frames %v, want one black frame", calls.colors, calls.frameValues)
+		}
+		if device.DeviceProfile.RGBOverride == nil || *device.DeviceProfile.RGBOverride != want {
+			t.Fatalf("in-memory override = %#v, want %#v", device.DeviceProfile.RGBOverride, want)
+		}
+		persisted := readLightingDeviceProfile(t, profileDir)
+		if persisted.RGBOverride == nil || *persisted.RGBOverride != want {
+			t.Fatalf("persisted override = %#v, want %#v", persisted.RGBOverride, want)
+		}
+
+		reloaded := newStaticOverrideTestDevice(100)
+		reloaded.loadDeviceProfiles()
+		if reloaded.DeviceProfile == nil || reloaded.DeviceProfile.RGBOverride == nil || *reloaded.DeviceProfile.RGBOverride != want {
+			t.Fatalf("reloaded override = %#v, want %#v", reloaded.DeviceProfile, want)
+		}
+	})
+
+	t.Run("edit replaces every override field", func(t *testing.T) {
+		_, calls := installLightingDeviceTestSeams(t)
+		device := newStaticOverrideTestDevice(100)
+		device.DeviceProfile.RGBOverride = &RGBOverride{
+			Enabled:        true,
+			RGBStartColor:  rgb.Color{Red: 1, Green: 2, Blue: 3, Temperature: 4},
+			RGBMiddleColor: rgb.Color{Red: 5, Green: 6, Blue: 7, Temperature: 8},
+			RGBEndColor:    rgb.Color{Red: 9, Green: 10, Blue: 11, Temperature: 12},
+			RgbModeSpeed:   1,
+		}
+		start, middle, end := testRGBOverrideColors()
+		start.Red = 12
+		speed := 10.0
+		want := normalizedTestRGBOverride(true, start, middle, end, speed)
+
+		if err := device.SetRGBOverride(device.Serial, 0, 0, true, start, end, middle, &speed); err != nil {
+			t.Fatalf("SetRGBOverride: %v", err)
+		}
+		if device.DeviceProfile.RGBOverride == nil || *device.DeviceProfile.RGBOverride != want {
+			t.Fatalf("edited override = %#v, want complete replacement %#v", device.DeviceProfile.RGBOverride, want)
+		}
+		if calls.frames != 1 || calls.colors != 0 {
+			t.Fatalf("edit output calls = colors %d, frames %d, want 0, 1", calls.colors, calls.frames)
+		}
+	})
+
+	for _, test := range []struct {
+		name      string
+		prior     *RGBOverride
+		speed     *float64
+		wantSpeed float64
+	}{
+		{name: "omitted speed defaults to five", speed: nil, wantSpeed: 5},
+		{name: "omitted speed preserves prior", prior: &RGBOverride{Enabled: true, RgbModeSpeed: 3.25}, speed: nil, wantSpeed: 3.25},
+		{name: "zero speed accepted", speed: func() *float64 { value := 0.0; return &value }(), wantSpeed: 0},
+		{name: "maximum speed accepted", speed: func() *float64 { value := 10.0; return &value }(), wantSpeed: 10},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			profileDir, _ := installLightingDeviceTestSeams(t)
+			device := newStaticOverrideTestDevice(100)
+			device.DeviceProfile.RGBOverride = test.prior
+			start, middle, end := testRGBOverrideColors()
+			if err := device.SetRGBOverride(device.Serial, 0, 0, false, start, end, middle, test.speed); err != nil {
+				t.Fatalf("SetRGBOverride: %v", err)
+			}
+			persisted := readLightingDeviceProfile(t, profileDir)
+			if persisted.RGBOverride == nil || persisted.RGBOverride.RgbModeSpeed != test.wantSpeed || persisted.RGBOverride.Enabled {
+				t.Fatalf("persisted override = %#v, want disabled speed %v", persisted.RGBOverride, test.wantSpeed)
+			}
+		})
+	}
+
+	t.Run("disable restores Static zone frame", func(t *testing.T) {
+		_, calls := installLightingDeviceTestSeams(t)
+		device := newStaticOverrideTestDevice(100)
+		device.DeviceProfile.RGBOverride.Enabled = true
+		baseFrame := device.buildZoneFrame()
+		start, middle, end := testRGBOverrideColors()
+		speed := 2.0
+
+		if err := device.SetRGBOverride(device.Serial, 0, 0, false, start, end, middle, &speed); err != nil {
+			t.Fatalf("disable override: %v", err)
+		}
+		if calls.frames != 1 || !bytes.Equal(calls.frameValues[0], baseFrame) {
+			t.Fatalf("disabled Static frame = %v, want base %v", calls.frameValues, baseFrame)
+		}
+		if device.DeviceProfile.RGBOverride == nil || device.DeviceProfile.RGBOverride.Enabled {
+			t.Fatalf("disabled override was not retained: %#v", device.DeviceProfile.RGBOverride)
+		}
+	})
+}
+
+func TestOpenRGBRGBOverrideValidation(t *testing.T) {
+	validStart, validMiddle, validEnd := testRGBOverrideColors()
+	validSpeed := 2.0
+	tests := []struct {
+		name      string
+		serial    string
+		channel   int
+		subdevice int
+		start     rgb.Color
+		middle    rgb.Color
+		end       rgb.Color
+		speed     *float64
+		prepare   func(*Device)
+	}{
+		{name: "nonzero channel", serial: lightingDeviceTestSerial, channel: 1, start: validStart, middle: validMiddle, end: validEnd, speed: &validSpeed},
+		{name: "nonzero subdevice", serial: lightingDeviceTestSerial, subdevice: 1, start: validStart, middle: validMiddle, end: validEnd, speed: &validSpeed},
+		{name: "negative red", serial: lightingDeviceTestSerial, start: func() rgb.Color { value := validStart; value.Red = -1; return value }(), middle: validMiddle, end: validEnd, speed: &validSpeed},
+		{name: "middle green above range", serial: lightingDeviceTestSerial, start: validStart, middle: func() rgb.Color { value := validMiddle; value.Green = 256; return value }(), end: validEnd, speed: &validSpeed},
+		{name: "nonfinite end blue", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: func() rgb.Color { value := validEnd; value.Blue = math.Inf(1); return value }(), speed: &validSpeed},
+		{name: "negative start temperature", serial: lightingDeviceTestSerial, start: func() rgb.Color { value := validStart; value.Temperature = -1; return value }(), middle: validMiddle, end: validEnd, speed: &validSpeed},
+		{name: "middle temperature above range", serial: lightingDeviceTestSerial, start: validStart, middle: func() rgb.Color { value := validMiddle; value.Temperature = 106; return value }(), end: validEnd, speed: &validSpeed},
+		{name: "nonfinite end temperature", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: func() rgb.Color { value := validEnd; value.Temperature = math.NaN(); return value }(), speed: &validSpeed},
+		{name: "negative speed", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: validEnd, speed: func() *float64 { value := -1.0; return &value }()},
+		{name: "speed above range", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: validEnd, speed: func() *float64 { value := 11.0; return &value }()},
+		{name: "NaN speed", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: validEnd, speed: func() *float64 { value := math.NaN(); return &value }()},
+		{name: "infinite speed", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: validEnd, speed: func() *float64 { value := math.Inf(-1); return &value }()},
+		{name: "mismatched identity", serial: "openrgb-other-device", start: validStart, middle: validMiddle, end: validEnd, speed: &validSpeed},
+		{name: "inactive lifecycle", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: validEnd, speed: &validSpeed, prepare: func(device *Device) { device.lifecycleDetached = true }},
+		{name: "missing profile", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: validEnd, speed: &validSpeed, prepare: func(device *Device) { device.DeviceProfile = nil }},
+		{name: "inactive profile", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: validEnd, speed: &validSpeed, prepare: func(device *Device) { device.DeviceProfile.Active = false }},
+		{name: "unsupported configured effect", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: validEnd, speed: &validSpeed, prepare: func(device *Device) { device.DeviceProfile.RGBProfile = "obsolete" }},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			profileDir, calls := installLightingDeviceTestSeams(t)
+			device := newStaticOverrideTestDevice(100)
+			if test.prepare != nil {
+				test.prepare(device)
+			}
+			profileBefore := cloneDeviceProfile(device.DeviceProfile)
+
+			if err := device.SetRGBOverride(test.serial, test.channel, test.subdevice, true, test.start, test.end, test.middle, test.speed); err == nil {
+				t.Fatal("invalid override unexpectedly succeeded")
+			}
+			if calls.colors != 0 || calls.frames != 0 || calls.persistentFrames != 0 {
+				t.Fatalf("invalid override output calls = colors %d, frames %d, persistent %d", calls.colors, calls.frames, calls.persistentFrames)
+			}
+			entries, err := os.ReadDir(profileDir)
+			if err != nil {
+				t.Fatalf("read profile directory: %v", err)
+			}
+			if len(entries) != 0 {
+				t.Fatalf("invalid override wrote %d profile files", len(entries))
+			}
+			if !reflect.DeepEqual(device.DeviceProfile, profileBefore) {
+				t.Fatalf("invalid override changed profile from %#v to %#v", profileBefore, device.DeviceProfile)
+			}
+		})
+	}
+}
+
+func TestOpenRGBRGBOverrideFailureAndClusterSemantics(t *testing.T) {
+	t.Run("persistence failure fully restores nil override and worker", func(t *testing.T) {
+		_, calls := installLightingDeviceTestSeams(t)
+		blockedPath := filepath.Join(t.TempDir(), "profiles")
+		if err := os.WriteFile(blockedPath, []byte("not a directory"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		deviceProfileDir = func() string { return blockedPath }
+		device := newStaticOverrideTestDevice(100)
+		device.DeviceProfile.RGBOverride = nil
+		profileBefore := cloneDeviceProfile(device.DeviceProfile)
+		stop := make(chan struct{})
+		device.running = true
+		device.stopChan = stop
+		start, middle, end := testRGBOverrideColors()
+		speed := 2.0
+
+		if err := device.SetRGBOverride(device.Serial, 0, 0, true, start, end, middle, &speed); err == nil {
+			t.Fatal("override succeeded despite persistence failure")
+		}
+		if !reflect.DeepEqual(device.DeviceProfile, profileBefore) || device.DeviceProfile.RGBOverride != nil {
+			t.Fatalf("profile rollback = %#v, want %#v with nil override", device.DeviceProfile, profileBefore)
+		}
+		if !device.running || device.stopChan != stop {
+			t.Fatal("persistence failure replaced the current worker")
+		}
+		select {
+		case <-stop:
+			t.Fatal("persistence failure stopped the current worker")
+		default:
+		}
+		if calls.colors != 0 || calls.frames != 0 || calls.persistentFrames != 0 {
+			t.Fatalf("persistence failure output calls = colors %d, frames %d, persistent %d", calls.colors, calls.frames, calls.persistentFrames)
+		}
+		device.running = false
+		device.stopChan = nil
+	})
+
+	t.Run("Static output failure retains persisted desired override", func(t *testing.T) {
+		preserveOpenRGBStatus(t)
+		profileDir, calls := installLightingDeviceTestSeams(t)
+		calls.err = errors.New("test checked override output failure")
+		device := newStaticOverrideTestDevice(100)
+		start, middle, end := testRGBOverrideColors()
+		start.Red = 100
+		speed := 2.0
+		want := normalizedTestRGBOverride(true, start, middle, end, speed)
+
+		if err := device.SetRGBOverride(device.Serial, 0, 0, true, start, end, middle, &speed); err == nil {
+			t.Fatal("override succeeded despite Static output failure")
+		}
+		persisted := readLightingDeviceProfile(t, profileDir)
+		if persisted.RGBOverride == nil || *persisted.RGBOverride != want {
+			t.Fatalf("persisted desired override = %#v, want %#v", persisted.RGBOverride, want)
+		}
+		if device.DeviceProfile.RGBOverride == nil || *device.DeviceProfile.RGBOverride != want {
+			t.Fatalf("in-memory desired override = %#v, want %#v", device.DeviceProfile.RGBOverride, want)
+		}
+		if calls.frames != 1 || device.ControllerID() != -1 {
+			t.Fatalf("output failure = frames %d, controller %d; want 1, -1", calls.frames, device.ControllerID())
+		}
+	})
+
+	t.Run("cluster persists inactive local state without replacing output", func(t *testing.T) {
+		profileDir, calls := installLightingDeviceTestSeams(t)
+		device := newStaticOverrideTestDevice(100)
+		device.DeviceProfile.RGBCluster = true
+		stop := make(chan struct{})
+		device.running = true
+		device.stopChan = stop
+		start, middle, end := testRGBOverrideColors()
+		speed := 6.0
+
+		if err := device.SetRGBOverride(device.Serial, 0, 0, true, start, end, middle, &speed); err != nil {
+			t.Fatalf("clustered override: %v", err)
+		}
+		persisted := readLightingDeviceProfile(t, profileDir)
+		if persisted.RGBOverride == nil || !persisted.RGBOverride.Enabled || persisted.RGBOverride.RgbModeSpeed != speed || !persisted.RGBCluster {
+			t.Fatalf("clustered persisted profile = %#v", persisted)
+		}
+		if calls.colors != 0 || calls.frames != 0 || calls.persistentFrames != 0 {
+			t.Fatalf("clustered override output calls = colors %d, frames %d, persistent %d", calls.colors, calls.frames, calls.persistentFrames)
+		}
+		if !device.running || device.stopChan != stop || device.DeviceProfile == nil || !device.DeviceProfile.RGBCluster {
+			t.Fatal("clustered override changed cluster or local worker state")
+		}
+		device.running = false
+		device.stopChan = nil
+	})
+}
+
+func TestOpenRGBRGBOverrideAnimatedAndOffReapplication(t *testing.T) {
+	t.Run("animated enable replaces one worker with persisted override state", func(t *testing.T) {
+		profileDir, calls := installLightingDeviceTestSeams(t)
+		device := newLightingMutationDevice()
+		device.effect = "rainbow"
+		device.DeviceProfile.RGBProfile = "rainbow"
+		device.Rgb = &rgb.RGB{Profiles: map[string]rgb.Profile{
+			"rainbow": {
+				ProfileName: "rainbow",
+				Speed:       2.75,
+				StartColor:  rgb.Color{Red: 10, Green: 20, Blue: 30, Brightness: 1},
+				MiddleColor: rgb.Color{Red: 40, Green: 50, Blue: 60, Brightness: 1},
+				EndColor:    rgb.Color{Red: 70, Green: 80, Blue: 90, Brightness: 1},
+			},
+		}}
+		if err := device.SetEffect("rainbow"); err != nil {
+			t.Fatalf("start prior worker: %v", err)
+		}
+		select {
+		case <-calls.persistentOutput:
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for prior worker")
+		}
+		device.mu.Lock()
+		oldDone := device.doneChan
+		device.mu.Unlock()
+
+		start, middle, end := testRGBOverrideColors()
+		speed := 6.25
+		want := normalizedTestRGBOverride(true, start, middle, end, speed)
+		persistedOutput := make(chan struct{}, 1)
+		var observationErr error
+		calls.beforeOutput = func() {
+			profile, err := loadLightingDeviceProfile(profileDir)
+			if err != nil {
+				observationErr = err
+				return
+			}
+			if profile.RGBOverride != nil && *profile.RGBOverride == want {
+				select {
+				case persistedOutput <- struct{}{}:
+				default:
+				}
+			}
+		}
+		if err := device.SetRGBOverride(device.Serial, 0, 0, true, start, end, middle, &speed); err != nil {
+			device.Stop()
+			t.Fatalf("enable animated override: %v", err)
+		}
+		select {
+		case <-persistedOutput:
+		case <-time.After(2 * time.Second):
+			device.Stop()
+			t.Fatalf("timed out waiting for persisted override output; observation error %v", observationErr)
+		}
+		device.mu.Lock()
+		newDone := device.doneChan
+		runnerStart := *device.rgbRunner.RGBStartColor
+		runnerMiddle := *device.rgbRunner.RGBMiddleColor
+		runnerEnd := *device.rgbRunner.RGBEndColor
+		runnerSpeed := device.rgbRunner.RgbModeSpeed
+		workerActive := device.running
+		device.mu.Unlock()
+		device.Stop()
+
+		select {
+		case <-oldDone:
+		default:
+			t.Fatal("prior animation worker was not stopped")
+		}
+		if !workerActive || newDone == nil || newDone == oldDone {
+			t.Fatal("animated override did not install exactly one replacement worker")
+		}
+		if runnerStart != want.RGBStartColor || runnerMiddle != want.RGBMiddleColor || runnerEnd != want.RGBEndColor || runnerSpeed != want.RgbModeSpeed {
+			t.Fatalf("enabled animated state = %#v/%#v/%#v speed %v, want %#v/%#v/%#v speed %v",
+				runnerStart, runnerMiddle, runnerEnd, runnerSpeed,
+				want.RGBStartColor, want.RGBMiddleColor, want.RGBEndColor, want.RgbModeSpeed)
+		}
+	})
+
+	t.Run("animated disable replaces one worker with base profile state", func(t *testing.T) {
+		profileDir, calls := installLightingDeviceTestSeams(t)
+		device := newLightingMutationDevice()
+		device.effect = "rainbow"
+		device.DeviceProfile.RGBProfile = "rainbow"
+		base := rgb.Profile{
+			ProfileName: "rainbow",
+			Speed:       2.75,
+			StartColor:  rgb.Color{Red: 10, Green: 20, Blue: 30, Brightness: 1},
+			MiddleColor: rgb.Color{Red: 40, Green: 50, Blue: 60, Brightness: 1},
+			EndColor:    rgb.Color{Red: 70, Green: 80, Blue: 90, Brightness: 1},
+		}
+		device.Rgb = &rgb.RGB{Profiles: map[string]rgb.Profile{"rainbow": base}}
+		device.DeviceProfile.RGBOverride = &RGBOverride{
+			Enabled:        true,
+			RGBStartColor:  rgb.Color{Red: 101, Green: 102, Blue: 103, Brightness: 1},
+			RGBMiddleColor: rgb.Color{Red: 111, Green: 112, Blue: 113, Brightness: 1},
+			RGBEndColor:    rgb.Color{Red: 121, Green: 122, Blue: 123, Brightness: 1},
+			RgbModeSpeed:   7,
+		}
+		if err := device.SetEffect("rainbow"); err != nil {
+			t.Fatalf("start prior worker: %v", err)
+		}
+		select {
+		case <-calls.persistentOutput:
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for prior worker")
+		}
+		device.mu.Lock()
+		oldDone := device.doneChan
+		device.mu.Unlock()
+		persistedOutput := make(chan struct{}, 1)
+		var observationErr error
+		calls.beforeOutput = func() {
+			profile, err := loadLightingDeviceProfile(profileDir)
+			observationErr = err
+			if err == nil && profile.RGBOverride != nil && !profile.RGBOverride.Enabled {
+				select {
+				case persistedOutput <- struct{}{}:
+				default:
+				}
+			}
+		}
+		start, middle, end := testRGBOverrideColors()
+		speed := 3.0
+		if err := device.SetRGBOverride(device.Serial, 0, 0, false, start, end, middle, &speed); err != nil {
+			device.Stop()
+			t.Fatalf("disable animated override: %v", err)
+		}
+		select {
+		case <-persistedOutput:
+		case <-time.After(2 * time.Second):
+			device.Stop()
+			t.Fatal("timed out waiting for replacement worker")
+		}
+		device.mu.Lock()
+		newDone := device.doneChan
+		runnerStart := *device.rgbRunner.RGBStartColor
+		runnerMiddle := *device.rgbRunner.RGBMiddleColor
+		runnerEnd := *device.rgbRunner.RGBEndColor
+		runnerSpeed := device.rgbRunner.RgbModeSpeed
+		workerActive := device.running
+		device.mu.Unlock()
+		device.Stop()
+
+		if observationErr != nil {
+			t.Fatalf("animated persisted-before-output observation error: %v", observationErr)
+		}
+		select {
+		case <-oldDone:
+		default:
+			t.Fatal("prior animation worker was not stopped")
+		}
+		if !workerActive || newDone == nil || newDone == oldDone {
+			t.Fatal("animated override did not install exactly one replacement worker")
+		}
+		if runnerStart != base.StartColor || runnerMiddle != base.MiddleColor || runnerEnd != base.EndColor || runnerSpeed != base.Speed {
+			t.Fatalf("disabled animated state = %#v/%#v/%#v speed %v, want base %#v/%#v/%#v speed %v",
+				runnerStart, runnerMiddle, runnerEnd, runnerSpeed, base.StartColor, base.MiddleColor, base.EndColor, base.Speed)
+		}
+	})
+
+	t.Run("Off remains black", func(t *testing.T) {
+		_, calls := installLightingDeviceTestSeams(t)
+		device := newLightingMutationDevice()
+		start := rgb.Color{Red: 255, Green: 1, Blue: 2, Temperature: 20}
+		middle := rgb.Color{Red: 3, Green: 254, Blue: 4, Temperature: 40}
+		end := rgb.Color{Red: 5, Green: 6, Blue: 253, Temperature: 80}
+		speed := 2.0
+
+		if err := device.SetRGBOverride(device.Serial, 0, 0, true, start, end, middle, &speed); err != nil {
+			t.Fatalf("Off override: %v", err)
+		}
+		if calls.colors != 1 || calls.frames != 0 || !reflect.DeepEqual(calls.colorValues, [][]byte{{0, 0, 0}}) {
+			t.Fatalf("Off output = colors %v, frames %v, want one black color", calls.colorValues, calls.frameValues)
+		}
+	})
 }
 
 func openRGBTemperatureMiddleColorProfile(name string) rgb.Profile {

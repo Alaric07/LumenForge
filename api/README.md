@@ -396,6 +396,38 @@ Brightness and effect changes are persisted before new synchronous output; a
 profile-save failure returns `status: 0` without applying new output. The color
 endpoint retains its legacy best-effort profile-save behavior.
 
+#### Get and Set RGB Override
+
+`POST /api/color/getOverride` reads the RGB override for a device. The request
+contains `deviceId`, `channelId`, and `subDeviceId`; a successful response places
+the current override in `data`.
+
+`POST /api/color/setOverride` replaces the override's enabled state, Start,
+Middle, and End colors, and speed. OpenRGB imports expose one controller-wide
+override, so both `channelId` and `subDeviceId` must be `0`. Other device types
+retain their device-specific selector behavior.
+
+| Field | Type | OpenRGB rules |
+| --- | --- | --- |
+| `deviceId` | string | Required active OpenRGB-imported device identifier. |
+| `channelId` | integer | Must be `0`. |
+| `subDeviceId` | integer | Must be `0`. |
+| `enabled` | boolean | Enables or disables the complete override. |
+| `startColor`, `middleColor`, `endColor` | object | Each `red`, `green`, and `blue` component must be finite and from `0` through `255`; black (`0`, `0`, `0`) is valid. Each `temperature` must be finite and from `0` through `105`. |
+| `speed` | number or omitted | A finite value from `0` through `10`. When omitted, the existing override speed is preserved, or `5` is used when no override exists. |
+
+OpenRGB normalizes the stored brightness field of each override color to its
+established value of `1`. A valid update is saved to the active device profile
+before local output or an animation worker is replaced. Profile-save failure or
+synchronous Static/Off output failure returns HTTP `200` with `status: 0`;
+success retains the existing `code`, `status`, and `message` response shape.
+
+When the import is controlled by RGB Cluster, a valid override is saved as
+inactive local state without stopping or replacing current cluster output. The
+existing local replay path uses it after cluster control is disabled. For an
+animated effect, success means that the replacement worker started; it does not
+confirm that a hardware frame was produced.
+
 #### Set Color
 
 `POST /api/openrgbimport/color` stops the current animation, selects the
