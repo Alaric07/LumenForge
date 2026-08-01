@@ -1,6 +1,7 @@
 package openrgbimport
 
 import (
+	"LumenForge/src/config"
 	"LumenForge/src/openrgb"
 	"LumenForge/src/rgb"
 	"bytes"
@@ -27,6 +28,13 @@ type lightingOutputCalls struct {
 	persistentOutput chan struct{}
 	err              error
 	beforeOutput     func()
+}
+
+type lightingTemperatureCalls struct {
+	cpu           int
+	nvidia        int
+	amd           int
+	nvidiaIndexes []int
 }
 
 func installLightingDeviceTestSeams(t *testing.T) (string, *lightingOutputCalls) {
@@ -70,6 +78,39 @@ func installLightingDeviceTestSeams(t *testing.T) (string, *lightingOutputCalls)
 		sendLightingPersistentFrame = previousPersistentFrame
 	})
 	return profileDir, calls
+}
+
+func installLightingTemperatureTestSeams(
+	t *testing.T,
+	cpuTemperature float32,
+	nvidiaTemperature float32,
+	amdTemperature float32,
+) *lightingTemperatureCalls {
+	t.Helper()
+
+	previousCPU := getLightingCPUTemperature
+	previousNVIDIA := getLightingNVIDIATemperature
+	previousAMD := getLightingAMDTemperature
+	calls := &lightingTemperatureCalls{}
+	getLightingCPUTemperature = func() float32 {
+		calls.cpu++
+		return cpuTemperature
+	}
+	getLightingNVIDIATemperature = func(index int) float32 {
+		calls.nvidia++
+		calls.nvidiaIndexes = append(calls.nvidiaIndexes, index)
+		return nvidiaTemperature
+	}
+	getLightingAMDTemperature = func() float32 {
+		calls.amd++
+		return amdTemperature
+	}
+	t.Cleanup(func() {
+		getLightingCPUTemperature = previousCPU
+		getLightingNVIDIATemperature = previousNVIDIA
+		getLightingAMDTemperature = previousAMD
+	})
+	return calls
 }
 
 func newLightingMutationDevice() *Device {
@@ -1040,4 +1081,418 @@ func TestOpenRGBStaticOverrideOutputFailure(t *testing.T) {
 	if !bytes.Equal(device.lastColor, lastColorBefore) {
 		t.Fatal("failed Static override output changed lastColor")
 	}
+}
+
+func openRGBTemperatureMiddleColorProfile(name string) rgb.Profile {
+	return rgb.Profile{
+		ProfileName: name,
+		Speed:       2.5,
+		Brightness:  0.75,
+		Smoothness:  7,
+		StartColor: rgb.Color{
+			Red: 11, Green: 22, Blue: 33, Brightness: 0.4, Temperature: 25,
+		},
+		MiddleColor: rgb.Color{
+			Red: 44, Green: 55, Blue: 66, Brightness: 0.7, Temperature: 50,
+		},
+		EndColor: rgb.Color{
+			Red: 77, Green: 88, Blue: 99, Brightness: 0.9, Temperature: 75,
+		},
+		Gradients: map[int]rgb.Color{
+			0: {Red: 5, Green: 15, Blue: 25, Position: 0},
+			1: {Red: 35, Green: 45, Blue: 55, Position: 1},
+		},
+		MinTemp:         25,
+		MaxTemp:         75,
+		AlternateColors: true,
+		RgbDirection:    1,
+		PerLed:          true,
+		Version:         9,
+	}
+}
+
+func newOpenRGBTemperatureMiddleColorDevice(effect, serial string) *Device {
+	device := newLightingMutationDevice()
+	device.Serial = serial
+	device.colorCount = 2
+	device.effect = "off"
+	device.RGBModes = []string{"off", "static", "cpu-temperature", "gpu-temperature", "colorpulse", "gradient"}
+	device.DeviceProfile.RGBProfile = "off"
+	device.Rgb = &rgb.RGB{
+		Device: device.Product,
+		Profiles: map[string]rgb.Profile{
+			effect: openRGBTemperatureMiddleColorProfile(effect),
+		},
+	}
+	return device
+}
+
+func prepareOpenRGBTemperatureProfilePath(t *testing.T, serial string) string {
+	t.Helper()
+
+	rgbPath := filepath.Join(config.GetPaths().MutableDataRoot, "database", "rgb", serial+".json")
+	if err := os.MkdirAll(filepath.Dir(rgbPath), 0o755); err != nil {
+		t.Fatalf("create RGB profile directory: %v", err)
+	}
+	_ = os.Remove(rgbPath)
+	t.Cleanup(func() { _ = os.Remove(rgbPath) })
+	return rgbPath
+}
+
+func runOpenRGBTemperatureMiddleColorWorker(
+	t *testing.T,
+	device *Device,
+	calls *lightingOutputCalls,
+	effect string,
+) (rgb.Color, rgb.Color, rgb.Color) {
+	t.Helper()
+
+	if err := device.SetEffect(effect); err != nil {
+		t.Fatalf("SetEffect(%q): %v", effect, err)
+	}
+	select {
+	case <-calls.persistentOutput:
+	case <-time.After(2 * time.Second):
+		device.Stop()
+		t.Fatalf("timed out waiting for %q worker output", effect)
+	}
+	device.Stop()
+
+	device.mu.Lock()
+	defer device.mu.Unlock()
+	if device.rgbRunner == nil || device.rgbRunner.RGBStartColor == nil ||
+		device.rgbRunner.RGBMiddleColor == nil || device.rgbRunner.RGBEndColor == nil {
+		t.Fatalf("%q worker did not install all three profile colors", effect)
+	}
+	return *device.rgbRunner.RGBStartColor, *device.rgbRunner.RGBMiddleColor, *device.rgbRunner.RGBEndColor
+}
+
+func TestOpenRGBTemperatureMiddleColorUpdateAndPersistence(t *testing.T) {
+	serial := "openrgb-temperature-middle-color-persistence-test"
+	profileName := "cpu-temperature"
+	device := newOpenRGBTemperatureMiddleColorDevice(profileName, serial)
+	stored := cloneRGBProfile(device.Rgb.Profiles[profileName])
+	updated := openRGBTemperatureMiddleColorProfile(profileName)
+	updated.ProfileName = "caller-profile-name-must-not-replace-stored-name"
+	updated.Brightness = 0.2
+	updated.StartColor = rgb.Color{Red: 101, Green: 102, Blue: 103, Brightness: 0.95, Temperature: 20}
+	updated.MiddleColor = rgb.Color{Red: 111, Green: 112, Blue: 113, Brightness: 0.85, Temperature: 45}
+	updated.EndColor = rgb.Color{Red: 121, Green: 122, Blue: 123, Brightness: 0.75, Temperature: 70}
+	updated.Speed = 4.5
+	updated.Gradients = map[int]rgb.Color{0: {Red: 9}, 1: {Blue: 19}}
+	updated.Smoothness = 99
+	updated.MinTemp = 5
+	updated.MaxTemp = 95
+	updated.AlternateColors = false
+	updated.RgbDirection = 2
+	updated.PerLed = false
+	updated.Version = 100
+
+	prepareOpenRGBTemperatureProfilePath(t, serial)
+
+	if result := device.UpdateRgbProfileData(profileName, updated); result != 1 {
+		t.Fatalf("UpdateRgbProfileData result = %d, want 1", result)
+	}
+	actual := device.GetRgbProfile(profileName)
+	if actual == nil {
+		t.Fatal("updated RGB profile is missing")
+	}
+	wantStart := updated.StartColor
+	wantStart.Brightness = stored.StartColor.Brightness
+	wantMiddle := updated.MiddleColor
+	wantMiddle.Brightness = stored.MiddleColor.Brightness
+	wantEnd := updated.EndColor
+	wantEnd.Brightness = stored.EndColor.Brightness
+	expected := cloneRGBProfile(stored)
+	expected.StartColor = wantStart
+	expected.MiddleColor = wantMiddle
+	expected.EndColor = wantEnd
+	expected.Speed = updated.Speed
+	expected.Gradients = cloneRGBProfile(updated).Gradients
+	if !reflect.DeepEqual(*actual, expected) {
+		t.Fatalf("updated profile = %#v, want %#v", *actual, expected)
+	}
+
+	updated.MiddleColor.Red = 250
+	updated.Gradients[0] = rgb.Color{Green: 250}
+	actual = device.GetRgbProfile(profileName)
+	if actual.MiddleColor.Red == 250 || actual.Gradients[0].Green == 250 {
+		t.Fatal("stored RGB profile aliases caller-owned update data")
+	}
+
+	reloaded := &Device{Serial: serial, Product: device.Product}
+	reloaded.loadRgb()
+	persisted := reloaded.GetRgbProfile(profileName)
+	if persisted == nil {
+		t.Fatal("reloaded RGB profile is missing")
+	}
+	if !reflect.DeepEqual(*persisted, expected) {
+		t.Fatalf("reloaded profile = %#v, want %#v", *persisted, expected)
+	}
+
+	t.Run("GPU accepts black MiddleColor", func(t *testing.T) {
+		serial := "openrgb-gpu-temperature-black-middle-color-test"
+		profileName := "gpu-temperature"
+		device := newOpenRGBTemperatureMiddleColorDevice(profileName, serial)
+		stored := cloneRGBProfile(device.Rgb.Profiles[profileName])
+		updated := cloneRGBProfile(stored)
+		updated.MiddleColor = rgb.Color{Brightness: 0.1, Temperature: 50}
+		prepareOpenRGBTemperatureProfilePath(t, serial)
+
+		if result := device.UpdateRgbProfileData(profileName, updated); result != 1 {
+			t.Fatalf("UpdateRgbProfileData result = %d, want 1", result)
+		}
+		actual := device.GetRgbProfile(profileName)
+		wantMiddle := updated.MiddleColor
+		wantMiddle.Brightness = stored.MiddleColor.Brightness
+		if actual == nil || actual.MiddleColor != wantMiddle {
+			t.Fatalf("updated black MiddleColor = %#v, want %#v", actual, wantMiddle)
+		}
+		reloaded := &Device{Serial: serial, Product: device.Product}
+		reloaded.loadRgb()
+		persisted := reloaded.GetRgbProfile(profileName)
+		if persisted == nil || persisted.MiddleColor != wantMiddle {
+			t.Fatalf("reloaded black MiddleColor = %#v, want %#v", persisted, wantMiddle)
+		}
+	})
+}
+
+func TestOpenRGBTemperatureMiddleColorPartialStaticUpdate(t *testing.T) {
+	serial := "openrgb-temperature-middle-color-partial-static-test"
+	profileName := "static"
+	device := newOpenRGBTemperatureMiddleColorDevice(profileName, serial)
+	stored := cloneRGBProfile(device.Rgb.Profiles[profileName])
+	color := rgb.Color{Red: 201, Green: 101, Blue: 51}
+	partial := rgb.Profile{
+		StartColor: color,
+		EndColor:   color,
+		Brightness: 1,
+	}
+	prepareOpenRGBTemperatureProfilePath(t, serial)
+
+	if result := device.UpdateRgbProfileData(profileName, partial); result != 1 {
+		t.Fatalf("UpdateRgbProfileData result = %d, want 1", result)
+	}
+	wantStart := partial.StartColor
+	wantStart.Brightness = stored.StartColor.Brightness
+	wantEnd := partial.EndColor
+	wantEnd.Brightness = stored.EndColor.Brightness
+	expected := cloneRGBProfile(stored)
+	expected.StartColor = wantStart
+	expected.EndColor = wantEnd
+	expected.Speed = partial.Speed
+	expected.Gradients = nil
+
+	actual := device.GetRgbProfile(profileName)
+	if actual == nil {
+		t.Fatal("updated Static RGB profile is missing")
+	}
+	if !reflect.DeepEqual(*actual, expected) {
+		t.Fatalf("updated partial Static profile = %#v, want %#v", *actual, expected)
+	}
+	if actual.MiddleColor != stored.MiddleColor {
+		t.Fatalf("partial Static MiddleColor = %#v, want stored %#v", actual.MiddleColor, stored.MiddleColor)
+	}
+
+	reloaded := &Device{Serial: serial, Product: device.Product}
+	reloaded.loadRgb()
+	persisted := reloaded.GetRgbProfile(profileName)
+	if persisted == nil {
+		t.Fatal("reloaded Static RGB profile is missing")
+	}
+	if !reflect.DeepEqual(*persisted, expected) {
+		t.Fatalf("reloaded partial Static profile = %#v, want %#v", *persisted, expected)
+	}
+}
+
+func TestOpenRGBTemperatureMiddleColorWorkerRefresh(t *testing.T) {
+	tests := []struct {
+		name              string
+		effect            string
+		serial            string
+		cpuTemperature    float32
+		nvidiaTemperature float32
+		amdTemperature    float32
+		wantCPU           bool
+		wantNVIDIA        bool
+		wantAMD           bool
+	}{
+		{
+			name:           "CPU",
+			effect:         "cpu-temperature",
+			serial:         "openrgb-middle-worker-cpu",
+			cpuTemperature: 42,
+			wantCPU:        true,
+		},
+		{
+			name:              "GPU NVIDIA",
+			effect:            "gpu-temperature",
+			serial:            "openrgb-middle-worker-gpu-nvidia",
+			nvidiaTemperature: 58,
+			amdTemperature:    63,
+			wantNVIDIA:        true,
+		},
+		{
+			name:              "GPU AMD fallback",
+			effect:            "gpu-temperature",
+			serial:            "openrgb-middle-worker-gpu-amd",
+			nvidiaTemperature: 0,
+			amdTemperature:    64,
+			wantNVIDIA:        true,
+			wantAMD:           true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, calls := installLightingDeviceTestSeams(t)
+			temperatureCalls := installLightingTemperatureTestSeams(
+				t,
+				test.cpuTemperature,
+				test.nvidiaTemperature,
+				test.amdTemperature,
+			)
+			device := newOpenRGBTemperatureMiddleColorDevice(test.effect, test.serial)
+			profile := device.Rgb.Profiles[test.effect]
+
+			start, middle, end := runOpenRGBTemperatureMiddleColorWorker(t, device, calls, test.effect)
+			if start != profile.StartColor || middle != profile.MiddleColor || end != profile.EndColor {
+				t.Fatalf("worker colors = %#v, %#v, %#v; want %#v, %#v, %#v",
+					start, middle, end, profile.StartColor, profile.MiddleColor, profile.EndColor)
+			}
+			if (temperatureCalls.cpu > 0) != test.wantCPU ||
+				(temperatureCalls.nvidia > 0) != test.wantNVIDIA ||
+				(temperatureCalls.amd > 0) != test.wantAMD {
+				t.Fatalf("temperature calls = CPU %d, NVIDIA %d, AMD %d; want used %t, %t, %t",
+					temperatureCalls.cpu, temperatureCalls.nvidia, temperatureCalls.amd,
+					test.wantCPU, test.wantNVIDIA, test.wantAMD)
+			}
+			if test.wantAMD && temperatureCalls.amd != temperatureCalls.nvidia {
+				t.Fatalf("GPU fallback calls = NVIDIA %d, AMD %d, want one AMD fallback per NVIDIA result",
+					temperatureCalls.nvidia, temperatureCalls.amd)
+			}
+			for _, index := range temperatureCalls.nvidiaIndexes {
+				if index != config.GetConfig().DefaultNvidiaGPU {
+					t.Fatalf("NVIDIA GPU index = %d, want configured default %d",
+						index, config.GetConfig().DefaultNvidiaGPU)
+				}
+			}
+		})
+	}
+}
+
+func TestOpenRGBTemperatureMiddleColorOverridePrecedence(t *testing.T) {
+	_, calls := installLightingDeviceTestSeams(t)
+	temperatureCalls := installLightingTemperatureTestSeams(t, 45, 60, 65)
+	effect := "cpu-temperature"
+	device := newOpenRGBTemperatureMiddleColorDevice(effect, "openrgb-middle-override-test")
+	base := device.Rgb.Profiles[effect]
+	overrideMiddle := rgb.Color{Red: 201, Green: 202, Blue: 203, Brightness: 1, Temperature: 55}
+	device.DeviceProfile.RGBOverride = &RGBOverride{
+		Enabled:        true,
+		RGBStartColor:  rgb.Color{Red: 181, Green: 182, Blue: 183, Brightness: 1},
+		RGBMiddleColor: overrideMiddle,
+		RGBEndColor:    rgb.Color{Red: 221, Green: 222, Blue: 223, Brightness: 1},
+		RgbModeSpeed:   3.5,
+	}
+
+	_, middle, _ := runOpenRGBTemperatureMiddleColorWorker(t, device, calls, effect)
+	if middle != overrideMiddle {
+		t.Fatalf("enabled override middle = %#v, want %#v", middle, overrideMiddle)
+	}
+	device.DeviceProfile.RGBOverride.Enabled = false
+	_, middle, _ = runOpenRGBTemperatureMiddleColorWorker(t, device, calls, effect)
+	if middle != base.MiddleColor {
+		t.Fatalf("disabled override middle = %#v, want base %#v", middle, base.MiddleColor)
+	}
+	if device.Rgb.Profiles[effect].MiddleColor != base.MiddleColor {
+		t.Fatal("override execution changed the base RGB definition")
+	}
+	if temperatureCalls.cpu == 0 || temperatureCalls.nvidia != 0 || temperatureCalls.amd != 0 {
+		t.Fatalf("override worker temperature calls = CPU %d, NVIDIA %d, AMD %d; want CPU only",
+			temperatureCalls.cpu, temperatureCalls.nvidia, temperatureCalls.amd)
+	}
+}
+
+func TestOpenRGBTemperatureMiddleColorNonTemperatureAndLegacyRegression(t *testing.T) {
+	t.Run("Static output", func(t *testing.T) {
+		_, calls := installLightingDeviceTestSeams(t)
+		device := newStaticOverrideTestDevice(100)
+		device.DeviceProfile.RGBOverride.Enabled = false
+		expected := device.buildZoneFrame()
+
+		if err := device.SetEffect("static"); err != nil {
+			t.Fatalf("SetEffect(static): %v", err)
+		}
+		if calls.frames != 1 || !bytes.Equal(calls.frameValues[0], expected) {
+			t.Fatalf("Static output = %#v, want %#v", calls.frameValues, expected)
+		}
+	})
+
+	t.Run("two-color and gradient renderers", func(t *testing.T) {
+		start := rgb.Color{Red: 10, Green: 20, Blue: 30, Brightness: 1}
+		end := rgb.Color{Red: 210, Green: 220, Blue: 230, Brightness: 1}
+		middleA := rgb.Color{Red: 1, Green: 2, Blue: 3, Brightness: 1}
+		middleB := rgb.Color{Red: 251, Green: 252, Blue: 253, Brightness: 1}
+		newRunner := func(middle *rgb.Color) *rgb.ActiveRGB {
+			runner := rgb.New(2, 1_000_000_000, &start, &end, 1, 0, 0, true)
+			runner.RGBMiddleColor = middle
+			return runner
+		}
+		pulseStart := time.Now().Add(-time.Second)
+		pulseA, pulseB := newRunner(&middleA), newRunner(&middleB)
+		pulseA.Colorpulse(&pulseStart)
+		pulseB.Colorpulse(&pulseStart)
+		if !bytes.Equal(pulseA.Output, pulseB.Output) {
+			t.Fatal("two-color output changed when only MiddleColor changed")
+		}
+
+		gradients := map[int]rgb.Color{
+			0: {Red: 10, Green: 30, Blue: 50, Position: 0, Brightness: 1},
+			1: {Red: 60, Green: 80, Blue: 100, Position: 1, Brightness: 1},
+		}
+		gradientStart := time.Now().Add(-time.Second)
+		gradientA, gradientB := newRunner(&middleA), newRunner(&middleB)
+		gradientA.ColorshiftGradient(gradientStart, gradients, 1_000_000_000)
+		gradientB.ColorshiftGradient(gradientStart, gradients, 1_000_000_000)
+		if !bytes.Equal(gradientA.Output, gradientB.Output) {
+			t.Fatal("gradient output changed when only MiddleColor changed")
+		}
+	})
+
+	t.Run("missing legacy middle", func(t *testing.T) {
+		serial := "openrgb-temperature-middle-color-legacy-test"
+		rgbPath := filepath.Join(config.GetPaths().MutableDataRoot, "database", "rgb", serial+".json")
+		if err := os.MkdirAll(filepath.Dir(rgbPath), 0o755); err != nil {
+			t.Fatalf("create RGB profile directory: %v", err)
+		}
+		_ = os.Remove(rgbPath)
+		t.Cleanup(func() { _ = os.Remove(rgbPath) })
+		legacy := map[string]interface{}{
+			"device": "Legacy OpenRGB Controller",
+			"profiles": map[string]interface{}{
+				"cpu-temperature": map[string]interface{}{
+					"profileName": "cpu-temperature",
+					"start":       rgb.Color{Red: 12, Green: 23, Blue: 34},
+					"end":         rgb.Color{Red: 210, Green: 220, Blue: 230},
+				},
+			},
+		}
+		data, err := json.Marshal(legacy)
+		if err != nil {
+			t.Fatalf("marshal legacy RGB profile: %v", err)
+		}
+		if err = os.WriteFile(rgbPath, data, 0o600); err != nil {
+			t.Fatalf("write legacy RGB profile: %v", err)
+		}
+
+		device := &Device{Serial: serial, Product: "Legacy OpenRGB Controller"}
+		device.loadRgb()
+		profile := device.GetRgbProfile("cpu-temperature")
+		if profile == nil {
+			t.Fatal("legacy RGB profile did not load")
+		}
+		if profile.MiddleColor != (rgb.Color{}) {
+			t.Fatalf("missing legacy MiddleColor = %#v, want zero value", profile.MiddleColor)
+		}
+	})
 }

@@ -54,15 +54,18 @@ var (
 	configStorePath  = func() string {
 		return config.GetPaths().OpenRGBImportFile
 	}
-	renameConfigStore           = os.Rename
-	sendConfigFrame             = openrgb.SendFrame
-	sendClusterFrame            = openrgb.SendFramePersistent
-	sendLightingColor           = openrgb.SendColorContext
-	sendLightingFrame           = openrgb.SendFrameContext
-	sendLightingPersistentFrame = openrgb.SendFramePersistent
-	checkConfigHealth           = openrgb.HealthCheck
-	getConfigCluster            = cluster.Get
-	deviceProfileDir            = func() string {
+	renameConfigStore            = os.Rename
+	sendConfigFrame              = openrgb.SendFrame
+	sendClusterFrame             = openrgb.SendFramePersistent
+	sendLightingColor            = openrgb.SendColorContext
+	sendLightingFrame            = openrgb.SendFrameContext
+	sendLightingPersistentFrame  = openrgb.SendFramePersistent
+	getLightingCPUTemperature    = temperatures.GetCpuTemperature
+	getLightingNVIDIATemperature = temperatures.GetNVIDIAGpuTemperature
+	getLightingAMDTemperature    = temperatures.GetAMDGpuTemperature
+	checkConfigHealth            = openrgb.HealthCheck
+	getConfigCluster             = cluster.Get
+	deviceProfileDir             = func() string {
 		return filepath.Join(config.GetPaths().MutableDataRoot, "database", "profiles")
 	}
 )
@@ -1771,6 +1774,7 @@ func (d *Device) setEffectContext(ctx context.Context, effect string, reportFail
 					runner.RgbModeSpeed = pf.Speed
 					runner.RGBBrightness = rgb.GetBrightnessValueFloat(d.brightness)
 					runner.RGBStartColor = &pf.StartColor
+					runner.RGBMiddleColor = &pf.MiddleColor
 					runner.RGBEndColor = &pf.EndColor
 					runner.MinTemp = pf.MinTemp
 					runner.MaxTemp = pf.MaxTemp
@@ -1822,9 +1826,13 @@ func (d *Device) setEffectContext(ctx context.Context, effect string, reportFail
 					}
 					runner.ColorshiftGradient(startTime, gradients, speed)
 				case "cpu-temperature":
-					runner.Temperature(float64(temperatures.GetCpuTemperature()))
+					runner.Temperature(float64(getLightingCPUTemperature()))
 				case "gpu-temperature":
-					runner.Temperature(float64(temperatures.GetGpuTemperature()))
+					gpuTemperature := getLightingNVIDIATemperature(config.GetConfig().DefaultNvidiaGPU)
+					if gpuTemperature == 0 {
+						gpuTemperature = getLightingAMDTemperature()
+					}
+					runner.Temperature(float64(gpuTemperature))
 				case "colorpulse":
 					runner.Colorpulse(&startTime)
 				case "rotator":
@@ -2619,13 +2627,18 @@ func (d *Device) UpdateRgbProfileData(profileName string, profile rgb.Profile) u
 		return 0
 	}
 
+	updated := cloneRGBProfile(profile)
 	d.rgbMutex.Lock()
-	profile.StartColor.Brightness = pf.StartColor.Brightness
-	profile.EndColor.Brightness = pf.EndColor.Brightness
-	pf.StartColor = profile.StartColor
-	pf.EndColor = profile.EndColor
-	pf.Speed = profile.Speed
-	pf.Gradients = profile.Gradients
+	updated.StartColor.Brightness = pf.StartColor.Brightness
+	updated.EndColor.Brightness = pf.EndColor.Brightness
+	pf.StartColor = updated.StartColor
+	pf.EndColor = updated.EndColor
+	if profileName == "cpu-temperature" || profileName == "gpu-temperature" {
+		updated.MiddleColor.Brightness = pf.MiddleColor.Brightness
+		pf.MiddleColor = updated.MiddleColor
+	}
+	pf.Speed = updated.Speed
+	pf.Gradients = updated.Gradients
 	d.Rgb.Profiles[profileName] = *pf
 	d.rgbMutex.Unlock()
 
