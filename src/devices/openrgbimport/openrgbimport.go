@@ -1634,6 +1634,101 @@ func (d *Device) setEffectContext(ctx context.Context, effect string, reportFail
 	return d.applyPersistedEffectTransitionLocked(ctx, effect, reportFailure, expectedSerial)
 }
 
+// dispatchEligibleSoftwareEffect keeps preserved effect IDs intact while
+// limiting normal rendering to the device's exact advertised catalogue.
+func dispatchEligibleSoftwareEffect(effect string, supportedEffects []string, runner *rgb.ActiveRGB, startTime *time.Time, profile *rgb.Profile) bool {
+	if !slices.Contains(supportedEffects, effect) {
+		runner.Static()
+		return false
+	}
+	return dispatchSoftwareEffect(effect, runner, startTime, profile)
+}
+
+func dispatchSoftwareEffect(effect string, runner *rgb.ActiveRGB, startTime *time.Time, profile *rgb.Profile) bool {
+	switch effect {
+	case "arc":
+		runner.Arc(*startTime)
+	case "comet":
+		runner.Comet(startTime)
+	case "datastream":
+		runner.DataStream(startTime)
+	case "marquee":
+		runner.Marquee(startTime)
+	case "nebula":
+		runner.Nebula(startTime)
+	case "plasmacore":
+		runner.PlasmaCore(startTime)
+	case "rain":
+		runner.Rain(*startTime)
+	case "rotarystack":
+		runner.RotaryStack(startTime)
+	case "sequential":
+		runner.Sequential(startTime)
+	case "stardust":
+		runner.Stardust(startTime)
+	case "tokyonight":
+		runner.TokyoNight(startTime)
+	case "visor":
+		runner.Visor(startTime)
+	case "rainbow":
+		runner.Rainbow(*startTime)
+	case "pastelrainbow":
+		runner.PastelRainbow(*startTime)
+	case "spiralrainbow":
+		runner.SpiralRainbow(*startTime)
+	case "pastelspiralrainbow":
+		runner.PastelSpiralRainbow(*startTime)
+	case "watercolor":
+		runner.Watercolor(*startTime)
+	case "gradient":
+		var gradients map[int]rgb.Color
+		var speed float64 = 2.0
+		if profile != nil {
+			gradients = profile.Gradients
+			speed = profile.Speed
+		}
+		runner.ColorshiftGradient(*startTime, gradients, speed)
+	case "cpu-temperature":
+		runner.Temperature(float64(getLightingCPUTemperature()))
+	case "gpu-temperature":
+		gpuTemperature := getLightingNVIDIATemperature(config.GetConfig().DefaultNvidiaGPU)
+		if gpuTemperature == 0 {
+			gpuTemperature = getLightingAMDTemperature()
+		}
+		runner.Temperature(float64(gpuTemperature))
+	case "colorpulse":
+		runner.Colorpulse(startTime)
+	case "rotator":
+		runner.Rotator(startTime)
+	case "wave":
+		runner.Wave(startTime)
+	case "storm":
+		runner.Storm()
+	case "flickering":
+		runner.Flickering(startTime)
+	case "flame":
+		runner.Flame(startTime)
+	case "aurora":
+		runner.Aurora(startTime)
+	case "cyberpunkglitch":
+		runner.CyberpunkGlitch(startTime)
+	case "colorshift":
+		runner.Colorshift(startTime, runner)
+	case "circleshift":
+		runner.CircleShift(startTime)
+	case "circle":
+		runner.Circle(startTime)
+	case "spinner":
+		runner.Spinner(startTime)
+	case "colorwarp":
+		runner.Colorwarp(startTime, runner)
+	default:
+		runner.Static()
+		return false
+	}
+	return true
+}
+
 // applyPersistedEffectTransitionLocked replaces the active output after its
 // desired profile state has been persisted. The caller holds effectTransitionMu
 // and d.mu; this method releases d.mu before returning.
@@ -1814,62 +1909,7 @@ func (d *Device) applyPersistedEffectTransitionLocked(ctx context.Context, effec
 					runner.RgbModeSpeed = common.FClamp(d.DeviceProfile.RGBOverride.RgbModeSpeed, 0.1, 10)
 				}
 
-				switch d.effect {
-				case "rainbow":
-					runner.Rainbow(startTime)
-				case "pastelrainbow":
-					runner.PastelRainbow(startTime)
-				case "spiralrainbow":
-					runner.SpiralRainbow(startTime)
-				case "pastelspiralrainbow":
-					runner.PastelSpiralRainbow(startTime)
-				case "watercolor":
-					runner.Watercolor(startTime)
-				case "gradient":
-					var gradients map[int]rgb.Color
-					var speed float64 = 2.0
-					if pf != nil {
-						gradients = pf.Gradients
-						speed = pf.Speed
-					}
-					runner.ColorshiftGradient(startTime, gradients, speed)
-				case "cpu-temperature":
-					runner.Temperature(float64(getLightingCPUTemperature()))
-				case "gpu-temperature":
-					gpuTemperature := getLightingNVIDIATemperature(config.GetConfig().DefaultNvidiaGPU)
-					if gpuTemperature == 0 {
-						gpuTemperature = getLightingAMDTemperature()
-					}
-					runner.Temperature(float64(gpuTemperature))
-				case "colorpulse":
-					runner.Colorpulse(&startTime)
-				case "rotator":
-					runner.Rotator(&startTime)
-				case "wave":
-					runner.Wave(&startTime)
-				case "storm":
-					runner.Storm()
-				case "flickering":
-					runner.Flickering(&startTime)
-				case "flame":
-					runner.Flame(&startTime)
-				case "aurora":
-					runner.Aurora(&startTime)
-				case "cyberpunkglitch":
-					runner.CyberpunkGlitch(&startTime)
-				case "colorshift":
-					runner.Colorshift(&startTime, runner)
-				case "circleshift":
-					runner.CircleShift(&startTime)
-				case "circle":
-					runner.Circle(&startTime)
-				case "spinner":
-					runner.Spinner(&startTime)
-				case "colorwarp":
-					runner.Colorwarp(&startTime, runner)
-				default:
-					runner.Static()
-				}
+				dispatchEligibleSoftwareEffect(d.effect, d.RGBModes, runner, &startTime, pf)
 
 				frame := make([]byte, len(runner.Output))
 				copy(frame, runner.Output)
