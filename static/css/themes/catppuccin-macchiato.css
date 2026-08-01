@@ -1,5 +1,3 @@
-@import url("/static/css/themes/default.css");
-
 :root {
     --bg-main: #24273a;
     --bg-panel: #1e2030;
@@ -16,6 +14,48 @@
     --eq-track: #494d64;
     --eq-thumb: #8aadf4;
     --eq-positive: #a6da95;
+
+    /* LumenForge semantic application contract */
+    --lf-page-background: #24273a;
+    --lf-navigation-surface: #1e2030;
+    --lf-device-list-surface: #222436;
+    --lf-workspace-surface: #25283d;
+    --lf-panel-elevated: #363a4f;
+    --lf-panel-secondary: #2b2f45;
+    --lf-surface-selected: #384565;
+    --lf-surface-subdued: #292c3e;
+    --lf-text-primary: #cad3f5;
+    --lf-text-secondary: #b8c0e0;
+    --lf-text-muted: #939ab7;
+    --lf-text-technical: #cad3f5;
+    --lf-text-on-accent: #181926;
+    --lf-accent-primary: #8aadf4;
+    --lf-accent-secondary: #c6a0f6;
+    --lf-accent-highlight: #91d7e3;
+    --lf-glow-ambient: rgba(138, 173, 244, 0.09);
+    --lf-glow-selected: rgba(138, 173, 244, 0.17);
+    --lf-glow-emphasized: rgba(198, 160, 246, 0.13);
+    --lf-border-subtle: rgba(91, 96, 120, 0.4);
+    --lf-border-panel: rgba(91, 96, 120, 0.72);
+    --lf-border-selected: rgba(138, 173, 244, 0.58);
+    --lf-border-emphasized: rgba(198, 160, 246, 0.52);
+    --lf-shadow-soft: 0 10px 28px rgba(17, 17, 27, 0.18);
+    --lf-shadow-elevated: 0 20px 55px rgba(17, 17, 27, 0.28);
+    --lf-surface-hover: #3c4056;
+    --lf-surface-active: #3d4867;
+    --lf-focus-ring: #91d7e3;
+    --lf-disabled-border: rgba(91, 96, 120, 0.55);
+    --lf-control-track: #494d64;
+    --lf-control-fill-start: #8aadf4;
+    --lf-control-fill-end: #c6a0f6;
+    --lf-control-thumb: #cad3f5;
+    --lf-control-thumb-border: #91d7e3;
+    --lf-control-thumb-glow: rgba(138, 173, 244, 0.26);
+    --lf-control-disabled-track: #343746;
+    --lf-control-popup: var(--lf-panel-elevated);
+    --lf-control-popup-border: var(--lf-border-panel);
+    --lf-control-option-selected: var(--lf-surface-active);
+    --lf-control-option-hover: var(--lf-surface-hover);
 }
 
 /* Catppuccin Macchiato UI surface overrides */

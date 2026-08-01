@@ -1,5 +1,3 @@
-@import url("/static/css/themes/default.css");
-
 :root {
     --bg-main: #09090f;
     --bg-panel: #05050a;
@@ -16,6 +14,48 @@
     --eq-track: #1b1026;
     --eq-thumb: #00e5ff;
     --eq-positive: #00ff9c;
+
+    /* LumenForge semantic application contract */
+    --lf-page-background: #09090f;
+    --lf-navigation-surface: #05050a;
+    --lf-device-list-surface: #0b0912;
+    --lf-workspace-surface: #080a12;
+    --lf-panel-elevated: #12121c;
+    --lf-panel-secondary: #0d0d16;
+    --lf-surface-selected: #1c1029;
+    --lf-surface-subdued: #0d0d12;
+    --lf-text-primary: #f8f8ff;
+    --lf-text-secondary: #c7bdd4;
+    --lf-text-muted: #9b8fb3;
+    --lf-text-technical: #e4e4ef;
+    --lf-text-on-accent: #05050a;
+    --lf-accent-primary: #00e5ff;
+    --lf-accent-secondary: #ff007c;
+    --lf-accent-highlight: #fcee09;
+    --lf-glow-ambient: rgba(0, 229, 255, 0.16);
+    --lf-glow-selected: rgba(255, 0, 124, 0.25);
+    --lf-glow-emphasized: rgba(252, 238, 9, 0.16);
+    --lf-border-subtle: rgba(255, 0, 124, 0.4);
+    --lf-border-panel: #ff007c;
+    --lf-border-selected: rgba(0, 229, 255, 0.72);
+    --lf-border-emphasized: rgba(252, 238, 9, 0.68);
+    --lf-shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.26);
+    --lf-shadow-elevated: 0 20px 55px rgba(0, 0, 0, 0.38);
+    --lf-surface-hover: #1c1228;
+    --lf-surface-active: #241331;
+    --lf-focus-ring: #fcee09;
+    --lf-disabled-border: rgba(155, 143, 179, 0.34);
+    --lf-control-track: #1b1026;
+    --lf-control-fill-start: #00e5ff;
+    --lf-control-fill-end: #ff007c;
+    --lf-control-thumb: #f8f8ff;
+    --lf-control-thumb-border: #fcee09;
+    --lf-control-thumb-glow: rgba(0, 229, 255, 0.34);
+    --lf-control-disabled-track: #15101d;
+    --lf-control-popup: var(--lf-panel-elevated);
+    --lf-control-popup-border: var(--lf-border-panel);
+    --lf-control-option-selected: var(--lf-surface-active);
+    --lf-control-option-hover: var(--lf-surface-hover);
 }
 
 /* Cyberpunk UI surface overrides */

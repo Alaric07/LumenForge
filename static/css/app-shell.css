@@ -1,60 +1,15 @@
 .lf-app-shell {
-    --lf-shell-page: var(--bg-main, #070b17);
-    --lf-shell-nav: var(--bg-panel, #0a1020);
-    --lf-shell-list: var(--bg-panel, #0d1425);
-    --lf-shell-workspace: var(--bg-main, #080d1a);
-    --lf-shell-panel: var(--bg-card, #11192b);
-    --lf-shell-panel-soft: var(--bg-panel, #0d1527);
-    --lf-shell-panel-raised: var(--bg-card, #162039);
-    --lf-shell-border: var(--border-mid, rgba(173, 196, 255, 0.18));
-    --lf-shell-border-soft: var(--border-subtle, rgba(173, 196, 255, 0.09));
-    --lf-shell-text: var(--text-main, #f4f6ff);
-    --lf-shell-muted: var(--text-muted, #aab4cb);
-    --lf-accent-primary: var(--eq-thumb, #4d8dff);
-    --lf-accent-secondary: var(--eq-positive, #35d8ff);
-    --lf-accent-highlight: var(--eq-thumb, #4d8dff);
-    --lf-accent-highlight: color-mix(in srgb, var(--lf-accent-primary) 72%, var(--lf-shell-text));
-    --lf-atmosphere-soft-glow: rgba(77, 141, 255, 0.12);
-    --lf-atmosphere-soft-glow: color-mix(in srgb, var(--lf-accent-primary) 12%, transparent);
-    --lf-atmosphere-selected-glow: rgba(77, 141, 255, 0.22);
-    --lf-atmosphere-selected-glow: color-mix(in srgb, var(--lf-accent-primary) 22%, transparent);
-    --lf-selected-surface: var(--bg-card, #17244a);
-    --lf-selected-surface: color-mix(in srgb, var(--lf-accent-primary) 14%, var(--bg-card, #17244a));
-    --lf-selected-border: var(--eq-thumb, #4d8dff);
-    --lf-selected-border: color-mix(in srgb, var(--lf-accent-primary) 48%, var(--lf-shell-border));
-    --lf-tab-underline: var(--eq-thumb, #4d8dff);
-    --lf-tab-underline: linear-gradient(90deg, var(--lf-accent-secondary), var(--lf-accent-primary), var(--lf-accent-highlight));
-    --lf-focus-ring: var(--eq-thumb, #4d8dff);
-    --lf-workspace-illumination: rgba(77, 141, 255, 0.14);
-    --lf-workspace-illumination: color-mix(in srgb, var(--lf-accent-primary) 14%, transparent);
-    --lf-workspace-illumination-secondary: rgba(53, 216, 255, 0.07);
-    --lf-workspace-illumination-secondary: color-mix(in srgb, var(--lf-accent-secondary) 7%, transparent);
-    --lf-emphasized-panel-edge: var(--eq-thumb, #4d8dff);
-    --lf-emphasized-panel-edge: color-mix(in srgb, var(--lf-accent-highlight) 52%, var(--lf-shell-border));
-    --lf-control-track: var(--eq-track, #2a2a2b);
-    --lf-control-fill-start: var(--lf-accent-primary);
-    --lf-control-fill-end: var(--lf-accent-secondary);
-    --lf-control-thumb: var(--lf-shell-text);
-    --lf-control-thumb-glow: var(--lf-atmosphere-selected-glow);
-    --lf-control-focus-ring: var(--lf-focus-ring);
-    --lf-control-disabled-surface: var(--lf-shell-border-soft);
-    --lf-control-popup-surface: var(--lf-shell-panel-raised);
-    --lf-control-selected-option: var(--lf-selected-surface);
-    --lf-shell-good: var(--good, #65e6b4);
-    --lf-shell-bad: var(--bad, #ff7185);
     --lf-shell-radius-sm: 8px;
     --lf-shell-radius: 12px;
     --lf-shell-radius-lg: 18px;
-    --lf-shell-shadow: 0 20px 55px rgba(0, 0, 0, 0.28);
-    --lf-shell-shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.2);
     min-height: 100vh;
     display: grid;
     grid-template-columns: 232px minmax(300px, 350px) minmax(0, 1fr);
-    color: var(--lf-shell-text);
-    background: var(--lf-shell-page);
+    color: var(--lf-text-primary);
+    background: var(--lf-page-background);
     background:
-        radial-gradient(circle at 82% 7%, var(--lf-atmosphere-soft-glow), transparent 34rem),
-        var(--lf-shell-page);
+        radial-gradient(circle at 82% 7%, var(--lf-glow-ambient), transparent 34rem),
+        var(--lf-page-background);
 }
 
 .lf-app-shell .lf-global-nav {
@@ -66,12 +21,12 @@
     display: flex;
     flex-direction: column;
     padding: 24px 16px 18px;
-    border-right: 1px solid var(--lf-shell-border-soft);
-    background: var(--lf-shell-nav);
+    border-right: 1px solid var(--lf-border-subtle);
+    background: var(--lf-navigation-surface);
     background:
         radial-gradient(circle at 0 0, color-mix(in srgb, var(--lf-accent-secondary) 9%, transparent), transparent 18rem),
-        color-mix(in srgb, var(--lf-shell-nav) 93%, var(--lf-shell-page));
-    box-shadow: 12px 0 34px rgba(0, 0, 0, 0.22);
+        color-mix(in srgb, var(--lf-navigation-surface) 93%, var(--lf-page-background));
+    box-shadow: var(--lf-shadow-soft);
 }
 
 .lf-app-shell .lf-brand {
@@ -80,7 +35,7 @@
     align-items: center;
     gap: 13px;
     padding: 8px 10px 18px;
-    color: var(--lf-shell-text);
+    color: var(--lf-text-primary);
     text-decoration: none;
 }
 
@@ -98,7 +53,7 @@
     inset: 5px;
     content: "";
     border-radius: 50%;
-    background: var(--lf-atmosphere-selected-glow);
+    background: var(--lf-glow-selected);
     filter: blur(10px);
 }
 
@@ -107,7 +62,7 @@
     height: 36px;
     position: relative;
     object-fit: contain;
-    filter: drop-shadow(0 0 13px var(--lf-atmosphere-selected-glow));
+    filter: drop-shadow(0 0 13px var(--lf-glow-selected));
 }
 
 .lf-app-shell .lf-brand-name {
@@ -134,28 +89,28 @@
     padding: 10px 13px;
     border: 1px solid transparent;
     border-radius: var(--lf-shell-radius);
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-secondary);
     text-decoration: none;
     transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
 }
 
 .lf-app-shell .lf-global-link:hover {
-    color: var(--lf-shell-text);
-    background: var(--lf-shell-panel-soft);
+    color: var(--lf-text-primary);
+    background: var(--lf-surface-hover);
     transform: translateX(2px);
 }
 
 .lf-app-shell .lf-global-link-active,
 .lf-app-shell .lf-global-link-active:hover {
-    color: var(--lf-shell-text);
-    border-color: var(--lf-selected-border);
-    background: var(--lf-selected-surface);
+    color: var(--lf-text-primary);
+    border-color: var(--lf-border-selected);
+    background: var(--lf-surface-selected);
     background:
         linear-gradient(105deg, color-mix(in srgb, var(--lf-accent-secondary) 15%, transparent), transparent 40%),
-        var(--lf-selected-surface);
+        var(--lf-surface-selected);
     box-shadow:
         inset 3px 0 0 var(--lf-accent-secondary),
-        0 0 24px var(--lf-atmosphere-soft-glow);
+        0 0 24px var(--lf-glow-ambient);
     transform: none;
 }
 
@@ -197,12 +152,12 @@
     top: 0;
     z-index: 2;
     overflow-y: auto;
-    border-right: 1px solid var(--lf-shell-border-soft);
-    background: var(--lf-shell-list);
+    border-right: 1px solid var(--lf-border-subtle);
+    background: var(--lf-device-list-surface);
     background:
         linear-gradient(180deg, color-mix(in srgb, var(--lf-accent-primary) 5%, transparent), transparent 16rem),
-        color-mix(in srgb, var(--lf-shell-list) 96%, var(--lf-shell-page));
-    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.16);
+        color-mix(in srgb, var(--lf-device-list-surface) 96%, var(--lf-page-background));
+    box-shadow: var(--lf-shadow-soft);
 }
 
 .lf-app-shell .lf-panel-header {
@@ -212,7 +167,7 @@
     justify-content: space-between;
     gap: 20px;
     padding: 28px 24px 20px;
-    border-bottom: 1px solid var(--lf-shell-border-soft);
+    border-bottom: 1px solid var(--lf-border-subtle);
 }
 
 .lf-app-shell .lf-section-kicker {
@@ -228,7 +183,7 @@
 .lf-app-shell .lf-workspace-title,
 .lf-app-shell .lf-empty-title {
     margin: 0;
-    color: var(--lf-shell-text);
+    color: var(--lf-text-primary);
 }
 
 .lf-app-shell .lf-panel-title {
@@ -244,7 +199,7 @@
     margin-bottom: 9px;
     border-radius: 50%;
     background: var(--lf-accent-primary);
-    box-shadow: 0 0 15px var(--lf-atmosphere-selected-glow);
+    box-shadow: 0 0 15px var(--lf-glow-selected);
 }
 
 .lf-app-shell .lf-device-list {
@@ -263,7 +218,7 @@
     gap: 8px;
     margin: 10px 4px;
     padding: 28px 18px;
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-secondary);
     text-align: center;
 }
 
@@ -275,7 +230,7 @@
 }
 
 .lf-app-shell .lf-device-list-empty strong {
-    color: var(--lf-shell-text);
+    color: var(--lf-text-primary);
     font-size: 15px;
 }
 
@@ -294,30 +249,30 @@
     padding: 11px 12px;
     border: 1px solid transparent;
     border-radius: var(--lf-shell-radius);
-    color: var(--lf-shell-text);
+    color: var(--lf-text-primary);
     background: transparent;
     text-decoration: none;
     transition: transform 150ms ease, background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
 }
 
 .lf-app-shell .lf-device-item:hover {
-    border-color: color-mix(in srgb, var(--lf-accent-primary) 22%, var(--lf-shell-border-soft));
-    background: var(--lf-shell-panel-soft);
+    border-color: color-mix(in srgb, var(--lf-accent-primary) 22%, var(--lf-border-subtle));
+    background: var(--lf-surface-hover);
     transform: translateY(-1px);
-    box-shadow: var(--lf-shell-shadow-soft);
+    box-shadow: var(--lf-shadow-soft);
 }
 
 .lf-app-shell .lf-device-item-active,
 .lf-app-shell .lf-device-item-active:hover {
-    border-color: var(--lf-selected-border);
-    background: var(--lf-selected-surface);
+    border-color: var(--lf-border-selected);
+    background: var(--lf-surface-selected);
     background:
         linear-gradient(110deg, color-mix(in srgb, var(--lf-accent-secondary) 13%, transparent), transparent 44%),
-        var(--lf-selected-surface);
+        var(--lf-surface-selected);
     box-shadow:
         inset 3px 0 0 var(--lf-accent-secondary),
-        0 12px 30px rgba(0, 0, 0, 0.22),
-        0 0 24px var(--lf-atmosphere-soft-glow);
+        var(--lf-shadow-soft),
+        0 0 24px var(--lf-glow-ambient);
     transform: none;
 }
 
@@ -327,12 +282,12 @@
     display: grid;
     place-items: center;
     overflow: hidden;
-    border: 1px solid var(--lf-shell-border-soft);
+    border: 1px solid var(--lf-border-subtle);
     border-radius: 10px;
-    background: var(--lf-shell-panel);
+    background: var(--lf-panel-elevated);
     background:
         radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--lf-accent-primary) 10%, transparent), transparent 75%),
-        var(--lf-shell-panel);
+        var(--lf-panel-elevated);
 }
 
 .lf-app-shell .lf-device-image {
@@ -371,21 +326,21 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 5px 9px;
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-muted);
     font-size: 11px;
 }
 
 .lf-app-shell .lf-device-battery {
-    color: var(--lf-shell-good);
+    color: var(--good);
 }
 
 .lf-app-shell .lf-device-unavailable {
-    color: var(--lf-shell-bad);
+    color: var(--bad);
     font-weight: 680;
 }
 
 .lf-app-shell .lf-device-chevron {
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-muted);
     font-size: 23px;
     line-height: 1;
     transition: transform 150ms ease, color 150ms ease;
@@ -403,11 +358,11 @@
     position: relative;
     padding: 30px clamp(22px, 3vw, 52px) 52px;
     overflow: hidden;
-    background: var(--lf-shell-workspace);
+    background: var(--lf-workspace-surface);
     background:
-        radial-gradient(circle at 76% 4%, var(--lf-workspace-illumination), transparent 35rem),
-        radial-gradient(circle at 25% 38%, var(--lf-workspace-illumination-secondary), transparent 31rem),
-        color-mix(in srgb, var(--lf-shell-workspace) 96%, var(--lf-shell-page));
+        radial-gradient(circle at 76% 4%, var(--lf-glow-ambient), transparent 35rem),
+        radial-gradient(circle at 25% 38%, var(--lf-glow-emphasized), transparent 31rem),
+        color-mix(in srgb, var(--lf-workspace-surface) 96%, var(--lf-page-background));
 }
 
 .lf-app-shell .lf-device-workspace::before {
@@ -437,7 +392,7 @@
 
 .lf-app-shell .lf-workspace-description,
 .lf-app-shell .lf-empty-description {
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-secondary);
 }
 
 .lf-app-shell .lf-workspace-description {
@@ -460,13 +415,13 @@
     gap: clamp(24px, 4vw, 46px);
     position: relative;
     padding: clamp(24px, 3vw, 36px);
-    border: 1px solid var(--lf-shell-border);
+    border: 1px solid var(--lf-border-panel);
     border-radius: var(--lf-shell-radius-lg);
-    background: var(--lf-shell-panel);
+    background: var(--lf-panel-elevated);
     background:
         radial-gradient(circle at 10% 50%, color-mix(in srgb, var(--lf-accent-secondary) 13%, transparent), transparent 23rem),
-        linear-gradient(115deg, color-mix(in srgb, var(--lf-shell-panel-raised) 68%, transparent), var(--lf-shell-panel));
-    box-shadow: var(--lf-shell-shadow);
+        linear-gradient(115deg, color-mix(in srgb, var(--lf-panel-elevated) 68%, transparent), var(--lf-panel-elevated));
+    box-shadow: var(--lf-shadow-elevated);
 }
 
 .lf-app-shell .lf-device-hero::after {
@@ -486,9 +441,9 @@
     place-items: center;
     position: relative;
     overflow: hidden;
-    border: 1px solid var(--lf-shell-border-soft);
+    border: 1px solid var(--lf-border-subtle);
     border-radius: 14px;
-    background: var(--lf-shell-panel-soft);
+    background: var(--lf-panel-secondary);
     box-shadow: inset 0 0 38px rgba(0, 0, 0, 0.22);
 }
 
@@ -497,7 +452,7 @@
     height: 88px;
     position: absolute;
     border-radius: 50%;
-    background: var(--lf-atmosphere-selected-glow);
+    background: var(--lf-glow-selected);
     filter: blur(28px);
 }
 
@@ -541,27 +496,27 @@
     align-items: center;
     gap: 7px;
     padding: 7px 11px;
-    border: 1px solid var(--lf-shell-border-soft);
+    border: 1px solid var(--lf-border-subtle);
     border-radius: var(--lf-shell-radius-sm);
-    color: var(--lf-shell-muted);
-    background: color-mix(in srgb, var(--lf-shell-panel-soft) 82%, transparent);
+    color: var(--lf-text-secondary);
+    background: color-mix(in srgb, var(--lf-panel-secondary) 82%, transparent);
     font-size: 12px;
 }
 
 .lf-app-shell .lf-device-hero-fact strong {
-    color: var(--lf-shell-text);
+    color: var(--lf-text-primary);
     font-weight: 680;
     overflow-wrap: break-word;
 }
 
 .lf-app-shell .lf-device-hero-fact-unavailable {
-    border-color: color-mix(in srgb, var(--lf-shell-bad) 38%, var(--lf-shell-border-soft));
-    color: var(--lf-shell-bad);
+    border-color: color-mix(in srgb, var(--bad) 38%, var(--lf-border-subtle));
+    color: var(--bad);
 }
 
 .lf-app-shell .lf-device-hero-fact-cluster {
-    border-color: color-mix(in srgb, var(--lf-accent-secondary) 40%, var(--lf-shell-border-soft));
-    color: color-mix(in srgb, var(--lf-accent-highlight) 74%, var(--lf-shell-text));
+    border-color: color-mix(in srgb, var(--lf-accent-secondary) 40%, var(--lf-border-subtle));
+    color: color-mix(in srgb, var(--lf-accent-highlight) 74%, var(--lf-text-primary));
 }
 
 .lf-app-shell .lf-device-workspace-nav {
@@ -569,7 +524,7 @@
     display: flex;
     gap: 26px;
     margin: 24px 4px 0;
-    border-bottom: 1px solid var(--lf-shell-border-soft);
+    border-bottom: 1px solid var(--lf-border-subtle);
 }
 
 .lf-app-shell .lf-device-workspace-link {
@@ -578,7 +533,7 @@
     align-items: center;
     position: relative;
     padding: 8px 3px 13px;
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-secondary);
     font-size: 14px;
     font-weight: 650;
     text-decoration: none;
@@ -586,11 +541,11 @@
 }
 
 .lf-app-shell .lf-device-workspace-link:hover {
-    color: var(--lf-shell-text);
+    color: var(--lf-text-primary);
 }
 
 .lf-app-shell .lf-device-workspace-link-active {
-    color: var(--lf-shell-text);
+    color: var(--lf-text-primary);
 }
 
 .lf-app-shell .lf-device-workspace-link-active::after {
@@ -601,8 +556,8 @@
     left: 0;
     content: "";
     border-radius: 3px 3px 0 0;
-    background: var(--lf-tab-underline);
-    box-shadow: 0 0 14px var(--lf-atmosphere-selected-glow);
+    background: linear-gradient(90deg, var(--lf-accent-secondary), var(--lf-accent-primary), var(--lf-accent-highlight));
+    box-shadow: 0 0 14px var(--lf-glow-selected);
 }
 
 .lf-app-shell .lf-overview-workspace,
@@ -632,10 +587,10 @@
 .lf-app-shell .lf-lighting-rail-panel,
     .lf-app-shell .lf-lighting-cluster-note {
     min-width: 0;
-    border: 1px solid var(--lf-shell-border-soft);
+    border: 1px solid var(--lf-border-subtle);
     border-radius: var(--lf-shell-radius);
-    background: var(--lf-shell-panel);
-    box-shadow: var(--lf-shell-shadow-soft);
+    background: var(--lf-panel-elevated);
+    box-shadow: var(--lf-shadow-soft);
 }
 
 .lf-app-shell .lf-overview-panel,
@@ -660,7 +615,7 @@
 .lf-app-shell .lf-lighting-rail-panel h2,
 .lf-app-shell .lf-lighting-cluster-note h2 {
     margin: 0;
-    color: var(--lf-shell-text);
+    color: var(--lf-text-primary);
 }
 
 .lf-app-shell .lf-overview-panel-header h2,
@@ -675,23 +630,23 @@
 .lf-app-shell .lf-lighting-source-state {
     flex: 0 0 auto;
     padding: 5px 9px;
-    border: 1px solid var(--lf-shell-border-soft);
+    border: 1px solid var(--lf-border-subtle);
     border-radius: 7px;
-    color: var(--lf-shell-muted);
-    background: var(--lf-shell-panel-soft);
+    color: var(--lf-text-secondary);
+    background: var(--lf-panel-secondary);
     font-size: 11px;
     font-weight: 720;
 }
 
 .lf-app-shell .lf-overview-state-unavailable,
 .lf-app-shell .lf-lighting-status-unsupported {
-    border-color: color-mix(in srgb, var(--lf-shell-bad) 40%, var(--lf-shell-border-soft));
-    color: var(--lf-shell-bad);
+    border-color: color-mix(in srgb, var(--bad) 40%, var(--lf-border-subtle));
+    color: var(--bad);
 }
 
 .lf-app-shell .lf-lighting-status-supported {
-    border-color: color-mix(in srgb, var(--lf-shell-good) 40%, var(--lf-shell-border-soft));
-    color: var(--lf-shell-good);
+    border-color: color-mix(in srgb, var(--good) 40%, var(--lf-border-subtle));
+    color: var(--good);
 }
 
 .lf-app-shell .lf-device-summary-meta {
@@ -710,7 +665,7 @@
     gap: 7px;
     padding: 14px 16px;
     border-radius: 9px;
-    background: var(--lf-shell-panel-soft);
+    background: var(--lf-panel-secondary);
 }
 
 .lf-app-shell .lf-device-summary-label,
@@ -720,7 +675,7 @@
 }
 
 .lf-app-shell .lf-device-summary-label {
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-muted);
     font-size: 11px;
     font-weight: 710;
     letter-spacing: 0.08em;
@@ -728,7 +683,7 @@
 }
 
 .lf-app-shell .lf-device-summary-value {
-    color: var(--lf-shell-text);
+    color: var(--lf-text-primary);
     font-size: 14px;
     line-height: 1.4;
     overflow-wrap: break-word;
@@ -751,7 +706,7 @@
     min-width: 0;
     padding: 18px;
     border-radius: 10px;
-    background: var(--lf-shell-panel-soft);
+    background: var(--lf-panel-secondary);
 }
 
 .lf-app-shell .lf-openrgb-title {
@@ -762,7 +717,7 @@
 
 .lf-app-shell .lf-openrgb-subtitle {
     margin: 0;
-    color: var(--lf-shell-text);
+    color: var(--lf-text-primary);
     font-size: 13px;
     font-weight: 720;
 }
@@ -775,7 +730,7 @@
 .lf-app-shell .lf-openrgb-panel-meta .lf-device-summary-meta-row {
     min-height: 64px;
     padding: 11px 13px;
-    background: color-mix(in srgb, var(--lf-shell-panel) 58%, transparent);
+    background: color-mix(in srgb, var(--lf-panel-elevated) 58%, transparent);
 }
 
 .lf-app-shell .lf-openrgb-lighting-summary {
@@ -791,7 +746,7 @@
     bottom: -34px;
     content: "";
     border-radius: 50%;
-    background: var(--lf-atmosphere-selected-glow);
+    background: var(--lf-glow-selected);
     filter: blur(18px);
 }
 
@@ -817,26 +772,26 @@
     gap: 14px;
     padding: 12px 13px;
     border-radius: 8px;
-    background: color-mix(in srgb, var(--lf-shell-panel) 58%, transparent);
+    background: color-mix(in srgb, var(--lf-panel-elevated) 58%, transparent);
 }
 
 .lf-app-shell .lf-openrgb-zone-name {
     min-width: 0;
-    color: var(--lf-shell-text);
+    color: var(--lf-text-primary);
     font-size: 13px;
     overflow-wrap: break-word;
 }
 
 .lf-app-shell .lf-openrgb-zone-led-count {
     flex: 0 0 auto;
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-muted);
     font-size: 11px;
     white-space: nowrap;
 }
 
 .lf-app-shell .lf-openrgb-zones-empty {
     margin: 14px 0 0;
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-secondary);
     font-size: 13px;
 }
 
@@ -858,7 +813,7 @@
 .lf-app-shell .lf-lighting-rail-panel p:last-child,
 .lf-app-shell .lf-lighting-cluster-note p {
     margin: 10px 0 0;
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-secondary);
     font-size: 13px;
     line-height: 1.55;
 }
@@ -870,12 +825,12 @@
     justify-content: space-between;
     gap: 16px;
     padding: 12px 15px;
-    border: 1px solid var(--lf-selected-border);
+    border: 1px solid var(--lf-border-selected);
     border-radius: 10px;
-    color: var(--lf-shell-text);
-    background: var(--lf-selected-surface);
-    background: linear-gradient(110deg, color-mix(in srgb, var(--lf-accent-secondary) 15%, var(--lf-selected-surface)), var(--lf-selected-surface));
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.19);
+    color: var(--lf-text-primary);
+    background: var(--lf-surface-selected);
+    background: linear-gradient(110deg, color-mix(in srgb, var(--lf-accent-secondary) 15%, var(--lf-surface-selected)), var(--lf-surface-selected));
+    box-shadow: var(--lf-shadow-soft);
     font-size: 13px;
     font-weight: 700;
     text-decoration: none;
@@ -884,9 +839,9 @@
 
 .lf-app-shell .lf-legacy-controls-link:hover {
     border-color: var(--lf-accent-highlight);
-    color: var(--lf-shell-text);
+    color: var(--lf-text-primary);
     transform: translateY(-1px);
-    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24), 0 0 18px var(--lf-atmosphere-soft-glow);
+    box-shadow: var(--lf-shadow-elevated), 0 0 18px var(--lf-glow-ambient);
 }
 
 .lf-app-shell .lf-lighting-workspace {
@@ -897,10 +852,10 @@
     padding: clamp(22px, 3vw, 32px);
     position: relative;
     overflow: hidden;
-    border-color: var(--lf-shell-border);
+    border-color: var(--lf-border-panel);
     background:
         radial-gradient(circle at 90% 8%, color-mix(in srgb, var(--lf-accent-secondary) 13%, transparent), transparent 25rem),
-        var(--lf-shell-panel);
+        var(--lf-panel-elevated);
 }
 
 .lf-app-shell .lf-lighting-primary::after {
@@ -911,7 +866,7 @@
     left: 25%;
     content: "";
     background: linear-gradient(90deg, transparent, var(--lf-accent-secondary), var(--lf-accent-highlight), transparent);
-    box-shadow: 0 0 18px var(--lf-atmosphere-selected-glow);
+    box-shadow: 0 0 18px var(--lf-glow-selected);
 }
 
 .lf-app-shell .lf-lighting-title {
@@ -939,7 +894,7 @@
 
 .lf-app-shell .lf-lighting-label,
 .lf-app-shell .lf-lighting-palette-stop-name {
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-muted);
     font-size: 11px;
     font-weight: 720;
     letter-spacing: 0.08em;
@@ -948,7 +903,7 @@
 
 .lf-app-shell .lf-lighting-effect-name {
     max-width: 100%;
-    color: var(--lf-shell-text);
+    color: var(--lf-text-primary);
     font-size: clamp(28px, 3.6vw, 44px);
     line-height: 1.05;
     letter-spacing: -0.045em;
@@ -956,14 +911,14 @@
 }
 
 .lf-app-shell .lf-lighting-effect-name-muted {
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-secondary);
 }
 
 .lf-app-shell .lf-lighting-effect-id,
 .lf-app-shell .lf-lighting-color-hex,
 .lf-app-shell .lf-lighting-color-rgb {
     max-width: 100%;
-    color: var(--lf-accent-highlight);
+    color: var(--lf-text-technical);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     overflow-wrap: anywhere;
 }
@@ -988,11 +943,11 @@
     gap: 7px;
     padding: 12px;
     border-radius: 8px;
-    background: color-mix(in srgb, var(--lf-shell-panel-soft) 88%, transparent);
+    background: color-mix(in srgb, var(--lf-panel-secondary) 88%, transparent);
 }
 
 .lf-app-shell .lf-lighting-primary-metrics small {
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-muted);
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.06em;
@@ -1000,7 +955,7 @@
 }
 
 .lf-app-shell .lf-lighting-primary-metrics strong {
-    color: var(--lf-shell-text);
+    color: var(--lf-text-primary);
     font-size: 13px;
     overflow-wrap: break-word;
 }
@@ -1009,8 +964,8 @@
     margin-top: 26px;
     padding: 20px;
     border-radius: 11px;
-    background: var(--lf-shell-panel-soft);
-    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--lf-shell-border) 60%, transparent);
+    background: var(--lf-panel-secondary);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--lf-border-panel) 60%, transparent);
 }
 
 .lf-app-shell .lf-lighting-primary-palette-heading {
@@ -1019,12 +974,12 @@
     justify-content: space-between;
     gap: 14px;
     margin-bottom: 16px;
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-secondary);
     font-size: 12px;
 }
 
 .lf-app-shell .lf-lighting-primary-palette-heading strong {
-    color: var(--lf-shell-text);
+    color: var(--lf-text-primary);
     font-weight: 700;
 }
 
@@ -1050,11 +1005,11 @@
     flex-direction: column;
     gap: 8px;
     padding: 13px;
-    border: 1px solid var(--lf-shell-border-soft);
+    border: 1px solid var(--lf-border-subtle);
     border-radius: 9px;
     background:
         linear-gradient(45deg, rgba(255, 255, 255, 0.025) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.025) 75%),
-        var(--lf-shell-panel);
+        var(--lf-panel-elevated);
     background-size: 12px 12px;
 }
 
@@ -1079,7 +1034,7 @@
     height: 40px;
     flex: 0 0 auto;
     overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--lf-shell-text) 34%, var(--lf-shell-border));
+    border: 1px solid color-mix(in srgb, var(--lf-text-primary) 34%, var(--lf-border-panel));
     border-radius: 7px;
     background: #000;
     box-shadow: 0 5px 12px rgba(0, 0, 0, 0.28);
@@ -1097,7 +1052,7 @@
 }
 
 .lf-app-shell .lf-lighting-color-rgb {
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-technical);
     font-size: 11px;
     white-space: nowrap;
 }
@@ -1108,9 +1063,9 @@
     align-items: center;
     gap: 17px;
     padding: 16px;
-    border: 1px solid var(--lf-shell-border-soft);
+    border: 1px solid var(--lf-border-subtle);
     border-radius: 10px;
-    background: var(--lf-shell-panel);
+    background: var(--lf-panel-elevated);
 }
 
 .lf-app-shell .lf-lighting-palette-concept > span:last-child {
@@ -1121,12 +1076,12 @@
 }
 
 .lf-app-shell .lf-lighting-palette-concept strong {
-    color: var(--lf-shell-text);
+    color: var(--lf-text-primary);
     font-size: 15px;
 }
 
 .lf-app-shell .lf-lighting-palette-concept span span {
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-secondary);
     font-size: 12px;
     line-height: 1.45;
 }
@@ -1137,14 +1092,14 @@
     width: 72px;
     height: 72px;
     flex: 0 0 auto;
-    border: 1px solid var(--lf-shell-border);
+    border: 1px solid var(--lf-border-panel);
     border-radius: 10px;
 }
 
 .lf-app-shell .lf-lighting-palette-gradient-mark {
     background:
         repeating-linear-gradient(135deg, transparent 0 9px, color-mix(in srgb, var(--lf-accent-highlight) 23%, transparent) 9px 11px),
-        var(--lf-shell-panel-soft);
+        var(--lf-panel-secondary);
 }
 
 .lf-app-shell .lf-lighting-palette-generated-mark {
@@ -1152,12 +1107,12 @@
         radial-gradient(circle at 28% 30%, var(--lf-accent-secondary) 0 7%, transparent 8%),
         radial-gradient(circle at 67% 28%, var(--lf-accent-highlight) 0 7%, transparent 8%),
         radial-gradient(circle at 48% 68%, var(--lf-accent-primary) 0 9%, transparent 10%),
-        var(--lf-shell-panel-soft);
+        var(--lf-panel-secondary);
 }
 
 .lf-app-shell .lf-lighting-palette-off-mark {
     position: relative;
-    background: var(--lf-shell-panel-soft);
+    background: var(--lf-panel-secondary);
 }
 
 .lf-app-shell .lf-lighting-palette-off-mark::before {
@@ -1167,7 +1122,7 @@
     top: 22px;
     left: 22px;
     content: "";
-    border: 2px solid var(--lf-shell-muted);
+    border: 2px solid var(--lf-text-secondary);
     border-radius: 50%;
     opacity: 0.6;
 }
@@ -1179,8 +1134,8 @@
     top: 16px;
     left: 34px;
     content: "";
-    background: var(--lf-shell-muted);
-    box-shadow: 0 0 0 4px var(--lf-shell-panel-soft);
+    background: var(--lf-text-secondary);
+    box-shadow: 0 0 0 4px var(--lf-panel-secondary);
     opacity: 0.72;
 }
 
@@ -1191,13 +1146,13 @@
     gap: 16px;
     margin: 14px 0 0;
     padding-top: 13px;
-    border-top: 1px solid var(--lf-shell-border-soft);
-    color: var(--lf-shell-muted);
+    border-top: 1px solid var(--lf-border-subtle);
+    color: var(--lf-text-secondary);
     font-size: 12px;
 }
 
 .lf-app-shell .lf-lighting-speed strong {
-    color: var(--lf-shell-text);
+    color: var(--lf-text-primary);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 13px;
 }
@@ -1213,7 +1168,7 @@
 .lf-app-shell .lf-lighting-comparison-header p {
     max-width: 380px;
     margin: 2px 0 0;
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-secondary);
     font-size: 12px;
     line-height: 1.5;
     text-align: right;
@@ -1230,9 +1185,9 @@
 .lf-app-shell .lf-lighting-source-card {
     min-width: 0;
     padding: 17px;
-    border: 1px solid var(--lf-shell-border-soft);
+    border: 1px solid var(--lf-border-subtle);
     border-radius: 10px;
-    background: var(--lf-shell-panel-soft);
+    background: var(--lf-panel-secondary);
 }
 
 .lf-app-shell .lf-lighting-source-card > header {
@@ -1254,7 +1209,7 @@
 
 .lf-app-shell .lf-lighting-source-card h3 {
     margin: 0;
-    color: var(--lf-shell-text);
+    color: var(--lf-text-primary);
     font-size: 14px;
     line-height: 1.3;
     overflow-wrap: normal;
@@ -1262,7 +1217,7 @@
 
 .lf-app-shell .lf-lighting-source-card header p {
     margin: 5px 0 0;
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-secondary);
     font-size: 11px;
     line-height: 1.4;
 }
@@ -1272,6 +1227,7 @@
 }
 
 .lf-app-shell .lf-lighting-source-card-inactive {
+    background: var(--lf-surface-subdued);
     opacity: 0.72;
 }
 
@@ -1280,17 +1236,17 @@
 }
 
 .lf-app-shell .lf-lighting-source-card-effective {
-    border-color: var(--lf-emphasized-panel-edge);
+    border-color: var(--lf-border-emphasized);
     background:
         linear-gradient(145deg, color-mix(in srgb, var(--lf-accent-secondary) 10%, transparent), transparent 56%),
-        var(--lf-shell-panel-raised);
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2), inset 0 2px 0 var(--lf-emphasized-panel-edge);
+        var(--lf-panel-elevated);
+    box-shadow: var(--lf-shadow-soft), inset 0 2px 0 var(--lf-border-emphasized);
 }
 
 .lf-app-shell .lf-lighting-definition-kind {
     display: inline-block;
     margin-bottom: 12px;
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-muted);
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.07em;
@@ -1343,7 +1299,7 @@
 
 .lf-app-shell .lf-lighting-source-note,
 .lf-app-shell .lf-lighting-empty-value {
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-secondary);
     font-size: 12px;
     line-height: 1.5;
 }
@@ -1362,25 +1318,25 @@
     display: grid;
     place-items: center;
     margin-bottom: 18px;
-    border: 1px solid color-mix(in srgb, var(--lf-accent-primary) 40%, var(--lf-shell-border));
+    border: 1px solid color-mix(in srgb, var(--lf-accent-primary) 40%, var(--lf-border-panel));
     border-radius: 10px;
     color: var(--lf-accent-highlight);
-    background: var(--lf-shell-panel-soft);
+    background: var(--lf-panel-secondary);
     font-size: 21px;
 }
 
 .lf-app-shell .lf-lighting-preview-panel {
     background:
         radial-gradient(circle at 90% 0, color-mix(in srgb, var(--lf-accent-secondary) 16%, transparent), transparent 15rem),
-        var(--lf-shell-panel);
+        var(--lf-panel-elevated);
 }
 
 .lf-app-shell .lf-lighting-cluster-note {
-    border-color: color-mix(in srgb, var(--lf-accent-primary) 44%, var(--lf-shell-border));
+    border-color: color-mix(in srgb, var(--lf-accent-primary) 44%, var(--lf-border-panel));
     background:
         linear-gradient(145deg, color-mix(in srgb, var(--lf-accent-secondary) 12%, transparent), transparent 58%),
-        var(--lf-shell-panel-raised);
-    box-shadow: inset 3px 0 0 var(--lf-accent-primary), var(--lf-shell-shadow-soft);
+        var(--lf-panel-elevated);
+    box-shadow: inset 3px 0 0 var(--lf-accent-primary), var(--lf-shadow-soft);
 }
 
 .lf-app-shell .lf-lighting-rail-facts {
@@ -1394,7 +1350,7 @@
     display: grid;
     gap: 5px;
     padding: 12px 0;
-    border-bottom: 1px solid var(--lf-shell-border-soft);
+    border-bottom: 1px solid var(--lf-border-subtle);
 }
 
 .lf-app-shell .lf-lighting-rail-facts > div:last-child {
@@ -1408,12 +1364,12 @@
 }
 
 .lf-app-shell .lf-lighting-rail-facts dt {
-    color: var(--lf-shell-muted);
+    color: var(--lf-text-muted);
     font-size: 11px;
 }
 
 .lf-app-shell .lf-lighting-rail-facts dd {
-    color: var(--lf-shell-text);
+    color: var(--lf-text-primary);
     font-size: 13px;
     font-weight: 680;
     overflow-wrap: break-word;
@@ -1437,10 +1393,10 @@
     display: grid;
     place-items: center;
     margin-bottom: 22px;
-    border: 1px solid color-mix(in srgb, var(--lf-accent-primary) 28%, var(--lf-shell-border-soft));
+    border: 1px solid color-mix(in srgb, var(--lf-accent-primary) 28%, var(--lf-border-subtle));
     border-radius: 20px;
-    background: var(--lf-shell-panel);
-    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25), 0 0 28px var(--lf-atmosphere-soft-glow);
+    background: var(--lf-panel-elevated);
+    box-shadow: var(--lf-shadow-elevated), 0 0 28px var(--lf-glow-ambient);
 }
 
 .lf-app-shell .lf-empty-icon {

@@ -1,5 +1,3 @@
-@import url("/static/css/themes/default.css");
-
 :root {
     --bg-main: #282a36;
     --bg-panel: #21222c;
@@ -16,6 +14,48 @@
     --eq-track: #44475a;
     --eq-thumb: #8be9fd;
     --eq-positive: #50fa7b;
+
+    /* LumenForge semantic application contract */
+    --lf-page-background: #282a36;
+    --lf-navigation-surface: #21222c;
+    --lf-device-list-surface: #262734;
+    --lf-workspace-surface: #282a36;
+    --lf-panel-elevated: #343746;
+    --lf-panel-secondary: #2d2f3d;
+    --lf-surface-selected: #3b3154;
+    --lf-surface-subdued: #292b37;
+    --lf-text-primary: #f8f8f2;
+    --lf-text-secondary: #d7d7d2;
+    --lf-text-muted: #a8a1bc;
+    --lf-text-technical: #f8f8f2;
+    --lf-text-on-accent: #21222c;
+    --lf-accent-primary: #bd93f9;
+    --lf-accent-secondary: #8be9fd;
+    --lf-accent-highlight: #ff79c6;
+    --lf-glow-ambient: rgba(189, 147, 249, 0.1);
+    --lf-glow-selected: rgba(189, 147, 249, 0.18);
+    --lf-glow-emphasized: rgba(255, 121, 198, 0.14);
+    --lf-border-subtle: rgba(98, 114, 164, 0.4);
+    --lf-border-panel: #6272a4;
+    --lf-border-selected: rgba(189, 147, 249, 0.62);
+    --lf-border-emphasized: rgba(255, 121, 198, 0.56);
+    --lf-shadow-soft: 0 10px 28px rgba(25, 26, 33, 0.2);
+    --lf-shadow-elevated: 0 20px 55px rgba(25, 26, 33, 0.3);
+    --lf-surface-hover: #3c3f51;
+    --lf-surface-active: #45385f;
+    --lf-focus-ring: #8be9fd;
+    --lf-disabled-border: rgba(98, 114, 164, 0.52);
+    --lf-control-track: #44475a;
+    --lf-control-fill-start: #bd93f9;
+    --lf-control-fill-end: #8be9fd;
+    --lf-control-thumb: #f8f8f2;
+    --lf-control-thumb-border: #ff79c6;
+    --lf-control-thumb-glow: rgba(189, 147, 249, 0.28);
+    --lf-control-disabled-track: #353746;
+    --lf-control-popup: var(--lf-panel-elevated);
+    --lf-control-popup-border: var(--lf-border-panel);
+    --lf-control-option-selected: var(--lf-surface-active);
+    --lf-control-option-hover: var(--lf-surface-hover);
 }
 
 /* Dracula UI surface overrides */

@@ -29,6 +29,48 @@
     --eq-track: #2a2a2b;
     --eq-thumb: #1e90ff;
     --eq-positive: #2ecc71;
+
+    /* LumenForge semantic application contract */
+    --lf-page-background: var(--bg-main);
+    --lf-navigation-surface: #121213;
+    --lf-device-list-surface: var(--bg-panel);
+    --lf-workspace-surface: #101116;
+    --lf-panel-elevated: var(--bg-card);
+    --lf-panel-secondary: #171719;
+    --lf-surface-selected: #15263b;
+    --lf-surface-subdued: #131314;
+    --lf-text-primary: var(--text-main);
+    --lf-text-secondary: #b5b5ba;
+    --lf-text-muted: var(--text-muted);
+    --lf-text-technical: #d8dbe4;
+    --lf-text-on-accent: #07090c;
+    --lf-accent-primary: #1e90ff;
+    --lf-accent-secondary: #2ecc71;
+    --lf-accent-highlight: #79c7ff;
+    --lf-glow-ambient: rgba(30, 144, 255, 0.12);
+    --lf-glow-selected: rgba(30, 144, 255, 0.22);
+    --lf-glow-emphasized: rgba(46, 204, 113, 0.16);
+    --lf-border-subtle: var(--border-subtle);
+    --lf-border-panel: var(--border-mid);
+    --lf-border-selected: rgba(30, 144, 255, 0.55);
+    --lf-border-emphasized: rgba(46, 204, 113, 0.5);
+    --lf-shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.2);
+    --lf-shadow-elevated: 0 20px 55px rgba(0, 0, 0, 0.32);
+    --lf-surface-hover: #202126;
+    --lf-surface-active: #182a3f;
+    --lf-focus-ring: #79c7ff;
+    --lf-disabled-border: rgba(255, 255, 255, 0.08);
+    --lf-control-track: #2a2a2b;
+    --lf-control-fill-start: #1e90ff;
+    --lf-control-fill-end: #2ecc71;
+    --lf-control-thumb: #e6e6e6;
+    --lf-control-thumb-border: #79c7ff;
+    --lf-control-thumb-glow: rgba(30, 144, 255, 0.3);
+    --lf-control-disabled-track: #202023;
+    --lf-control-popup: var(--lf-panel-elevated);
+    --lf-control-popup-border: var(--lf-border-panel);
+    --lf-control-option-selected: var(--lf-surface-active);
+    --lf-control-option-hover: var(--lf-surface-hover);
 }
 
 .page-centered-wrapper {
