@@ -54,14 +54,15 @@ var (
 	configStorePath  = func() string {
 		return config.GetPaths().OpenRGBImportFile
 	}
-	renameConfigStore = os.Rename
-	sendConfigFrame   = openrgb.SendFrame
-	sendClusterFrame  = openrgb.SendFramePersistent
-	sendLightingColor = openrgb.SendColorContext
-	sendLightingFrame = openrgb.SendFrameContext
-	checkConfigHealth = openrgb.HealthCheck
-	getConfigCluster  = cluster.Get
-	deviceProfileDir  = func() string {
+	renameConfigStore           = os.Rename
+	sendConfigFrame             = openrgb.SendFrame
+	sendClusterFrame            = openrgb.SendFramePersistent
+	sendLightingColor           = openrgb.SendColorContext
+	sendLightingFrame           = openrgb.SendFrameContext
+	sendLightingPersistentFrame = openrgb.SendFramePersistent
+	checkConfigHealth           = openrgb.HealthCheck
+	getConfigCluster            = cluster.Get
+	deviceProfileDir            = func() string {
 		return filepath.Join(config.GetPaths().MutableDataRoot, "database", "profiles")
 	}
 )
@@ -1406,6 +1407,34 @@ func (d *Device) buildZoneFrame() []byte {
 	return buf
 }
 
+func (d *Device) buildStaticOverrideFrame() ([]byte, bool) {
+	if d.DeviceProfile == nil || d.DeviceProfile.RGBOverride == nil || !d.DeviceProfile.RGBOverride.Enabled {
+		return nil, false
+	}
+
+	color := d.DeviceProfile.RGBOverride.RGBStartColor
+	scaled := d.applyBrightness([]byte{
+		byte(color.Red),
+		byte(color.Green),
+		byte(color.Blue),
+	})
+	frame := make([]byte, d.colorCount*3)
+	for offset := 0; offset+2 < len(frame); offset += 3 {
+		copy(frame[offset:offset+3], scaled)
+	}
+	return frame, true
+}
+
+func (d *Device) buildStaticFrame() []byte {
+	if frame, enabled := d.buildStaticOverrideFrame(); enabled {
+		return frame
+	}
+	if d.Config != nil && d.ZoneAmount > 0 {
+		return d.buildZoneFrame()
+	}
+	return nil
+}
+
 func (d *Device) SetColor(rgbBytes []byte) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -1505,8 +1534,14 @@ func (d *Device) SetBrightness(brightness uint8) error {
 		return nil
 	}
 
-	if d.Config != nil && d.ZoneAmount > 0 {
-		err := sendLightingFrame(context.Background(), uint32(d.controllerId), d.buildZoneFrame())
+	var frame []byte
+	if d.effect == "static" {
+		frame = d.buildStaticFrame()
+	} else if d.Config != nil && d.ZoneAmount > 0 {
+		frame = d.buildZoneFrame()
+	}
+	if frame != nil {
+		err := sendLightingFrame(context.Background(), uint32(d.controllerId), frame)
 		if err != nil {
 			d.recordOutputFailureLocked(err)
 		}
@@ -1629,12 +1664,12 @@ func (d *Device) setEffectContext(ctx context.Context, effect string, reportFail
 			d.openrgbConn = nil
 		}
 
-		if d.Config != nil && d.ZoneAmount > 0 {
+		frame := d.buildStaticFrame()
+		if frame != nil {
 			if err := waitForContext(ctx, hardwareBufferDrainDelay); err != nil {
 				d.mu.Unlock()
 				return err
 			}
-			frame := d.buildZoneFrame()
 			controllerID := d.controllerId
 			err := sendLightingFrame(ctx, uint32(controllerID), frame)
 			if err != nil && reportFailure && ctx.Err() == nil {
@@ -1823,7 +1858,7 @@ func (d *Device) setEffectContext(ctx context.Context, effect string, reportFail
 				frame := make([]byte, len(runner.Output))
 				copy(frame, runner.Output)
 
-				conn, err := openrgb.SendFramePersistent(d.openrgbConn, uint32(controllerId), frame)
+				conn, err := sendLightingPersistentFrame(d.openrgbConn, uint32(controllerId), frame)
 				if err != nil {
 					d.running = false
 					d.stopChan = nil
