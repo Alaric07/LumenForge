@@ -1,3 +1,118 @@
+{{ define "lf-lighting-color-value" }}
+    <span class="lf-lighting-color-value">
+        <svg class="lf-lighting-color-swatch" viewBox="0 0 28 28" focusable="false" aria-hidden="true">
+            <rect width="28" height="28" rx="5" fill="{{ .Hex }}"></rect>
+        </svg>
+        <span class="lf-lighting-color-copy">
+            <code class="lf-lighting-color-hex">{{ .Hex }}</code>
+            <span class="lf-lighting-color-rgb">{{ .RGB }}</span>
+        </span>
+    </span>
+{{ end }}
+
+{{ define "lf-lighting-palette" }}
+    {{ if . }}
+        <div class="lf-lighting-palette" data-palette="{{ .Palette }}">
+            {{ if eq .Palette "Single color" }}
+                {{ if .HasStart }}
+                    <div class="lf-lighting-palette-stops lf-lighting-palette-stops-single">
+                        <div class="lf-lighting-palette-stop">
+                            <span class="lf-lighting-palette-stop-name">Start</span>
+                            {{ template "lf-lighting-color-value" .Start }}
+                        </div>
+                    </div>
+                {{ else }}
+                    <p class="lf-lighting-empty-value">Stored color unavailable</p>
+                {{ end }}
+            {{ else if eq .Palette "Two color" }}
+                <div class="lf-lighting-palette-stops">
+                    {{ if .HasStart }}
+                        <div class="lf-lighting-palette-stop">
+                            <span class="lf-lighting-palette-stop-name">Start</span>
+                            {{ template "lf-lighting-color-value" .Start }}
+                        </div>
+                    {{ end }}
+                    <span class="lf-lighting-palette-bridge" aria-hidden="true"></span>
+                    {{ if .HasEnd }}
+                        <div class="lf-lighting-palette-stop">
+                            <span class="lf-lighting-palette-stop-name">End</span>
+                            {{ template "lf-lighting-color-value" .End }}
+                        </div>
+                    {{ end }}
+                </div>
+            {{ else if eq .Palette "Temperature" }}
+                <div class="lf-lighting-palette-stops lf-lighting-palette-stops-temperature">
+                    {{ if .HasStart }}
+                        <div class="lf-lighting-palette-stop">
+                            <span class="lf-lighting-palette-stop-name">Start</span>
+                            {{ template "lf-lighting-color-value" .Start }}
+                        </div>
+                    {{ end }}
+                    <span class="lf-lighting-palette-bridge" aria-hidden="true"></span>
+                    {{ if .HasMiddle }}
+                        <div class="lf-lighting-palette-stop">
+                            <span class="lf-lighting-palette-stop-name">Middle</span>
+                            {{ template "lf-lighting-color-value" .Middle }}
+                        </div>
+                    {{ end }}
+                    <span class="lf-lighting-palette-bridge" aria-hidden="true"></span>
+                    {{ if .HasEnd }}
+                        <div class="lf-lighting-palette-stop">
+                            <span class="lf-lighting-palette-stop-name">End</span>
+                            {{ template "lf-lighting-color-value" .End }}
+                        </div>
+                    {{ end }}
+                </div>
+            {{ else if eq .Palette "Gradient" }}
+                <div class="lf-lighting-palette-concept">
+                    <span class="lf-lighting-palette-gradient-mark" aria-hidden="true"></span>
+                    <span>
+                        <strong>Stored gradient definition</strong>
+                        <span>Gradient stops remain renderer-defined and are not expanded here.</span>
+                    </span>
+                </div>
+            {{ else if eq .Palette "Generated palette" }}
+                <div class="lf-lighting-palette-concept">
+                    <span class="lf-lighting-palette-generated-mark" aria-hidden="true"></span>
+                    <span>
+                        <strong>Generated palette</strong>
+                        <span>The renderer generates its palette; no fixed colors are stored.</span>
+                    </span>
+                </div>
+            {{ else if eq .Palette "None" }}
+                <div class="lf-lighting-palette-concept lf-lighting-palette-off">
+                    <span class="lf-lighting-palette-off-mark" aria-hidden="true"></span>
+                    <span>
+                        <strong>Lighting off</strong>
+                        <span>This effect does not use a color palette.</span>
+                    </span>
+                </div>
+            {{ else }}
+                <p class="lf-lighting-empty-value">Palette details unavailable</p>
+            {{ end }}
+        </div>
+    {{ else }}
+        <p class="lf-lighting-empty-value">Stored definition unavailable</p>
+    {{ end }}
+{{ end }}
+
+{{ define "lf-lighting-definition" }}
+    {{ if . }}
+        <div class="lf-lighting-definition">
+            <span class="lf-lighting-definition-kind">{{ .Palette }}</span>
+            {{ template "lf-lighting-palette" . }}
+            {{ if .HasSpeed }}
+                <p class="lf-lighting-speed"><span>Speed</span><strong>{{ .Speed }}</strong></p>
+            {{ end }}
+            {{ if not .HasValues }}
+                <p class="lf-lighting-empty-value">This effect has no fixed color or persistent speed values.</p>
+            {{ end }}
+        </div>
+    {{ else }}
+        <p class="lf-lighting-empty-value">Stored definition unavailable</p>
+    {{ end }}
+{{ end }}
+
 <!DOCTYPE html>
 <html lang="en">
 {{ template "head" . }}
@@ -9,49 +124,55 @@
             {{ $hasSelectedDevice = true }}
             {{ $selectedSerial = .Device.Serial }}
         {{ end }}
+
         <aside class="lf-global-nav" aria-label="Application navigation">
             <a class="lf-brand" href="/" aria-label="LumenForge dashboard" title="LumenForge dashboard">
-                <img class="lf-brand-mark" src="/static/img/lumenforge-main.png" alt="">
+                <span class="lf-brand-mark-frame" aria-hidden="true">
+                    <img class="lf-brand-mark" src="/static/img/lumenforge-main.png" alt="">
+                </span>
                 <span class="lf-brand-name">LumenForge</span>
             </a>
 
             <nav class="lf-global-links">
                 <a class="lf-global-link" href="/" aria-label="Dashboard" title="Dashboard">
-                    <img class="lf-global-icon" src="/static/img/icons/icon-dashboard.svg" alt="">
+                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-dashboard.svg" alt=""></span>
                     <span class="lf-global-label">Dashboard</span>
                 </a>
                 <a class="lf-global-link lf-global-link-active" href="/devices" aria-label="Devices" title="Devices" aria-current="page">
-                    <img class="lf-global-icon" src="/static/img/icons/icon-device.svg" alt="">
+                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-device.svg" alt=""></span>
                     <span class="lf-global-label">Devices</span>
                 </a>
                 <a class="lf-global-link" href="/rgbCluster" aria-label="Lighting" title="Lighting">
-                    <img class="lf-global-icon" src="/static/img/icons/icon-cluster.svg" alt="">
+                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-cluster.svg" alt=""></span>
                     <span class="lf-global-label">Lighting</span>
                 </a>
                 <a class="lf-global-link" href="/temperature" aria-label="Cooling profiles" title="Cooling profiles">
-                    <img class="lf-global-icon" src="/static/img/icons/icon-temperature.svg" alt="">
+                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-temperature.svg" alt=""></span>
                     <span class="lf-global-label">Cooling profiles</span>
                 </a>
                 <a class="lf-global-link" href="/lcd" aria-label="LCD" title="LCD">
-                    <img class="lf-global-icon" src="/static/img/icons/icon-lcd.svg" alt="">
+                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-lcd.svg" alt=""></span>
                     <span class="lf-global-label">LCD</span>
                 </a>
                 <a class="lf-global-link" href="/macros" aria-label="Macros" title="Macros">
-                    <img class="lf-global-icon" src="/static/img/icons/icon-macro.svg" alt="">
+                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-macro.svg" alt=""></span>
                     <span class="lf-global-label">Macros</span>
                 </a>
                 <a class="lf-global-link" href="/settings" aria-label="Settings" title="Settings">
-                    <img class="lf-global-icon" src="/static/img/icons/icon-settings.svg" alt="">
+                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-settings.svg" alt=""></span>
                     <span class="lf-global-label">Settings</span>
                 </a>
             </nav>
+
         </aside>
 
         <aside class="lf-device-panel" aria-labelledby="lf-device-list-title">
             <header class="lf-panel-header">
-                <p class="lf-section-kicker">Hardware</p>
-                <h2 class="lf-panel-title" id="lf-device-list-title">Devices</h2>
-                <p class="lf-panel-description">Configured hardware</p>
+                <div>
+                    <p class="lf-section-kicker">Configured hardware</p>
+                    <h2 class="lf-panel-title" id="lf-device-list-title">Devices</h2>
+                </div>
+                <span class="lf-panel-header-mark" aria-hidden="true"></span>
             </header>
 
             <div class="lf-device-list">
@@ -86,135 +207,298 @@
                     {{ end }}
                 {{ end }}
                 {{ if not $hasVisibleDevices }}
-                    <p class="lf-device-list-empty" role="status">No devices available</p>
+                    <div class="lf-device-list-empty" role="status">
+                        <img src="/static/img/icons/icon-device.svg" alt="">
+                        <strong>No devices available</strong>
+                        <span>Configured hardware will appear here.</span>
+                    </div>
                 {{ end }}
             </div>
         </aside>
 
         <main class="lf-device-workspace">
             {{ if .Device }}
-                <header class="lf-workspace-header lf-selected-device-header">
-                    <p class="lf-section-kicker">Devices workspace</p>
-                    <h1 class="lf-workspace-title">{{ .Device.Product }}</h1>
-                    <p class="lf-workspace-description">Device summary</p>
+                <header class="lf-device-hero">
+                    <div class="lf-device-hero-visual" aria-hidden="true">
+                        <span class="lf-device-hero-glow"></span>
+                        {{ if .Device.Image }}
+                            <img class="lf-device-hero-image" src="/static/img/icons/{{ .Device.Image }}" alt="">
+                        {{ else }}
+                            <img class="lf-device-hero-image lf-device-hero-image-fallback" src="/static/img/icons/icon-device.svg" alt="">
+                        {{ end }}
+                    </div>
+                    <div class="lf-device-hero-copy">
+                        <p class="lf-device-hero-context">{{ if .Device.OpenRGB }}OpenRGB imported controller{{ else }}Selected device{{ end }}</p>
+                        <h1 class="lf-workspace-title">{{ .Device.Product }}</h1>
+                        <p class="lf-workspace-description">{{ if eq .Device.View "lighting" }}Stored lighting configuration and renderer capabilities{{ else }}Device overview and configured hardware details{{ end }}</p>
+                        <div class="lf-device-hero-facts">
+                            {{ if .Device.Unavailable }}<span class="lf-device-hero-fact lf-device-hero-fact-unavailable">Unavailable</span>{{ end }}
+                            {{ if eq .Device.View "lighting" }}
+                                {{ with .Device.Lighting }}
+                                    {{ if .ConfiguredEffect }}<span class="lf-device-hero-fact"><span>Effect</span><strong>{{ if .ConfiguredEffectLabel }}{{ .ConfiguredEffectLabel }}{{ else }}{{ .ConfiguredEffect }}{{ end }}</strong></span>{{ end }}
+                                    {{ if .HasBrightness }}<span class="lf-device-hero-fact"><span>Brightness</span><strong>{{ .Brightness }}%</strong></span>{{ end }}
+                                    {{ if .ClusterControlled }}<span class="lf-device-hero-fact lf-device-hero-fact-cluster">RGB Cluster owned</span>{{ end }}
+                                    <span class="lf-device-hero-fact">Read-only preview</span>
+                                {{ end }}
+                            {{ else }}
+                                {{ if .Device.Firmware }}<span class="lf-device-hero-fact"><span>Firmware</span><strong>{{ .Device.Firmware }}</strong></span>{{ end }}
+                                {{ if .Device.HasBattery }}<span class="lf-device-hero-fact"><span>Battery</span><strong>{{ .Device.BatteryLevel }}%</strong></span>{{ end }}
+                                {{ with .Device.OpenRGB }}
+                                    {{ if .Effect }}<span class="lf-device-hero-fact"><span>Effect</span><strong>{{ .Effect }}</strong></span>{{ end }}
+                                    <span class="lf-device-hero-fact"><span>Brightness</span><strong>{{ .Brightness }}%</strong></span>
+                                {{ end }}
+                            {{ end }}
+                        </div>
+                    </div>
                 </header>
 
-                <section class="lf-selected-device-summary" aria-label="Selected device summary">
-                    <div class="lf-selected-device-visual">
-                        <span class="lf-selected-device-image-frame">
-                            {{ if .Device.Image }}
-                                <img class="lf-selected-device-image" src="/static/img/icons/{{ .Device.Image }}" alt="">
-                            {{ else }}
-                                <img class="lf-selected-device-image lf-selected-device-image-fallback" src="/static/img/icons/icon-device.svg" alt="">
-                            {{ end }}
-                        </span>
-                    </div>
+                <nav class="lf-device-workspace-nav" aria-label="Device workspace">
+                    <a class="lf-device-workspace-link{{ if ne .Device.View "lighting" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}"{{ if ne .Device.View "lighting" }} aria-current="page"{{ end }}>Overview</a>
+                    {{ if .Device.Lighting }}
+                        <a class="lf-device-workspace-link{{ if eq .Device.View "lighting" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=lighting"{{ if eq .Device.View "lighting" }} aria-current="page"{{ end }}>Lighting</a>
+                    {{ end }}
+                </nav>
 
-                    <div class="lf-selected-device-content">
-                        {{ if .Device.Unavailable }}
-                            <p class="lf-selected-device-unavailable" role="status">Unavailable</p>
-                        {{ end }}
+                {{ if eq .Device.View "lighting" }}
+                    {{ with .Device.Lighting }}
+                        <section class="lf-lighting-workspace" aria-labelledby="lf-lighting-title">
+                            <div class="lf-lighting-layout">
+                                <div class="lf-lighting-main">
+                                    <section class="lf-lighting-primary" aria-labelledby="lf-lighting-title">
+                                        <header class="lf-lighting-primary-header">
+                                            <div>
+                                                <p class="lf-section-kicker">Stored configuration</p>
+                                                <h2 class="lf-lighting-title" id="lf-lighting-title">Lighting</h2>
+                                            </div>
+                                            {{ if .ConfiguredEffect }}
+                                                <span class="lf-lighting-status{{ if .EffectSupported }} lf-lighting-status-supported{{ else }} lf-lighting-status-unsupported{{ end }}">{{ if .EffectSupported }}Supported{{ else }}Unsupported{{ end }}</span>
+                                            {{ end }}
+                                        </header>
 
-                        <dl class="lf-device-summary-meta">
-                            <div class="lf-device-summary-meta-row">
-                                <dt class="lf-device-summary-label">{{ if .Device.OpenRGB }}Internal ID{{ else }}Serial{{ end }}</dt>
-                                <dd class="lf-device-summary-value">{{ .Device.Serial }}</dd>
-                            </div>
-                            {{ if .Device.Firmware }}
-                                <div class="lf-device-summary-meta-row">
-                                    <dt class="lf-device-summary-label">Firmware</dt>
-                                    <dd class="lf-device-summary-value">{{ .Device.Firmware }}</dd>
+                                        <div class="lf-lighting-effect-stage">
+                                            <div class="lf-lighting-effect-copy">
+                                                <span class="lf-lighting-label">Configured effect</span>
+                                                {{ if .ConfiguredEffect }}
+                                                    <strong class="lf-lighting-effect-name">{{ if .ConfiguredEffectLabel }}{{ .ConfiguredEffectLabel }}{{ else }}{{ .ConfiguredEffect }}{{ end }}</strong>
+                                                    <code class="lf-lighting-effect-id">{{ .ConfiguredEffect }}</code>
+                                                {{ else }}
+                                                    <strong class="lf-lighting-effect-name lf-lighting-effect-name-muted">Not configured</strong>
+                                                {{ end }}
+                                            </div>
+                                            <div class="lf-lighting-primary-metrics">
+                                                <span><small>Palette</small><strong>{{ if .ConfiguredEffect }}{{ .ConfiguredPalette }}{{ else }}Unknown{{ end }}</strong></span>
+                                                <span><small>Brightness</small><strong>{{ if .HasBrightness }}{{ .Brightness }}%{{ else }}Unavailable{{ end }}</strong></span>
+                                                <span><small>Persistent speed</small><strong>{{ if .ConfiguredCapabilityKnown }}{{ if .ConfiguredSupportsSpeed }}Supported{{ else }}Not supported{{ end }}{{ else }}Unknown{{ end }}</strong></span>
+                                            </div>
+                                        </div>
+
+                                        <div class="lf-lighting-primary-palette">
+                                            <div class="lf-lighting-primary-palette-heading">
+                                                <span>Effective stored palette</span>
+                                                {{ if .Effective }}<strong>{{ .Effective.Palette }}</strong>{{ end }}
+                                            </div>
+                                            {{ template "lf-lighting-palette" .Effective }}
+                                            {{ if and .Effective .Effective.HasSpeed }}
+                                                <p class="lf-lighting-speed lf-lighting-speed-primary"><span>Effective speed</span><strong>{{ .Effective.Speed }}</strong></p>
+                                            {{ end }}
+                                        </div>
+                                    </section>
+
+                                    <section class="lf-lighting-comparison" aria-labelledby="lf-lighting-comparison-title">
+                                        <header class="lf-lighting-comparison-header">
+                                            <div>
+                                                <p class="lf-section-kicker">Configuration sources</p>
+                                                <h2 id="lf-lighting-comparison-title">Stored precedence</h2>
+                                            </div>
+                                            <p>This reflects stored configuration precedence, not confirmed device output.</p>
+                                        </header>
+
+                                        <div class="lf-lighting-source-grid">
+                                            <article class="lf-lighting-source-card">
+                                                <header>
+                                                    <span class="lf-lighting-source-index">01</span>
+                                                    <div>
+                                                        <h3>Device RGB definition</h3>
+                                                        <p>Renderer-specific stored inputs</p>
+                                                    </div>
+                                                </header>
+                                                {{ template "lf-lighting-definition" .BaseDefinition }}
+                                            </article>
+
+                                            <article class="lf-lighting-source-card{{ if and .Override (not .Override.Enabled) }} lf-lighting-source-card-inactive{{ end }}">
+                                                <header>
+                                                    <span class="lf-lighting-source-index">02</span>
+                                                    <div>
+                                                        <h3>Local OpenRGB override</h3>
+                                                        <p>Stored controller-wide values</p>
+                                                    </div>
+                                                    {{ if .Override }}<span class="lf-lighting-source-state">{{ if .Override.Enabled }}Enabled{{ else }}Disabled{{ end }}</span>{{ end }}
+                                                </header>
+                                                {{ with .Override }}
+                                                    <div class="lf-lighting-override-palette">
+                                                        <div class="lf-lighting-palette-stops lf-lighting-palette-stops-temperature">
+                                                            <div class="lf-lighting-palette-stop"><span class="lf-lighting-palette-stop-name">Start</span>{{ template "lf-lighting-color-value" .Start }}</div>
+                                                            <span class="lf-lighting-palette-bridge" aria-hidden="true"></span>
+                                                            <div class="lf-lighting-palette-stop"><span class="lf-lighting-palette-stop-name">Middle</span>{{ template "lf-lighting-color-value" .Middle }}</div>
+                                                            <span class="lf-lighting-palette-bridge" aria-hidden="true"></span>
+                                                            <div class="lf-lighting-palette-stop"><span class="lf-lighting-palette-stop-name">End</span>{{ template "lf-lighting-color-value" .End }}</div>
+                                                        </div>
+                                                        <p class="lf-lighting-speed"><span>Stored speed</span><strong>{{ .Speed }}</strong></p>
+                                                    </div>
+                                                    <p class="lf-lighting-source-note">The selected renderer may not consume every stored override field.</p>
+                                                {{ else }}
+                                                    <p class="lf-lighting-empty-value">No stored override</p>
+                                                {{ end }}
+                                            </article>
+
+                                            <article class="lf-lighting-source-card lf-lighting-source-card-effective">
+                                                <header>
+                                                    <span class="lf-lighting-source-index">03</span>
+                                                    <div>
+                                                        <h3>Effective configuration</h3>
+                                                        <p>Stored values after override precedence</p>
+                                                    </div>
+                                                </header>
+                                                {{ template "lf-lighting-definition" .Effective }}
+                                            </article>
+                                        </div>
+                                    </section>
+
                                 </div>
-                            {{ end }}
-                            {{ if .Device.HasBattery }}
-                                <div class="lf-device-summary-meta-row">
-                                    <dt class="lf-device-summary-label">Battery</dt>
-                                    <dd class="lf-device-summary-value">{{ .Device.BatteryLevel }}%</dd>
-                                </div>
-                            {{ end }}
-                        </dl>
 
-                        {{ with .Device.OpenRGB }}
-                            <section class="lf-openrgb-overview">
-                                <h2 class="lf-openrgb-title">OpenRGB controller</h2>
+                                <aside class="lf-lighting-rail" aria-label="Lighting information">
+                                    <section class="lf-lighting-rail-panel lf-lighting-preview-panel">
+                                        <span class="lf-lighting-rail-icon" aria-hidden="true">◇</span>
+                                        <p class="lf-section-kicker">Workspace state</p>
+                                        <h2>Read-only preview</h2>
+                                        <p>Review stored lighting data here. Use the existing controls page to make changes.</p>
+                                    </section>
 
-                                <div class="lf-openrgb-grid{{ if not .HasMetadata }} lf-openrgb-grid-single{{ end }}">
-                                    {{ if .HasMetadata }}
-                                        <section class="lf-openrgb-panel">
-                                            <h3 class="lf-openrgb-subtitle">Controller metadata</h3>
-                                            <dl class="lf-device-summary-meta lf-openrgb-panel-meta">
-                                                {{ if and .DisplayIdentifier .DisplayIdentifierLabel }}
-                                                    <div class="lf-device-summary-meta-row">
-                                                        <dt class="lf-device-summary-label">{{ .DisplayIdentifierLabel }}</dt>
-                                                        <dd class="lf-device-summary-value">{{ .DisplayIdentifier }}</dd>
-                                                    </div>
-                                                {{ end }}
-                                                {{ if .Vendor }}
-                                                    <div class="lf-device-summary-meta-row">
-                                                        <dt class="lf-device-summary-label">Vendor</dt>
-                                                        <dd class="lf-device-summary-value">{{ .Vendor }}</dd>
-                                                    </div>
-                                                {{ end }}
-                                                {{ if .Location }}
-                                                    <div class="lf-device-summary-meta-row">
-                                                        <dt class="lf-device-summary-label">Location</dt>
-                                                        <dd class="lf-device-summary-value">{{ .Location }}</dd>
-                                                    </div>
-                                                {{ end }}
-                                                {{ if .Description }}
-                                                    <div class="lf-device-summary-meta-row">
-                                                        <dt class="lf-device-summary-label">Description</dt>
-                                                        <dd class="lf-device-summary-value">{{ .Description }}</dd>
-                                                    </div>
-                                                {{ end }}
-                                            </dl>
+                                    {{ if .ClusterControlled }}
+                                        <section class="lf-lighting-cluster-note" role="note" aria-label="Cluster-controlled lighting">
+                                            <span class="lf-lighting-rail-icon" aria-hidden="true">⌁</span>
+                                            <h2>RGB Cluster owns output</h2>
+                                            <p>Local configuration remains stored, but cluster output currently owns lighting. The values shown here may not match visible physical output.</p>
                                         </section>
                                     {{ end }}
 
-                                    <section class="lf-openrgb-panel">
-                                        <h3 class="lf-openrgb-subtitle">Lighting summary</h3>
-                                        <dl class="lf-device-summary-meta lf-openrgb-panel-meta">
-                                            {{ if .Effect }}
-                                                <div class="lf-device-summary-meta-row">
-                                                    <dt class="lf-device-summary-label">Effect</dt>
-                                                    <dd class="lf-device-summary-value">{{ .Effect }}</dd>
-                                                </div>
-                                            {{ end }}
-                                            <div class="lf-device-summary-meta-row">
-                                                <dt class="lf-device-summary-label">Brightness</dt>
-                                                <dd class="lf-device-summary-value">{{ .Brightness }}%</dd>
-                                            </div>
+                                    <section class="lf-lighting-rail-panel">
+                                        <p class="lf-section-kicker">Configuration</p>
+                                        <dl class="lf-lighting-rail-facts">
+                                            <div><dt>Palette capability</dt><dd>{{ if .ConfiguredEffect }}{{ .ConfiguredPalette }}{{ else }}Unknown{{ end }}</dd></div>
+                                            <div><dt>Effect support</dt><dd>{{ if .ConfiguredEffect }}{{ if .EffectSupported }}Supported{{ else }}Unsupported{{ end }}{{ else }}Not configured{{ end }}</dd></div>
+                                            <div><dt>Local override</dt><dd>{{ if .Override }}{{ if .Override.Enabled }}Enabled{{ else }}Stored, disabled{{ end }}{{ else }}Not stored{{ end }}</dd></div>
                                         </dl>
                                     </section>
-                                </div>
 
-                                <section class="lf-openrgb-zones">
-                                    <h3 class="lf-openrgb-subtitle">Configured zones</h3>
-                                    {{ if .Zones }}
-                                        <ul class="lf-openrgb-zone-list">
-                                            {{ range .Zones }}
-                                                <li class="lf-openrgb-zone-item">
-                                                    <span class="lf-openrgb-zone-name">{{ .Name }}</span>
-                                                    <span class="lf-openrgb-zone-led-count">{{ .LEDCount }} {{ if eq .LEDCount 1 }}LED{{ else }}LEDs{{ end }}</span>
-                                                </li>
-                                            {{ end }}
-                                        </ul>
-                                    {{ else }}
-                                        <p class="lf-openrgb-zones-empty">No configured zones</p>
+                                    <a class="lf-legacy-controls-link" href="/device/{{ $.Device.Serial }}">
+                                        <span>Open full controls</span>
+                                        <span aria-hidden="true">↗</span>
+                                    </a>
+                                </aside>
+                            </div>
+                        </section>
+                    {{ end }}
+                {{ else }}
+                    <section class="lf-overview-workspace" aria-label="Selected device overview">
+                        <div class="lf-overview-main">
+                            <section class="lf-overview-panel lf-overview-identity-panel">
+                                <header class="lf-overview-panel-header">
+                                    <div>
+                                        <p class="lf-section-kicker">Device identity</p>
+                                        <h2>Hardware details</h2>
+                                    </div>
+                                    {{ if .Device.Unavailable }}<span class="lf-overview-state lf-overview-state-unavailable">Unavailable</span>{{ end }}
+                                </header>
+                                <dl class="lf-device-summary-meta">
+                                    <div class="lf-device-summary-meta-row">
+                                        <dt class="lf-device-summary-label">{{ if .Device.OpenRGB }}Internal ID{{ else }}Serial{{ end }}</dt>
+                                        <dd class="lf-device-summary-value">{{ .Device.Serial }}</dd>
+                                    </div>
+                                    {{ if .Device.Firmware }}
+                                        <div class="lf-device-summary-meta-row">
+                                            <dt class="lf-device-summary-label">Firmware</dt>
+                                            <dd class="lf-device-summary-value">{{ .Device.Firmware }}</dd>
+                                        </div>
                                     {{ end }}
-                                </section>
+                                    {{ if .Device.HasBattery }}
+                                        <div class="lf-device-summary-meta-row">
+                                            <dt class="lf-device-summary-label">Battery</dt>
+                                            <dd class="lf-device-summary-value">{{ .Device.BatteryLevel }}%</dd>
+                                        </div>
+                                    {{ end }}
+                                </dl>
                             </section>
-                        {{ end }}
 
-                        <a class="lf-legacy-controls-link" href="/device/{{ .Device.Serial }}">Open full controls</a>
-                    </div>
-                </section>
+                            {{ with .Device.OpenRGB }}
+                                <section class="lf-openrgb-overview">
+                                    <header class="lf-overview-panel-header">
+                                        <div>
+                                            <p class="lf-section-kicker">Imported controller</p>
+                                            <h2 class="lf-openrgb-title">OpenRGB controller</h2>
+                                        </div>
+                                    </header>
+
+                                    <div class="lf-openrgb-grid{{ if not .HasMetadata }} lf-openrgb-grid-single{{ end }}">
+                                        {{ if .HasMetadata }}
+                                            <section class="lf-openrgb-panel">
+                                                <h3 class="lf-openrgb-subtitle">Controller metadata</h3>
+                                                <dl class="lf-device-summary-meta lf-openrgb-panel-meta">
+                                                    {{ if and .DisplayIdentifier .DisplayIdentifierLabel }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">{{ .DisplayIdentifierLabel }}</dt><dd class="lf-device-summary-value">{{ .DisplayIdentifier }}</dd></div>{{ end }}
+                                                    {{ if .Vendor }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">Vendor</dt><dd class="lf-device-summary-value">{{ .Vendor }}</dd></div>{{ end }}
+                                                    {{ if .Location }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">Location</dt><dd class="lf-device-summary-value">{{ .Location }}</dd></div>{{ end }}
+                                                    {{ if .Description }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">Description</dt><dd class="lf-device-summary-value">{{ .Description }}</dd></div>{{ end }}
+                                                </dl>
+                                            </section>
+                                        {{ end }}
+
+                                        <section class="lf-openrgb-panel lf-openrgb-lighting-summary">
+                                            <h3 class="lf-openrgb-subtitle">Lighting summary</h3>
+                                            <dl class="lf-device-summary-meta lf-openrgb-panel-meta">
+                                                {{ if .Effect }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">Effect</dt><dd class="lf-device-summary-value">{{ .Effect }}</dd></div>{{ end }}
+                                                <div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">Brightness</dt><dd class="lf-device-summary-value">{{ .Brightness }}%</dd></div>
+                                            </dl>
+                                        </section>
+                                    </div>
+
+                                    <section class="lf-openrgb-zones">
+                                        <h3 class="lf-openrgb-subtitle">Configured zones</h3>
+                                        {{ if .Zones }}
+                                            <ul class="lf-openrgb-zone-list">
+                                                {{ range .Zones }}
+                                                    <li class="lf-openrgb-zone-item">
+                                                        <span class="lf-openrgb-zone-name">{{ .Name }}</span>
+                                                        <span class="lf-openrgb-zone-led-count">{{ .LEDCount }} {{ if eq .LEDCount 1 }}LED{{ else }}LEDs{{ end }}</span>
+                                                    </li>
+                                                {{ end }}
+                                            </ul>
+                                        {{ else }}
+                                            <p class="lf-openrgb-zones-empty">No configured zones</p>
+                                        {{ end }}
+                                    </section>
+                                </section>
+                            {{ end }}
+                        </div>
+
+                        <aside class="lf-overview-rail" aria-label="Device actions">
+                            <section class="lf-overview-rail-panel">
+                                <p class="lf-section-kicker">Selected hardware</p>
+                                <h2>{{ .Device.Product }}</h2>
+                                <p>Open the established device page for the complete controls available for this hardware.</p>
+                            </section>
+                            <a class="lf-legacy-controls-link" href="/device/{{ .Device.Serial }}">
+                                <span>Open full controls</span>
+                                <span aria-hidden="true">↗</span>
+                            </a>
+                        </aside>
+                    </section>
+                {{ end }}
             {{ else }}
                 <header class="lf-workspace-header">
                     <p class="lf-section-kicker">Devices workspace</p>
                     <h1 class="lf-workspace-title">Manage your hardware</h1>
                     {{ if $hasVisibleDevices }}
-                        <p class="lf-workspace-description">Select a device to open its existing controls and settings.</p>
+                        <p class="lf-workspace-description">Select a device to review its configuration and open its existing controls.</p>
                     {{ else }}
                         <p class="lf-workspace-description">Device controls will be available when configured hardware is detected.</p>
                     {{ end }}

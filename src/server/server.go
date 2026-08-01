@@ -40,6 +40,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -2336,6 +2337,59 @@ type devicesWorkspaceSummary struct {
 	HasBattery   bool
 	BatteryLevel uint16
 	OpenRGB      *openRGBWorkspaceSummary
+	Lighting     *openRGBLightingWorkspaceSummary
+	View         string
+}
+
+type openRGBLightingColorSummary struct {
+	Hex string
+	RGB string
+}
+
+type openRGBLightingEffectSummary struct {
+	ID              string
+	Label           string
+	CapabilityKnown bool
+	Palette         string
+	SupportsSpeed   bool
+}
+
+type openRGBLightingDefinitionSummary struct {
+	Palette   string
+	HasValues bool
+	HasStart  bool
+	Start     openRGBLightingColorSummary
+	HasMiddle bool
+	Middle    openRGBLightingColorSummary
+	HasEnd    bool
+	End       openRGBLightingColorSummary
+	HasSpeed  bool
+	Speed     string
+}
+
+type openRGBLightingOverrideSummary struct {
+	Enabled bool
+	Start   openRGBLightingColorSummary
+	Middle  openRGBLightingColorSummary
+	End     openRGBLightingColorSummary
+	Speed   string
+}
+
+type openRGBLightingWorkspaceSummary struct {
+	HasActiveProfile          bool
+	ConfiguredEffect          string
+	ConfiguredEffectLabel     string
+	EffectSupported           bool
+	ConfiguredCapabilityKnown bool
+	ConfiguredPalette         string
+	ConfiguredSupportsSpeed   bool
+	SupportedEffects          []openRGBLightingEffectSummary
+	HasBrightness             bool
+	Brightness                uint8
+	ClusterControlled         bool
+	BaseDefinition            *openRGBLightingDefinitionSummary
+	Override                  *openRGBLightingOverrideSummary
+	Effective                 *openRGBLightingDefinitionSummary
 }
 
 func openRGBWorkspaceDisplayIdentifierLabel(label string) string {
@@ -2378,6 +2432,115 @@ func openRGBWorkspaceSummaryFromSnapshot(snapshot openrgbimport.DeviceSnapshot) 
 	return summary
 }
 
+func openRGBLightingPaletteLabel(known bool, palette rgb.LightingPaletteKind) string {
+	if !known {
+		return "Unknown"
+	}
+	switch palette {
+	case rgb.LightingPaletteNone:
+		return "None"
+	case rgb.LightingPaletteStaticSingle:
+		return "Single color"
+	case rgb.LightingPaletteTwoColor:
+		return "Two color"
+	case rgb.LightingPaletteTemperatureThree:
+		return "Temperature"
+	case rgb.LightingPaletteGradient:
+		return "Gradient"
+	case rgb.LightingPaletteGenerated:
+		return "Generated palette"
+	default:
+		return "Unknown"
+	}
+}
+
+func openRGBLightingColorComponent(value float64) uint8 {
+	if math.IsNaN(value) || value <= 0 {
+		return 0
+	}
+	if value >= 255 {
+		return 255
+	}
+	return uint8(value)
+}
+
+func openRGBLightingColorFromRGB(color rgb.Color) openRGBLightingColorSummary {
+	red := openRGBLightingColorComponent(color.Red)
+	green := openRGBLightingColorComponent(color.Green)
+	blue := openRGBLightingColorComponent(color.Blue)
+	return openRGBLightingColorSummary{
+		Hex: fmt.Sprintf("#%02X%02X%02X", red, green, blue),
+		RGB: fmt.Sprintf("RGB %d, %d, %d", red, green, blue),
+	}
+}
+
+func openRGBLightingDefinitionFromSnapshot(snapshot *openrgbimport.LightingDefinitionSnapshot) *openRGBLightingDefinitionSummary {
+	if snapshot == nil {
+		return nil
+	}
+	summary := &openRGBLightingDefinitionSummary{
+		Palette:   openRGBLightingPaletteLabel(true, snapshot.Palette),
+		HasStart:  snapshot.HasStartColor,
+		HasMiddle: snapshot.HasMiddleColor,
+		HasEnd:    snapshot.HasEndColor,
+		HasSpeed:  snapshot.HasSpeed,
+		Speed:     strconv.FormatFloat(snapshot.Speed, 'f', -1, 64),
+	}
+	if snapshot.HasStartColor {
+		summary.Start = openRGBLightingColorFromRGB(snapshot.StartColor)
+	}
+	if snapshot.HasMiddleColor {
+		summary.Middle = openRGBLightingColorFromRGB(snapshot.MiddleColor)
+	}
+	if snapshot.HasEndColor {
+		summary.End = openRGBLightingColorFromRGB(snapshot.EndColor)
+	}
+	summary.HasValues = summary.HasStart || summary.HasMiddle || summary.HasEnd || summary.HasSpeed
+	return summary
+}
+
+func openRGBLightingWorkspaceSummaryFromSnapshot(snapshot openrgbimport.LightingSnapshot) *openRGBLightingWorkspaceSummary {
+	summary := &openRGBLightingWorkspaceSummary{
+		HasActiveProfile:  snapshot.HasActiveProfile,
+		ConfiguredEffect:  snapshot.ConfiguredEffect,
+		EffectSupported:   snapshot.EffectSupported,
+		HasBrightness:     snapshot.HasBrightness,
+		Brightness:        snapshot.Brightness,
+		ClusterControlled: snapshot.ClusterControlled,
+		SupportedEffects:  make([]openRGBLightingEffectSummary, len(snapshot.SupportedEffects)),
+		BaseDefinition:    openRGBLightingDefinitionFromSnapshot(snapshot.BaseDefinition),
+		Effective:         openRGBLightingDefinitionFromSnapshot(snapshot.Effective),
+	}
+	for index, effect := range snapshot.SupportedEffects {
+		summary.SupportedEffects[index] = openRGBLightingEffectSummary{
+			ID:              effect.ID,
+			Label:           effect.Label,
+			CapabilityKnown: effect.CapabilityKnown,
+			Palette:         openRGBLightingPaletteLabel(effect.CapabilityKnown, effect.Capability.Palette),
+			SupportsSpeed:   effect.CapabilityKnown && effect.Capability.SupportsSpeed,
+		}
+		if effect.ID == snapshot.ConfiguredEffect {
+			summary.ConfiguredEffectLabel = effect.Label
+			summary.ConfiguredCapabilityKnown = effect.CapabilityKnown
+			summary.ConfiguredPalette = openRGBLightingPaletteLabel(effect.CapabilityKnown, effect.Capability.Palette)
+			summary.ConfiguredSupportsSpeed = effect.CapabilityKnown && effect.Capability.SupportsSpeed
+		}
+	}
+	if snapshot.ConfiguredEffect != "" && summary.ConfiguredPalette == "" {
+		summary.ConfiguredPalette = "Unknown"
+	}
+	if snapshot.Override != nil {
+		summary.Override = &openRGBLightingOverrideSummary{
+			Enabled: snapshot.Override.Enabled,
+			Start:   openRGBLightingColorFromRGB(snapshot.Override.StartColor),
+			Middle:  openRGBLightingColorFromRGB(snapshot.Override.MiddleColor),
+			End:     openRGBLightingColorFromRGB(snapshot.Override.EndColor),
+			Speed:   strconv.FormatFloat(snapshot.Override.Speed, 'f', -1, 64),
+		}
+	}
+	return summary
+}
+
 func devicesWorkspaceSummaryForSerial(
 	deviceList map[string]*common.Device,
 	batteryStats map[string]stats.BatteryStats,
@@ -2394,6 +2557,7 @@ func devicesWorkspaceSummaryForSerial(
 		Firmware:    device.Firmware,
 		Image:       device.Image,
 		Unavailable: device.Unavailable,
+		View:        "overview",
 	}
 	if battery, found := batteryStats[serial]; found {
 		summary.HasBattery = true
@@ -2404,6 +2568,9 @@ func devicesWorkspaceSummaryForSerial(
 		snapshot := openRGBDevice.Snapshot()
 		if snapshot.IsOpenRGB && snapshot.Serial == serial {
 			summary.OpenRGB = openRGBWorkspaceSummaryFromSnapshot(snapshot)
+			if lightingSnapshot, usable := openRGBDevice.LightingSnapshot(); usable {
+				summary.Lighting = openRGBLightingWorkspaceSummaryFromSnapshot(lightingSnapshot)
+			}
 		}
 	}
 
@@ -2438,6 +2605,11 @@ func uiDevices(w http.ResponseWriter, r *http.Request) {
 		if !found {
 			http.NotFound(w, r)
 			return
+		}
+		// Lighting is an optional presentation mode. Unknown, empty, or
+		// duplicated view values deliberately retain the Overview workspace.
+		if views := query["view"]; len(views) == 1 && views[0] == "lighting" && selectedDevice.Lighting != nil {
+			selectedDevice.View = "lighting"
 		}
 	}
 
