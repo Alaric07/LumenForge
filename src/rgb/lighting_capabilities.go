@@ -24,35 +24,19 @@ type LightingEffectCapability struct {
 }
 
 // LightingEffectCapabilities returns renderer-backed capability metadata for
-// effects whose input behavior is known.
+// canonical LumenForge software effects. Speed support remains governed by the
+// existing persistent speed policy.
 func LightingEffectCapabilities(effect string) (LightingEffectCapability, bool) {
-	capability := LightingEffectCapability{SupportsSpeed: HasSpeedControl(effect)}
-
-	switch effect {
-	case "off":
-		capability.Palette = LightingPaletteNone
-	case "static":
-		capability.Palette = LightingPaletteStaticSingle
-		capability.UsesStartColor = true
-	case "rotator":
-		capability.Palette = LightingPaletteStaticSingle
-		capability.UsesStartColor = true
-	case "circle", "circleshift", "colorpulse", "colorshift", "flickering", "spinner", "storm", "wave":
-		capability.Palette = LightingPaletteTwoColor
-		capability.UsesStartColor = true
-		capability.UsesEndColor = true
-	case "cpu-temperature", "gpu-temperature":
-		capability.Palette = LightingPaletteTemperatureThree
-		capability.UsesStartColor = true
-		capability.UsesMiddleColor = true
-		capability.UsesEndColor = true
-	case "gradient":
-		capability.Palette = LightingPaletteGradient
-	case "aurora", "colorwarp", "cyberpunkglitch", "flame", "pastelrainbow", "pastelspiralrainbow", "rainbow", "spiralrainbow", "watercolor":
-		capability.Palette = LightingPaletteGenerated
-	default:
+	descriptor, ok := SoftwareEffectDescriptorByID(effect)
+	if !ok {
 		return LightingEffectCapability{}, false
 	}
 
-	return capability, true
+	return LightingEffectCapability{
+		Palette:         descriptor.PaletteKind,
+		UsesStartColor:  descriptor.UsesStart,
+		UsesMiddleColor: descriptor.UsesMiddle,
+		UsesEndColor:    descriptor.UsesEnd,
+		SupportsSpeed:   HasSpeedControl(descriptor.ID),
+	}, true
 }
