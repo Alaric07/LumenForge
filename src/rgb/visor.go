@@ -8,6 +8,30 @@ import (
 // Visor runs a left-to-right (and back) sweep at constant LED speed
 func (r *ActiveRGB) Visor(startTime *time.Time) {
 	buf := map[int][]byte{}
+	if r.LightChannels <= 0 {
+		r.Raw = buf
+		r.Output = SetColor(buf)
+		return
+	}
+	if r.LightChannels == 1 {
+		// A moving visor has no spatial representation on one LED.
+		color := interpolateColors(r.RGBStartColor, r.RGBEndColor, 0, r.RGBBrightness)
+		if len(r.Buffer) > 0 {
+			r.Buffer[0] = byte(color.Red)
+			r.Buffer[r.ColorOffset] = byte(color.Green)
+			r.Buffer[r.ColorOffset*2] = byte(color.Blue)
+		} else {
+			buf[0] = []byte{byte(color.Red), byte(color.Green), byte(color.Blue)}
+		}
+		r.Raw = buf
+		if r.Inverted {
+			r.Output = SetColorInverted(buf)
+		} else {
+			r.Output = SetColor(buf)
+		}
+		return
+	}
+
 	elapsed := time.Since(*startTime).Milliseconds()
 
 	baseSpeed := math.Max(35.0, float64(r.LightChannels)/4.0)
