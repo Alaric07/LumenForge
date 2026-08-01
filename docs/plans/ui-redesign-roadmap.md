@@ -193,8 +193,8 @@ Expansion must follow descriptor integration and renderer-contract coverage.
 - [x] Establish the canonical generic software-effect descriptor registry.
 - [x] Migrate generic software-effect capability lookup to canonical
   descriptors (`287c0f89`).
-- [ ] Migrate generic software-effect persistent-speed support to canonical
-  descriptors.
+- [x] Migrate generic software-effect persistent-speed support to canonical
+  descriptors (`b895cb75`).
 - [ ] Derive the compatible LumenForge software-effect catalogue for
   OpenRGB-imported devices from descriptor scope and confirmed dispatch
   support.
@@ -398,7 +398,7 @@ roadmap does not promise that every duplicate will be deleted.
 1. [x] Complete and commit canonical descriptor registry.
 2. [x] Add this living roadmap.
 3. [x] Migrate capability metadata to descriptors (`287c0f89`).
-4. [ ] Migrate speed metadata to descriptors.
+4. [x] Migrate speed metadata to descriptors (`b895cb75`).
 5. [ ] Add missing importer dispatch cases.
 6. [ ] Expand compatible LumenForge software effects to individual
    OpenRGB-imported devices.
