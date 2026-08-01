@@ -191,8 +191,8 @@ Expansion must follow descriptor integration and renderer-contract coverage.
 ## 4. Active foundation work
 
 - [x] Establish the canonical generic software-effect descriptor registry.
-- [ ] Migrate generic software-effect capability lookup to canonical
-  descriptors.
+- [x] Migrate generic software-effect capability lookup to canonical
+  descriptors (`287c0f89`).
 - [ ] Migrate generic software-effect persistent-speed support to canonical
   descriptors.
 - [ ] Derive the compatible LumenForge software-effect catalogue for
@@ -397,7 +397,7 @@ roadmap does not promise that every duplicate will be deleted.
 
 1. [x] Complete and commit canonical descriptor registry.
 2. [x] Add this living roadmap.
-3. [ ] Migrate capability metadata to descriptors.
+3. [x] Migrate capability metadata to descriptors (`287c0f89`).
 4. [ ] Migrate speed metadata to descriptors.
 5. [ ] Add missing importer dispatch cases.
 6. [ ] Expand compatible LumenForge software effects to individual
