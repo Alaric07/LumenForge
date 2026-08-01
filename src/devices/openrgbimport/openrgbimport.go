@@ -2140,6 +2140,12 @@ func (d *Device) SaveUserProfile(profileName string) uint8 {
 			copiedBrightness = &val
 		}
 
+		var copiedRGBOverride *RGBOverride
+		if d.DeviceProfile.RGBOverride != nil {
+			override := *d.DeviceProfile.RGBOverride
+			copiedRGBOverride = &override
+		}
+
 		newProfile := &DeviceProfile{
 			Active:           false,
 			Path:             profilePath,
@@ -2149,6 +2155,7 @@ func (d *Device) SaveUserProfile(profileName string) uint8 {
 			BrightnessSlider: copiedBrightness,
 			ZoneColors:       copiedZoneColors,
 			RGBCluster:       d.DeviceProfile.RGBCluster,
+			RGBOverride:      copiedRGBOverride,
 		}
 
 		buffer, err := json.MarshalIndent(newProfile, "", "  ")
