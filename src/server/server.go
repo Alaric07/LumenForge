@@ -43,6 +43,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -2349,6 +2350,7 @@ type openRGBLightingColorSummary struct {
 type openRGBLightingEffectSummary struct {
 	ID              string
 	Label           string
+	Selected        bool
 	CapabilityKnown bool
 	Palette         string
 	SupportsSpeed   bool
@@ -2474,6 +2476,13 @@ func openRGBLightingColorFromRGB(color rgb.Color) openRGBLightingColorSummary {
 	}
 }
 
+func openRGBLightingEffectDisplayLabel(id, label string) string {
+	if strings.TrimSpace(label) != "" || id == "" {
+		return label
+	}
+	return strings.ToUpper(id[:1]) + id[1:]
+}
+
 func openRGBLightingDefinitionFromSnapshot(snapshot *openrgbimport.LightingDefinitionSnapshot) *openRGBLightingDefinitionSummary {
 	if snapshot == nil {
 		return nil
@@ -2512,20 +2521,30 @@ func openRGBLightingWorkspaceSummaryFromSnapshot(snapshot openrgbimport.Lighting
 		Effective:         openRGBLightingDefinitionFromSnapshot(snapshot.Effective),
 	}
 	for index, effect := range snapshot.SupportedEffects {
+		displayLabel := openRGBLightingEffectDisplayLabel(effect.ID, effect.Label)
 		summary.SupportedEffects[index] = openRGBLightingEffectSummary{
 			ID:              effect.ID,
-			Label:           effect.Label,
+			Label:           displayLabel,
+			Selected:        snapshot.EffectSupported && effect.ID == snapshot.ConfiguredEffect,
 			CapabilityKnown: effect.CapabilityKnown,
 			Palette:         openRGBLightingPaletteLabel(effect.CapabilityKnown, effect.Capability.Palette),
 			SupportsSpeed:   effect.CapabilityKnown && effect.Capability.SupportsSpeed,
 		}
 		if effect.ID == snapshot.ConfiguredEffect {
-			summary.ConfiguredEffectLabel = effect.Label
+			summary.ConfiguredEffectLabel = displayLabel
 			summary.ConfiguredCapabilityKnown = effect.CapabilityKnown
 			summary.ConfiguredPalette = openRGBLightingPaletteLabel(effect.CapabilityKnown, effect.Capability.Palette)
 			summary.ConfiguredSupportsSpeed = effect.CapabilityKnown && effect.Capability.SupportsSpeed
 		}
 	}
+	sort.Slice(summary.SupportedEffects, func(i, j int) bool {
+		leftLabel := strings.ToLower(summary.SupportedEffects[i].Label)
+		rightLabel := strings.ToLower(summary.SupportedEffects[j].Label)
+		if leftLabel == rightLabel {
+			return summary.SupportedEffects[i].ID < summary.SupportedEffects[j].ID
+		}
+		return leftLabel < rightLabel
+	})
 	if snapshot.ConfiguredEffect != "" && summary.ConfiguredPalette == "" {
 		summary.ConfiguredPalette = "Unknown"
 	}

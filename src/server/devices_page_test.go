@@ -93,10 +93,10 @@ func TestDevicesLightingPresentationModel(t *testing.T) {
 		t.Fatalf("configured Lighting presentation = %#v", summary)
 	}
 	if len(summary.SupportedEffects) != 2 ||
-		summary.SupportedEffects[0].ID != "wave" || summary.SupportedEffects[0].Label != "Wave <Label> & More" ||
-		summary.SupportedEffects[0].Palette != "Two color" || !summary.SupportedEffects[0].CapabilityKnown || !summary.SupportedEffects[0].SupportsSpeed ||
-		summary.SupportedEffects[1].ID != "future-effect" || summary.SupportedEffects[1].Label != "Future Effect" ||
-		summary.SupportedEffects[1].Palette != "Unknown" || summary.SupportedEffects[1].CapabilityKnown || summary.SupportedEffects[1].SupportsSpeed {
+		summary.SupportedEffects[0].ID != "future-effect" || summary.SupportedEffects[0].Label != "Future Effect" ||
+		summary.SupportedEffects[0].Palette != "Unknown" || summary.SupportedEffects[0].CapabilityKnown || summary.SupportedEffects[0].SupportsSpeed || summary.SupportedEffects[0].Selected ||
+		summary.SupportedEffects[1].ID != "wave" || summary.SupportedEffects[1].Label != "Wave <Label> & More" ||
+		summary.SupportedEffects[1].Palette != "Two color" || !summary.SupportedEffects[1].CapabilityKnown || !summary.SupportedEffects[1].SupportsSpeed || !summary.SupportedEffects[1].Selected {
 		t.Fatalf("supported Lighting effects = %#v", summary.SupportedEffects)
 	}
 	if summary.BaseDefinition == nil || !summary.BaseDefinition.HasStart || summary.BaseDefinition.Start.Hex != "#000FFF" ||
@@ -112,7 +112,7 @@ func TestDevicesLightingPresentationModel(t *testing.T) {
 	source.SupportedEffects[0].ID = "mutated"
 	source.BaseDefinition.StartColor.Red = 255
 	source.Override.StartColor.Red = 255
-	if summary.SupportedEffects[0].ID != "wave" || summary.BaseDefinition.Start.Hex != "#000FFF" || summary.Override.Start.Hex != "#000000" {
+	if summary.SupportedEffects[1].ID != "wave" || summary.BaseDefinition.Start.Hex != "#000FFF" || summary.Override.Start.Hex != "#000000" {
 		t.Fatal("Lighting presentation retained mutable snapshot data")
 	}
 
@@ -132,6 +132,186 @@ func TestDevicesLightingPresentationModel(t *testing.T) {
 		if label := openRGBLightingPaletteLabel(test.known, test.palette); label != test.label {
 			t.Errorf("palette label = %q, want %q", label, test.label)
 		}
+	}
+}
+
+func TestDevicesLightingEffectSelectorPresentation(t *testing.T) {
+	source := openrgbimport.LightingSnapshot{
+		ConfiguredEffect: "wave",
+		EffectSupported:  true,
+		SupportedEffects: []openrgbimport.LightingEffectOption{
+			{ID: "wave", Label: "Wave"},
+			{ID: "aurora-z", Label: "aurora"},
+			{ID: "off", Label: "Off"},
+			{ID: "circle", Label: "Circle"},
+			{ID: "aurora-a", Label: "Aurora"},
+		},
+	}
+	summary := openRGBLightingWorkspaceSummaryFromSnapshot(source)
+	if len(summary.SupportedEffects) != len(source.SupportedEffects) {
+		t.Fatalf("presentation effect options = %d, want %d snapshot-supported effects", len(summary.SupportedEffects), len(source.SupportedEffects))
+	}
+	wantOrder := []string{"aurora-a", "aurora-z", "circle", "off", "wave"}
+	for index, want := range wantOrder {
+		if summary.SupportedEffects[index].ID != want {
+			t.Fatalf("sorted effect %d = %q, want %q: %#v", index, summary.SupportedEffects[index].ID, want, summary.SupportedEffects)
+		}
+	}
+	if !summary.SupportedEffects[4].Selected {
+		t.Error("configured stable effect ID is not selected")
+	}
+	wantSourceOrder := []string{"wave", "aurora-z", "off", "circle", "aurora-a"}
+	for index, want := range wantSourceOrder {
+		if source.SupportedEffects[index].ID != want {
+			t.Fatalf("source effect %d was reordered to %q, want %q", index, source.SupportedEffects[index].ID, want)
+		}
+	}
+	summary.SupportedEffects[0].ID = "changed"
+	if source.SupportedEffects[4].ID != "aurora-a" {
+		t.Error("presentation effect options alias the source snapshot")
+	}
+
+	emptyLabelOff := openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+		SupportedEffects: []openrgbimport.LightingEffectOption{{ID: "off"}},
+	})
+	if len(emptyLabelOff.SupportedEffects) != 1 || emptyLabelOff.SupportedEffects[0].ID != "off" || emptyLabelOff.SupportedEffects[0].Label != "Off" {
+		t.Fatalf("empty-label supported Off presentation = %#v", emptyLabelOff.SupportedEffects)
+	}
+
+	withoutOff := openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+		SupportedEffects: []openrgbimport.LightingEffectOption{{ID: "static", Label: "Static"}},
+	})
+	if len(withoutOff.SupportedEffects) != 1 || withoutOff.SupportedEffects[0].ID != "static" {
+		t.Fatalf("presentation fabricated an effect absent from the snapshot: %#v", withoutOff.SupportedEffects)
+	}
+}
+
+func TestDevicesLightingEffectSelectorTemplate(t *testing.T) {
+	if os.Getenv(devicesPageHelperEnvironment) == "effect-selector" {
+		initializeDevicesPageTestProcess(t)
+		runDevicesLightingEffectSelectorTemplateAssertions(t)
+		return
+	}
+
+	command := exec.Command(os.Args[0], "-test.run=^TestDevicesLightingEffectSelectorTemplate$")
+	command.Env = append(os.Environ(), devicesPageHelperEnvironment+"=effect-selector")
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Devices Lighting effect selector helper process failed: %v\n%s", err, output)
+	}
+}
+
+func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
+
+	normalBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+		ConfiguredEffect: "wave",
+		EffectSupported:  true,
+		SupportedEffects: []openrgbimport.LightingEffectOption{
+			{ID: "wave", Label: "Wave <Bright> & Wide"},
+			{ID: "off", Label: "Off"},
+		},
+	}))
+	for _, expected := range []string{
+		`<label class="lf-lighting-label" for="lf-lighting-effect-selector">Configured effect</label>`,
+		`data-lf-effect-selector`,
+		`data-lf-device-serial="lighting-template-device"`,
+		`data-lf-current-effect="wave"`,
+		`<option value="off">Off</option>`,
+		`value="wave" selected>Wave &lt;Bright&gt; &amp; Wide</option>`,
+		`Stable ID <code class="lf-lighting-effect-id">wave</code>`,
+		`id="lf-lighting-effect-status" aria-live="polite"`,
+	} {
+		if !strings.Contains(normalBody, expected) {
+			t.Errorf("normal effect selector does not contain %q", expected)
+		}
+	}
+	if strings.Count(normalBody, "<option ") != 2 {
+		t.Errorf("normal effect selector rendered %d options, want exactly the two snapshot options", strings.Count(normalBody, "<option "))
+	}
+	if strings.Index(normalBody, `<option value="off">Off</option>`) > strings.Index(normalBody, `value="wave" selected>`) {
+		t.Error("Off is not alphabetized before Wave in the rendered effect selector")
+	}
+	if strings.Contains(normalBody, "Controlled by RGB Cluster") || strings.Contains(normalBody, `id="lf-lighting-effect-cluster-explanation"`) {
+		t.Error("non-clustered effect selector renders the cluster ownership explanation")
+	}
+
+	withoutOffBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+		SupportedEffects: []openrgbimport.LightingEffectOption{{ID: "static", Label: "Static"}},
+	}))
+	if strings.Contains(withoutOffBody, `value="off"`) || strings.Contains(withoutOffBody, `>Off</option>`) {
+		t.Error("effect selector fabricated Off when the snapshot did not report it")
+	}
+
+	emptyBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+		SupportedEffects: []openrgbimport.LightingEffectOption{{ID: "off", Label: "Off"}},
+	}))
+	for _, expected := range []string{
+		`<option value="" selected disabled>Not configured</option>`,
+		`<option value="off">Off</option>`,
+	} {
+		if !strings.Contains(emptyBody, expected) {
+			t.Errorf("empty configured effect selector does not contain %q", expected)
+		}
+	}
+	if strings.Contains(emptyBody, `Stable ID <code`) {
+		t.Error("empty configured effect fabricated a stable ID")
+	}
+
+	unsupportedBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+		ConfiguredEffect: "legacy<effect>",
+		EffectSupported:  false,
+		SupportedEffects: []openrgbimport.LightingEffectOption{{ID: "static", Label: "Static & Safe"}},
+	}))
+	for _, expected := range []string{
+		`value="legacy&lt;effect&gt;" selected disabled>Unsupported: legacy&lt;effect&gt;</option>`,
+		`<option value="static">Static &amp; Safe</option>`,
+		`Stable ID <code class="lf-lighting-effect-id">legacy&lt;effect&gt;</code>`,
+	} {
+		if !strings.Contains(unsupportedBody, expected) {
+			t.Errorf("unsupported configured effect selector does not contain %q", expected)
+		}
+	}
+	if strings.Contains(unsupportedBody, "legacy<effect>") || strings.Contains(unsupportedBody, "Static & Safe") {
+		t.Error("effect selector rendered an unescaped stable ID or display label")
+	}
+
+	clusterBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+		ConfiguredEffect:  "static",
+		EffectSupported:   true,
+		ClusterControlled: true,
+		SupportedEffects:  []openrgbimport.LightingEffectOption{{ID: "static", Label: "Static"}},
+	}))
+	for _, expected := range []string{
+		`data-lf-cluster-controlled="true"`,
+		`aria-describedby="lf-lighting-effect-status lf-lighting-effect-cluster-explanation"`,
+		`id="lf-lighting-effect-cluster-explanation"`,
+		`Controlled by RGB Cluster. Change active lighting from the <a href="/rgbCluster">RGB Cluster workspace</a>.`,
+		`id="lf-lighting-cluster-note"`,
+	} {
+		if !strings.Contains(clusterBody, expected) {
+			t.Errorf("cluster-controlled effect selector does not contain %q", expected)
+		}
+	}
+	if strings.Count(clusterBody, "RGB Cluster owns output") != 1 {
+		t.Error("cluster-controlled Lighting view does not retain exactly one ownership explanation")
+	}
+	if strings.Count(clusterBody, "Controlled by RGB Cluster. Change active lighting") != 1 {
+		t.Error("cluster-controlled Lighting view does not render exactly one concise inline explanation")
+	}
+	selectorStart := strings.Index(clusterBody, `id="lf-lighting-effect-selector"`)
+	if selectorStart < 0 {
+		t.Fatal("cluster-controlled Lighting view does not render the effect selector")
+	}
+	selectorEnd := strings.Index(clusterBody[selectorStart:], ">")
+	if selectorEnd < 0 || !strings.Contains(clusterBody[selectorStart:selectorStart+selectorEnd], "disabled") {
+		t.Error("cluster-controlled effect selector is not disabled")
+	}
+
+	unavailableBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{}))
+	if !strings.Contains(unavailableBody, "Effect selection unavailable") ||
+		!strings.Contains(unavailableBody, "No supported effects were reported for this controller.") ||
+		strings.Contains(unavailableBody, "data-lf-effect-selector") || strings.Contains(unavailableBody, "<select") {
+		t.Error("missing supported effects did not produce the safe unavailable selector state")
 	}
 }
 
@@ -158,7 +338,9 @@ func renderDevicesLightingView(t *testing.T, lighting *openRGBLightingWorkspaceS
 	return rendered.String()
 }
 
-func runDevicesPageRouteAssertions(t *testing.T) {
+func initializeDevicesPageTestProcess(t *testing.T) {
+	t.Helper()
+
 	packageRoot, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -172,6 +354,10 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	t.Setenv("LUMENFORGE_DATA_ROOT", filepath.Join(temporaryRoot, "data"))
 	config.Init()
 	templates.Init()
+}
+
+func runDevicesPageRouteAssertions(t *testing.T) {
+	initializeDevicesPageTestProcess(t)
 	router := setRoutes()
 
 	emptyRecorder := requestDevicesPage(t, router, "")
@@ -183,6 +369,7 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"No devices available",
 		"class=\"lf-workspace-empty\"",
 		"href=\"/static/css/app-shell.css\"",
+		"src=\"/static/js/devices-lighting.js\"",
 	} {
 		if !strings.Contains(emptyBody, expected) {
 			t.Errorf("empty GET /devices response does not contain %q", expected)
@@ -388,6 +575,7 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"<span class=\"lf-openrgb-zone-led-count\">12 LEDs</span>",
 		"class=\"lf-device-item lf-device-item-active\" href=\"/devices?device=" + visibleSerial + "\" aria-current=\"page\"",
 		"class=\"lf-device-item\" href=\"/devices?device=" + otherSerial + "\"",
+		"<nav class=\"lf-device-workspace-nav\" aria-label=\"Device workspace\">",
 		"class=\"lf-device-workspace-link lf-device-workspace-link-active\" href=\"/devices?device=" + visibleSerial + "\" aria-current=\"page\">Overview</a>",
 		"href=\"/devices?device=" + visibleSerial + "&amp;view=lighting\">Lighting</a>",
 		"Unavailable",
@@ -443,11 +631,22 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"class=\"lf-lighting-workspace\"",
 		"Stored lighting configuration and renderer capabilities",
 		"OpenRGB imported controller",
-		"Read-only preview",
+		"Stored lighting state",
+		"Effect control",
+		"<nav class=\"lf-device-workspace-nav\" aria-label=\"Device workspace\">",
 		"class=\"lf-device-workspace-link\" href=\"/devices?device=" + visibleSerial + "\">Overview</a>",
 		"class=\"lf-device-workspace-link lf-device-workspace-link-active\" href=\"/devices?device=" + visibleSerial + "&amp;view=lighting\" aria-current=\"page\">Lighting</a>",
 		"Static &lt;Effect&gt; &amp; More",
 		"<code class=\"lf-lighting-effect-id\">static</code>",
+		"data-lf-device-serial=\"" + visibleSerial + "\"",
+		"data-lf-current-effect=\"static\"",
+		"data-lf-cluster-controlled=\"true\"",
+		"id=\"lf-lighting-effect-selector\"",
+		"<option value=\"off\">Off</option>",
+		"value=\"static\" selected>Static &lt;Effect&gt; &amp; More</option>",
+		"aria-describedby=\"lf-lighting-effect-status lf-lighting-effect-cluster-explanation\"",
+		"Controlled by RGB Cluster. Change active lighting from the <a href=\"/rgbCluster\">RGB Cluster workspace</a>.",
+		"id=\"lf-lighting-effect-status\" aria-live=\"polite\"",
 		"lf-lighting-status-supported\">Supported",
 		"<small>Brightness</small><strong>0%</strong>",
 		"RGB Cluster owns output",
@@ -473,7 +672,6 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"<form",
 		"<button",
 		"<input",
-		"<select",
 		"type=\"color\"",
 		"type=\"range\"",
 		"method=\"post\"",

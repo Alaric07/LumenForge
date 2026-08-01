@@ -22,6 +22,9 @@
     <script src="/static/js/toastr-init.js"></script>
     <script src="/static/js/dataTables.min.js"></script>
     <script src="/static/js/rgb-speed.js?v=3"></script>
+    {{ if eq .Page "devices" }}
+    <script src="/static/js/devices-lighting.js" defer></script>
+    {{ end }}
 
     <!-- Styles -->
     <link rel="preload" href="/static/css/themes/default.css" as="style">

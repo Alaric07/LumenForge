@@ -238,7 +238,7 @@
                                     {{ if .ConfiguredEffect }}<span class="lf-device-hero-fact"><span>Effect</span><strong>{{ if .ConfiguredEffectLabel }}{{ .ConfiguredEffectLabel }}{{ else }}{{ .ConfiguredEffect }}{{ end }}</strong></span>{{ end }}
                                     {{ if .HasBrightness }}<span class="lf-device-hero-fact"><span>Brightness</span><strong>{{ .Brightness }}%</strong></span>{{ end }}
                                     {{ if .ClusterControlled }}<span class="lf-device-hero-fact lf-device-hero-fact-cluster">RGB Cluster owned</span>{{ end }}
-                                    <span class="lf-device-hero-fact">Read-only preview</span>
+                                    <span class="lf-device-hero-fact">Stored lighting state</span>
                                 {{ end }}
                             {{ else }}
                                 {{ if .Device.Firmware }}<span class="lf-device-hero-fact"><span>Firmware</span><strong>{{ .Device.Firmware }}</strong></span>{{ end }}
@@ -276,13 +276,40 @@
                                         </header>
 
                                         <div class="lf-lighting-effect-stage">
-                                            <div class="lf-lighting-effect-copy">
-                                                <span class="lf-lighting-label">Configured effect</span>
-                                                {{ if .ConfiguredEffect }}
-                                                    <strong class="lf-lighting-effect-name">{{ if .ConfiguredEffectLabel }}{{ .ConfiguredEffectLabel }}{{ else }}{{ .ConfiguredEffect }}{{ end }}</strong>
-                                                    <code class="lf-lighting-effect-id">{{ .ConfiguredEffect }}</code>
+                                            <div class="lf-lighting-effect-control">
+                                                {{ if .SupportedEffects }}
+                                                    <label class="lf-lighting-label" for="lf-lighting-effect-selector">Configured effect</label>
+                                                    <select
+                                                        class="lf-lighting-effect-selector"
+                                                        id="lf-lighting-effect-selector"
+                                                        data-lf-effect-selector
+                                                        data-lf-device-serial="{{ $.Device.Serial }}"
+                                                        data-lf-current-effect="{{ .ConfiguredEffect }}"
+                                                        data-lf-cluster-controlled="{{ .ClusterControlled }}"
+                                                        data-lf-status-id="lf-lighting-effect-status"
+                                                        aria-describedby="lf-lighting-effect-status{{ if .ClusterControlled }} lf-lighting-effect-cluster-explanation{{ end }}"
+                                                        {{ if .ClusterControlled }}disabled{{ end }}
+                                                    >
+                                                        {{ if not .ConfiguredEffect }}
+                                                            <option value="" selected disabled>Not configured</option>
+                                                        {{ else if not .EffectSupported }}
+                                                            <option value="{{ .ConfiguredEffect }}" selected disabled>Unsupported: {{ .ConfiguredEffect }}</option>
+                                                        {{ end }}
+                                                        {{ range .SupportedEffects }}
+                                                            <option value="{{ .ID }}"{{ if .Selected }} selected{{ end }}>{{ .Label }}</option>
+                                                        {{ end }}
+                                                    </select>
+                                                    {{ if .ConfiguredEffect }}
+                                                        <span class="lf-lighting-effect-id-label">Stable ID <code class="lf-lighting-effect-id">{{ .ConfiguredEffect }}</code></span>
+                                                    {{ end }}
+                                                    {{ if .ClusterControlled }}
+                                                        <p class="lf-lighting-effect-cluster-explanation" id="lf-lighting-effect-cluster-explanation">Controlled by RGB Cluster. Change active lighting from the <a href="/rgbCluster">RGB Cluster workspace</a>.</p>
+                                                    {{ end }}
+                                                    <p class="lf-lighting-effect-status" id="lf-lighting-effect-status" aria-live="polite"></p>
                                                 {{ else }}
-                                                    <strong class="lf-lighting-effect-name lf-lighting-effect-name-muted">Not configured</strong>
+                                                    <span class="lf-lighting-label">Configured effect</span>
+                                                    <strong class="lf-lighting-effect-name lf-lighting-effect-name-muted">Effect selection unavailable</strong>
+                                                    <p class="lf-lighting-effect-unavailable">No supported effects were reported for this controller.</p>
                                                 {{ end }}
                                             </div>
                                             <div class="lf-lighting-primary-metrics">
@@ -370,12 +397,12 @@
                                     <section class="lf-lighting-rail-panel lf-lighting-preview-panel">
                                         <span class="lf-lighting-rail-icon" aria-hidden="true">◇</span>
                                         <p class="lf-section-kicker">Workspace state</p>
-                                        <h2>Read-only preview</h2>
-                                        <p>Review stored lighting data here. Use the existing controls page to make changes.</p>
+                                        <h2>Effect control</h2>
+                                        <p>Choose a supported effect here. Use the existing controls page for other lighting changes.</p>
                                     </section>
 
                                     {{ if .ClusterControlled }}
-                                        <section class="lf-lighting-cluster-note" role="note" aria-label="Cluster-controlled lighting">
+                                        <section class="lf-lighting-cluster-note" id="lf-lighting-cluster-note" role="note" aria-label="Cluster-controlled lighting">
                                             <span class="lf-lighting-rail-icon" aria-hidden="true">⌁</span>
                                             <h2>RGB Cluster owns output</h2>
                                             <p>Local configuration remains stored, but cluster output currently owns lighting. The values shown here may not match visible physical output.</p>

@@ -201,7 +201,7 @@ func TestDevicesThemeRuleSelectionContract(t *testing.T) {
 	})
 }
 
-func TestDevicesThemeIntegrationRemainsReadOnly(t *testing.T) {
+func TestDevicesThemeIntegrationContract(t *testing.T) {
 	root := devicesThemeRepositoryRoot(t)
 	appShell := devicesThemeReadFile(t, filepath.Join(root, "static", "css", "app-shell.css"))
 	consumedTokens := []string{
@@ -231,6 +231,12 @@ func TestDevicesThemeIntegrationRemainsReadOnly(t *testing.T) {
 		"--lf-shadow-elevated",
 		"--lf-surface-hover",
 		"--lf-focus-ring",
+		"--lf-disabled-border",
+		"--lf-control-disabled-track",
+		"--lf-control-popup",
+		"--lf-control-popup-border",
+		"--lf-control-option-selected",
+		"--lf-control-option-hover",
 	}
 	for _, token := range consumedTokens {
 		if !strings.Contains(appShell, "var("+token+")") {
@@ -274,7 +280,6 @@ func TestDevicesThemeIntegrationRemainsReadOnly(t *testing.T) {
 	for _, forbiddenControl := range []string{
 		"<form",
 		"<input",
-		"<select",
 		"<script",
 		"fetch(",
 		"setinterval(",
@@ -283,8 +288,30 @@ func TestDevicesThemeIntegrationRemainsReadOnly(t *testing.T) {
 		"onchange=",
 	} {
 		if strings.Contains(lowerTemplate, forbiddenControl) {
-			t.Errorf("read-only Devices template contains %q", forbiddenControl)
+			t.Errorf("Devices template contains prohibited control or behavior %q", forbiddenControl)
 		}
+	}
+	for _, selectorContract := range []string{
+		`<label class="lf-lighting-label" for="lf-lighting-effect-selector">`,
+		`class="lf-lighting-effect-selector"`,
+		`data-lf-effect-selector`,
+		`aria-live="polite"`,
+	} {
+		if !strings.Contains(devicesTemplate, selectorContract) {
+			t.Errorf("Devices effect selector is missing %q", selectorContract)
+		}
+	}
+	headTemplate := devicesThemeReadFile(t, filepath.Join(root, "web", "head.html"))
+	securityScript := `<script src="/static/js/security.js?v=1"></script>`
+	lightingScript := `<script src="/static/js/devices-lighting.js" defer></script>`
+	securityScriptIndex := strings.Index(headTemplate, securityScript)
+	lightingScriptIndex := strings.Index(headTemplate, lightingScript)
+	if securityScriptIndex < 0 {
+		t.Error("protected fetch wrapper is not loaded by the shared head template")
+	} else if lightingScriptIndex < 0 {
+		t.Error("Devices Lighting script is not loaded by the shared head template")
+	} else if securityScriptIndex > lightingScriptIndex {
+		t.Error("Devices Lighting script loads before the protected fetch wrapper")
 	}
 
 	for _, templateName := range []string{"head.html", "xeneon.html"} {

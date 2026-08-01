@@ -522,38 +522,47 @@
 .lf-app-shell .lf-device-workspace-nav {
     min-width: 0;
     display: flex;
-    gap: 26px;
+    flex-wrap: wrap;
+    gap: 8px;
     margin: 24px 4px 0;
-    border-bottom: 1px solid var(--lf-border-subtle);
 }
 
 .lf-app-shell .lf-device-workspace-link {
-    min-height: 46px;
+    max-width: 100%;
+    min-height: 44px;
     display: inline-flex;
     align-items: center;
     position: relative;
-    padding: 8px 3px 13px;
+    padding: 9px 16px;
+    border: 1px solid var(--lf-border-subtle);
+    border-radius: 7px;
     color: var(--lf-text-secondary);
-    font-size: 14px;
-    font-weight: 650;
+    background: var(--lf-surface-subdued);
+    font-size: 15px;
+    font-weight: 660;
     text-decoration: none;
-    transition: color 150ms ease;
+    transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
 }
 
 .lf-app-shell .lf-device-workspace-link:hover {
+    border-color: var(--lf-border-emphasized);
     color: var(--lf-text-primary);
+    background: var(--lf-surface-hover);
 }
 
 .lf-app-shell .lf-device-workspace-link-active {
+    border-color: var(--lf-border-selected);
     color: var(--lf-text-primary);
+    background: var(--lf-surface-selected);
+    box-shadow: 0 0 12px var(--lf-glow-selected);
 }
 
 .lf-app-shell .lf-device-workspace-link-active::after {
     height: 3px;
     position: absolute;
-    right: 0;
-    bottom: -1px;
-    left: 0;
+    right: 8px;
+    bottom: 0;
+    left: 8px;
     content: "";
     border-radius: 3px 3px 0 0;
     background: linear-gradient(90deg, var(--lf-accent-secondary), var(--lf-accent-primary), var(--lf-accent-highlight));
@@ -884,12 +893,107 @@
     margin-top: 30px;
 }
 
-.lf-app-shell .lf-lighting-effect-copy {
+.lf-app-shell .lf-lighting-effect-control {
     min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
+}
+
+.lf-app-shell .lf-lighting-effect-selector {
+    width: 100%;
+    min-height: 54px;
+    padding: 10px 38px 10px 14px;
+    border: 1px solid var(--lf-control-popup-border);
+    border-radius: 9px;
+    color: var(--lf-text-primary);
+    background-color: var(--lf-control-popup);
+    font: inherit;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.3;
+    cursor: pointer;
+}
+
+.lf-app-shell .lf-lighting-effect-selector:hover:not(:disabled) {
+    border-color: var(--lf-accent-secondary);
+    background-color: var(--lf-control-option-hover);
+}
+
+.lf-app-shell .lf-lighting-effect-selector:focus-visible {
+    outline: 3px solid var(--lf-focus-ring);
+    outline-offset: 2px;
+    border-color: var(--lf-accent-primary);
+}
+
+.lf-app-shell .lf-lighting-effect-selector:disabled {
+    border-color: var(--lf-disabled-border);
+    color: var(--lf-text-muted);
+    background-color: var(--lf-control-disabled-track);
+    cursor: not-allowed;
+}
+
+.lf-app-shell .lf-lighting-effect-selector option {
+    color: var(--lf-text-primary);
+    background: var(--lf-control-popup);
+}
+
+.lf-app-shell .lf-lighting-effect-selector option:checked {
+    color: var(--lf-text-primary);
+    background: var(--lf-control-option-selected);
+}
+
+.lf-app-shell .lf-lighting-effect-selector option:hover {
+    background: var(--lf-control-option-hover);
+}
+
+.lf-app-shell .lf-lighting-effect-id-label,
+.lf-app-shell .lf-lighting-effect-status,
+.lf-app-shell .lf-lighting-effect-unavailable,
+.lf-app-shell .lf-lighting-effect-cluster-explanation {
+    max-width: 100%;
+    margin: 0;
+    color: var(--lf-text-muted);
+    font-size: 12px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.lf-app-shell .lf-lighting-effect-id-label {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.lf-app-shell .lf-lighting-effect-status {
+    min-height: 18px;
+}
+
+.lf-app-shell .lf-lighting-effect-status:not(:empty) {
+    color: var(--bad);
+}
+
+.lf-app-shell .lf-lighting-effect-cluster-explanation {
+    padding: 9px 11px;
+    border: 1px solid var(--lf-border-emphasized);
+    border-radius: 7px;
+    color: var(--lf-text-secondary);
+    background: var(--lf-surface-subdued);
+}
+
+.lf-app-shell .lf-lighting-effect-cluster-explanation a {
+    color: var(--lf-accent-highlight);
+    font-weight: 700;
+}
+
+.lf-app-shell .lf-lighting-effect-cluster-explanation a:hover {
+    color: var(--lf-text-primary);
+}
+
+.lf-app-shell .lf-lighting-effect-cluster-explanation a:focus-visible {
+    outline: 2px solid var(--lf-focus-ring);
+    outline-offset: 2px;
 }
 
 .lf-app-shell .lf-lighting-label,
@@ -1599,8 +1703,13 @@
 
     .lf-app-shell .lf-device-workspace-nav {
         flex-wrap: wrap;
-        gap: 22px;
+        gap: 8px;
         margin-top: 18px;
+    }
+
+    .lf-app-shell .lf-device-workspace-link {
+        flex: 1 1 140px;
+        justify-content: center;
     }
 
     .lf-app-shell .lf-openrgb-grid,
