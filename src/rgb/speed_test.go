@@ -2,6 +2,7 @@ package rgb
 
 import (
 	"math"
+	"reflect"
 	"testing"
 )
 
@@ -35,24 +36,101 @@ func TestProfileSpeedRange(t *testing.T) {
 }
 
 func TestHasSpeedControl(t *testing.T) {
-	noSpeedProfiles := []string{
+	noSpeedEffects := []string{
+		"off",
 		"static",
 		"cpu-temperature",
 		"gpu-temperature",
-		"liquid-temperature",
-		"probe-temperature",
-		"off",
 	}
-	for _, profile := range noSpeedProfiles {
+	for _, effect := range noSpeedEffects {
+		if HasSpeedControl(effect) {
+			t.Errorf("HasSpeedControl(%q) = true, want false", effect)
+		}
+	}
+
+	speedEffects := []string{
+		"arc",
+		"aurora",
+		"circle",
+		"circleshift",
+		"colorpulse",
+		"colorshift",
+		"colorwarp",
+		"comet",
+		"cyberpunkglitch",
+		"datastream",
+		"flame",
+		"flickering",
+		"gradient",
+		"marquee",
+		"nebula",
+		"pastelrainbow",
+		"pastelspiralrainbow",
+		"plasmacore",
+		"rain",
+		"rainbow",
+		"rotarystack",
+		"rotator",
+		"sequential",
+		"spinner",
+		"spiralrainbow",
+		"stardust",
+		"storm",
+		"tokyonight",
+		"visor",
+		"watercolor",
+		"wave",
+	}
+	for _, effect := range speedEffects {
+		if !HasSpeedControl(effect) {
+			t.Errorf("HasSpeedControl(%q) = false, want true", effect)
+		}
+	}
+
+	if got := len(noSpeedEffects) + len(speedEffects); got != 35 {
+		t.Fatalf("generic speed contract covers %d effects, want 35", got)
+	}
+}
+
+func TestHasSpeedControlCompatibilityInputs(t *testing.T) {
+	for _, profile := range []string{"liquid-temperature", "probe-temperature"} {
 		if HasSpeedControl(profile) {
 			t.Errorf("HasSpeedControl(%q) = true, want false", profile)
 		}
 	}
 
-	for _, profile := range []string{"storm", "circle"} {
+	for _, profile := range []string{
+		"",
+		"future-effect",
+		"ARC",
+		" arc",
+		"arc ",
+		"colorwave",
+		"led",
+		"rainbowwave",
+		"tlk",
+		"tlr",
+	} {
 		if !HasSpeedControl(profile) {
 			t.Errorf("HasSpeedControl(%q) = false, want true", profile)
 		}
+	}
+}
+
+func TestHasSpeedControlDescriptorParityAndImmutability(t *testing.T) {
+	descriptorsBefore := SoftwareEffectDescriptors()
+	if len(descriptorsBefore) != 35 {
+		t.Fatalf("descriptor count = %d, want 35", len(descriptorsBefore))
+	}
+
+	for _, descriptor := range descriptorsBefore {
+		if got := HasSpeedControl(descriptor.ID); got != descriptor.SupportsSpeed {
+			t.Errorf("HasSpeedControl(%q) = %t, want descriptor value %t", descriptor.ID, got, descriptor.SupportsSpeed)
+		}
+	}
+
+	if descriptorsAfter := SoftwareEffectDescriptors(); !reflect.DeepEqual(descriptorsAfter, descriptorsBefore) {
+		t.Fatalf("HasSpeedControl mutated the canonical descriptor registry:\nbefore: %#v\nafter:  %#v", descriptorsBefore, descriptorsAfter)
 	}
 }
 

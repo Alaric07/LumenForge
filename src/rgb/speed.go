@@ -10,13 +10,13 @@ const (
 // persisted speed. Profiles that do not use speed retain the field only for
 // compatibility with existing profile JSON.
 func HasSpeedControl(profile string) bool {
+	if descriptor, ok := SoftwareEffectDescriptorByID(profile); ok {
+		return descriptor.SupportsSpeed
+	}
+
+	// Device-specific temperature profiles retain their established behavior.
 	switch profile {
-	case "static",
-		"cpu-temperature",
-		"gpu-temperature",
-		"liquid-temperature",
-		"probe-temperature",
-		"off":
+	case "liquid-temperature", "probe-temperature":
 		return false
 	default:
 		return true
