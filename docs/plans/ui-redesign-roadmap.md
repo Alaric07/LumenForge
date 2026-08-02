@@ -213,7 +213,7 @@ consumer. Existing sources should not be deleted together in one broad commit.
 
 Implement controls in this order:
 
-1. [ ] Theme-aware brightness slider
+1. [x] Theme-aware brightness slider (`e46d19ec`)
 2. [ ] Speed slider shown only when supported
 3. [ ] Static single-color editor
 4. [ ] Two-color Start/End editor
@@ -224,6 +224,31 @@ Implement controls in this order:
 9. [ ] Persistence and reload verification
 10. [ ] Accessible pending, success, and failure states
 11. [ ] Cluster-owned disablement beside every affected control
+
+The theme-aware brightness control establishes the reusable slider pattern:
+
+- A native accessible range input uses shared theme-aware styling, with
+  Firefox and WebKit presentation driven by existing semantic tokens.
+- An editable native numeric percentage input stays synchronized with the
+  range. Range movement previews locally and commits one mutation on release;
+  numeric entry commits on Enter, change, or blur without duplicate requests.
+- Both inputs share one mutation path, timeout, in-flight lock, confirmed
+  baseline, and failure-restoration path. Pending and success messages are
+  transient, while failure remains until a later valid interaction.
+- The persisted value survives reload and restart. RGB Cluster ownership
+  disables both controls and is independently enforced by
+  `Device.SetBrightness`.
+- Unavailable brightness renders neither a slider nor a fabricated percentage.
+- Automated, repeated, and race tests passed, along with controlled browser
+  and hardware validation and CodeRabbit review.
+
+Settled interaction pattern for future sliders:
+
+- Range movement updates the local preview.
+- Releasing commits one persisted mutation.
+- Direct numeric entry commits on Enter, change, or blur.
+- Permanent instructional text is unnecessary.
+- Transient status appears only when useful.
 
 For OpenRGB-imported devices, RGB Override must be presented truthfully as
 controller-wide unless a future capability explicitly proves finer-grained
@@ -423,7 +448,7 @@ roadmap does not promise that every duplicate will be deleted.
 6. [x] Expand compatible LumenForge software effects to individual
    OpenRGB-imported devices (`e3df7bcd`).
 7. [x] Integrate selected-effect icons (`401a132e`).
-8. [ ] Add theme-aware brightness control.
+8. [x] Add theme-aware brightness control (`e46d19ec`).
 9. [ ] Add conditional speed control.
 10. [ ] Add palette and color editors.
 11. [ ] Add local override controls.
@@ -454,7 +479,6 @@ Record any change and its reason in this document.
 ## 16. Open decisions
 
 - [!] Visual treatment for generated-palette effects
-- [!] Exact custom slider interaction and appearance
 - [!] Persistence location for collapsed sidebar state
 - [!] Whether future renderer dispatch remains switch-based or uses registered
   function references
