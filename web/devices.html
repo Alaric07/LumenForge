@@ -10,6 +10,16 @@
     </span>
 {{ end }}
 
+{{ define "lf-lighting-effect-icon" }}
+    <span class="lf-lighting-effect-icon-frame" aria-hidden="true">
+        {{ if .ConfiguredEffectIconURL }}
+            <span class="lf-lighting-effect-icon-art" style="--lf-lighting-effect-mask: url('{{ .ConfiguredEffectIconURL }}');"></span>
+        {{ else }}
+            <span class="lf-lighting-effect-icon-fallback">◇</span>
+        {{ end }}
+    </span>
+{{ end }}
+
 {{ define "lf-lighting-palette" }}
     {{ if . }}
         <div class="lf-lighting-palette" data-palette="{{ .Palette }}">
@@ -276,10 +286,13 @@
                                         </header>
 
                                         <div class="lf-lighting-effect-stage">
-                                            <div class="lf-lighting-effect-control">
-                                                {{ if .SupportedEffects }}
-                                                    <label class="lf-lighting-label" for="lf-lighting-effect-selector">Configured effect</label>
-                                                    <select
+                                            <div class="lf-lighting-effect-identity">
+                                                {{ if .ConfiguredEffect }}{{ template "lf-lighting-effect-icon" . }}{{ end }}
+                                                <div class="lf-lighting-effect-control">
+                                                    {{ if .SupportedEffects }}
+                                                        <label class="lf-lighting-label" for="lf-lighting-effect-selector">Configured effect</label>
+                                                        {{ if .ConfiguredEffect }}<strong class="lf-lighting-effect-name">{{ if .ConfiguredEffectLabel }}{{ .ConfiguredEffectLabel }}{{ else }}{{ .ConfiguredEffect }}{{ end }}</strong>{{ end }}
+                                                        <select
                                                         class="lf-lighting-effect-selector"
                                                         id="lf-lighting-effect-selector"
                                                         data-lf-effect-selector
@@ -306,11 +319,12 @@
                                                         <p class="lf-lighting-effect-cluster-explanation" id="lf-lighting-effect-cluster-explanation">Controlled by RGB Cluster. Change active lighting from the <a href="/rgbCluster">RGB Cluster workspace</a>.</p>
                                                     {{ end }}
                                                     <p class="lf-lighting-effect-status" id="lf-lighting-effect-status" aria-live="polite"></p>
-                                                {{ else }}
-                                                    <span class="lf-lighting-label">Configured effect</span>
-                                                    <strong class="lf-lighting-effect-name lf-lighting-effect-name-muted">Effect selection unavailable</strong>
-                                                    <p class="lf-lighting-effect-unavailable">No supported effects were reported for this controller.</p>
-                                                {{ end }}
+                                                    {{ else }}
+                                                        <span class="lf-lighting-label">Configured effect</span>
+                                                        <strong class="lf-lighting-effect-name lf-lighting-effect-name-muted">Effect selection unavailable</strong>
+                                                        <p class="lf-lighting-effect-unavailable">No supported effects were reported for this controller.</p>
+                                                    {{ end }}
+                                                </div>
                                             </div>
                                             <div class="lf-lighting-primary-metrics">
                                                 <span><small>Palette</small><strong>{{ if .ConfiguredEffect }}{{ .ConfiguredPalette }}{{ else }}Unknown{{ end }}</strong></span>
@@ -324,7 +338,19 @@
                                                 <span>Effective stored palette</span>
                                                 {{ if .Effective }}<strong>{{ .Effective.Palette }}</strong>{{ end }}
                                             </div>
-                                            {{ template "lf-lighting-palette" .Effective }}
+                                            {{ if and .Effective (eq .Effective.Palette "Generated palette") }}
+                                                <div class="lf-lighting-palette" data-palette="Generated palette">
+                                                    <div class="lf-lighting-palette-concept lf-lighting-palette-generated-effect">
+                                                        {{ template "lf-lighting-effect-icon" . }}
+                                                        <span>
+                                                            <strong>Generated palette</strong>
+                                                            <span>The renderer generates its palette; no fixed colors are stored.</span>
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            {{ else }}
+                                                {{ template "lf-lighting-palette" .Effective }}
+                                            {{ end }}
                                             {{ if and .Effective .Effective.HasSpeed }}
                                                 <p class="lf-lighting-speed lf-lighting-speed-primary"><span>Effective speed</span><strong>{{ .Effective.Speed }}</strong></p>
                                             {{ end }}

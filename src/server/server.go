@@ -2381,6 +2381,7 @@ type openRGBLightingWorkspaceSummary struct {
 	HasActiveProfile          bool
 	ConfiguredEffect          string
 	ConfiguredEffectLabel     string
+	ConfiguredEffectIconURL   string
 	EffectSupported           bool
 	ConfiguredCapabilityKnown bool
 	ConfiguredPalette         string
@@ -2483,6 +2484,24 @@ func openRGBLightingEffectDisplayLabel(id, label string) string {
 	return strings.ToUpper(id[:1]) + id[1:]
 }
 
+func openRGBLightingEffectIconURL(id string) string {
+	descriptor, ok := rgb.SoftwareEffectDescriptorByID(id)
+	if !ok || !descriptor.Scope.Includes(rgb.EffectScopeDevice) {
+		return ""
+	}
+	stem, ok := strings.CutSuffix(descriptor.Icon, ".svg")
+	if !ok || stem == "" {
+		return ""
+	}
+	for _, character := range stem {
+		if (character < 'a' || character > 'z') &&
+			(character < '0' || character > '9') && character != '-' {
+			return ""
+		}
+	}
+	return "/static/img/icons/rgb/" + descriptor.Icon
+}
+
 func openRGBLightingDefinitionFromSnapshot(snapshot *openrgbimport.LightingDefinitionSnapshot) *openRGBLightingDefinitionSummary {
 	if snapshot == nil {
 		return nil
@@ -2535,6 +2554,9 @@ func openRGBLightingWorkspaceSummaryFromSnapshot(snapshot openrgbimport.Lighting
 			summary.ConfiguredCapabilityKnown = effect.CapabilityKnown
 			summary.ConfiguredPalette = openRGBLightingPaletteLabel(effect.CapabilityKnown, effect.Capability.Palette)
 			summary.ConfiguredSupportsSpeed = effect.CapabilityKnown && effect.Capability.SupportsSpeed
+			if snapshot.EffectSupported {
+				summary.ConfiguredEffectIconURL = openRGBLightingEffectIconURL(effect.ID)
+			}
 		}
 	}
 	sort.Slice(summary.SupportedEffects, func(i, j int) bool {

@@ -260,6 +260,7 @@ func TestDevicesThemeIntegrationContract(t *testing.T) {
 		"#9c5cff",
 		"rgba(77, 141, 255",
 		"rgba(53, 216, 255",
+		"#5599ff",
 	} {
 		if strings.Contains(strings.ToLower(appShell), fixedAccent) {
 			t.Errorf("app-shell.css retains fixed semantic accent %q", fixedAccent)
@@ -267,6 +268,34 @@ func TestDevicesThemeIntegrationContract(t *testing.T) {
 	}
 
 	devicesTemplate := devicesThemeReadFile(t, filepath.Join(root, "web", "devices.html"))
+	iconRule := devicesThemeRuleBody(t, appShell, ".lf-app-shell .lf-lighting-effect-icon-art")
+	for _, contract := range []string{
+		"background-color: var(--lf-accent-highlight)",
+		"-webkit-mask-image: var(--lf-lighting-effect-mask)",
+		"mask-image: var(--lf-lighting-effect-mask)",
+		"-webkit-mask-repeat: no-repeat",
+		"mask-repeat: no-repeat",
+		"-webkit-mask-position: center",
+		"mask-position: center",
+		"-webkit-mask-size: contain",
+		"mask-size: contain",
+		"var(--lf-glow-selected)",
+	} {
+		if !strings.Contains(iconRule, contract) {
+			t.Errorf("effect icon CSS does not contain %q", contract)
+		}
+	}
+	fallbackRule := devicesThemeRuleBody(t, appShell, ".lf-app-shell .lf-lighting-effect-icon-fallback")
+	if !strings.Contains(fallbackRule, "color: var(--lf-text-muted)") {
+		t.Error("generic effect icon fallback does not use the subdued semantic text token")
+	}
+	for _, theme := range []string{"default", "catppuccin-macchiato", "cyberpunk", "dracula", "tokyonight"} {
+		themeCSS := devicesThemeReadFile(t, filepath.Join(root, "static", "css", "themes", theme+".css"))
+		if strings.Contains(themeCSS, "lf-lighting-effect-icon") {
+			t.Errorf("theme %q duplicates the shared effect-icon component", theme)
+		}
+	}
+
 	for _, renderedColor := range []string{
 		`fill="{{ .Hex }}"`,
 		`class="lf-lighting-color-hex">{{ .Hex }}</code>`,
@@ -300,6 +329,18 @@ func TestDevicesThemeIntegrationContract(t *testing.T) {
 		if !strings.Contains(devicesTemplate, selectorContract) {
 			t.Errorf("Devices effect selector is missing %q", selectorContract)
 		}
+	}
+	for _, iconContract := range []string{
+		`class="lf-lighting-effect-icon-frame" aria-hidden="true"`,
+		`style="--lf-lighting-effect-mask: url('{{ .ConfiguredEffectIconURL }}');"`,
+		`class="lf-lighting-effect-icon-fallback"`,
+	} {
+		if !strings.Contains(devicesTemplate, iconContract) {
+			t.Errorf("Devices effect icon template is missing %q", iconContract)
+		}
+	}
+	if strings.Contains(devicesTemplate, `<img class="lf-lighting-effect`) {
+		t.Error("Devices effect icon is rendered as an image instead of a theme-colored CSS mask")
 	}
 	headTemplate := devicesThemeReadFile(t, filepath.Join(root, "web", "head.html"))
 	securityScript := `<script src="/static/js/security.js?v=1"></script>`

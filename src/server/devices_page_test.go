@@ -88,6 +88,7 @@ func TestDevicesLightingPresentationModel(t *testing.T) {
 
 	summary := openRGBLightingWorkspaceSummaryFromSnapshot(source)
 	if !summary.HasActiveProfile || summary.ConfiguredEffect != "wave" || summary.ConfiguredEffectLabel != "Wave <Label> & More" ||
+		summary.ConfiguredEffectIconURL != "/static/img/icons/rgb/wave.svg" ||
 		!summary.EffectSupported || !summary.ConfiguredCapabilityKnown || summary.ConfiguredPalette != "Two color" ||
 		!summary.ConfiguredSupportsSpeed || !summary.HasBrightness || summary.Brightness != 0 || !summary.ClusterControlled {
 		t.Fatalf("configured Lighting presentation = %#v", summary)
@@ -131,6 +132,69 @@ func TestDevicesLightingPresentationModel(t *testing.T) {
 	} {
 		if label := openRGBLightingPaletteLabel(test.known, test.palette); label != test.label {
 			t.Errorf("palette label = %q, want %q", label, test.label)
+		}
+	}
+}
+
+func TestDevicesLightingEffectIconInventory(t *testing.T) {
+	root := devicesThemeRepositoryRoot(t)
+	descriptors := rgb.SoftwareEffectDescriptors()
+	deviceDescriptors := make([]rgb.SoftwareEffectDescriptor, 0, len(descriptors))
+	seenIDs := make(map[string]string, len(descriptors))
+
+	for _, descriptor := range descriptors {
+		if !descriptor.Scope.Includes(rgb.EffectScopeDevice) {
+			continue
+		}
+		deviceDescriptors = append(deviceDescriptors, descriptor)
+		if previous, exists := seenIDs[descriptor.ID]; exists && previous != descriptor.Icon {
+			t.Errorf("software effect ID %q maps to conflicting icons %q and %q", descriptor.ID, previous, descriptor.Icon)
+		}
+		seenIDs[descriptor.ID] = descriptor.Icon
+
+		if descriptor.Icon == "" || !strings.HasSuffix(descriptor.Icon, ".svg") {
+			t.Errorf("software effect %q icon = %q, want a non-empty SVG filename", descriptor.ID, descriptor.Icon)
+			continue
+		}
+		if filepath.Base(descriptor.Icon) != descriptor.Icon || strings.ContainsAny(descriptor.Icon, `/\\`) {
+			t.Errorf("software effect %q icon is not a safe filename: %q", descriptor.ID, descriptor.Icon)
+			continue
+		}
+
+		wantURL := "/static/img/icons/rgb/" + descriptor.Icon
+		summary := openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+			ConfiguredEffect: descriptor.ID,
+			EffectSupported:  true,
+			SupportedEffects: []openrgbimport.LightingEffectOption{{ID: descriptor.ID, Label: descriptor.Label}},
+		})
+		if summary.ConfiguredEffectIconURL != wantURL {
+			t.Errorf("software effect %q icon URL = %q, want %q", descriptor.ID, summary.ConfiguredEffectIconURL, wantURL)
+		}
+		if _, err := os.Stat(filepath.Join(root, "static", "img", "icons", "rgb", descriptor.Icon)); err != nil {
+			t.Errorf("software effect %q icon asset %q: %v", descriptor.ID, descriptor.Icon, err)
+		}
+	}
+
+	if len(deviceDescriptors) != 35 {
+		t.Fatalf("device-scoped software effect descriptors = %d, want 35", len(deviceDescriptors))
+	}
+	for id, wantIcon := range map[string]string{
+		"off":                 "off.svg",
+		"aurora":              "aurora.svg",
+		"spiralrainbow":       "spiralrainbow.svg",
+		"pastelspiralrainbow": "pastelspiralrainbow.svg",
+		"visor":               "visor.svg",
+		"watercolor":          "watercolor.svg",
+	} {
+		descriptor, ok := rgb.SoftwareEffectDescriptorByID(id)
+		if !ok || descriptor.Icon != wantIcon {
+			t.Errorf("software effect %q icon = %q, found = %t, want %q", id, descriptor.Icon, ok, wantIcon)
+		}
+	}
+
+	for _, id := range []string{"unknown", "../wave", `wave');background:url(/escaped.svg);/*`} {
+		if got := openRGBLightingEffectIconURL(id); got != "" {
+			t.Errorf("non-canonical software effect ID %q produced icon URL %q", id, got)
 		}
 	}
 }
@@ -213,6 +277,9 @@ func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
 	}))
 	for _, expected := range []string{
 		`<label class="lf-lighting-label" for="lf-lighting-effect-selector">Configured effect</label>`,
+		`<span class="lf-lighting-effect-icon-frame" aria-hidden="true">`,
+		`class="lf-lighting-effect-icon-art" style="--lf-lighting-effect-mask: url('/static/img/icons/rgb/wave.svg');"`,
+		`<strong class="lf-lighting-effect-name">Wave &lt;Bright&gt; &amp; Wide</strong>`,
 		`data-lf-effect-selector`,
 		`data-lf-device-serial="lighting-template-device"`,
 		`data-lf-current-effect="wave"`,
@@ -228,11 +295,41 @@ func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
 	if strings.Count(normalBody, "<option ") != 2 {
 		t.Errorf("normal effect selector rendered %d options, want exactly the two snapshot options", strings.Count(normalBody, "<option "))
 	}
+	selectorStart := strings.Index(normalBody, `<select`)
+	selectorEnd := strings.Index(normalBody, `</select>`)
+	if selectorStart < 0 || selectorEnd < selectorStart {
+		t.Fatal("normal effect selector markup is incomplete")
+	}
+	for _, forbidden := range []string{"<img", "<span", "style=", "mask"} {
+		if strings.Contains(normalBody[selectorStart:selectorEnd], forbidden) {
+			t.Errorf("native effect selector contains non-text option presentation %q", forbidden)
+		}
+	}
 	if strings.Index(normalBody, `<option value="off">Off</option>`) > strings.Index(normalBody, `value="wave" selected>`) {
 		t.Error("Off is not alphabetized before Wave in the rendered effect selector")
 	}
 	if strings.Contains(normalBody, "Controlled by RGB Cluster") || strings.Contains(normalBody, `id="lf-lighting-effect-cluster-explanation"`) {
 		t.Error("non-clustered effect selector renders the cluster ownership explanation")
+	}
+	if strings.Contains(normalBody, "ZgotmplZ") || strings.Contains(normalBody, `<img class="lf-lighting-effect`) {
+		t.Error("known effect icon did not render as a safely escaped CSS mask")
+	}
+	poisonedLabelBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+		ConfiguredEffect: "wave",
+		EffectSupported:  true,
+		SupportedEffects: []openrgbimport.LightingEffectOption{{ID: "wave", Label: `Wave "');background:url(/label.svg);\\`}},
+	}))
+	iconTagStart := strings.Index(poisonedLabelBody, `<span class="lf-lighting-effect-icon-art"`)
+	if iconTagStart < 0 {
+		t.Fatal("effect with CSS-like label does not render its canonical icon")
+	}
+	iconTagEnd := strings.Index(poisonedLabelBody[iconTagStart:], ">")
+	if iconTagEnd < 0 {
+		t.Fatal("effect with CSS-like label renders an incomplete icon tag")
+	}
+	wantIconTag := `<span class="lf-lighting-effect-icon-art" style="--lf-lighting-effect-mask: url('/static/img/icons/rgb/wave.svg');">`
+	if iconTag := poisonedLabelBody[iconTagStart : iconTagStart+iconTagEnd+1]; iconTag != wantIconTag {
+		t.Errorf("CSS-like effect label influenced icon tag: got %q, want %q", iconTag, wantIconTag)
 	}
 
 	withoutOffBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
@@ -257,22 +354,35 @@ func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
 		t.Error("empty configured effect fabricated a stable ID")
 	}
 
+	maliciousEffectID := `legacy');background:url(/escaped.svg);\\<effect>`
 	unsupportedBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
-		ConfiguredEffect: "legacy<effect>",
+		ConfiguredEffect: maliciousEffectID,
 		EffectSupported:  false,
 		SupportedEffects: []openrgbimport.LightingEffectOption{{ID: "static", Label: "Static & Safe"}},
 	}))
 	for _, expected := range []string{
-		`value="legacy&lt;effect&gt;" selected disabled>Unsupported: legacy&lt;effect&gt;</option>`,
 		`<option value="static">Static &amp; Safe</option>`,
-		`Stable ID <code class="lf-lighting-effect-id">legacy&lt;effect&gt;</code>`,
+		`class="lf-lighting-effect-icon-fallback"`,
 	} {
 		if !strings.Contains(unsupportedBody, expected) {
 			t.Errorf("unsupported configured effect selector does not contain %q", expected)
 		}
 	}
-	if strings.Contains(unsupportedBody, "legacy<effect>") || strings.Contains(unsupportedBody, "Static & Safe") {
+	if strings.Contains(unsupportedBody, maliciousEffectID) || strings.Contains(unsupportedBody, "Static & Safe") {
 		t.Error("effect selector rendered an unescaped stable ID or display label")
+	}
+	if strings.Contains(unsupportedBody, `--lf-lighting-effect-mask:`) {
+		t.Error("unsupported configured effect influenced a CSS mask URL")
+	}
+
+	knownUnsupportedBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+		ConfiguredEffect: "wave",
+		EffectSupported:  false,
+		SupportedEffects: []openrgbimport.LightingEffectOption{{ID: "static", Label: "Static"}},
+	}))
+	if !strings.Contains(knownUnsupportedBody, `class="lf-lighting-effect-icon-fallback"`) ||
+		strings.Contains(knownUnsupportedBody, `/static/img/icons/rgb/wave.svg`) {
+		t.Error("known but unsupported effect did not retain the generic fallback")
 	}
 
 	clusterBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
@@ -285,6 +395,7 @@ func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
 		`data-lf-cluster-controlled="true"`,
 		`aria-describedby="lf-lighting-effect-status lf-lighting-effect-cluster-explanation"`,
 		`id="lf-lighting-effect-cluster-explanation"`,
+		`/static/img/icons/rgb/static.svg`,
 		`Controlled by RGB Cluster. Change active lighting from the <a href="/rgbCluster">RGB Cluster workspace</a>.`,
 		`id="lf-lighting-cluster-note"`,
 	} {
@@ -298,11 +409,11 @@ func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
 	if strings.Count(clusterBody, "Controlled by RGB Cluster. Change active lighting") != 1 {
 		t.Error("cluster-controlled Lighting view does not render exactly one concise inline explanation")
 	}
-	selectorStart := strings.Index(clusterBody, `id="lf-lighting-effect-selector"`)
+	selectorStart = strings.Index(clusterBody, `id="lf-lighting-effect-selector"`)
 	if selectorStart < 0 {
 		t.Fatal("cluster-controlled Lighting view does not render the effect selector")
 	}
-	selectorEnd := strings.Index(clusterBody[selectorStart:], ">")
+	selectorEnd = strings.Index(clusterBody[selectorStart:], ">")
 	if selectorEnd < 0 || !strings.Contains(clusterBody[selectorStart:selectorStart+selectorEnd], "disabled") {
 		t.Error("cluster-controlled effect selector is not disabled")
 	}
@@ -640,6 +751,7 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"<code class=\"lf-lighting-effect-id\">static</code>",
 		"data-lf-device-serial=\"" + visibleSerial + "\"",
 		"data-lf-current-effect=\"static\"",
+		"/static/img/icons/rgb/static.svg",
 		"data-lf-cluster-controlled=\"true\"",
 		"id=\"lf-lighting-effect-selector\"",
 		"<option value=\"off\">Off</option>",
@@ -689,6 +801,16 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		if strings.Contains(strings.ToLower(lightingBody), strings.ToLower(excluded)) {
 			t.Errorf("Lighting GET /devices response unexpectedly contains %q", excluded)
 		}
+	}
+	if strings.Contains(lightingBody, `--lf-lighting-effect-mask: url('`+visibleSerial) {
+		t.Error("device serial influenced the configured effect mask URL")
+	}
+	queryPayload := `url('/query.svg');\\`
+	lightingWithUnrelatedQuery := requestDevicesPage(t, router, "device="+url.QueryEscape(visibleSerial)+"&view=lighting&foo="+url.QueryEscape(queryPayload))
+	if lightingWithUnrelatedQuery.Code != http.StatusOK ||
+		!strings.Contains(lightingWithUnrelatedQuery.Body.String(), `/static/img/icons/rgb/static.svg`) ||
+		strings.Contains(lightingWithUnrelatedQuery.Body.String(), queryPayload) {
+		t.Error("unrelated query value influenced the configured effect mask presentation")
 	}
 	if strings.Count(lightingBody, "<h1 ") != 1 {
 		t.Errorf("Lighting GET /devices contains %d h1 elements, want 1", strings.Count(lightingBody, "<h1 "))
@@ -1062,6 +1184,7 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	end := rgb.Color{Red: 7, Green: 8, Blue: 9}
 	paletteTests := []struct {
 		name         string
+		effectID     string
 		paletteLabel string
 		definition   openrgbimport.LightingDefinitionSnapshot
 		hasStart     bool
@@ -1071,12 +1194,14 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	}{
 		{
 			name:         "Static",
+			effectID:     "static",
 			paletteLabel: "Single color",
 			definition:   openrgbimport.LightingDefinitionSnapshot{Palette: rgb.LightingPaletteStaticSingle, HasStartColor: true, StartColor: start},
 			hasStart:     true,
 		},
 		{
 			name:         "Two color",
+			effectID:     "wave",
 			paletteLabel: "Two color",
 			definition:   openrgbimport.LightingDefinitionSnapshot{Palette: rgb.LightingPaletteTwoColor, HasStartColor: true, StartColor: start, HasEndColor: true, EndColor: end, HasSpeed: true, Speed: 0},
 			hasStart:     true,
@@ -1085,6 +1210,7 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		},
 		{
 			name:         "Temperature",
+			effectID:     "cpu-temperature",
 			paletteLabel: "Temperature",
 			definition:   openrgbimport.LightingDefinitionSnapshot{Palette: rgb.LightingPaletteTemperatureThree, HasStartColor: true, StartColor: start, HasMiddleColor: true, MiddleColor: middle, HasEndColor: true, EndColor: end},
 			hasStart:     true,
@@ -1093,18 +1219,21 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		},
 		{
 			name:         "Gradient",
+			effectID:     "gradient",
 			paletteLabel: "Gradient",
 			definition:   openrgbimport.LightingDefinitionSnapshot{Palette: rgb.LightingPaletteGradient, HasSpeed: true, Speed: 3},
 			hasSpeed:     true,
 		},
 		{
 			name:         "Generated palette",
+			effectID:     "aurora",
 			paletteLabel: "Generated palette",
 			definition:   openrgbimport.LightingDefinitionSnapshot{Palette: rgb.LightingPaletteGenerated, HasSpeed: true, Speed: 4},
 			hasSpeed:     true,
 		},
 		{
 			name:         "Off",
+			effectID:     "off",
 			paletteLabel: "None",
 			definition:   openrgbimport.LightingDefinitionSnapshot{Palette: rgb.LightingPaletteNone},
 		},
@@ -1114,8 +1243,9 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 			definition := test.definition
 			lighting := openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
 				HasActiveProfile: true,
-				ConfiguredEffect: strings.ToLower(strings.ReplaceAll(test.name, " ", "-")),
+				ConfiguredEffect: test.effectID,
 				EffectSupported:  true,
+				SupportedEffects: []openrgbimport.LightingEffectOption{{ID: test.effectID, Label: test.name}},
 				BaseDefinition:   &definition,
 				Effective:        &definition,
 			})
@@ -1132,6 +1262,26 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 			}
 			if !strings.Contains(body, "class=\"lf-lighting-definition-kind\">"+test.paletteLabel+"</span>") {
 				t.Errorf("%s response does not render its palette label", test.name)
+			}
+			iconURL := "/static/img/icons/rgb/" + test.effectID + ".svg"
+			if !strings.Contains(body, iconURL) {
+				t.Errorf("%s response does not render canonical configured effect icon %q", test.name, iconURL)
+			}
+			if test.name == "Generated palette" {
+				for _, expected := range []string{
+					"lf-lighting-palette-generated-effect",
+					"The renderer generates its palette; no fixed colors are stored.",
+				} {
+					if !strings.Contains(body, expected) {
+						t.Errorf("generated-palette response does not contain %q", expected)
+					}
+				}
+				if count := strings.Count(body, iconURL); count != 2 {
+					t.Errorf("generated-palette response contains canonical icon %d times, want configured identity and primary palette identity", count)
+				}
+			}
+			if test.name == "Off" && !strings.Contains(body, `<strong class="lf-lighting-effect-name">Off</strong>`) {
+				t.Error("Off response lost its visible configured effect label")
 			}
 		})
 	}
