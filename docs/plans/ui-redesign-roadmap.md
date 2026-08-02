@@ -246,8 +246,15 @@ Control design expectations:
   remain stored unchanged but render the Static fallback; `spiralrainbow` and
   `pastelspiralrainbow` obey the same boundary while absent from the catalogue.
 - [ ] Add focused renderer contract coverage where it is missing.
-- [ ] Expose all compatible LumenForge software effects to individual
-  OpenRGB-imported devices.
+- [x] Expose all compatible LumenForge software effects to individual
+  OpenRGB-imported devices (`e3df7bcd`).
+  The importer catalogue is now derived from canonical descriptor Device scope,
+  with defensive catalogue slices per device and all 35 generic LumenForge
+  software effects selectable. Consistency tests cover explicit dispatch,
+  capability and speed metadata, profiles, and render-time eligibility.
+  Controlled live hardware validation passed for newly exposed effects,
+  persistence, reconnect, existing effects, cluster ownership, and the legacy
+  importer page.
 - [ ] Verify behavior with 1, 2, 4, and 8 LEDs.
 - [ ] Visually calibrate effects that are safe but limited on short buffers.
 - [ ] Keep device-specific and firmware-native effect catalogues separate.
@@ -404,8 +411,8 @@ roadmap does not promise that every duplicate will be deleted.
 3. [x] Migrate capability metadata to descriptors (`287c0f89`).
 4. [x] Migrate speed metadata to descriptors (`b895cb75`).
 5. [x] Add missing importer dispatch cases (`9fb3eab2`).
-6. [ ] Expand compatible LumenForge software effects to individual
-   OpenRGB-imported devices.
+6. [x] Expand compatible LumenForge software effects to individual
+   OpenRGB-imported devices (`e3df7bcd`).
 7. [ ] Integrate selected-effect icons.
 8. [ ] Add theme-aware brightness control.
 9. [ ] Add conditional speed control.
