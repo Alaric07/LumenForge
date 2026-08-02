@@ -240,7 +240,11 @@ Control design expectations:
 ## 6. Effect catalogue migration and expansion
 
 - [ ] Use canonical descriptors for capability metadata.
-- [ ] Add missing explicit importer dispatch cases.
+- [x] Add missing explicit importer dispatch cases (`9fb3eab2`).
+  Importer rendering now checks the current device's exact supported-effect
+  catalogue immediately before dispatch. Unsupported preserved profile IDs
+  remain stored unchanged but render the Static fallback; `spiralrainbow` and
+  `pastelspiralrainbow` obey the same boundary while absent from the catalogue.
 - [ ] Add focused renderer contract coverage where it is missing.
 - [ ] Expose all compatible LumenForge software effects to individual
   OpenRGB-imported devices.
@@ -399,7 +403,7 @@ roadmap does not promise that every duplicate will be deleted.
 2. [x] Add this living roadmap.
 3. [x] Migrate capability metadata to descriptors (`287c0f89`).
 4. [x] Migrate speed metadata to descriptors (`b895cb75`).
-5. [ ] Add missing importer dispatch cases.
+5. [x] Add missing importer dispatch cases (`9fb3eab2`).
 6. [ ] Expand compatible LumenForge software effects to individual
    OpenRGB-imported devices.
 7. [ ] Integrate selected-effect icons.
