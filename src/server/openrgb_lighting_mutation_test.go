@@ -179,6 +179,106 @@ func uint8Pointer(value uint8) *uint8 {
 	return &value
 }
 
+func TestOpenRGBLightingBrightnessMutationErrorRedaction(t *testing.T) {
+	_, _, calls := installLightingMutationTestSeams(t)
+	calls.setError = errors.New("private brightness mutation failure at /tmp/internal-profile")
+	router := setRoutes()
+
+	recorder := requestOpenRGBLightingMutation(
+		t,
+		router,
+		http.MethodPost,
+		"/api/openrgbimport/brightness",
+		`{"serial":"openrgb-lighting-test","brightness":50}`,
+	)
+	response := requireLightingMutationResponse(t, recorder, 0)
+	if response.Message != "Unable to set brightness" {
+		t.Fatalf("brightness error response message = %q, want generic brightness failure", response.Message)
+	}
+	if strings.Contains(recorder.Body.String(), "private") || strings.Contains(recorder.Body.String(), "/tmp") {
+		t.Fatalf("brightness error response exposed internal error: %s", recorder.Body.String())
+	}
+	if len(calls.brightness) != 1 || calls.brightness[0] != 50 {
+		t.Fatalf("failed brightness mutation calls = %v, want [50]", calls.brightness)
+	}
+}
+
+func TestOpenRGBLightingBrightnessClusterOwnershipGuard(t *testing.T) {
+	previousLookup := lookupOpenRGBImportForLighting
+	previousBrightness := setOpenRGBImportBrightnessValue
+	t.Cleanup(func() {
+		lookupOpenRGBImportForLighting = previousLookup
+		setOpenRGBImportBrightnessValue = previousBrightness
+	})
+
+	initialBrightness := uint8(0)
+	profile := &openrgbimport.DeviceProfile{
+		Active:           true,
+		Serial:           lightingMutationTestSerial,
+		RGBProfile:       "static",
+		BrightnessSlider: &initialBrightness,
+		RGBCluster:       true,
+	}
+	device := &openrgbimport.Device{
+		Serial:        lightingMutationTestSerial,
+		IsOpenRGB:     true,
+		RGBModes:      []string{"static", "off", "rainbow"},
+		DeviceProfile: profile,
+	}
+	wrapper := &common.Device{Serial: lightingMutationTestSerial, Instance: device}
+	lookupOpenRGBImportForLighting = func(serial string) (*common.Device, *openrgbimport.Device, bool) {
+		if serial != lightingMutationTestSerial {
+			return nil, nil, false
+		}
+		return wrapper, device, true
+	}
+
+	initialDeviceBrightness := device.GetBrightness()
+	initialProfileBrightness := *profile.BrightnessSlider
+	const requestedBrightness = uint8(50)
+	if requestedBrightness == initialDeviceBrightness {
+		t.Fatal("cluster-ownership test requires a changed brightness value")
+	}
+
+	calls := 0
+	var observedErr error
+	setOpenRGBImportBrightnessValue = func(device *openrgbimport.Device, brightness uint8) error {
+		calls++
+		observedErr = device.SetBrightness(brightness)
+		return observedErr
+	}
+
+	router := setRoutes()
+	recorder := requestOpenRGBLightingMutation(
+		t,
+		router,
+		http.MethodPost,
+		"/api/openrgbimport/brightness",
+		`{"serial":"openrgb-lighting-test","brightness":50}`,
+	)
+	response := requireLightingMutationResponse(t, recorder, 0)
+
+	if calls != 1 {
+		t.Fatalf("cluster-owned brightness mutation calls = %d, want 1", calls)
+	}
+	const ownershipError = "device is controlled by RGB cluster"
+	if observedErr == nil || observedErr.Error() != ownershipError {
+		t.Fatalf("real SetBrightness error = %v, want %q", observedErr, ownershipError)
+	}
+	if response.Message != "Unable to set brightness" {
+		t.Fatalf("cluster-owned response message = %q, want generic brightness failure", response.Message)
+	}
+	if strings.Contains(recorder.Body.String(), ownershipError) {
+		t.Fatalf("cluster-owned response exposed internal error: %s", recorder.Body.String())
+	}
+	if got := device.GetBrightness(); got != initialDeviceBrightness {
+		t.Fatalf("device brightness = %d, want unchanged value %d", got, initialDeviceBrightness)
+	}
+	if device.DeviceProfile != profile || profile.BrightnessSlider == nil || *profile.BrightnessSlider != initialProfileBrightness {
+		t.Fatalf("active profile brightness = %#v, want unchanged value %d", profile.BrightnessSlider, initialProfileBrightness)
+	}
+}
+
 func TestOpenRGBLightingMutationTargetValidation(t *testing.T) {
 	validDevice, validWrapper, calls := installLightingMutationTestSeams(t)
 	router := setRoutes()

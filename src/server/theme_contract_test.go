@@ -232,6 +232,12 @@ func TestDevicesThemeIntegrationContract(t *testing.T) {
 		"--lf-surface-hover",
 		"--lf-focus-ring",
 		"--lf-disabled-border",
+		"--lf-control-track",
+		"--lf-control-fill-start",
+		"--lf-control-fill-end",
+		"--lf-control-thumb",
+		"--lf-control-thumb-border",
+		"--lf-control-thumb-glow",
 		"--lf-control-disabled-track",
 		"--lf-control-popup",
 		"--lf-control-popup-border",
@@ -294,6 +300,83 @@ func TestDevicesThemeIntegrationContract(t *testing.T) {
 		if strings.Contains(themeCSS, "lf-lighting-effect-icon") {
 			t.Errorf("theme %q duplicates the shared effect-icon component", theme)
 		}
+		if strings.Contains(themeCSS, "lf-range-control") {
+			t.Errorf("theme %q duplicates the shared range-control component", theme)
+		}
+	}
+
+	rangeRules := []struct {
+		selector  string
+		contracts []string
+	}{
+		{selector: ".lf-app-shell .lf-range-control-input::-webkit-slider-runnable-track", contracts: []string{
+			"var(--lf-control-fill-start)",
+			"var(--lf-control-fill-end)",
+			"var(--lf-range-progress)",
+			"var(--lf-control-track)",
+		}},
+		{selector: ".lf-app-shell .lf-range-control-input::-webkit-slider-thumb", contracts: []string{
+			"var(--lf-control-thumb)",
+			"var(--lf-control-thumb-border)",
+			"var(--lf-control-thumb-glow)",
+		}},
+		{selector: ".lf-app-shell .lf-range-control-input::-moz-range-track", contracts: []string{
+			"var(--lf-control-track)",
+		}},
+		{selector: ".lf-app-shell .lf-range-control-input::-moz-range-progress", contracts: []string{
+			"var(--lf-control-fill-start)",
+			"var(--lf-control-fill-end)",
+		}},
+		{selector: ".lf-app-shell .lf-range-control-input::-moz-range-thumb", contracts: []string{
+			"var(--lf-control-thumb)",
+			"var(--lf-control-thumb-border)",
+			"var(--lf-control-thumb-glow)",
+		}},
+		{selector: ".lf-app-shell .lf-range-control-input:focus-visible", contracts: []string{
+			"var(--lf-focus-ring)",
+		}},
+		{selector: ".lf-app-shell .lf-range-control-input:disabled", contracts: []string{
+			"cursor: not-allowed",
+		}},
+		{selector: ".lf-app-shell .lf-range-control-input:disabled::-webkit-slider-runnable-track", contracts: []string{
+			"var(--lf-control-disabled-track)",
+			"var(--lf-disabled-border)",
+		}},
+		{selector: ".lf-app-shell .lf-range-control-input:disabled::-moz-range-progress", contracts: []string{
+			"var(--lf-control-disabled-track)",
+			"var(--lf-disabled-border)",
+		}},
+		{selector: ".lf-app-shell .lf-range-control-number", contracts: []string{
+			"width: 6ch",
+			"color: var(--lf-text-primary)",
+			"background: transparent",
+			"font-variant-numeric: tabular-nums",
+		}},
+		{selector: ".lf-app-shell .lf-range-control-number:focus-visible", contracts: []string{
+			"var(--lf-focus-ring)",
+		}},
+		{selector: ".lf-app-shell .lf-range-control-number:disabled", contracts: []string{
+			"var(--lf-text-muted)",
+			"cursor: not-allowed",
+		}},
+		{selector: ".lf-app-shell .lf-range-control-status:empty", contracts: []string{
+			"display: none",
+		}},
+	}
+	for _, rangeRule := range rangeRules {
+		rule := devicesThemeRuleBody(t, appShell, rangeRule.selector)
+		for _, contract := range rangeRule.contracts {
+			if !strings.Contains(rule, contract) {
+				t.Errorf("range selector %q does not contain %q", rangeRule.selector, contract)
+			}
+		}
+	}
+	rangeStart := strings.Index(appShell, ".lf-app-shell .lf-range-control {")
+	rangeEnd := strings.Index(appShell, ".lf-app-shell .lf-lighting-primary-palette {")
+	if rangeStart < 0 || rangeEnd <= rangeStart {
+		t.Error("shared range-control CSS block is missing or misplaced")
+	} else if literal := regexp.MustCompile(`(?i)#[0-9a-f]{3,8}|rgba?\(`).FindString(appShell[rangeStart:rangeEnd]); literal != "" {
+		t.Errorf("shared range-control CSS contains a theme-specific literal color %q", literal)
 	}
 
 	for _, renderedColor := range []string{
@@ -308,7 +391,6 @@ func TestDevicesThemeIntegrationContract(t *testing.T) {
 	lowerTemplate := strings.ToLower(devicesTemplate)
 	for _, forbiddenControl := range []string{
 		"<form",
-		"<input",
 		"<script",
 		"fetch(",
 		"setinterval(",
@@ -328,6 +410,34 @@ func TestDevicesThemeIntegrationContract(t *testing.T) {
 	} {
 		if !strings.Contains(devicesTemplate, selectorContract) {
 			t.Errorf("Devices effect selector is missing %q", selectorContract)
+		}
+	}
+	for _, rangeContract := range []string{
+		`<label class="lf-range-control-label" for="lf-lighting-brightness-slider">`,
+		`class="lf-range-control-number"`,
+		`type="number"`,
+		`min="0"`,
+		`max="100"`,
+		`step="1"`,
+		`data-lf-brightness-number`,
+		`aria-label="Brightness percentage"`,
+		`class="lf-range-control-suffix" aria-hidden="true">%</span>`,
+		`class="lf-range-control-input"`,
+		`type="range"`,
+		`data-lf-brightness-slider`,
+		`aria-live="polite"`,
+	} {
+		if !strings.Contains(devicesTemplate, rangeContract) {
+			t.Errorf("Devices brightness range control is missing %q", rangeContract)
+		}
+	}
+	for _, forbiddenCopy := range []string{
+		"Stored local output level for this device.",
+		"Changes are saved when the value is committed.",
+		"Brightness unavailable for this stored lighting profile.",
+	} {
+		if strings.Contains(devicesTemplate, forbiddenCopy) {
+			t.Errorf("Devices brightness control retains permanent helper copy %q", forbiddenCopy)
 		}
 	}
 	for _, iconContract := range []string{

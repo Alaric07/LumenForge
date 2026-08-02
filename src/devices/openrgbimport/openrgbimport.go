@@ -1507,6 +1507,9 @@ func (d *Device) SetBrightness(brightness uint8) error {
 	if d.controllerId < 0 {
 		return fmt.Errorf("controllerId not set")
 	}
+	if d.DeviceProfile != nil && d.DeviceProfile.RGBCluster {
+		return fmt.Errorf("device is controlled by RGB cluster")
+	}
 
 	if brightness > 100 {
 		return fmt.Errorf("brightness must be between 0 and 100")

@@ -246,7 +246,7 @@
                             {{ if eq .Device.View "lighting" }}
                                 {{ with .Device.Lighting }}
                                     {{ if .ConfiguredEffect }}<span class="lf-device-hero-fact"><span>Effect</span><strong>{{ if .ConfiguredEffectLabel }}{{ .ConfiguredEffectLabel }}{{ else }}{{ .ConfiguredEffect }}{{ end }}</strong></span>{{ end }}
-                                    {{ if .HasBrightness }}<span class="lf-device-hero-fact"><span>Brightness</span><strong>{{ .Brightness }}%</strong></span>{{ end }}
+                                    {{ if .HasBrightness }}<span class="lf-device-hero-fact"><span>Brightness</span><strong data-lf-brightness-readout data-lf-device-serial="{{ $.Device.Serial }}">{{ .Brightness }}%</strong></span>{{ end }}
                                     {{ if .ClusterControlled }}<span class="lf-device-hero-fact lf-device-hero-fact-cluster">RGB Cluster owned</span>{{ end }}
                                     <span class="lf-device-hero-fact">Stored lighting state</span>
                                 {{ end }}
@@ -328,10 +328,64 @@
                                             </div>
                                             <div class="lf-lighting-primary-metrics">
                                                 <span><small>Palette</small><strong>{{ if .ConfiguredEffect }}{{ .ConfiguredPalette }}{{ else }}Unknown{{ end }}</strong></span>
-                                                <span><small>Brightness</small><strong>{{ if .HasBrightness }}{{ .Brightness }}%{{ else }}Unavailable{{ end }}</strong></span>
                                                 <span><small>Persistent speed</small><strong>{{ if .ConfiguredCapabilityKnown }}{{ if .ConfiguredSupportsSpeed }}Supported{{ else }}Not supported{{ end }}{{ else }}Unknown{{ end }}</strong></span>
                                             </div>
                                         </div>
+
+                                        {{ if .HasBrightness }}
+                                            <div class="lf-range-control">
+                                                <div class="lf-range-control-header">
+                                                    <label class="lf-range-control-label" for="lf-lighting-brightness-slider">Brightness</label>
+                                                    <span class="lf-range-control-value">
+                                                        <input
+                                                            class="lf-range-control-number"
+                                                            id="lf-lighting-brightness-number"
+                                                            type="number"
+                                                            min="0"
+                                                            max="100"
+                                                            step="1"
+                                                            value="{{ .Brightness }}"
+                                                            data-lf-brightness-number
+                                                            aria-label="Brightness percentage"
+                                                            aria-describedby="lf-lighting-brightness-status{{ if .ClusterControlled }} lf-lighting-brightness-cluster-explanation{{ end }}"
+                                                            {{ if .ClusterControlled }}disabled{{ end }}
+                                                        >
+                                                        <span class="lf-range-control-suffix" aria-hidden="true">%</span>
+                                                    </span>
+                                                </div>
+                                                <input
+                                                    class="lf-range-control-input"
+                                                    id="lf-lighting-brightness-slider"
+                                                    type="range"
+                                                    min="0"
+                                                    max="100"
+                                                    step="1"
+                                                    value="{{ .Brightness }}"
+                                                    style="--lf-range-progress: {{ .Brightness }}%;"
+                                                    data-lf-brightness-slider
+                                                    data-lf-current-brightness="{{ .Brightness }}"
+                                                    data-lf-device-serial="{{ $.Device.Serial }}"
+                                                    data-lf-cluster-controlled="{{ .ClusterControlled }}"
+                                                    data-lf-number-id="lf-lighting-brightness-number"
+                                                    data-lf-status-id="lf-lighting-brightness-status"
+                                                    aria-valuetext="{{ .Brightness }} percent"
+                                                    aria-describedby="lf-lighting-brightness-status{{ if .ClusterControlled }} lf-lighting-brightness-cluster-explanation{{ end }}"
+                                                    {{ if .ClusterControlled }}disabled{{ end }}
+                                                >
+                                                <div class="lf-range-control-scale" aria-hidden="true"><span>0%</span><span>100%</span></div>
+                                                {{ if .ClusterControlled }}
+                                                    <p class="lf-range-control-restriction" id="lf-lighting-brightness-cluster-explanation">RGB Cluster currently owns this device's lighting output. Change cluster-wide lighting from the <a href="/rgbCluster">RGB Cluster workspace</a>.</p>
+                                                {{ end }}
+                                                <p class="lf-range-control-status" id="lf-lighting-brightness-status" aria-live="polite"></p>
+                                            </div>
+                                        {{ else }}
+                                            <div class="lf-range-control lf-range-control-unavailable">
+                                                <div class="lf-range-control-header">
+                                                    <span class="lf-range-control-label">Brightness</span>
+                                                    <strong class="lf-range-control-value">Unavailable</strong>
+                                                </div>
+                                            </div>
+                                        {{ end }}
 
                                         <div class="lf-lighting-primary-palette">
                                             <div class="lf-lighting-primary-palette-heading">

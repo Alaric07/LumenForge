@@ -333,6 +333,38 @@ func TestOpenRGBLightingBrightnessPersistenceAndOutputOrdering(t *testing.T) {
 			t.Fatalf("unexpected persisted profile after rejected brightness: %v", err)
 		}
 	})
+
+	t.Run("RGB Cluster ownership rejects local mutation", func(t *testing.T) {
+		profileDir, calls := installLightingDeviceTestSeams(t)
+		device := newLightingMutationDevice()
+		device.DeviceProfile.RGBCluster = true
+		brightnessPointer := device.DeviceProfile.BrightnessSlider
+		controllerBefore := device.ControllerID()
+		detachedBefore := device.lifecycleDetached
+		activatingBefore := device.lifecycleActivating
+
+		if err := device.SetBrightness(65); err == nil {
+			t.Fatal("cluster-owned SetBrightness unexpectedly succeeded")
+		}
+		if got := device.GetBrightness(); got != 40 {
+			t.Fatalf("brightness = %d, want unchanged value 40", got)
+		}
+		if device.DeviceProfile.BrightnessSlider != brightnessPointer || *device.DeviceProfile.BrightnessSlider != 40 {
+			t.Fatalf("profile brightness = %#v, want unchanged pointer value 40", device.DeviceProfile.BrightnessSlider)
+		}
+		if calls.colors != 0 || calls.frames != 0 || calls.persistentFrames != 0 {
+			t.Fatalf("cluster-owned output calls = colors %d, frames %d, persistent %d, want none", calls.colors, calls.frames, calls.persistentFrames)
+		}
+		if _, err := os.Stat(filepath.Join(profileDir, lightingDeviceTestSerial+".json")); !os.IsNotExist(err) {
+			t.Fatalf("cluster rejection unexpectedly persisted a profile: %v", err)
+		}
+		if device.ControllerID() != controllerBefore {
+			t.Fatalf("controller ID = %d, want unchanged %d", device.ControllerID(), controllerBefore)
+		}
+		if device.lifecycleDetached != detachedBefore || device.lifecycleActivating != activatingBefore {
+			t.Fatal("cluster rejection changed lifecycle state")
+		}
+	})
 }
 
 func TestOpenRGBLightingEffectPersistenceAndOutputOrdering(t *testing.T) {

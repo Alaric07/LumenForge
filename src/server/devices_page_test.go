@@ -9,6 +9,7 @@ import (
 	"LumenForge/src/stats"
 	"LumenForge/src/templates"
 	"bytes"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -265,6 +266,115 @@ func TestDevicesLightingEffectSelectorTemplate(t *testing.T) {
 	}
 }
 
+func TestDevicesLightingBrightnessTemplate(t *testing.T) {
+	if os.Getenv(devicesPageHelperEnvironment) == "brightness-slider" {
+		initializeDevicesPageTestProcess(t)
+		runDevicesLightingBrightnessTemplateAssertions(t)
+		return
+	}
+
+	command := exec.Command(os.Args[0], "-test.run=^TestDevicesLightingBrightnessTemplate$")
+	command.Env = append(os.Environ(), devicesPageHelperEnvironment+"=brightness-slider")
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Devices Lighting brightness slider helper process failed: %v\n%s", err, output)
+	}
+}
+
+func runDevicesLightingBrightnessTemplateAssertions(t *testing.T) {
+	for _, brightness := range []uint8{0, 100} {
+		body := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+			HasBrightness: true,
+			Brightness:    brightness,
+		}))
+		value := fmt.Sprintf("%d", brightness)
+		for _, expected := range []string{
+			`<label class="lf-range-control-label" for="lf-lighting-brightness-slider">Brightness</label>`,
+			`id="lf-lighting-brightness-number"`,
+			`type="number"`,
+			`data-lf-brightness-number`,
+			`aria-label="Brightness percentage"`,
+			`<span class="lf-range-control-suffix" aria-hidden="true">%</span>`,
+			`id="lf-lighting-brightness-slider"`,
+			`type="range"`,
+			`min="0"`,
+			`max="100"`,
+			`step="1"`,
+			`value="` + value + `"`,
+			`style="--lf-range-progress: ` + value + `%;"`,
+			`data-lf-current-brightness="` + value + `"`,
+			`aria-valuetext="` + value + ` percent"`,
+			`id="lf-lighting-brightness-status" aria-live="polite"`,
+			`data-lf-brightness-readout data-lf-device-serial="lighting-template-device">` + value + `%</strong>`,
+		} {
+			if !strings.Contains(body, expected) {
+				t.Errorf("brightness %s template does not contain %q", value, expected)
+			}
+		}
+		if strings.Contains(body, `<small>Brightness</small>`) {
+			t.Errorf("brightness %s template retained the duplicate primary metric", value)
+		}
+		for _, forbidden := range []string{
+			"Stored local output level for this device.",
+			"Changes are saved when the value is committed.",
+			"Brightness saved.",
+		} {
+			if strings.Contains(body, forbidden) {
+				t.Errorf("brightness %s template contains permanent status or helper copy %q", value, forbidden)
+			}
+		}
+	}
+
+	escapedBody := renderDevicesLightingViewForSerial(t, `lighting"&<serial`, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+		HasBrightness: true,
+		Brightness:    50,
+	}))
+	if !strings.Contains(escapedBody, `data-lf-device-serial="lighting&#34;&amp;&lt;serial"`) ||
+		strings.Contains(escapedBody, `data-lf-device-serial="lighting"&<serial"`) {
+		t.Error("brightness control did not contextually escape the device serial data attribute")
+	}
+
+	unavailableBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{}))
+	if !strings.Contains(unavailableBody, "lf-range-control-unavailable") ||
+		!strings.Contains(unavailableBody, `>Unavailable</strong>`) ||
+		strings.Contains(unavailableBody, "data-lf-brightness-slider") ||
+		strings.Contains(unavailableBody, "data-lf-brightness-number") ||
+		strings.Contains(unavailableBody, `type="range"`) || strings.Contains(unavailableBody, `type="number"`) {
+		t.Error("missing brightness snapshot did not render the non-interactive unavailable state")
+	}
+	for _, forbidden := range []string{"Stored local output level for this device.", "Brightness unavailable for this stored lighting profile."} {
+		if strings.Contains(unavailableBody, forbidden) {
+			t.Errorf("unavailable brightness state retained permanent helper copy %q", forbidden)
+		}
+	}
+
+	clusterBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+		HasBrightness:     true,
+		Brightness:        40,
+		ClusterControlled: true,
+	}))
+	for _, id := range []string{"lf-lighting-brightness-slider", "lf-lighting-brightness-number"} {
+		inputStart := strings.Index(clusterBody, `id="`+id+`"`)
+		if inputStart < 0 {
+			t.Fatalf("cluster-owned Lighting view does not render %s", id)
+		}
+		inputEnd := strings.Index(clusterBody[inputStart:], ">")
+		if inputEnd < 0 || !strings.Contains(clusterBody[inputStart:inputStart+inputEnd], "disabled") {
+			t.Errorf("cluster-owned brightness control %s is not disabled", id)
+		}
+	}
+	for _, expected := range []string{
+		`aria-describedby="lf-lighting-brightness-status lf-lighting-brightness-cluster-explanation"`,
+		`id="lf-lighting-brightness-cluster-explanation"`,
+		`href="/rgbCluster"`,
+		"RGB Cluster currently owns this device's lighting output.",
+	} {
+		if !strings.Contains(clusterBody, expected) {
+			t.Errorf("cluster-owned brightness template does not contain %q", expected)
+		}
+	}
+}
+
 func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
 
 	normalBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
@@ -428,7 +538,11 @@ func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
 
 func renderDevicesLightingView(t *testing.T, lighting *openRGBLightingWorkspaceSummary) string {
 	t.Helper()
-	const serial = "lighting-template-device"
+	return renderDevicesLightingViewForSerial(t, "lighting-template-device", lighting)
+}
+
+func renderDevicesLightingViewForSerial(t *testing.T, serial string, lighting *openRGBLightingWorkspaceSummary) string {
+	t.Helper()
 	var rendered bytes.Buffer
 	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{
 		Devices: map[string]*common.Device{
@@ -760,7 +874,14 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"Controlled by RGB Cluster. Change active lighting from the <a href=\"/rgbCluster\">RGB Cluster workspace</a>.",
 		"id=\"lf-lighting-effect-status\" aria-live=\"polite\"",
 		"lf-lighting-status-supported\">Supported",
-		"<small>Brightness</small><strong>0%</strong>",
+		`data-lf-brightness-readout data-lf-device-serial="` + visibleSerial + `">0%</strong>`,
+		`id="lf-lighting-brightness-slider"`,
+		`type="range"`,
+		`value="0"`,
+		`style="--lf-range-progress: 0%;"`,
+		`data-lf-current-brightness="0"`,
+		`id="lf-lighting-brightness-status" aria-live="polite"`,
+		"RGB Cluster currently owns this device's lighting output.",
 		"RGB Cluster owns output",
 		"Local configuration remains stored",
 		"RGB Cluster owned",
@@ -783,9 +904,7 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"class=\"lf-overview-workspace\"",
 		"<form",
 		"<button",
-		"<input",
 		"type=\"color\"",
-		"type=\"range\"",
 		"method=\"post\"",
 		"contenteditable",
 		"fetch(",
@@ -1325,8 +1444,9 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	}
 
 	emptyEffectBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{HasActiveProfile: true}))
-	if !strings.Contains(emptyEffectBody, "Not configured") || !strings.Contains(emptyEffectBody, "<small>Brightness</small>") ||
-		!strings.Contains(emptyEffectBody, "Unavailable") || strings.Contains(emptyEffectBody, "lf-lighting-status-unsupported\">Unsupported") {
+	if !strings.Contains(emptyEffectBody, "Not configured") || !strings.Contains(emptyEffectBody, "lf-range-control-unavailable") ||
+		!strings.Contains(emptyEffectBody, `>Unavailable</strong>`) ||
+		strings.Contains(emptyEffectBody, "data-lf-brightness-slider") || strings.Contains(emptyEffectBody, "lf-lighting-status-unsupported\">Unsupported") {
 		t.Error("empty configured effect was not rendered as a neutral state")
 	}
 
