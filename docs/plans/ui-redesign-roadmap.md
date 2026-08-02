@@ -185,8 +185,9 @@ Expansion must follow descriptor integration and renderer-contract coverage.
   `static/img/icons/rgb/{stable-id}.svg`.
 - Existing SVGs hard-code `#5599FF`.
 - External image loading prevents automatic `currentColor` inheritance.
-- Reusing the icons is planned, but theme-aware recoloring requires a separate,
-  deliberate implementation.
+- Theme-aware recoloring is implemented through CSS masks in the modern
+  OpenRGB-imported-device Lighting workspace (`401a132e`); it is no longer an
+  unresolved icon-strategy decision.
 
 ## 4. Active foundation work
 
@@ -266,18 +267,26 @@ as cluster-only.
 
 ## 7. Effect icon integration
 
-- [ ] Show the selected effect's existing icon in the Lighting workspace.
-- [ ] Map icons by stable effect ID, never by display label.
-- [ ] Keep the native select text-only.
-- [ ] Retain an accessible text label.
-- [ ] Provide a generic fallback only for an unknown mapping.
-- [ ] Do not guess mappings from similar effect names.
-- [!] Choose a deliberate rendering strategy:
-  - inline and sanitize SVGs;
-  - convert fill and stroke to `currentColor`;
-  - use CSS masking; or
-  - preserve the original blue assets.
-- [ ] Validate icon presentation in every built-in theme.
+- [x] Show the selected effect's existing icon in the Lighting workspace
+  (`401a132e`).
+- [x] Map icons by stable effect ID, never by display label.
+- [x] Keep the native select text-only.
+- [x] Retain an accessible text label.
+- [x] Provide a safe generic CSS fallback for unknown or unsupported stored
+  IDs.
+- [x] Do not guess mappings from similar effect names.
+- [x] Render the canonical SVG artwork through CSS masks, with visible color
+  supplied by existing semantic theme tokens.
+- [x] Validate icon presentation in every built-in theme.
+
+Canonical icon filenames now come from software-effect descriptors, and all 35
+generic effects have validated SVG mappings. Unsupported stored IDs never
+create arbitrary asset URLs, while the native text-only selector and the real
+Static, two-color, temperature, Gradient, Off, and generated-palette
+presentations remain intact. No JavaScript, SVG asset, descriptor, catalogue,
+renderer, persistence, native-device, RGB Cluster, or theme file changed. All
+five built-in themes passed manual browser inspection; automated tests, race
+coverage, broader validation, and CodeRabbit also passed.
 
 ## 8. Device architecture and future device support
 
@@ -413,7 +422,7 @@ roadmap does not promise that every duplicate will be deleted.
 5. [x] Add missing importer dispatch cases (`9fb3eab2`).
 6. [x] Expand compatible LumenForge software effects to individual
    OpenRGB-imported devices (`e3df7bcd`).
-7. [ ] Integrate selected-effect icons.
+7. [x] Integrate selected-effect icons (`401a132e`).
 8. [ ] Add theme-aware brightness control.
 9. [ ] Add conditional speed control.
 10. [ ] Add palette and color editors.
@@ -444,7 +453,6 @@ Record any change and its reason in this document.
 
 ## 16. Open decisions
 
-- [!] Final theme-aware SVG strategy
 - [!] Visual treatment for generated-palette effects
 - [!] Exact custom slider interaction and appearance
 - [!] Persistence location for collapsed sidebar state
