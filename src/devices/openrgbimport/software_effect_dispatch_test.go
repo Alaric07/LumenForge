@@ -151,25 +151,28 @@ func TestOpenRGBSoftwareEffectDispatchUnknownUsesStatic(t *testing.T) {
 	}
 }
 
-func TestOpenRGBSoftwareEffectEligibilityRejectsUnadvertisedProfiles(t *testing.T) {
-	catalogueBefore := append([]string(nil), rgbModes...)
+func TestOpenRGBSoftwareEffectEligibilityRejectsUnsupportedProfiles(t *testing.T) {
+	catalogueBefore := importerSoftwareEffectCatalogue()
 	unsupportedEffects := []string{
-		"arc",
-		"visor",
-		"spiralrainbow",
-		"pastelspiralrainbow",
 		"unknown",
 		"",
 		"RAINBOW",
 		" rainbow",
 		"rainbow ",
+		"colorwave",
+		"led",
+		"liquid-temperature",
+		"probe-temperature",
+		"rainbowwave",
+		"tlk",
+		"tlr",
 	}
 
 	for _, effect := range unsupportedEffects {
 		t.Run(effect, func(t *testing.T) {
 			device := &Device{
 				effect:        effect,
-				RGBModes:      append([]string(nil), rgbModes...),
+				RGBModes:      importerSoftwareEffectCatalogue(),
 				DeviceProfile: &DeviceProfile{RGBProfile: effect},
 			}
 			runner := newSoftwareEffectDispatchRunner(4)
@@ -191,8 +194,8 @@ func TestOpenRGBSoftwareEffectEligibilityRejectsUnadvertisedProfiles(t *testing.
 			}
 		})
 	}
-	if !slices.Equal(rgbModes, catalogueBefore) {
-		t.Fatalf("package RGB catalogue changed: got %v, want %v", rgbModes, catalogueBefore)
+	if catalogueAfter := importerSoftwareEffectCatalogue(); !slices.Equal(catalogueAfter, catalogueBefore) {
+		t.Fatalf("future importer catalogue changed: got %v, want %v", catalogueAfter, catalogueBefore)
 	}
 }
 
@@ -200,16 +203,16 @@ func TestOpenRGBSoftwareEffectResumeUsesEligibilityBoundary(t *testing.T) {
 	profileDir, frames := installSoftwareEffectResumeSeams(t)
 	device := newLightingMutationDevice()
 	brightness := uint8(100)
-	device.RGBModes = append([]string(nil), rgbModes...)
+	device.RGBModes = importerSoftwareEffectCatalogue()
 	device.colorCount = 4
 	device.brightness = brightness
 	device.lastColor = []byte{12, 34, 56}
-	device.effect = "arc"
-	device.DeviceProfile.RGBProfile = "arc"
+	device.effect = "unknown"
+	device.DeviceProfile.RGBProfile = "unknown"
 	device.DeviceProfile.BrightnessSlider = &brightness
 
 	if err := device.resumeDesiredState(context.Background()); err != nil {
-		t.Fatalf("resume unsupported persisted effect: %v", err)
+		t.Fatalf("resume unknown persisted effect: %v", err)
 	}
 	t.Cleanup(device.Stop)
 
@@ -230,22 +233,82 @@ func TestOpenRGBSoftwareEffectResumeUsesEligibilityBoundary(t *testing.T) {
 	if !bytes.Equal(frame, wantFrame) {
 		t.Fatalf("resumed unsupported effect frame = %v, want Static fallback %v", frame, wantFrame)
 	}
-	if device.effect != "arc" || device.DeviceProfile.RGBProfile != "arc" {
+	if device.effect != "unknown" || device.DeviceProfile.RGBProfile != "unknown" {
 		t.Fatalf("resumed unsupported profile changed: effect = %q, profile = %q", device.effect, device.DeviceProfile.RGBProfile)
 	}
+	if persisted := readLightingDeviceProfile(t, profileDir); persisted.RGBProfile != "unknown" {
+		t.Fatalf("persisted unsupported profile = %q, want unknown", persisted.RGBProfile)
+	}
+}
+
+func TestOpenRGBSoftwareEffectExpandedResumeUsesRenderer(t *testing.T) {
+	profileDir, frames := installSoftwareEffectResumeSeams(t)
+	device := newLightingMutationDevice()
+	brightness := uint8(100)
+	device.RGBModes = importerSoftwareEffectCatalogue()
+	device.colorCount = 4
+	device.brightness = brightness
+	device.lastColor = []byte{12, 34, 56}
+	device.effect = "arc"
+	device.DeviceProfile.RGBProfile = "arc"
+	device.DeviceProfile.BrightnessSlider = &brightness
+	device.Rgb = &rgb.RGB{Profiles: map[string]rgb.Profile{
+		"arc": {
+			ProfileName: "Arc",
+			StartColor:  rgb.Color{Red: 12, Green: 34, Blue: 56, Brightness: 1},
+			EndColor:    rgb.Color{Red: 210, Green: 120, Blue: 40, Brightness: 1},
+			Speed:       2,
+		},
+	}}
+
+	if err := device.resumeDesiredState(context.Background()); err != nil {
+		t.Fatalf("resume newly supported persisted effect: %v", err)
+	}
+	t.Cleanup(device.Stop)
+
+	var frame []byte
+	select {
+	case frame = <-frames:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for resumed Arc frame")
+	}
+	device.Stop()
+
+	staticRunner := newSoftwareEffectDispatchRunner(4)
+	staticRunner.Static()
+	if len(frame) != 12 {
+		t.Fatalf("resumed Arc frame length = %d, want 12", len(frame))
+	}
+	if bytes.Equal(frame, staticRunner.Output) {
+		t.Fatalf("resumed Arc frame used the Static fallback: %v", frame)
+	}
+	if device.effect != "arc" || device.DeviceProfile.RGBProfile != "arc" {
+		t.Fatalf("resumed newly supported profile changed: effect = %q, profile = %q", device.effect, device.DeviceProfile.RGBProfile)
+	}
 	if persisted := readLightingDeviceProfile(t, profileDir); persisted.RGBProfile != "arc" {
-		t.Fatalf("persisted unsupported profile = %q, want arc", persisted.RGBProfile)
+		t.Fatalf("persisted newly supported profile = %q, want arc", persisted.RGBProfile)
 	}
 }
 
 func TestOpenRGBSoftwareEffectEligibilityPreservesSupportedProfiles(t *testing.T) {
 	installLightingTemperatureTestSeams(t, 45, 60, 65)
-	for _, effect := range []string{"colorpulse", "rainbow", "cpu-temperature", "gpu-temperature"} {
+	catalogue := importerSoftwareEffectCatalogue()
+	for _, effect := range []string{
+		"colorpulse",
+		"rainbow",
+		"cpu-temperature",
+		"gpu-temperature",
+		"arc",
+		"nebula",
+		"spiralrainbow",
+		"pastelspiralrainbow",
+		"visor",
+	} {
 		t.Run(effect, func(t *testing.T) {
 			runner := newSoftwareEffectDispatchRunner(4)
 			startTime := time.Now().Add(-time.Second)
 
-			if !dispatchEligibleSoftwareEffect(effect, rgbModes, runner, &startTime, nil) {
+			if !dispatchEligibleSoftwareEffect(effect, catalogue, runner, &startTime, nil) {
 				t.Fatalf("dispatchEligibleSoftwareEffect(%q) reported an ineligible mapping", effect)
 			}
 			if got, want := len(runner.Output), 12; got != want {
@@ -255,32 +318,8 @@ func TestOpenRGBSoftwareEffectEligibilityPreservesSupportedProfiles(t *testing.T
 	}
 
 	for _, effect := range []string{"static", "off"} {
-		if !slices.Contains(rgbModes, effect) {
+		if !slices.Contains(catalogue, effect) {
 			t.Errorf("existing special-path effect %q is missing from RGBModes", effect)
-		}
-	}
-}
-
-func TestOpenRGBSoftwareEffectRGBModesExcludeUnadvertisedDispatchCases(t *testing.T) {
-	unadvertised := []string{
-		"arc",
-		"comet",
-		"datastream",
-		"marquee",
-		"nebula",
-		"plasmacore",
-		"rain",
-		"rotarystack",
-		"sequential",
-		"stardust",
-		"tokyonight",
-		"visor",
-		"spiralrainbow",
-		"pastelspiralrainbow",
-	}
-	for _, effect := range unadvertised {
-		if slices.Contains(rgbModes, effect) {
-			t.Errorf("RGBModes unexpectedly advertises dispatch-only effect %q", effect)
 		}
 	}
 }

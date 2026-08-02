@@ -77,7 +77,9 @@ func (d *Device) LightingSnapshot() (LightingSnapshot, bool) {
 	}
 	for _, effect := range d.RGBModes {
 		option := LightingEffectOption{ID: effect}
-		if d.Rgb != nil {
+		if descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect); ok {
+			option.Label = descriptor.Label
+		} else if d.Rgb != nil {
 			if definition, ok := d.Rgb.Profiles[effect]; ok {
 				option.Label = definition.ProfileName
 			}

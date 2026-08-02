@@ -1163,7 +1163,7 @@ func TestSnapshotRemainsConsistentDuringReconciliation(t *testing.T) {
 	}
 	device := testDevice(cfg)
 	device.mu.Lock()
-	device.RGBModes = append([]string(nil), rgbModes...)
+	device.RGBModes = importerSoftwareEffectCatalogue()
 	device.mu.Unlock()
 	manager := newManager(map[string]*Device{cfg.Serial: device}, nil)
 	configureTestManager(manager)

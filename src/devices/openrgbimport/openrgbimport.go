@@ -26,26 +26,17 @@ import (
 	"unicode"
 )
 
-var rgbModes = []string{
-	"circle",
-	"circleshift",
-	"colorpulse",
-	"colorshift",
-	"colorwarp",
-	"cpu-temperature",
-	"flickering",
-	"flame",
-	"aurora", "cyberpunkglitch", "gpu-temperature",
-	"gradient",
-	"off",
-	"rainbow",
-	"pastelrainbow",
-	"rotator",
-	"spinner",
-	"static",
-	"storm",
-	"watercolor",
-	"wave",
+// importerSoftwareEffectCatalogue returns a fresh stable-ID slice in the
+// canonical descriptor presentation order.
+func importerSoftwareEffectCatalogue() []string {
+	descriptors := rgb.SoftwareEffectDescriptors()
+	effects := make([]string, 0, len(descriptors))
+	for _, descriptor := range descriptors {
+		if descriptor.Scope.Includes(rgb.EffectScopeDevice) {
+			effects = append(effects, descriptor.ID)
+		}
+	}
+	return effects
 }
 
 const hardwareBufferDrainDelay = 75 * time.Millisecond
@@ -924,7 +915,7 @@ func newOfflineDevice(serial string, cfg DeviceConfig) *Device {
 		LEDCount:           colorCount,
 	}
 
-	d.RGBModes = rgbModes
+	d.RGBModes = importerSoftwareEffectCatalogue()
 	d.loadRgb()
 
 	defaultBrightness := uint8(100)
@@ -1646,6 +1637,13 @@ func dispatchEligibleSoftwareEffect(effect string, supportedEffects []string, ru
 
 func dispatchSoftwareEffect(effect string, runner *rgb.ActiveRGB, startTime *time.Time, profile *rgb.Profile) bool {
 	switch effect {
+	case "off":
+		startColor := runner.RGBStartColor
+		runner.RGBStartColor = &rgb.Color{}
+		runner.Static()
+		runner.RGBStartColor = startColor
+	case "static":
+		runner.Static()
 	case "arc":
 		runner.Arc(*startTime)
 	case "comet":

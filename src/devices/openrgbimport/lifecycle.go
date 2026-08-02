@@ -668,7 +668,7 @@ func prepareImport(serial string, cfg DeviceConfig) (*preparedImport, error) {
 		Config:              cloneDeviceConfig(&cfg),
 		ZoneAmount:          len(cfg.Zones),
 		LEDCount:            colorCount,
-		RGBModes:            append([]string(nil), rgbModes...),
+		RGBModes:            importerSoftwareEffectCatalogue(),
 		UserProfiles:        make(map[string]*DeviceProfile),
 		lifecycleActivating: true,
 	}

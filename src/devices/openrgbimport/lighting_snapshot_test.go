@@ -73,7 +73,7 @@ func TestOpenRGBLightingSnapshotConfiguredState(t *testing.T) {
 	wantOptions := []LightingEffectOption{
 		{ID: "static", Label: "Static", CapabilityKnown: true, Capability: rgb.LightingEffectCapability{Palette: rgb.LightingPaletteStaticSingle, UsesStartColor: true}},
 		{ID: "colorpulse", Label: "Color Pulse", CapabilityKnown: true, Capability: rgb.LightingEffectCapability{Palette: rgb.LightingPaletteTwoColor, UsesStartColor: true, UsesEndColor: true, SupportsSpeed: true}},
-		{ID: "off", CapabilityKnown: true, Capability: rgb.LightingEffectCapability{Palette: rgb.LightingPaletteNone}},
+		{ID: "off", Label: "Off", CapabilityKnown: true, Capability: rgb.LightingEffectCapability{Palette: rgb.LightingPaletteNone}},
 	}
 	if !reflect.DeepEqual(snapshot.SupportedEffects, wantOptions) {
 		t.Fatalf("supported effects = %#v, want %#v", snapshot.SupportedEffects, wantOptions)
@@ -95,19 +95,24 @@ func TestOpenRGBLightingSnapshotConfiguredState(t *testing.T) {
 }
 
 func TestOpenRGBLightingSnapshotSupportedCatalogCapabilities(t *testing.T) {
-	definitions := make(map[string]rgb.Profile, len(rgbModes))
-	for _, effect := range rgbModes {
+	catalogue := importerSoftwareEffectCatalogue()
+	definitions := make(map[string]rgb.Profile, len(catalogue))
+	for _, effect := range catalogue {
 		definitions[effect] = rgb.Profile{ProfileName: effect}
 	}
-	device := lightingTestDevice("static", rgbModes, definitions)
+	device := lightingTestDevice("static", catalogue, definitions)
 
 	snapshot, ok := device.LightingSnapshot()
-	if !ok || len(snapshot.SupportedEffects) != len(rgbModes) {
+	if !ok || len(snapshot.SupportedEffects) != len(catalogue) {
 		t.Fatalf("supported effects = %#v, %t", snapshot.SupportedEffects, ok)
 	}
 	for i, option := range snapshot.SupportedEffects {
-		if option.ID != rgbModes[i] || option.Label != rgbModes[i] {
-			t.Errorf("option %d = %+v, want ID and label %q", i, option, rgbModes[i])
+		descriptor, found := rgb.SoftwareEffectDescriptorByID(catalogue[i])
+		if !found {
+			t.Fatalf("catalogue effect %q has no descriptor", catalogue[i])
+		}
+		if option.ID != descriptor.ID || option.Label != descriptor.Label {
+			t.Errorf("option %d = %+v, want ID %q and label %q", i, option, descriptor.ID, descriptor.Label)
 		}
 		if !option.CapabilityKnown {
 			t.Errorf("OpenRGB-supported effect %q has no confirmed capability mapping", option.ID)

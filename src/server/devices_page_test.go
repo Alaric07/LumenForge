@@ -636,14 +636,14 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"<nav class=\"lf-device-workspace-nav\" aria-label=\"Device workspace\">",
 		"class=\"lf-device-workspace-link\" href=\"/devices?device=" + visibleSerial + "\">Overview</a>",
 		"class=\"lf-device-workspace-link lf-device-workspace-link-active\" href=\"/devices?device=" + visibleSerial + "&amp;view=lighting\" aria-current=\"page\">Lighting</a>",
-		"Static &lt;Effect&gt; &amp; More",
+		">Static</strong>",
 		"<code class=\"lf-lighting-effect-id\">static</code>",
 		"data-lf-device-serial=\"" + visibleSerial + "\"",
 		"data-lf-current-effect=\"static\"",
 		"data-lf-cluster-controlled=\"true\"",
 		"id=\"lf-lighting-effect-selector\"",
 		"<option value=\"off\">Off</option>",
-		"value=\"static\" selected>Static &lt;Effect&gt; &amp; More</option>",
+		"value=\"static\" selected>Static</option>",
 		"aria-describedby=\"lf-lighting-effect-status lf-lighting-effect-cluster-explanation\"",
 		"Controlled by RGB Cluster. Change active lighting from the <a href=\"/rgbCluster\">RGB Cluster workspace</a>.",
 		"id=\"lf-lighting-effect-status\" aria-live=\"polite\"",
@@ -684,6 +684,7 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"/api/",
 		"Supported effects reference",
 		"lf-lighting-effect-list",
+		"Static &lt;Effect&gt; &amp; More",
 	} {
 		if strings.Contains(strings.ToLower(lightingBody), strings.ToLower(excluded)) {
 			t.Errorf("Lighting GET /devices response unexpectedly contains %q", excluded)

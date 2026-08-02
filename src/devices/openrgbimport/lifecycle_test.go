@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -287,6 +288,14 @@ func TestPrepareImportDeepCopiesRGBAndCompletesLiveDefaultProfile(t *testing.T) 
 	}
 	if got := second.device.Rgb.Profiles["gradient"].Gradients[0].Red; got != 10 {
 		t.Fatalf("fresh imports share gradient maps: %v", got)
+	}
+	wantCatalogue := importerSoftwareEffectCatalogue()
+	if !slices.Equal(first.device.RGBModes, wantCatalogue) || !slices.Equal(second.device.RGBModes, wantCatalogue) {
+		t.Fatalf("prepared importer catalogues = %v and %v, want %v", first.device.RGBModes, second.device.RGBModes, wantCatalogue)
+	}
+	first.device.RGBModes[0] = "caller-mutation"
+	if second.device.RGBModes[0] == "caller-mutation" || importerSoftwareEffectCatalogue()[0] == "caller-mutation" {
+		t.Fatal("prepared imports share mutable software-effect catalogue state")
 	}
 }
 
