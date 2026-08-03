@@ -260,6 +260,101 @@ func TestSoftwareEffectDescriptorExistingCapabilityContracts(t *testing.T) {
 	}
 }
 
+func TestSoftwareEffectTemperaturePointContracts(t *testing.T) {
+	wantSensors := map[string]SoftwareEffectSensorRequirement{
+		"cpu-temperature": SoftwareEffectSensorCPU,
+		"gpu-temperature": SoftwareEffectSensorGPU,
+	}
+
+	for _, descriptor := range SoftwareEffectDescriptors() {
+		if !validSoftwareEffectTemperaturePointContract(descriptor) {
+			t.Errorf("descriptor %q violates production temperature-point invariants: %+v", descriptor.ID, descriptor)
+		}
+
+		wantSensor, temperatureEffect := wantSensors[descriptor.ID]
+		if !temperatureEffect {
+			if descriptor.TemperaturePoints != SoftwareEffectTemperaturePointsNone {
+				t.Errorf("non-temperature descriptor %q declares temperature points %d", descriptor.ID, descriptor.TemperaturePoints)
+			}
+			continue
+		}
+
+		if descriptor.TemperaturePoints != SoftwareEffectTemperaturePointsLowMiddleHigh ||
+			descriptor.PaletteKind != LightingPaletteTemperatureThree ||
+			!descriptor.UsesStart || !descriptor.UsesMiddle || !descriptor.UsesEnd ||
+			descriptor.SupportsSpeed || descriptor.Sensor != wantSensor {
+			t.Errorf("temperature descriptor %q contract = %+v", descriptor.ID, descriptor)
+		}
+
+		capability, ok := LightingEffectCapabilities(descriptor.ID)
+		if !ok || capability.Palette != LightingPaletteTemperatureThree ||
+			!capability.UsesStartColor || !capability.UsesMiddleColor || !capability.UsesEndColor ||
+			capability.SupportsSpeed || HasSpeedControl(descriptor.ID) {
+			t.Errorf("temperature descriptor %q disagrees with existing capability metadata: %+v, %t", descriptor.ID, capability, ok)
+		}
+	}
+}
+
+func TestSoftwareEffectTemperaturePointContractRejectsIncoherentDescriptors(t *testing.T) {
+	validTemperature := newTemperatureSoftwareEffectDescriptor("temperature-test", "Temperature Test", SoftwareEffectSensorCPU)
+	nonTemperature, ok := SoftwareEffectDescriptorByID("static")
+	if !ok {
+		t.Fatal("static descriptor was not found")
+	}
+
+	tests := []struct {
+		name       string
+		descriptor SoftwareEffectDescriptor
+		wantValid  bool
+	}{
+		{name: "valid temperature", descriptor: validTemperature, wantValid: true},
+		{name: "valid non-temperature", descriptor: nonTemperature, wantValid: true},
+		{name: "temperature missing contract", descriptor: func() SoftwareEffectDescriptor {
+			value := validTemperature
+			value.TemperaturePoints = SoftwareEffectTemperaturePointsNone
+			return value
+		}()},
+		{name: "temperature missing Start role", descriptor: func() SoftwareEffectDescriptor {
+			value := validTemperature
+			value.UsesStart = false
+			return value
+		}()},
+		{name: "temperature missing Middle role", descriptor: func() SoftwareEffectDescriptor {
+			value := validTemperature
+			value.UsesMiddle = false
+			return value
+		}()},
+		{name: "temperature missing End role", descriptor: func() SoftwareEffectDescriptor {
+			value := validTemperature
+			value.UsesEnd = false
+			return value
+		}()},
+		{name: "temperature supports Speed", descriptor: func() SoftwareEffectDescriptor {
+			value := validTemperature
+			value.SupportsSpeed = true
+			return value
+		}()},
+		{name: "temperature missing sensor", descriptor: func() SoftwareEffectDescriptor {
+			value := validTemperature
+			value.Sensor = SoftwareEffectSensorNone
+			return value
+		}()},
+		{name: "non-temperature declares contract", descriptor: func() SoftwareEffectDescriptor {
+			value := nonTemperature
+			value.TemperaturePoints = SoftwareEffectTemperaturePointsLowMiddleHigh
+			return value
+		}()},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := validSoftwareEffectTemperaturePointContract(test.descriptor); got != test.wantValid {
+				t.Fatalf("validSoftwareEffectTemperaturePointContract(%+v) = %t, want %t", test.descriptor, got, test.wantValid)
+			}
+		})
+	}
+}
+
 func TestEffectScopeIncludes(t *testing.T) {
 	if !EffectScopeBoth.Includes(EffectScopeDevice) {
 		t.Error("EffectScopeBoth does not include EffectScopeDevice")

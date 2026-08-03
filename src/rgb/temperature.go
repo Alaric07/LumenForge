@@ -33,38 +33,70 @@ func mapTemperatureInRange(temp, minTemp, maxTemp float64) float64 {
 	return (clampedTemp - minTemp) / (maxTemp - minTemp)
 }
 
+func validThreePointTemperatureThresholds(low, middle, high *Color) bool {
+	if low == nil || middle == nil || high == nil {
+		return false
+	}
+
+	thresholds := [...]float64{low.Temperature, middle.Temperature, high.Temperature}
+	for _, threshold := range thresholds {
+		if math.IsNaN(threshold) || math.IsInf(threshold, 0) {
+			return false
+		}
+	}
+
+	return low.Temperature < middle.Temperature && middle.Temperature < high.Temperature
+}
+
+func temperatureLowFallback(low *Color, brightness float64) *Color {
+	if low == nil {
+		return &Color{}
+	}
+	return interpolateColor(low, low, 0, brightness)
+}
+
+func interpolateThreePointTemperatureColor(low, middle, high *Color, currentTemp, brightness float64) *Color {
+	// A missing or malformed complete three-point contract must not interpolate
+	// a partial set, silently reorder semantic Low, Middle, and High colors, or
+	// rely on zero-width division behavior. Retain the owning brightness and
+	// resolve deterministically to Low when it exists, otherwise black.
+	if !validThreePointTemperatureThresholds(low, middle, high) {
+		return temperatureLowFallback(low, brightness)
+	}
+
+	if currentTemp <= low.Temperature {
+		return interpolateColor(low, low, 0, brightness)
+	}
+
+	if currentTemp <= middle.Temperature {
+		t := mapTemperatureInRange(currentTemp, low.Temperature, middle.Temperature)
+		return interpolateColor(low, middle, t, brightness)
+	}
+
+	if currentTemp <= high.Temperature {
+		t := mapTemperatureInRange(currentTemp, middle.Temperature, high.Temperature)
+		return interpolateColor(middle, high, t, brightness)
+	}
+
+	return interpolateColor(high, high, 0, brightness)
+}
+
 func interpolateTemperatureColor(start, middle, end *Color, currentTemp, brightness float64) *Color {
+	if start == nil {
+		return &Color{}
+	}
+
+	// Preserve the established two-point path for legacy callers. Canonical
+	// three-point effects use interpolateThreePointTemperatureColor below.
 	if middle == nil {
+		if end == nil {
+			return temperatureLowFallback(start, brightness)
+		}
 		t := mapTemperatureInRange(currentTemp, start.Temperature, end.Temperature)
 		return interpolateTempColor(start, end, t, brightness)
 	}
 
-	c1, c2, c3 := start, middle, end
-	if c1.Temperature > c2.Temperature {
-		c1, c2 = c2, c1
-	}
-	if c2.Temperature > c3.Temperature {
-		c2, c3 = c3, c2
-	}
-	if c1.Temperature > c2.Temperature {
-		c1, c2 = c2, c1
-	}
-
-	if currentTemp <= c1.Temperature {
-		return interpolateColor(c1, c1, 0, brightness)
-	}
-
-	if currentTemp <= c2.Temperature {
-		t := mapTemperatureInRange(currentTemp, c1.Temperature, c2.Temperature)
-		return interpolateColor(c1, c2, t, brightness)
-	}
-
-	if currentTemp <= c3.Temperature {
-		t := mapTemperatureInRange(currentTemp, c2.Temperature, c3.Temperature)
-		return interpolateColor(c2, c3, t, brightness)
-	}
-
-	return interpolateColor(c3, c3, 0, brightness)
+	return interpolateThreePointTemperatureColor(start, middle, end, currentTemp, brightness)
 }
 
 func (r *ActiveRGB) SmoothTemperature(currentTemp float64) float64 {

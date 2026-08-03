@@ -45,21 +45,36 @@ const (
 	SoftwareEffectTopologyLinear
 )
 
+// SoftwareEffectTemperaturePointContract describes the thresholded color
+// points consumed by a generic temperature renderer.
+type SoftwareEffectTemperaturePointContract uint8
+
+const (
+	// SoftwareEffectTemperaturePointsNone means the effect consumes no
+	// thresholded temperature-point set.
+	SoftwareEffectTemperaturePointsNone SoftwareEffectTemperaturePointContract = iota
+	// SoftwareEffectTemperaturePointsLowMiddleHigh requires Low, Middle, and
+	// High RGB colors, each with a finite Celsius threshold in strictly
+	// increasing order.
+	SoftwareEffectTemperaturePointsLowMiddleHigh
+)
+
 // SoftwareEffectDescriptor describes persisted inputs and compatible render
 // targets for one generic LumenForge software effect.
 type SoftwareEffectDescriptor struct {
-	ID            string
-	Label         string
-	Scope         EffectScope
-	PaletteKind   LightingPaletteKind
-	UsesStart     bool
-	UsesMiddle    bool
-	UsesEnd       bool
-	SupportsSpeed bool
-	Sensor        SoftwareEffectSensorRequirement
-	Topology      SoftwareEffectTopology
-	MinimumLEDs   int
-	Icon          string
+	ID                string
+	Label             string
+	Scope             EffectScope
+	PaletteKind       LightingPaletteKind
+	UsesStart         bool
+	UsesMiddle        bool
+	UsesEnd           bool
+	SupportsSpeed     bool
+	Sensor            SoftwareEffectSensorRequirement
+	Topology          SoftwareEffectTopology
+	TemperaturePoints SoftwareEffectTemperaturePointContract
+	MinimumLEDs       int
+	Icon              string
 }
 
 type softwareEffectColorUsage uint8
@@ -94,6 +109,24 @@ func newSoftwareEffectDescriptor(
 	}
 }
 
+func newTemperatureSoftwareEffectDescriptor(
+	id string,
+	label string,
+	sensor SoftwareEffectSensorRequirement,
+) SoftwareEffectDescriptor {
+	descriptor := newSoftwareEffectDescriptor(
+		id,
+		label,
+		LightingPaletteTemperatureThree,
+		softwareEffectUsesStart|softwareEffectUsesMiddle|softwareEffectUsesEnd,
+		false,
+		sensor,
+		SoftwareEffectTopologyAny,
+	)
+	descriptor.TemperaturePoints = SoftwareEffectTemperaturePointsLowMiddleHigh
+	return descriptor
+}
+
 // softwareEffectDescriptors is ordered case-insensitively by display label,
 // with stable ID as the tie-break. Keep this order deterministic for callers.
 var softwareEffectDescriptors = []SoftwareEffectDescriptor{
@@ -105,12 +138,12 @@ var softwareEffectDescriptors = []SoftwareEffectDescriptor{
 	newSoftwareEffectDescriptor("colorshift", "Color Shift", LightingPaletteTwoColor, softwareEffectUsesStart|softwareEffectUsesEnd, true, SoftwareEffectSensorNone, SoftwareEffectTopologyAny),
 	newSoftwareEffectDescriptor("colorwarp", "Color Warp", LightingPaletteGenerated, 0, true, SoftwareEffectSensorNone, SoftwareEffectTopologyAny),
 	newSoftwareEffectDescriptor("comet", "Comet", LightingPaletteTwoColor, softwareEffectUsesStart|softwareEffectUsesEnd, true, SoftwareEffectSensorNone, SoftwareEffectTopologyLinear),
-	newSoftwareEffectDescriptor("cpu-temperature", "CPU Temperature", LightingPaletteTemperatureThree, softwareEffectUsesStart|softwareEffectUsesMiddle|softwareEffectUsesEnd, false, SoftwareEffectSensorCPU, SoftwareEffectTopologyAny),
+	newTemperatureSoftwareEffectDescriptor("cpu-temperature", "CPU Temperature", SoftwareEffectSensorCPU),
 	newSoftwareEffectDescriptor("cyberpunkglitch", "Cyberpunk Glitch", LightingPaletteGenerated, 0, true, SoftwareEffectSensorNone, SoftwareEffectTopologyLinear),
 	newSoftwareEffectDescriptor("datastream", "Data Stream", LightingPaletteTwoColor, softwareEffectUsesStart|softwareEffectUsesEnd, true, SoftwareEffectSensorNone, SoftwareEffectTopologyLinear),
 	newSoftwareEffectDescriptor("flame", "Flame", LightingPaletteGenerated, 0, true, SoftwareEffectSensorNone, SoftwareEffectTopologyLinear),
 	newSoftwareEffectDescriptor("flickering", "Flickering", LightingPaletteTwoColor, softwareEffectUsesStart|softwareEffectUsesEnd, true, SoftwareEffectSensorNone, SoftwareEffectTopologyLinear),
-	newSoftwareEffectDescriptor("gpu-temperature", "GPU Temperature", LightingPaletteTemperatureThree, softwareEffectUsesStart|softwareEffectUsesMiddle|softwareEffectUsesEnd, false, SoftwareEffectSensorGPU, SoftwareEffectTopologyAny),
+	newTemperatureSoftwareEffectDescriptor("gpu-temperature", "GPU Temperature", SoftwareEffectSensorGPU),
 	newSoftwareEffectDescriptor("gradient", "Gradient", LightingPaletteGradient, 0, true, SoftwareEffectSensorNone, SoftwareEffectTopologyAny),
 	newSoftwareEffectDescriptor("marquee", "Marquee", LightingPaletteTwoColor, softwareEffectUsesStart|softwareEffectUsesEnd, true, SoftwareEffectSensorNone, SoftwareEffectTopologyLinear),
 	newSoftwareEffectDescriptor("nebula", "Nebula", LightingPaletteGenerated, 0, true, SoftwareEffectSensorNone, SoftwareEffectTopologyLinear),
@@ -132,6 +165,25 @@ var softwareEffectDescriptors = []SoftwareEffectDescriptor{
 	newSoftwareEffectDescriptor("visor", "Visor", LightingPaletteStaticSingle, softwareEffectUsesStart, true, SoftwareEffectSensorNone, SoftwareEffectTopologyLinear),
 	newSoftwareEffectDescriptor("watercolor", "Water Color", LightingPaletteGenerated, 0, true, SoftwareEffectSensorNone, SoftwareEffectTopologyLinear),
 	newSoftwareEffectDescriptor("wave", "Wave", LightingPaletteTwoColor, softwareEffectUsesStart|softwareEffectUsesEnd, true, SoftwareEffectSensorNone, SoftwareEffectTopologyLinear),
+}
+
+func validSoftwareEffectTemperaturePointContract(descriptor SoftwareEffectDescriptor) bool {
+	if descriptor.PaletteKind != LightingPaletteTemperatureThree {
+		return descriptor.TemperaturePoints == SoftwareEffectTemperaturePointsNone
+	}
+
+	return descriptor.TemperaturePoints == SoftwareEffectTemperaturePointsLowMiddleHigh &&
+		descriptor.UsesStart && descriptor.UsesMiddle && descriptor.UsesEnd &&
+		!descriptor.SupportsSpeed &&
+		(descriptor.Sensor == SoftwareEffectSensorCPU || descriptor.Sensor == SoftwareEffectSensorGPU)
+}
+
+func init() {
+	for _, descriptor := range softwareEffectDescriptors {
+		if !validSoftwareEffectTemperaturePointContract(descriptor) {
+			panic("invalid software effect temperature-point contract for " + descriptor.ID)
+		}
+	}
 }
 
 // SoftwareEffectDescriptorByID looks up a generic LumenForge software-effect
