@@ -214,7 +214,7 @@ consumer. Existing sources should not be deleted together in one broad commit.
 Implement controls in this order:
 
 1. [x] Theme-aware brightness slider (`e46d19ec`)
-2. [ ] Speed slider shown only when supported
+2. [x] Speed slider shown only when supported (`45d1a6c9`)
 3. [ ] Static single-color editor
 4. [ ] Two-color Start/End editor
 5. [ ] Temperature Start/Middle/End editor
@@ -242,11 +242,45 @@ The theme-aware brightness control establishes the reusable slider pattern:
 - Automated, repeated, and race tests passed, along with controlled browser
   and hardware validation and CodeRabbit review.
 
+The persisted Speed control extends that pattern for OpenRGB-imported devices:
+
+- It appears only for the active LumenForge software effects whose canonical
+  descriptor supports persistent speed. The paired semantic, theme-aware range
+  and numeric controls present a `1.0` through `10.0` scale while delegating
+  duration, identity, and calibrated effect mappings to the established
+  `rgb-speed.js` helper.
+- Exact legacy stored values remain unchanged until a genuine edit. Speed
+  normally persists to the active device RGB definition; an enabled
+  controller-wide RGB Override owns non-Gradient speed, while Gradient speed
+  remains in its base Gradient definition even when the override supplies its
+  colors.
+- A successful mutation updates the effective readout and only the actual base
+  or override source. Checked persistence rolls back on save failure, while an
+  already-persisted desired speed remains stored if initial renderer output
+  later fails or exceeds its five-second wait. Browser errors remain generic.
+- RGB Cluster ownership disables the local controls and is independently
+  enforced by the device mutation. The legacy categorical request remains
+  compatible, but the modern persisted slider does not use that path.
+- Deterministic JavaScript coverage, focused and broader Go tests, repeated and
+  race tests, server template and error-redaction tests, and manual Firefox
+  interaction validation passed. Three CodeRabbit review rounds ended with no
+  findings across all ten milestone files.
+
 Settled interaction pattern for future sliders:
 
-- Range movement updates the local preview.
-- Releasing commits one persisted mutation.
-- Direct numeric entry commits on Enter, change, or blur.
+- Pointer range movement previews locally.
+- Pointer release commits one persisted mutation.
+- Repeated keyboard range or numeric-arrow adjustments remain focused and
+  coalesce into one mutation after 400 milliseconds of inactivity.
+- Enter and blur can commit immediately without duplicate requests.
+- Raw numeric text is not rewritten while the user is typing.
+- Selection and caret behavior remain native.
+- Formatting or normalization occurs only during initialization, explicit
+  commit, restoration, success, or failure rollback.
+- Keyboard-origin mutations restore focus when the user has not deliberately
+  moved elsewhere. Pointer- and blur-origin commits do not steal focus.
+- Pending state, timeout handling, confirmed baselines, rollback, and
+  generation-safe status timers remain control-local.
 - Permanent instructional text is unnecessary.
 - Transient status appears only when useful.
 
@@ -418,7 +452,7 @@ must use deterministic contract tests rather than probabilistic retry loops.
 | --- | --- | --- | --- | --- |
 | Effect IDs and labels | Shipped profiles, device and cluster lists, presentation fallbacks | Software-effect descriptors | `[~]` Registry created | All migrated consumers pass parity tests |
 | Palette and color usage | `LightingEffectCapabilities`, profile defaults, presentation logic | Software-effect descriptors | `[~]` Registry created | Capability and presentation consumers use descriptors |
-| Speed support | `HasSpeedControl`, capability metadata, controls | Software-effect descriptors | `[~]` Registry created | Persistence and UI parity tests pass |
+| Speed support | `HasSpeedControl`, capability metadata, controls | Software-effect descriptors | `[~]` Canonical metadata integrated and consumed by the OpenRGB-imported-device persisted Speed control; RGB Cluster and native-device migration remain incomplete | Persistence and UI parity tests pass |
 | Sensor requirement | Renderer dispatch and device-specific paths | Generic descriptors where applicable | `[~]` Generic CPU/GPU metadata created | Generic consumers migrate; device-local sensors remain separate |
 | Topology and scope | Renderer knowledge and target-specific lists | Software-effect descriptors | `[~]` Registry created | Catalogue filtering and parity tests pass |
 | Device-target effect list | OpenRGB-imported-device allowlist and native lists | Scope-filtered generic descriptors plus native capabilities | `[ ]` Planned | Explicit dispatch and compatibility tests exist |
@@ -449,7 +483,7 @@ roadmap does not promise that every duplicate will be deleted.
    OpenRGB-imported devices (`e3df7bcd`).
 7. [x] Integrate selected-effect icons (`401a132e`).
 8. [x] Add theme-aware brightness control (`e46d19ec`).
-9. [ ] Add conditional speed control.
+9. [x] Add conditional speed control (`45d1a6c9`).
 10. [ ] Add palette and color editors.
 11. [ ] Add local override controls.
 12. [ ] Migrate the RGB Cluster catalogue to descriptors.
