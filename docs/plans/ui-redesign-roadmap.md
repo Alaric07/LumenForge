@@ -7,6 +7,10 @@ bookkeeping, and makes effects, devices, controls, and themes easier to add.
 It preserves hardware-specific behavior where duplication is intentional and
 advances through small, reviewed milestones rather than a giant rewrite.
 
+The target software-lighting ownership, persistence, resolution, control, and
+clean-break decisions are defined in the
+[Lighting Configuration Architecture](lighting-configuration-architecture.md).
+
 ## Status conventions
 
 - `[x]` Completed
@@ -30,7 +34,12 @@ Unless otherwise stated, completion means the work is committed and pushed to
 - Let RGB Cluster controls own cluster-wide lighting.
 - Let Device Lighting controls own local per-device lighting.
 - When RGB Cluster owns output, keep local mutation controls disabled and show
-  the ownership reason beside each affected control.
+  one nearby ownership explanation.
+- Keep Brightness separate from effect customizations and apply it exactly once
+  in the owning scope.
+- Resolve renderer output and presentation snapshots from the same canonical
+  target settings.
+- Keep shipped effect defaults hidden and immutable.
 - Define semantic theme token values in themes and style components once.
 - Give shared effect metadata one canonical source.
 - Keep software-rendered effects distinct from similarly named native firmware
@@ -40,7 +49,8 @@ Unless otherwise stated, completion means the work is committed and pushed to
 - Remove duplicated bookkeeping where data can safely be derived.
 - Preserve intentional backend-specific implementations.
 - Prefer narrow migrations with focused tests and review.
-- Retain legacy routes as fallbacks until replacement work is complete.
+- Retain a target's legacy route only until that target reaches replacement
+  parity and its named deletion condition is satisfied.
 
 ## 2. Completed milestones
 
@@ -66,6 +76,9 @@ device control has migrated.
 These changes hardened LumenForge lighting mutations, override output, and
 profile persistence for OpenRGB-imported devices. OpenRGB is the hardware
 communication backend; it is not the source of LumenForge software animations.
+They describe historical hardening of the current alpha architecture. The
+clean-break architecture intentionally retires the override layer rather than
+carrying it forward.
 
 ### Capability and read-only workspace
 
@@ -75,7 +88,8 @@ communication backend; it is not the source of LumenForge software animations.
 The capability snapshot distinguishes palette kinds, cluster ownership,
 supported effects, current configuration, and effective output. The read-only
 Lighting workspace presents that information without changing native-device
-implementations.
+implementations. Its current comparison-oriented presentation is an
+intermediate milestone and is not the final control model.
 
 ### Theme system
 
@@ -153,31 +167,15 @@ matrix behavior. Liquid- and probe-temperature effects depend on device-local
 sensors. Per-LED profiles depend on a device-local indexed layout. Those
 requirements remain owned by their device implementations.
 
-### Effects unavailable to individual OpenRGB-imported devices
+### OpenRGB-imported-device catalogue
 
-Fourteen existing LumenForge software effects are not currently selectable for
-individual OpenRGB-imported devices:
-
-- `arc`
-- `comet`
-- `datastream`
-- `marquee`
-- `nebula`
-- `pastelspiralrainbow`
-- `plasmacore`
-- `rain`
-- `rotarystack`
-- `sequential`
-- `spiralrainbow`
-- `stardust`
-- `tokyonight`
-- `visor`
-
-`spiralrainbow` and `pastelspiralrainbow` already have importer dispatch cases
-but are absent from the current allowlist. The other twelve require explicit
-importer dispatch cases before they become selectable. Blindly adding IDs is
-incorrect because unknown importer dispatch currently falls back to Static.
-Expansion must follow descriptor integration and renderer-contract coverage.
+All 35 generic software effects are now selectable for individual
+OpenRGB-imported devices. The catalogue is derived from canonical descriptor
+Device scope, explicit dispatch is covered by consistency tests, and rendering
+checks current-device eligibility immediately before dispatch. Unsupported
+preserved IDs still render the conservative Static fallback. This completed
+catalogue work does not settle the replacement persistence architecture or the
+renderer-driven editing controls.
 
 ### Existing icons
 
@@ -189,41 +187,108 @@ Expansion must follow descriptor integration and renderer-contract coverage.
   OpenRGB-imported-device Lighting workspace (`401a132e`); it is no longer an
   unresolved icon-strategy decision.
 
-## 4. Active foundation work
+## 4. Clean-break lighting architecture
+
+The detailed target contract is recorded in the
+[Lighting Configuration Architecture](lighting-configuration-architecture.md).
+The implementation is a deliberate clean break: old custom lighting data may
+be discarded, and no migration, dual-read, dual-write, RGB Override conversion,
+zone-color conversion, or global RGB-profile conversion is planned.
+
+### Architecture foundation
 
 - [x] Establish the canonical generic software-effect descriptor registry.
 - [x] Migrate generic software-effect capability lookup to canonical
   descriptors (`287c0f89`).
 - [x] Migrate generic software-effect persistent-speed support to canonical
   descriptors (`b895cb75`).
-- [ ] Derive the compatible LumenForge software-effect catalogue for
-  OpenRGB-imported devices from descriptor scope and confirmed dispatch
-  support.
-- [ ] Derive the RGB Cluster software-effect catalogue from descriptor scope.
-- [ ] Remove redundant label fallback where descriptors provide labels.
-- [ ] Use descriptor icon identity in presentation.
-- [ ] Add consistency tests before deleting old lists.
-- [ ] Keep renderer dispatch explicit until a safe dispatch architecture is
-  designed.
+- [x] Derive the OpenRGB-imported-device catalogue from descriptor Device scope
+  (`e3df7bcd`).
+- [x] Use canonical descriptor icon identity in modern presentation
+  (`401a132e`).
+- [ ] Define and test Low/Middle/High temperature threshold semantics.
+- [ ] Make owning-scope Brightness authoritative for Gradient while preserving
+  per-stop intensity as a relative property.
+- [ ] Correct imported RGB Cluster member double scaling in a focused commit.
+- [ ] Add immutable hidden defaults with defensive-copy tests.
+- [ ] Add complete effect-settings types and dedicated device/cluster stores.
+- [ ] Add the canonical target/effect resolver and path tests.
+- [ ] Add dedicated OpenRGB device-lighting persistence.
+- [ ] Derive the RGB Cluster catalogue from descriptor scope.
+- [ ] Remove duplicated metadata only after migrated consumers pass parity
+  tests.
+- [ ] Keep renderer dispatch explicit until a proven replacement preserves
+  output and lifecycle behavior.
 
-The registry should replace duplicated metadata gradually, consumer by
-consumer. Existing sources should not be deleted together in one broad commit.
+### OpenRGB Device Lighting cutover
 
-## 5. Lighting workspace controls
+- [x] Add the modern protected effect selector (`01b80d4a`).
+- [x] Add the theme-aware Brightness control (`e46d19ec`).
+- [x] Add the conditional persisted Speed control (`45d1a6c9`).
+- [ ] Adapt effect selection, Brightness, and Speed from current persistence to
+  the canonical resolver without redesigning their established interactions.
+- [ ] Cut rendering, restart, and reconnect atomically to the resolver.
+- [ ] Make Static one color per device; retain zones only for topology,
+  addressing, names, and LED counts.
+- [ ] Retire heterogeneous OpenRGB Static zone colors without migration.
+- [ ] Replace base/override/effective snapshots with resolved control data.
+- [ ] Simplify Device Lighting to renderer-supported controls only.
+- [ ] Add the Static/single-color editor and Reset.
+- [ ] Add the two-color Start/End editor.
+- [ ] Add Low/Middle/High temperature color and threshold editing.
+- [ ] Add the ordered Gradient editor.
+- [ ] Delete OpenRGB RGB Override and legacy imported-device lighting paths
+  after modern parity.
 
-Implement controls in this order:
+Static is one color per independent device. There is no zone-color migration,
+alternate heterogeneous Static mode, or user-facing override layer. Fixed and
+generated-palette effects show only genuine renderer-supported controls and no
+palette placeholder or explanatory message.
 
-1. [x] Theme-aware brightness slider (`e46d19ec`)
-2. [x] Speed slider shown only when supported (`45d1a6c9`)
-3. [ ] Static single-color editor
-4. [ ] Two-color Start/End editor
-5. [ ] Temperature Start/Middle/End editor
-6. [ ] Gradient editor
-7. [ ] Generated-palette presentation
-8. [ ] Local RGB override controls
-9. [ ] Persistence and reload verification
-10. [ ] Accessible pending, success, and failure states
-11. [ ] Cluster-owned disablement beside every affected control
+Reset deletes only the selected device/effect customization, preserves the
+selected effect and device Brightness, resolves the hidden default, and is
+shown only while that customization exists.
+
+### RGB Cluster cutover
+
+- [ ] Add dedicated cluster settings persistence and canonical resolution.
+- [ ] Make cluster Brightness authoritative and apply it exactly once.
+- [ ] Preserve cluster membership and device order outside effect settings.
+- [ ] Use the shared descriptor-driven Effect, Brightness, Speed, color,
+  temperature, Gradient, and status components.
+- [ ] Add cluster-scoped Reset with the same deletion semantics.
+- [ ] Make cluster Static one color across the complete cluster output.
+- [ ] Remove cluster dependence on the mutable global RGB profile model after
+  renderer, persistence, restart, and UI parity.
+
+### Native-device migration
+
+- [ ] Migrate one native device family at a time.
+- [ ] Preserve each family's protocol, packet, topology, lifecycle, firmware,
+  and hardware-specific output behavior.
+- [ ] Provide every renderer-consumed control and Reset before removing that
+  family's legacy dependency.
+- [ ] Remove shared override/global-editor infrastructure only after every
+  proven consumer reaches parity.
+
+### Final cleanup
+
+- [ ] Remove `/rgb` after OpenRGB, RGB Cluster, and every still-supported native
+  target it serves has renderer-consumed parity.
+- [ ] Remove global RGB editor mutation endpoints after their consumer search
+  is empty.
+- [ ] Remove remaining mutable target-local RGB copies.
+- [ ] Remove remaining RGB Override infrastructure.
+- [ ] Remove duplicated capability structures after descriptor adoption.
+- [ ] Remove obsolete templates, JavaScript, CSS, tests, and documentation.
+- [ ] Add final clean-install, selective-backup, and release guidance.
+
+The current backup boundary expects `config.json` to remain reusable. The
+OpenRGB import store is reusable only while its exact schema and identity
+semantics remain compatible. Final release documentation must revalidate the
+complete backup list against the finished implementation.
+
+## 5. Established Lighting workspace interactions
 
 The theme-aware brightness control establishes the reusable slider pattern:
 
@@ -249,15 +314,13 @@ The persisted Speed control extends that pattern for OpenRGB-imported devices:
   and numeric controls present a `1.0` through `10.0` scale while delegating
   duration, identity, and calibrated effect mappings to the established
   `rgb-speed.js` helper.
-- Exact legacy stored values remain unchanged until a genuine edit. Speed
-  normally persists to the active device RGB definition; an enabled
-  controller-wide RGB Override owns non-Gradient speed, while Gradient speed
-  remains in its base Gradient definition even when the override supplies its
-  colors.
-- A successful mutation updates the effective readout and only the actual base
-  or override source. Checked persistence rolls back on save failure, while an
-  already-persisted desired speed remains stored if initial renderer output
-  later fails or exceeds its five-second wait. Browser errors remain generic.
+- Exact legacy stored values remain unchanged until a genuine edit. The
+  established control and interaction remain complete UI capabilities, but
+  their current persistence source will be adapted to the canonical resolver
+  during the OpenRGB cutover.
+- Checked persistence rolls back on save failure, while an already-persisted
+  desired speed remains stored if initial renderer output later fails or
+  exceeds its five-second wait. Browser errors remain generic.
 - RGB Cluster ownership disables the local controls and is independently
   enforced by the device mutation. The legacy categorical request remains
   compatible, but the modern persisted slider does not use that path.
@@ -284,10 +347,6 @@ Settled interaction pattern for future sliders:
 - Permanent instructional text is unnecessary.
 - Transient status appears only when useful.
 
-For OpenRGB-imported devices, RGB Override must be presented truthfully as
-controller-wide unless a future capability explicitly proves finer-grained
-control.
-
 Control design expectations:
 
 - Use custom, modern, theme-aware presentation while preserving native
@@ -299,7 +358,7 @@ Control design expectations:
 
 ## 6. Effect catalogue migration and expansion
 
-- [ ] Use canonical descriptors for capability metadata.
+- [x] Use canonical descriptors for capability metadata (`287c0f89`).
 - [x] Add missing explicit importer dispatch cases (`9fb3eab2`).
   Importer rendering now checks the current device's exact supported-effect
   catalogue immediately before dispatch. Unsupported preserved profile IDs
@@ -455,11 +514,12 @@ must use deterministic contract tests rather than probabilistic retry loops.
 | Speed support | `HasSpeedControl`, capability metadata, controls | Software-effect descriptors | `[~]` Canonical metadata integrated and consumed by the OpenRGB-imported-device persisted Speed control; RGB Cluster and native-device migration remain incomplete | Persistence and UI parity tests pass |
 | Sensor requirement | Renderer dispatch and device-specific paths | Generic descriptors where applicable | `[~]` Generic CPU/GPU metadata created | Generic consumers migrate; device-local sensors remain separate |
 | Topology and scope | Renderer knowledge and target-specific lists | Software-effect descriptors | `[~]` Registry created | Catalogue filtering and parity tests pass |
-| Device-target effect list | OpenRGB-imported-device allowlist and native lists | Scope-filtered generic descriptors plus native capabilities | `[ ]` Planned | Explicit dispatch and compatibility tests exist |
+| Device-target effect list | OpenRGB-imported-device allowlist and native lists | Scope-filtered generic descriptors plus native capabilities | `[~]` OpenRGB generic catalogue migrated; native lists remain | Explicit dispatch and compatibility tests exist for each target |
 | RGB Cluster effect list | Cluster catalogue | Scope-filtered generic descriptors | `[ ]` Planned | Cluster list and behavior parity tests pass |
 | Icon identity | Stable asset naming and presentation paths | Software-effect descriptors | `[~]` Identity recorded | Presentation uses descriptor identity with fallback tests |
 | Renderer dispatch | Importer and cluster switches | Explicit dispatch until a proven replacement exists | `[!]` Decision required | Output parity and lifecycle behavior are demonstrated |
-| Default profile values | `database/rgb.json` and device-local defaults | Shipped or device-owned profiles | Intentional separation | Change only for a concrete profile requirement |
+| Default profile values | `database/rgb.json` and mutable target-local copies | Hidden immutable default repository plus complete target customizations | `[ ]` Architecture recorded | Resolver and defensive-copy tests pass; migrated targets no longer read local RGB copies |
+| Effect-setting precedence | Device RGB definitions, RGB Override, zone colors, and `lastColor` | One target customization or hidden default | `[ ]` Architecture recorded | Renderer and presentation use the same resolver |
 | Native firmware capabilities | Native device packages and firmware mode lists | Device-owned capability adapters | Intentional separation | Normalize only proven shared semantics |
 
 Suitable centralization targets are IDs and labels, palette and color usage,
@@ -484,14 +544,35 @@ roadmap does not promise that every duplicate will be deleted.
 7. [x] Integrate selected-effect icons (`401a132e`).
 8. [x] Add theme-aware brightness control (`e46d19ec`).
 9. [x] Add conditional speed control (`45d1a6c9`).
-10. [ ] Add palette and color editors.
-11. [ ] Add local override controls.
-12. [ ] Migrate the RGB Cluster catalogue to descriptors.
-13. [ ] Remove superseded duplicated bookkeeping after parity tests.
-14. [ ] Add collapsible global navigation.
-15. [ ] Expand native-device workspace adapters.
-16. [ ] Consolidate global Dashboard telemetry.
-17. [ ] Continue responsive, accessibility, and polish review.
+10. [x] Record the clean-break lighting configuration architecture in
+    [Lighting Configuration Architecture](lighting-configuration-architecture.md).
+11. [ ] Define and test Low/Middle/High temperature threshold semantics.
+12. [ ] Make owning-scope Brightness authoritative for Gradient while
+    preserving per-stop intensity as a relative property.
+13. [ ] Correct imported RGB Cluster member Brightness double scaling.
+14. [ ] Add immutable defaults, complete settings types, dedicated stores, and
+    the canonical resolver.
+15. [ ] Cut OpenRGB effect selection, Brightness, Speed, rendering, restart,
+    and reconnect to dedicated device-lighting persistence and the resolver.
+16. [ ] Make OpenRGB Static uniform and retire zone-owned Static colors and the
+    legacy color path without migration.
+17. [ ] Simplify Device Lighting presentation and add single-color editing and
+    Reset.
+18. [ ] Add two-color editing.
+19. [ ] Add temperature color and threshold editing.
+20. [ ] Add Gradient editing.
+21. [ ] Cut RGB Cluster persistence, rendering, catalogue, and Brightness to
+    the resolver and shared controls.
+22. [ ] Remove OpenRGB RGB Override and legacy imported-device lighting paths
+    after OpenRGB parity.
+23. [ ] Migrate native-device families one at a time without changing their
+    hardware-specific output behavior.
+24. [ ] Remove `/rgb`, global mutations, remaining target-local RGB copies,
+    remaining override infrastructure, and duplicated metadata after every
+    proven consumer reaches parity.
+25. [ ] Add final clean-install, selective-backup, and release guidance.
+26. [ ] Continue shell, Dashboard telemetry, responsive, accessibility, and
+    polish milestones independently.
 
 This order may change when implementation uncovers a prerequisite or defect.
 Record any change and its reason in this document.
@@ -506,13 +587,17 @@ Record any change and its reason in this document.
 - Do not bypass cluster ownership from local device controls.
 - Do not expose effects without explicit renderer dispatch and safety coverage.
 - Do not perform a giant one-commit metadata migration.
+- Do not migrate, convert, dual-read, or dual-write retired alpha lighting
+  state.
+- Do not retain the standalone RGB editor after all served targets have parity.
+- Do not expose hidden defaults or make them user-editable.
+- Do not reset Brightness when resetting an effect customization.
 - Do not require every effect to look ideal at every LED count.
 - Do not restore Docker as part of the UI work.
-- Do not add a schema migration unless a future feature truly requires one.
+- Do not add a general migration framework for discarded lighting state.
 
 ## 16. Open decisions
 
-- [!] Visual treatment for generated-palette effects
 - [!] Persistence location for collapsed sidebar state
 - [!] Whether future renderer dispatch remains switch-based or uses registered
   function references
