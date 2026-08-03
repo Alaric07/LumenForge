@@ -10,6 +10,7 @@ import (
 	"LumenForge/src/templates"
 	"bytes"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -251,6 +252,92 @@ func TestDevicesLightingEffectSelectorPresentation(t *testing.T) {
 	}
 }
 
+func devicesLightingSpeedSnapshot(effect string, speed float64) openrgbimport.LightingSnapshot {
+	capability, known := rgb.LightingEffectCapabilities(effect)
+	definition := &openrgbimport.LightingDefinitionSnapshot{
+		Palette:  capability.Palette,
+		HasSpeed: capability.SupportsSpeed,
+		Speed:    speed,
+	}
+	return openrgbimport.LightingSnapshot{
+		HasActiveProfile: true,
+		ConfiguredEffect: effect,
+		EffectSupported:  true,
+		SupportedEffects: []openrgbimport.LightingEffectOption{{
+			ID:              effect,
+			Label:           effect,
+			CapabilityKnown: known,
+			Capability:      capability,
+		}},
+		BaseDefinition: definition,
+		Effective:      definition,
+	}
+}
+
+func TestDevicesLightingSpeedControlPresentation(t *testing.T) {
+	for _, effect := range []string{"circle", "flame", "cyberpunkglitch", "rain", "aurora", "gradient"} {
+		t.Run(effect, func(t *testing.T) {
+			summary := openRGBLightingWorkspaceSummaryFromSnapshot(devicesLightingSpeedSnapshot(effect, 2))
+			if !summary.HasSpeedControl || summary.Speed != "2" || summary.SpeedTarget != "base" {
+				t.Fatalf("speed presentation for %q = %#v", effect, summary)
+			}
+			if summary.BaseDefinition == nil || summary.BaseDefinition.SpeedRole != "base" ||
+				summary.Effective == nil || summary.Effective.SpeedRole != "effective" {
+				t.Fatalf("speed readout roles for %q = base %#v, effective %#v", effect, summary.BaseDefinition, summary.Effective)
+			}
+		})
+	}
+
+	overrideSnapshot := devicesLightingSpeedSnapshot("rain", 2.5)
+	overrideSnapshot.Override = &openrgbimport.LightingOverrideSnapshot{Enabled: true, Speed: 2.5}
+	overrideSummary := openRGBLightingWorkspaceSummaryFromSnapshot(overrideSnapshot)
+	if !overrideSummary.HasSpeedControl || overrideSummary.SpeedTarget != "override" ||
+		overrideSummary.Override == nil || overrideSummary.Override.SpeedRole != "override" {
+		t.Fatalf("enabled override speed presentation = %#v", overrideSummary)
+	}
+
+	gradientSnapshot := devicesLightingSpeedSnapshot("gradient", 4)
+	gradientSnapshot.Override = &openrgbimport.LightingOverrideSnapshot{Enabled: true, Speed: 8}
+	gradientSummary := openRGBLightingWorkspaceSummaryFromSnapshot(gradientSnapshot)
+	if !gradientSummary.HasSpeedControl || gradientSummary.SpeedTarget != "base" {
+		t.Fatalf("Gradient speed target = %#v", gradientSummary)
+	}
+
+	for _, test := range []struct {
+		name     string
+		snapshot openrgbimport.LightingSnapshot
+	}{
+		{name: "inactive profile", snapshot: func() openrgbimport.LightingSnapshot {
+			value := devicesLightingSpeedSnapshot("circle", 2)
+			value.HasActiveProfile = false
+			return value
+		}()},
+		{name: "unsupported effect", snapshot: func() openrgbimport.LightingSnapshot {
+			value := devicesLightingSpeedSnapshot("circle", 2)
+			value.EffectSupported = false
+			return value
+		}()},
+		{name: "missing definition", snapshot: func() openrgbimport.LightingSnapshot {
+			value := devicesLightingSpeedSnapshot("circle", 2)
+			value.Effective = nil
+			return value
+		}()},
+		{name: "unknown capability", snapshot: openrgbimport.LightingSnapshot{HasActiveProfile: true, ConfiguredEffect: "future", EffectSupported: true, Effective: &openrgbimport.LightingDefinitionSnapshot{HasSpeed: true, Speed: 2}}},
+		{name: "Static", snapshot: devicesLightingSpeedSnapshot("static", 2)},
+		{name: "Off", snapshot: devicesLightingSpeedSnapshot("off", 2)},
+		{name: "CPU temperature", snapshot: devicesLightingSpeedSnapshot("cpu-temperature", 2)},
+		{name: "GPU temperature", snapshot: devicesLightingSpeedSnapshot("gpu-temperature", 2)},
+		{name: "non-finite", snapshot: devicesLightingSpeedSnapshot("circle", math.NaN())},
+		{name: "out of range", snapshot: devicesLightingSpeedSnapshot("circle", 0)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if summary := openRGBLightingWorkspaceSummaryFromSnapshot(test.snapshot); summary.HasSpeedControl {
+				t.Fatalf("%s produced a Speed control: %#v", test.name, summary)
+			}
+		})
+	}
+}
+
 func TestDevicesLightingEffectSelectorTemplate(t *testing.T) {
 	if os.Getenv(devicesPageHelperEnvironment) == "effect-selector" {
 		initializeDevicesPageTestProcess(t)
@@ -278,6 +365,106 @@ func TestDevicesLightingBrightnessTemplate(t *testing.T) {
 	output, err := command.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Devices Lighting brightness slider helper process failed: %v\n%s", err, output)
+	}
+}
+
+func TestDevicesLightingSpeedTemplate(t *testing.T) {
+	if os.Getenv(devicesPageHelperEnvironment) == "speed-slider" {
+		initializeDevicesPageTestProcess(t)
+		runDevicesLightingSpeedTemplateAssertions(t)
+		return
+	}
+
+	command := exec.Command(os.Args[0], "-test.run=^TestDevicesLightingSpeedTemplate$")
+	command.Env = append(os.Environ(), devicesPageHelperEnvironment+"=speed-slider")
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Devices Lighting speed slider helper process failed: %v\n%s", err, output)
+	}
+}
+
+func runDevicesLightingSpeedTemplateAssertions(t *testing.T) {
+	for _, effect := range []string{"circle", "flame", "cyberpunkglitch", "rain", "aurora", "gradient"} {
+		snapshot := devicesLightingSpeedSnapshot(effect, 2)
+		body := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(snapshot))
+		for _, expected := range []string{
+			`data-lf-speed-control`,
+			`for="lf-lighting-speed-slider">Speed</label>`,
+			`id="lf-lighting-speed-number"`,
+			`type="number"`,
+			`min="1"`,
+			`max="10"`,
+			`step="0.1"`,
+			`aria-label="Speed level"`,
+			`id="lf-lighting-speed-slider"`,
+			`type="range"`,
+			`data-lf-current-stored-speed="2"`,
+			`data-lf-effect="` + effect + `"`,
+			`data-lf-speed-control-mode="software"`,
+			`data-lf-speed-target="base"`,
+			`data-lf-number-id="lf-lighting-speed-number"`,
+			`data-lf-status-id="lf-lighting-speed-status"`,
+			`<span>Slow</span><span>Fast</span>`,
+			`id="lf-lighting-speed-status" aria-live="polite"`,
+			`data-lf-speed-readout="base">2</strong>`,
+			`data-lf-speed-readout="effective">2</strong>`,
+		} {
+			if !strings.Contains(body, expected) {
+				t.Errorf("%s Speed template does not contain %q", effect, expected)
+			}
+		}
+		for _, forbidden := range []string{
+			"Effective speed",
+			"Persistent speed",
+			"Stored animation speed",
+			"Release to save",
+			"Speed saved.",
+		} {
+			if strings.Contains(body, forbidden) {
+				t.Errorf("%s Speed template contains duplicate or permanent copy %q", effect, forbidden)
+			}
+		}
+	}
+
+	emptyRoleBody := renderDevicesLightingView(t, &openRGBLightingWorkspaceSummary{
+		Override: &openRGBLightingOverrideSummary{Speed: "7"},
+	})
+	if !strings.Contains(emptyRoleBody, `<span>Stored speed</span><strong>7</strong>`) {
+		t.Error("stored Speed text with an empty role is not visible")
+	}
+	if strings.Contains(emptyRoleBody, `data-lf-speed-readout=""`) {
+		t.Error("stored Speed with an empty role emitted an empty readout attribute")
+	}
+
+	for _, effect := range []string{"static", "off", "cpu-temperature", "gpu-temperature"} {
+		body := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(devicesLightingSpeedSnapshot(effect, 2)))
+		if strings.Contains(body, "data-lf-speed-slider") || strings.Contains(body, "data-lf-speed-number") || strings.Contains(body, "Speed / Unavailable") {
+			t.Errorf("%s rendered an unavailable or interactive Speed control", effect)
+		}
+	}
+
+	clusterSnapshot := devicesLightingSpeedSnapshot("rain", 2)
+	clusterSnapshot.ClusterControlled = true
+	clusterBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(clusterSnapshot))
+	for _, id := range []string{"lf-lighting-speed-slider", "lf-lighting-speed-number"} {
+		inputStart := strings.Index(clusterBody, `id="`+id+`"`)
+		if inputStart < 0 {
+			t.Errorf("cluster-owned Speed control %s is absent", id)
+			continue
+		}
+		inputEnd := strings.Index(clusterBody[inputStart:], ">")
+		if inputEnd < 0 || !strings.Contains(clusterBody[inputStart:inputStart+inputEnd], "disabled") {
+			t.Errorf("cluster-owned Speed control %s is not disabled", id)
+		}
+	}
+	for _, expected := range []string{
+		`aria-describedby="lf-lighting-speed-status lf-lighting-speed-cluster-explanation"`,
+		`id="lf-lighting-speed-cluster-explanation"`,
+		`href="/rgbCluster"`,
+	} {
+		if !strings.Contains(clusterBody, expected) {
+			t.Errorf("cluster-owned Speed template does not contain %q", expected)
+		}
 	}
 }
 
@@ -890,7 +1077,7 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"lf-lighting-source-state\">Enabled",
 		"<code class=\"lf-lighting-color-hex\">#000000</code>",
 		"<span class=\"lf-lighting-color-rgb\">RGB 0, 0, 0</span>",
-		"<span>Stored speed</span><strong>0</strong>",
+		`<span>Stored speed</span><strong data-lf-speed-readout="override">0</strong>`,
 		"Effective configuration",
 		"This reflects stored configuration precedence, not confirmed device output.",
 		"href=\"/device/" + visibleSerial + "\"",
@@ -1465,7 +1652,7 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 				t.Errorf("%s override response does not contain %q", test.name, test.expected)
 			}
 			if test.override != nil {
-				for _, expected := range []string{"#000000", "RGB 0, 0, 0", "<span>Stored speed</span><strong>0</strong>"} {
+				for _, expected := range []string{"#000000", "RGB 0, 0, 0", `<span>Stored speed</span><strong data-lf-speed-readout="override">0</strong>`} {
 					if !strings.Contains(body, expected) {
 						t.Errorf("%s override response does not preserve %q", test.name, expected)
 					}

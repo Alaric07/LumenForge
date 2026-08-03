@@ -39,7 +39,10 @@ func importerSoftwareEffectCatalogue() []string {
 	return effects
 }
 
-const hardwareBufferDrainDelay = 75 * time.Millisecond
+const (
+	hardwareBufferDrainDelay   = 75 * time.Millisecond
+	initialEffectOutputTimeout = 5 * time.Second
+)
 
 var (
 	configStoreMutex sync.Mutex
@@ -59,6 +62,13 @@ var (
 	getConfigCluster             = cluster.Get
 	deviceProfileDir             = func() string {
 		return filepath.Join(config.GetPaths().MutableDataRoot, "database", "profiles")
+	}
+	rgbProfileDir = func() string {
+		return filepath.Join(config.GetPaths().MutableDataRoot, "database", "rgb")
+	}
+	saveRGBProfileData         = common.SaveJsonData
+	initialEffectOutputContext = func() (context.Context, context.CancelFunc) {
+		return context.WithTimeout(context.Background(), initialEffectOutputTimeout)
 	}
 )
 
@@ -1555,6 +1565,105 @@ func (d *Device) SetBrightness(brightness uint8) error {
 	return err
 }
 
+func (d *Device) saveRgbProfileCheckedLocked() error {
+	if d.Rgb == nil {
+		return fmt.Errorf("RGB profile data is not available")
+	}
+	directory := rgbProfileDir()
+	if err := os.MkdirAll(directory, 0o755); err != nil {
+		return fmt.Errorf("prepare RGB profile directory: %w", err)
+	}
+	path := filepath.Join(directory, d.Serial+".json")
+	if err := saveRGBProfileData(path, d.Rgb); err != nil {
+		return fmt.Errorf("write RGB profile: %w", err)
+	}
+	return nil
+}
+
+// SetEffectSpeed persists and reapplies the current imported-device software
+// effect speed. The supplied speed is the renderer value, not the UI level.
+func (d *Device) SetEffectSpeed(expectedSerial, effect string, speed float64) error {
+	if d == nil {
+		return fmt.Errorf("OpenRGB import is not available")
+	}
+	if math.IsNaN(speed) || math.IsInf(speed, 0) {
+		return fmt.Errorf("OpenRGB effect speed is invalid")
+	}
+
+	d.effectTransitionMu.Lock()
+	defer d.effectTransitionMu.Unlock()
+
+	d.mu.Lock()
+	if err := d.validateEffectTransitionLocked(expectedSerial); err != nil {
+		d.mu.Unlock()
+		return err
+	}
+	if d.DeviceProfile == nil || !d.DeviceProfile.Active {
+		d.mu.Unlock()
+		return fmt.Errorf("active OpenRGB device profile is not available")
+	}
+	if d.DeviceProfile.RGBCluster {
+		d.mu.Unlock()
+		return fmt.Errorf("device is controlled by RGB cluster")
+	}
+	if effect == "" || effect != d.DeviceProfile.RGBProfile {
+		d.mu.Unlock()
+		return fmt.Errorf("OpenRGB effect selection is stale")
+	}
+	if !slices.Contains(d.RGBModes, effect) {
+		d.mu.Unlock()
+		return fmt.Errorf("unsupported OpenRGB effect")
+	}
+	descriptor, known := rgb.SoftwareEffectDescriptorByID(effect)
+	if !known || !descriptor.Scope.Includes(rgb.EffectScopeDevice) || !descriptor.SupportsSpeed {
+		d.mu.Unlock()
+		return fmt.Errorf("OpenRGB effect does not support persistent speed")
+	}
+	minimum, maximum := rgb.ProfileSpeedRange(effect)
+	if speed < minimum || speed > maximum {
+		d.mu.Unlock()
+		return fmt.Errorf("OpenRGB effect speed is outside the accepted range")
+	}
+
+	d.rgbMutex.Lock()
+	if d.Rgb == nil {
+		d.rgbMutex.Unlock()
+		d.mu.Unlock()
+		return fmt.Errorf("OpenRGB effect definition is not available")
+	}
+	definition, exists := d.Rgb.Profiles[effect]
+	if !exists {
+		d.rgbMutex.Unlock()
+		d.mu.Unlock()
+		return fmt.Errorf("OpenRGB effect definition is not available")
+	}
+
+	useOverride := softwareEffectUsesOverrideSpeed(effect, d.DeviceProfile.RGBOverride)
+	if useOverride {
+		d.rgbMutex.Unlock()
+		previousProfile := cloneDeviceProfile(d.DeviceProfile)
+		d.DeviceProfile.RGBOverride.RgbModeSpeed = speed
+		if err := d.saveDeviceProfileChecked(); err != nil {
+			*d.DeviceProfile = *previousProfile
+			d.mu.Unlock()
+			return fmt.Errorf("save OpenRGB effect speed: %w", err)
+		}
+	} else {
+		previousDefinition := definition
+		definition.Speed = speed
+		d.Rgb.Profiles[effect] = definition
+		if err := d.saveRgbProfileCheckedLocked(); err != nil {
+			d.Rgb.Profiles[effect] = previousDefinition
+			d.rgbMutex.Unlock()
+			d.mu.Unlock()
+			return fmt.Errorf("save OpenRGB effect speed: %w", err)
+		}
+		d.rgbMutex.Unlock()
+	}
+
+	return d.applyPersistedEffectTransitionLocked(context.Background(), effect, true, expectedSerial, true)
+}
+
 func (d *Device) SetSpeed(speed string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -1625,7 +1734,7 @@ func (d *Device) setEffectContext(ctx context.Context, effect string, reportFail
 		}
 	}
 
-	return d.applyPersistedEffectTransitionLocked(ctx, effect, reportFailure, expectedSerial)
+	return d.applyPersistedEffectTransitionLocked(ctx, effect, reportFailure, expectedSerial, false)
 }
 
 // dispatchEligibleSoftwareEffect keeps preserved effect IDs intact while
@@ -1636,6 +1745,21 @@ func dispatchEligibleSoftwareEffect(effect string, supportedEffects []string, ru
 		return false
 	}
 	return dispatchSoftwareEffect(effect, runner, startTime, profile)
+}
+
+func softwareEffectUsesOverrideSpeed(effect string, override *RGBOverride) bool {
+	return effect != "gradient" && override != nil && override.Enabled
+}
+
+func waitForInitialEffectOutput(initialOutput <-chan error) error {
+	waitCtx, cancel := initialEffectOutputContext()
+	defer cancel()
+	select {
+	case err := <-initialOutput:
+		return err
+	case <-waitCtx.Done():
+		return fmt.Errorf("wait for initial OpenRGB effect output: %w", waitCtx.Err())
+	}
 }
 
 func dispatchSoftwareEffect(effect string, runner *rgb.ActiveRGB, startTime *time.Time, profile *rgb.Profile) bool {
@@ -1733,7 +1857,7 @@ func dispatchSoftwareEffect(effect string, runner *rgb.ActiveRGB, startTime *tim
 // applyPersistedEffectTransitionLocked replaces the active output after its
 // desired profile state has been persisted. The caller holds effectTransitionMu
 // and d.mu; this method releases d.mu before returning.
-func (d *Device) applyPersistedEffectTransitionLocked(ctx context.Context, effect string, reportFailure bool, expectedSerial string) error {
+func (d *Device) applyPersistedEffectTransitionLocked(ctx context.Context, effect string, reportFailure bool, expectedSerial string, awaitInitialOutput bool) error {
 	// Persistence succeeded, so replacing the prior effect can now proceed.
 	d.stopEffectLoopLocked()
 	if err := d.validateEffectTransitionLocked(expectedSerial); err != nil {
@@ -1811,30 +1935,35 @@ func (d *Device) applyPersistedEffectTransitionLocked(ctx context.Context, effec
 	var initialEndColor *rgb.Color
 	var initialSpeed float64 = d.speed
 
-	if d.DeviceProfile != nil && d.DeviceProfile.RGBOverride != nil && d.DeviceProfile.RGBOverride.Enabled {
-		initialStartColor = &d.DeviceProfile.RGBOverride.RGBStartColor
-		initialEndColor = &d.DeviceProfile.RGBOverride.RGBEndColor
-		initialSpeed = d.DeviceProfile.RGBOverride.RgbModeSpeed
+	profile := d.GetRgbProfile(effect)
+	if profile != nil {
+		initialStartColor = &profile.StartColor
+		initialEndColor = &profile.EndColor
+		initialSpeed = profile.Speed
 	} else {
-		profile := d.GetRgbProfile(effect)
-		if profile != nil {
-			initialStartColor = &profile.StartColor
-			initialEndColor = &profile.EndColor
-			initialSpeed = profile.Speed
-		} else {
-			initialStartColor = &rgb.Color{
-				Red:        float64(d.lastColor[0]),
-				Green:      float64(d.lastColor[1]),
-				Blue:       float64(d.lastColor[2]),
-				Brightness: rgb.GetBrightnessValueFloat(d.brightness),
-			}
-			initialEndColor = &rgb.Color{
-				Red:        255,
-				Green:      0,
-				Blue:       255,
-				Brightness: rgb.GetBrightnessValueFloat(d.brightness),
-			}
+		initialStartColor = &rgb.Color{
+			Red:        float64(d.lastColor[0]),
+			Green:      float64(d.lastColor[1]),
+			Blue:       float64(d.lastColor[2]),
+			Brightness: rgb.GetBrightnessValueFloat(d.brightness),
 		}
+		initialEndColor = &rgb.Color{
+			Red:        255,
+			Green:      0,
+			Blue:       255,
+			Brightness: rgb.GetBrightnessValueFloat(d.brightness),
+		}
+	}
+	var override *RGBOverride
+	if d.DeviceProfile != nil {
+		override = d.DeviceProfile.RGBOverride
+	}
+	if override != nil && override.Enabled {
+		initialStartColor = &override.RGBStartColor
+		initialEndColor = &override.RGBEndColor
+	}
+	if softwareEffectUsesOverrideSpeed(effect, override) {
+		initialSpeed = override.RgbModeSpeed
 	}
 
 	runner := rgb.New(
@@ -1852,8 +1981,19 @@ func (d *Device) applyPersistedEffectTransitionLocked(ctx context.Context, effec
 	controllerId := d.controllerId
 	d.mu.Unlock()
 
+	var initialOutput chan error
+	if awaitInitialOutput {
+		initialOutput = make(chan error, 1)
+	}
 	go func() {
 		defer close(done)
+		initialOutputPending := initialOutput != nil
+		reportInitialOutput := func(err error) {
+			if initialOutputPending {
+				initialOutput <- err
+				initialOutputPending = false
+			}
+		}
 
 		startTime := time.Now()
 		ticker := time.NewTicker(50 * time.Millisecond)
@@ -1862,12 +2002,14 @@ func (d *Device) applyPersistedEffectTransitionLocked(ctx context.Context, effec
 		for {
 			select {
 			case <-stop:
+				reportInitialOutput(fmt.Errorf("OpenRGB effect transition stopped before initial output"))
 				return
 			case <-ticker.C:
 				d.mu.Lock()
 
 				// Check if effect changed or stopped
 				if d.lifecycleInactiveLocked() || !d.running || d.effect == "static" || d.effect == "off" {
+					reportInitialOutput(fmt.Errorf("OpenRGB effect transition stopped before initial output"))
 					d.mu.Unlock()
 					return
 				}
@@ -1903,11 +2045,17 @@ func (d *Device) applyPersistedEffectTransitionLocked(ctx context.Context, effec
 					runner.RGBMiddleColor = &rgb.Color{}
 				}
 
-				if d.DeviceProfile != nil && d.DeviceProfile.RGBOverride != nil && d.DeviceProfile.RGBOverride.Enabled {
-					runner.RGBStartColor = &d.DeviceProfile.RGBOverride.RGBStartColor
-					runner.RGBEndColor = &d.DeviceProfile.RGBOverride.RGBEndColor
-					runner.RGBMiddleColor = &d.DeviceProfile.RGBOverride.RGBMiddleColor
-					runner.RgbModeSpeed = common.FClamp(d.DeviceProfile.RGBOverride.RgbModeSpeed, 0.1, 10)
+				var override *RGBOverride
+				if d.DeviceProfile != nil {
+					override = d.DeviceProfile.RGBOverride
+				}
+				if override != nil && override.Enabled {
+					runner.RGBStartColor = &override.RGBStartColor
+					runner.RGBEndColor = &override.RGBEndColor
+					runner.RGBMiddleColor = &override.RGBMiddleColor
+				}
+				if softwareEffectUsesOverrideSpeed(d.effect, override) {
+					runner.RgbModeSpeed = common.FClamp(override.RgbModeSpeed, 0.1, 10)
 				}
 
 				dispatchEligibleSoftwareEffect(d.effect, d.RGBModes, runner, &startTime, pf)
@@ -1922,15 +2070,20 @@ func (d *Device) applyPersistedEffectTransitionLocked(ctx context.Context, effec
 					d.doneChan = nil
 					d.recordOutputFailureLocked(err)
 					d.mu.Unlock()
+					reportInitialOutput(err)
 					return
 				} else {
 					d.openrgbConn = conn
 				}
 				d.mu.Unlock()
+				reportInitialOutput(nil)
 			}
 		}
 	}()
 
+	if initialOutput != nil {
+		return waitForInitialEffectOutput(initialOutput)
+	}
 	return nil
 }
 
@@ -2867,7 +3020,7 @@ func (d *Device) SetRGBOverride(expectedSerial string, channelId, subDeviceId in
 	}
 
 	effect = d.DeviceProfile.RGBProfile
-	return d.applyPersistedEffectTransitionLocked(context.Background(), effect, true, expectedSerial)
+	return d.applyPersistedEffectTransitionLocked(context.Background(), effect, true, expectedSerial, false)
 }
 
 func (d *Device) ProcessSetRgbOverride(channelId, subDeviceId int, enabled bool, startColor, endColor, middleColor rgb.Color, speed float64) uint8 {

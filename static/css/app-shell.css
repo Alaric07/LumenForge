@@ -1116,6 +1116,10 @@
     background: color-mix(in srgb, var(--lf-panel-secondary) 92%, transparent);
 }
 
+.lf-app-shell .lf-range-control-speed:not(.lf-range-control-ready) {
+    visibility: hidden;
+}
+
 .lf-app-shell .lf-range-control-header {
     min-width: 0;
     display: flex;
@@ -1531,10 +1535,6 @@
     color: var(--lf-text-primary);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 13px;
-}
-
-.lf-app-shell .lf-lighting-speed-primary {
-    margin-top: 18px;
 }
 
 .lf-app-shell .lf-lighting-comparison {

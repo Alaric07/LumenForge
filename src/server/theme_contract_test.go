@@ -362,6 +362,9 @@ func TestDevicesThemeIntegrationContract(t *testing.T) {
 		{selector: ".lf-app-shell .lf-range-control-status:empty", contracts: []string{
 			"display: none",
 		}},
+		{selector: ".lf-app-shell .lf-range-control-speed:not(.lf-range-control-ready)", contracts: []string{
+			"visibility: hidden",
+		}},
 	}
 	for _, rangeRule := range rangeRules {
 		rule := devicesThemeRuleBody(t, appShell, rangeRule.selector)
@@ -440,6 +443,37 @@ func TestDevicesThemeIntegrationContract(t *testing.T) {
 			t.Errorf("Devices brightness control retains permanent helper copy %q", forbiddenCopy)
 		}
 	}
+	for _, speedContract := range []string{
+		`<label class="lf-range-control-label" for="lf-lighting-speed-slider">Speed</label>`,
+		`class="lf-range-control-number"`,
+		`type="number"`,
+		`min="1"`,
+		`max="10"`,
+		`step="0.1"`,
+		`data-lf-speed-number`,
+		`aria-label="Speed level"`,
+		`class="lf-range-control-input"`,
+		`type="range"`,
+		`data-lf-speed-slider`,
+		`data-lf-speed-control-mode="software"`,
+		`<div class="lf-range-control-scale" aria-hidden="true"><span>Slow</span><span>Fast</span></div>`,
+	} {
+		if !strings.Contains(devicesTemplate, speedContract) {
+			t.Errorf("Devices Speed range control is missing %q", speedContract)
+		}
+	}
+	for _, forbiddenCopy := range []string{
+		"Stored animation speed",
+		"Release to save",
+		"Adjust how quickly the effect moves",
+		"Speed unavailable",
+		"Persistent speed</small>",
+		"Effective speed</span>",
+	} {
+		if strings.Contains(devicesTemplate, forbiddenCopy) {
+			t.Errorf("Devices Speed control retains duplicate or permanent copy %q", forbiddenCopy)
+		}
+	}
 	for _, iconContract := range []string{
 		`class="lf-lighting-effect-icon-frame" aria-hidden="true"`,
 		`style="--lf-lighting-effect-mask: url('{{ .ConfiguredEffectIconURL }}');"`,
@@ -454,15 +488,21 @@ func TestDevicesThemeIntegrationContract(t *testing.T) {
 	}
 	headTemplate := devicesThemeReadFile(t, filepath.Join(root, "web", "head.html"))
 	securityScript := `<script src="/static/js/security.js?v=1"></script>`
+	speedScript := `<script src="/static/js/rgb-speed.js?v=3"></script>`
 	lightingScript := `<script src="/static/js/devices-lighting.js" defer></script>`
 	securityScriptIndex := strings.Index(headTemplate, securityScript)
+	speedScriptIndex := strings.Index(headTemplate, speedScript)
 	lightingScriptIndex := strings.Index(headTemplate, lightingScript)
 	if securityScriptIndex < 0 {
 		t.Error("protected fetch wrapper is not loaded by the shared head template")
 	} else if lightingScriptIndex < 0 {
 		t.Error("Devices Lighting script is not loaded by the shared head template")
+	} else if speedScriptIndex < 0 {
+		t.Error("shared RGB speed mapping helper is not loaded by the shared head template")
 	} else if securityScriptIndex > lightingScriptIndex {
 		t.Error("Devices Lighting script loads before the protected fetch wrapper")
+	} else if speedScriptIndex > lightingScriptIndex {
+		t.Error("Devices Lighting script loads before the shared RGB speed mapping helper")
 	}
 
 	for _, templateName := range []string{"head.html", "xeneon.html"} {

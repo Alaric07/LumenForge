@@ -22,6 +22,218 @@
     const brightnessTimeoutMilliseconds = 10000;
     const brightnessSuccessMilliseconds = 1800;
     const brightnessFailureMessage = "Unable to change brightness. Try again.";
+    const speedEndpoint = "/api/openrgbimport/speed";
+    const speedTimeoutMilliseconds = 10000;
+    const speedSuccessMilliseconds = 1800;
+    const keyboardCommitMilliseconds = 400;
+    const speedFailureMessage = "Unable to change speed. Try again.";
+    const rangeAdjustmentKeys = new Set([
+        "ArrowLeft",
+        "ArrowRight",
+        "ArrowUp",
+        "ArrowDown",
+        "PageUp",
+        "PageDown",
+        "Home",
+        "End"
+    ]);
+
+    function createStatusController(browser, status, successMilliseconds) {
+        let successTimer = null;
+        let generation = 0;
+
+        return function (message, clearAfterSuccess) {
+            generation += 1;
+            const currentGeneration = generation;
+            if (successTimer !== null) {
+                browser.clearTimeout(successTimer);
+                successTimer = null;
+            }
+            if (status) {
+                status.textContent = message;
+            }
+            if (status && clearAfterSuccess) {
+                successTimer = browser.setTimeout(function () {
+                    if (currentGeneration === generation) {
+                        status.textContent = "";
+                        successTimer = null;
+                    }
+                }, successMilliseconds);
+            }
+        };
+    }
+
+    function captureKeyboardFocus(browser, owner, numberInput, origin) {
+        if (origin !== "keyboard" || !browser.document || browser.document.activeElement !== owner) {
+            return null;
+        }
+        const focus = {owner: owner, selectionEnd: null, selectionStart: null};
+        if (owner === numberInput) {
+            try {
+                if (typeof owner.selectionStart === "number" && typeof owner.selectionEnd === "number") {
+                    focus.selectionStart = owner.selectionStart;
+                    focus.selectionEnd = owner.selectionEnd;
+                }
+            } catch (_) {
+                // Number inputs do not expose selection ranges in every browser.
+            }
+        }
+        return focus;
+    }
+
+    function restoreKeyboardFocus(browser, focus, numberInput) {
+        if (!focus || typeof focus.owner.focus !== "function") {
+            return;
+        }
+        const activeElement = browser.document && browser.document.activeElement;
+        const body = browser.document && browser.document.body;
+        if (activeElement && activeElement !== focus.owner && activeElement !== body) {
+            return;
+        }
+        try {
+            focus.owner.focus({preventScroll: true});
+        } catch (_) {
+            focus.owner.focus();
+        }
+        if (focus.owner === numberInput && focus.selectionStart !== null && typeof focus.owner.setSelectionRange === "function") {
+            const maximum = String(focus.owner.value).length;
+            try {
+                focus.owner.setSelectionRange(
+                    Math.min(focus.selectionStart, maximum),
+                    Math.min(focus.selectionEnd, maximum)
+                );
+            } catch (_) {
+                // Preserve focus even when a number input rejects selection APIs.
+            }
+        }
+    }
+
+    function bindPairedKeyboardControlEvents(browser, slider, numberInput, previewRange, previewNumber, commit, requestInFlight) {
+        let keyboardCommitTimer = null;
+        let keyboardCommitGeneration = 0;
+        let rangeKeyboardSession = false;
+        let numberKeyboardSession = false;
+
+        function cancelKeyboardCommit() {
+            keyboardCommitGeneration += 1;
+            if (keyboardCommitTimer !== null) {
+                browser.clearTimeout(keyboardCommitTimer);
+                keyboardCommitTimer = null;
+            }
+        }
+
+        function resetKeyboardSessions() {
+            rangeKeyboardSession = false;
+            numberKeyboardSession = false;
+            cancelKeyboardCommit();
+        }
+
+        function scheduleKeyboardCommit(owner, value) {
+            cancelKeyboardCommit();
+            const generation = keyboardCommitGeneration;
+            keyboardCommitTimer = browser.setTimeout(function () {
+                if (generation !== keyboardCommitGeneration || requestInFlight()) {
+                    return;
+                }
+                keyboardCommitTimer = null;
+                rangeKeyboardSession = false;
+                numberKeyboardSession = false;
+                return commit(value(), "keyboard", owner);
+            }, keyboardCommitMilliseconds);
+        }
+
+        function handleRangeInput() {
+            previewRange(slider.value);
+            if (rangeKeyboardSession) {
+                scheduleKeyboardCommit(slider, function () { return slider.value; });
+            }
+        }
+
+        function handleRangeChange() {
+            if (rangeKeyboardSession) {
+                scheduleKeyboardCommit(slider, function () { return slider.value; });
+                return;
+            }
+            return commit(slider.value, "pointer", slider);
+        }
+
+        function handleNumberInput() {
+            previewNumber(numberInput.value);
+            if (numberKeyboardSession) {
+                scheduleKeyboardCommit(numberInput, function () { return numberInput.value; });
+            }
+        }
+
+        function handleNumberChange() {
+            if (numberKeyboardSession) {
+                scheduleKeyboardCommit(numberInput, function () { return numberInput.value; });
+                return;
+            }
+            return commit(numberInput.value, "change", numberInput);
+        }
+
+        function handleRangeKeydown(event) {
+            if (rangeAdjustmentKeys.has(event.key)) {
+                rangeKeyboardSession = true;
+                scheduleKeyboardCommit(slider, function () { return slider.value; });
+                return;
+            }
+            if (event.key === "Enter") {
+                event.preventDefault();
+                return commit(slider.value, "keyboard", slider);
+            }
+        }
+
+        function handleNumberKeydown(event) {
+            if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+                numberKeyboardSession = true;
+                scheduleKeyboardCommit(numberInput, function () { return numberInput.value; });
+                return;
+            }
+            if (event.key === "Enter") {
+                event.preventDefault();
+                return commit(numberInput.value, "keyboard", numberInput);
+            }
+            numberKeyboardSession = false;
+            cancelKeyboardCommit();
+        }
+
+        function handleRangeBlur() {
+            return commit(slider.value, "blur", slider);
+        }
+
+        function handleNumberBlur() {
+            return commit(numberInput.value, "blur", numberInput);
+        }
+
+        function handleRangePointerdown() {
+            resetKeyboardSessions();
+        }
+
+        slider.addEventListener("input", handleRangeInput);
+        slider.addEventListener("change", handleRangeChange);
+        slider.addEventListener("keydown", handleRangeKeydown);
+        slider.addEventListener("blur", handleRangeBlur);
+        slider.addEventListener("pointerdown", handleRangePointerdown);
+        numberInput.addEventListener("input", handleNumberInput);
+        numberInput.addEventListener("change", handleNumberChange);
+        numberInput.addEventListener("blur", handleNumberBlur);
+        numberInput.addEventListener("keydown", handleNumberKeydown);
+        return {
+            cancel: resetKeyboardSessions,
+            handlers: {
+                handleChange: handleRangeChange,
+                handleInput: handleRangeInput,
+                handleNumberBlur,
+                handleNumberChange,
+                handleNumberInput,
+                handleNumberKeydown,
+                handleRangeBlur,
+                handleRangeKeydown,
+                handleRangePointerdown
+            }
+        };
+    }
 
     async function submitEffect(browser, serial, effect) {
         const controller = new browser.AbortController();
@@ -71,6 +283,30 @@
         }
     }
 
+    async function submitSpeed(browser, serial, effect, speed) {
+        const controller = new browser.AbortController();
+        const timeout = browser.setTimeout(function () {
+            controller.abort();
+        }, speedTimeoutMilliseconds);
+        try {
+            const response = await browser.fetch(speedEndpoint, {
+                method: "POST",
+                body: JSON.stringify({serial: serial, effect: effect, speed: speed}),
+                signal: controller.signal
+            });
+            if (!response.ok) {
+                throw new Error("speed request failed");
+            }
+
+            const result = await response.json();
+            if (!result || result.status !== 1) {
+                throw new Error("speed mutation was rejected");
+            }
+        } finally {
+            browser.clearTimeout(timeout);
+        }
+    }
+
     function parseBrightness(value) {
         const text = String(value);
         if (!/^\d+$/.test(text)) {
@@ -84,12 +320,14 @@
     }
 
     function renderBrightness(slider, numberInput, brightness) {
+        renderBrightnessRange(slider, brightness);
+        numberInput.value = String(brightness);
+    }
+
+    function renderBrightnessRange(slider, brightness) {
         slider.value = String(brightness);
         slider.setAttribute("aria-valuetext", brightness + " percent");
         slider.style.setProperty("--lf-range-progress", brightness + "%");
-        if (numberInput) {
-            numberInput.value = String(brightness);
-        }
     }
 
     function updateBrightnessReadouts(browser, serial, brightness) {
@@ -117,30 +355,15 @@
             return null;
         }
         let requestInFlight = false;
-        let successTimer = null;
-        let statusGeneration = 0;
+        let keyboardBinding;
+        const setStatus = createStatusController(browser, status, brightnessSuccessMilliseconds);
 
-        function setStatus(message, clearAfterSuccess) {
-            statusGeneration += 1;
-            const generation = statusGeneration;
-            if (successTimer !== null) {
-                browser.clearTimeout(successTimer);
-                successTimer = null;
-            }
-            if (status) {
-                status.textContent = message;
-            }
-            if (status && clearAfterSuccess) {
-                successTimer = browser.setTimeout(function () {
-                    if (generation === statusGeneration) {
-                        status.textContent = "";
-                        successTimer = null;
-                    }
-                }, brightnessSuccessMilliseconds);
-            }
+        function restoreConfirmedBrightness() {
+            keyboardBinding.cancel();
+            renderBrightness(slider, numberInput, confirmedBrightness);
         }
 
-        function previewBrightness(value) {
+        function previewRangeBrightness(value) {
             const brightness = parseBrightness(value);
             if (brightness === null) {
                 return;
@@ -149,21 +372,32 @@
             renderBrightness(slider, numberInput, brightness);
         }
 
-        async function commitBrightness(value) {
+        function previewNumberBrightness(value) {
+            const brightness = parseBrightness(value);
+            if (brightness === null) {
+                return;
+            }
+            setStatus("", false);
+            renderBrightnessRange(slider, brightness);
+        }
+
+        async function commitBrightness(value, origin, owner) {
             const brightness = parseBrightness(value);
             if (requestInFlight) {
                 return;
             }
+            keyboardBinding.cancel();
             if (brightness === null) {
-                renderBrightness(slider, numberInput, confirmedBrightness);
+                restoreConfirmedBrightness();
                 return;
             }
             setStatus("", false);
             if (brightness === confirmedBrightness) {
-                renderBrightness(slider, numberInput, confirmedBrightness);
+                restoreConfirmedBrightness();
                 return;
             }
 
+            const keyboardFocus = captureKeyboardFocus(browser, owner, numberInput, origin);
             requestInFlight = true;
             slider.disabled = true;
             numberInput.disabled = true;
@@ -177,57 +411,199 @@
                 updateBrightnessReadouts(browser, slider.dataset.lfDeviceSerial, brightness);
                 setStatus("Brightness saved.", true);
             } catch (_) {
-                renderBrightness(slider, numberInput, confirmedBrightness);
+                restoreConfirmedBrightness();
                 setStatus(brightnessFailureMessage, false);
             } finally {
                 slider.disabled = false;
                 numberInput.disabled = false;
                 requestInFlight = false;
+                restoreKeyboardFocus(browser, keyboardFocus, numberInput);
             }
         }
 
-        function handleRangeInput() {
-            previewBrightness(slider.value);
+        keyboardBinding = bindPairedKeyboardControlEvents(
+            browser,
+            slider,
+            numberInput,
+            previewRangeBrightness,
+            previewNumberBrightness,
+            commitBrightness,
+            function () { return requestInFlight; }
+        );
+        return keyboardBinding.handlers;
+    }
+
+    function parseSpeedLevel(value) {
+        const text = String(value);
+        if (!/^\d+(?:\.\d+)?$/.test(text)) {
+            return null;
+        }
+        const speed = Number(text);
+        if (!Number.isFinite(speed) || speed < 1 || speed > 10 || Math.abs(speed * 10 - Math.round(speed * 10)) > 1e-9) {
+            return null;
+        }
+        return speed;
+    }
+
+    function renderSpeed(speedHelper, slider, numberInput, speed) {
+        const formatted = speedHelper.formatForSlider(slider, speed);
+        renderSpeedRange(speedHelper, slider, speed);
+        numberInput.value = formatted;
+    }
+
+    function renderSpeedRange(speedHelper, slider, speed) {
+        const formatted = speedHelper.formatForSlider(slider, speed);
+        const minimumText = slider.min;
+        const maximumText = slider.max;
+        const formattedText = String(formatted);
+        const minimum = Number(minimumText);
+        const maximum = Number(maximumText);
+        const displayed = Number(formattedText);
+        let progress = 0;
+        if (typeof minimumText === "string" && minimumText.trim() !== "" &&
+            typeof maximumText === "string" && maximumText.trim() !== "" && formattedText.trim() !== "" &&
+            Number.isFinite(minimum) && Number.isFinite(maximum) && Number.isFinite(displayed) && maximum > minimum) {
+            progress = Math.min(100, Math.max(0, ((displayed - minimum) / (maximum - minimum)) * 100));
+        }
+        slider.value = formatted;
+        slider.setAttribute("aria-valuetext", formatted + " speed level");
+        slider.style.setProperty("--lf-range-progress", progress + "%");
+    }
+
+    function updateSpeedReadouts(browser, target, storedSpeed) {
+        const formatted = String(Number(storedSpeed));
+        const sourceTarget = target === "base" || target === "override" ? target : "";
+        const readouts = browser.document.querySelectorAll("[data-lf-speed-readout]");
+        for (const readout of readouts) {
+            const role = readout.dataset.lfSpeedReadout;
+            if (role === "effective" || (sourceTarget && role === sourceTarget)) {
+                readout.textContent = formatted;
+            }
+        }
+    }
+
+    function bindSpeedSlider(browser, slider) {
+        const speedHelper = browser.LumenForgeRgbSpeed;
+        if (!speedHelper || typeof speedHelper.configureSlider !== "function" ||
+            typeof speedHelper.storedToUiForSlider !== "function" || typeof speedHelper.markEdited !== "function" ||
+            typeof speedHelper.uiToStoredForSlider !== "function" || typeof speedHelper.formatForSlider !== "function" ||
+            typeof speedHelper.hasSpeedControl !== "function") {
+            return null;
         }
 
-        function handleRangeChange() {
-            return commitBrightness(slider.value);
+        const effect = slider.dataset.lfEffect || "";
+        const controlMode = speedHelper.SOFTWARE_CONTROL;
+        if (!effect || !speedHelper.hasSpeedControl(effect, controlMode)) {
+            return null;
+        }
+        const numberInput = browser.document.getElementById(slider.dataset.lfNumberId);
+        const status = browser.document.getElementById(slider.dataset.lfStatusId);
+        const storedSpeedText = slider.dataset.lfCurrentStoredSpeed;
+        if (!numberInput || typeof storedSpeedText !== "string" || storedSpeedText.trim() === "") {
+            return null;
+        }
+        const storedSpeed = Number(storedSpeedText);
+        if (!Number.isFinite(storedSpeed)) {
+            return null;
         }
 
-        function handleNumberInput() {
-            previewBrightness(numberInput.value);
+        speedHelper.configureSlider(slider, effect, controlMode);
+        let confirmedStoredSpeed = storedSpeed;
+        let confirmedSpeed = speedHelper.storedToUiForSlider(slider, storedSpeed);
+        renderSpeed(speedHelper, slider, numberInput, confirmedSpeed);
+        if (typeof slider.closest === "function") {
+            const control = slider.closest("[data-lf-speed-control]");
+            if (control && control.classList) {
+                control.classList.add("lf-range-control-ready");
+            }
         }
 
-        function handleNumberChange() {
-            return commitBrightness(numberInput.value);
+        if (slider.dataset.lfClusterControlled === "true") {
+            return null;
         }
 
-        function handleNumberBlur() {
-            return commitBrightness(numberInput.value);
+        let requestInFlight = false;
+        let keyboardBinding;
+        const setStatus = createStatusController(browser, status, speedSuccessMilliseconds);
+
+        function restoreConfirmedSpeed() {
+            keyboardBinding.cancel();
+            confirmedSpeed = speedHelper.storedToUiForSlider(slider, confirmedStoredSpeed);
+            renderSpeed(speedHelper, slider, numberInput, confirmedSpeed);
         }
 
-        function handleNumberKeydown(event) {
-            if (event.key !== "Enter") {
+        function previewRangeSpeed(value) {
+            const speed = parseSpeedLevel(value);
+            if (speed === null) {
                 return;
             }
-            event.preventDefault();
-            return commitBrightness(numberInput.value);
+            speedHelper.markEdited(slider);
+            setStatus("", false);
+            renderSpeed(speedHelper, slider, numberInput, speed);
         }
 
-        slider.addEventListener("input", handleRangeInput);
-        slider.addEventListener("change", handleRangeChange);
-        numberInput.addEventListener("input", handleNumberInput);
-        numberInput.addEventListener("change", handleNumberChange);
-        numberInput.addEventListener("blur", handleNumberBlur);
-        numberInput.addEventListener("keydown", handleNumberKeydown);
-        return {
-            handleChange: handleRangeChange,
-            handleInput: handleRangeInput,
-            handleNumberBlur,
-            handleNumberChange,
-            handleNumberInput,
-            handleNumberKeydown
-        };
+        function previewNumberSpeed(value) {
+            const speed = parseSpeedLevel(value);
+            if (speed === null) {
+                return;
+            }
+            speedHelper.markEdited(slider);
+            setStatus("", false);
+            renderSpeedRange(speedHelper, slider, speed);
+        }
+
+        async function commitSpeed(value, origin, owner) {
+            const speed = parseSpeedLevel(value);
+            if (requestInFlight) {
+                return;
+            }
+            keyboardBinding.cancel();
+            if (speed === null) {
+                restoreConfirmedSpeed();
+                return;
+            }
+            setStatus("", false);
+            const edited = slider.dataset.speedEdited === "true";
+            const mappedSpeed = speedHelper.uiToStoredForSlider(slider, speed);
+            if (!edited || mappedSpeed === confirmedStoredSpeed) {
+                restoreConfirmedSpeed();
+                return;
+            }
+
+            const keyboardFocus = captureKeyboardFocus(browser, owner, numberInput, origin);
+            requestInFlight = true;
+            slider.disabled = true;
+            numberInput.disabled = true;
+            setStatus("Saving speed…", false);
+            try {
+                await submitSpeed(browser, slider.dataset.lfDeviceSerial, effect, mappedSpeed);
+                confirmedStoredSpeed = mappedSpeed;
+                slider.dataset.lfCurrentStoredSpeed = String(mappedSpeed);
+                confirmedSpeed = speedHelper.storedToUiForSlider(slider, mappedSpeed);
+                renderSpeed(speedHelper, slider, numberInput, confirmedSpeed);
+                updateSpeedReadouts(browser, slider.dataset.lfSpeedTarget, mappedSpeed);
+                setStatus("Speed saved.", true);
+            } catch (_) {
+                restoreConfirmedSpeed();
+                setStatus(speedFailureMessage, false);
+            } finally {
+                slider.disabled = false;
+                numberInput.disabled = false;
+                requestInFlight = false;
+                restoreKeyboardFocus(browser, keyboardFocus, numberInput);
+            }
+        }
+
+        keyboardBinding = bindPairedKeyboardControlEvents(
+            browser,
+            slider,
+            numberInput,
+            previewRangeSpeed,
+            previewNumberSpeed,
+            commitSpeed,
+            function () { return requestInFlight; }
+        );
+        return keyboardBinding.handlers;
     }
 
     function bindEffectSelector(browser, selector) {
@@ -279,15 +655,22 @@
         for (const slider of sliders) {
             bindBrightnessSlider(browser, slider);
         }
+        const speedSliders = browser.document.querySelectorAll("[data-lf-speed-slider]");
+        for (const slider of speedSliders) {
+            bindSpeedSlider(browser, slider);
+        }
     }
 
     return {
         bindBrightnessSlider,
         bindEffectSelector,
+        bindSpeedSlider,
         brightnessEndpoint,
         effectEndpoint,
         init,
         submitBrightness,
-        submitEffect
+        submitEffect,
+        submitSpeed,
+        speedEndpoint
     };
 });

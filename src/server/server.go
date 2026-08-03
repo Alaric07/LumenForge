@@ -81,11 +81,15 @@ var (
 	}
 	refreshOpenRGBImports           = openrgbimport.RefreshManager
 	lookupOpenRGBImportForLighting  = devices.LookupOpenRGBImport
+	lookupOpenRGBImportLegacy       = getOpenRGBImportDeviceBySerial
 	setOpenRGBImportBrightnessValue = func(device *openrgbimport.Device, brightness uint8) error {
 		return device.SetBrightness(brightness)
 	}
 	setOpenRGBImportEffectValue = func(device *openrgbimport.Device, effect string) error {
 		return device.SetEffect(effect)
+	}
+	setOpenRGBImportSpeedValue = func(device *openrgbimport.Device, serial, effect string, speed float64) error {
+		return device.SetEffectSpeed(serial, effect, speed)
 	}
 	mediaInputControl = inputmanager.InputControlKeyboard
 )
@@ -2367,14 +2371,16 @@ type openRGBLightingDefinitionSummary struct {
 	End       openRGBLightingColorSummary
 	HasSpeed  bool
 	Speed     string
+	SpeedRole string
 }
 
 type openRGBLightingOverrideSummary struct {
-	Enabled bool
-	Start   openRGBLightingColorSummary
-	Middle  openRGBLightingColorSummary
-	End     openRGBLightingColorSummary
-	Speed   string
+	Enabled   bool
+	Start     openRGBLightingColorSummary
+	Middle    openRGBLightingColorSummary
+	End       openRGBLightingColorSummary
+	Speed     string
+	SpeedRole string
 }
 
 type openRGBLightingWorkspaceSummary struct {
@@ -2389,6 +2395,9 @@ type openRGBLightingWorkspaceSummary struct {
 	SupportedEffects          []openRGBLightingEffectSummary
 	HasBrightness             bool
 	Brightness                uint8
+	HasSpeedControl           bool
+	Speed                     string
+	SpeedTarget               string
 	ClusterControlled         bool
 	BaseDefinition            *openRGBLightingDefinitionSummary
 	Override                  *openRGBLightingOverrideSummary
@@ -2539,6 +2548,12 @@ func openRGBLightingWorkspaceSummaryFromSnapshot(snapshot openrgbimport.Lighting
 		BaseDefinition:    openRGBLightingDefinitionFromSnapshot(snapshot.BaseDefinition),
 		Effective:         openRGBLightingDefinitionFromSnapshot(snapshot.Effective),
 	}
+	if summary.BaseDefinition != nil {
+		summary.BaseDefinition.SpeedRole = "base"
+	}
+	if summary.Effective != nil {
+		summary.Effective.SpeedRole = "effective"
+	}
 	for index, effect := range snapshot.SupportedEffects {
 		displayLabel := openRGBLightingEffectDisplayLabel(effect.ID, effect.Label)
 		summary.SupportedEffects[index] = openRGBLightingEffectSummary{
@@ -2572,11 +2587,25 @@ func openRGBLightingWorkspaceSummaryFromSnapshot(snapshot openrgbimport.Lighting
 	}
 	if snapshot.Override != nil {
 		summary.Override = &openRGBLightingOverrideSummary{
-			Enabled: snapshot.Override.Enabled,
-			Start:   openRGBLightingColorFromRGB(snapshot.Override.StartColor),
-			Middle:  openRGBLightingColorFromRGB(snapshot.Override.MiddleColor),
-			End:     openRGBLightingColorFromRGB(snapshot.Override.EndColor),
-			Speed:   strconv.FormatFloat(snapshot.Override.Speed, 'f', -1, 64),
+			Enabled:   snapshot.Override.Enabled,
+			Start:     openRGBLightingColorFromRGB(snapshot.Override.StartColor),
+			Middle:    openRGBLightingColorFromRGB(snapshot.Override.MiddleColor),
+			End:       openRGBLightingColorFromRGB(snapshot.Override.EndColor),
+			Speed:     strconv.FormatFloat(snapshot.Override.Speed, 'f', -1, 64),
+			SpeedRole: "override",
+		}
+	}
+	if snapshot.HasActiveProfile && snapshot.ConfiguredEffect != "" && snapshot.EffectSupported &&
+		summary.ConfiguredCapabilityKnown && summary.ConfiguredSupportsSpeed && snapshot.Effective != nil &&
+		snapshot.Effective.HasSpeed && !math.IsNaN(snapshot.Effective.Speed) && !math.IsInf(snapshot.Effective.Speed, 0) {
+		minimum, maximum := rgb.ProfileSpeedRange(snapshot.ConfiguredEffect)
+		if snapshot.Effective.Speed >= minimum && snapshot.Effective.Speed <= maximum {
+			summary.HasSpeedControl = true
+			summary.Speed = strconv.FormatFloat(snapshot.Effective.Speed, 'f', -1, 64)
+			summary.SpeedTarget = "base"
+			if snapshot.ConfiguredEffect != "gradient" && snapshot.Override != nil && snapshot.Override.Enabled {
+				summary.SpeedTarget = "override"
+			}
 		}
 	}
 	return summary
@@ -3262,38 +3291,66 @@ func setOpenRGBImportEffect(w http.ResponseWriter, r *http.Request) {
 
 func setOpenRGBImportSpeed(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Serial string `json:"serial"`
-		Speed  string `json:"speed"`
+		Serial *string         `json:"serial"`
+		Effect *string         `json:"effect"`
+		Speed  json.RawMessage `json:"speed"`
 	}
 
-	if !decodeRequestBody(w, r, &req) {
+	if !decodeOpenRGBImportRequest(w, r, &req) {
 		return
 	}
 
-	serial := req.Serial
-	if serial == "" {
-		serial = "openrgb-mobo-1"
-	}
-
-	dev, err := getOpenRGBImportDeviceBySerial(serial)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusOK,
-			Status:  0,
-			Message: err.Error(),
+	// Preserve the legacy imported-device page's categorical compatibility
+	// request. The modern workspace always supplies an effect and numeric speed.
+	if req.Effect == nil {
+		var legacySpeed string
+		if json.Unmarshal(req.Speed, &legacySpeed) != nil {
+			(&Response{Code: http.StatusOK, Status: 0, Message: "Invalid speed request"}).Send(w)
+			return
 		}
-		resp.Send(w)
+		serial := "openrgb-mobo-1"
+		if req.Serial != nil && *req.Serial != "" {
+			serial = *req.Serial
+		}
+		dev, err := lookupOpenRGBImportLegacy(serial)
+		if err != nil {
+			(&Response{Code: http.StatusOK, Status: 0, Message: "OpenRGB device is not available"}).Send(w)
+			return
+		}
+		dev.SetSpeed(legacySpeed)
+		(&Response{Code: http.StatusOK, Status: 1, Message: "Speed set"}).Send(w)
 		return
 	}
 
-	dev.SetSpeed(req.Speed)
-
-	resp := &Response{
-		Code:    http.StatusOK,
-		Status:  1,
-		Message: "Speed set",
+	var speed float64
+	if req.Serial == nil || *req.Serial == "" || *req.Effect == "" || len(req.Speed) == 0 ||
+		json.Unmarshal(req.Speed, &speed) != nil || math.IsNaN(speed) || math.IsInf(speed, 0) {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Invalid speed request"}).Send(w)
+		return
 	}
-	resp.Send(w)
+	minimum, maximum := rgb.ProfileSpeedRange(*req.Effect)
+	descriptor, known := rgb.SoftwareEffectDescriptorByID(*req.Effect)
+	if !known || !descriptor.Scope.Includes(rgb.EffectScopeDevice) || !descriptor.SupportsSpeed ||
+		speed < minimum || speed > maximum {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Invalid speed request"}).Send(w)
+		return
+	}
+
+	dev, err := getOpenRGBImportLightingDeviceBySerial(*req.Serial)
+	if err != nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "OpenRGB device is not available"}).Send(w)
+		return
+	}
+	if !dev.SupportsEffect(*req.Effect) {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Unsupported effect"}).Send(w)
+		return
+	}
+
+	if err = setOpenRGBImportSpeedValue(dev, *req.Serial, *req.Effect, speed); err != nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Unable to set speed"}).Send(w)
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Speed set"}).Send(w)
 }
 
 func setOpenRGBImportConfig(w http.ResponseWriter, r *http.Request) {

@@ -112,7 +112,7 @@
             <span class="lf-lighting-definition-kind">{{ .Palette }}</span>
             {{ template "lf-lighting-palette" . }}
             {{ if .HasSpeed }}
-                <p class="lf-lighting-speed"><span>Speed</span><strong>{{ .Speed }}</strong></p>
+                <p class="lf-lighting-speed"><span>Speed</span><strong{{ if .SpeedRole }} data-lf-speed-readout="{{ .SpeedRole }}"{{ end }}>{{ .Speed }}</strong></p>
             {{ end }}
             {{ if not .HasValues }}
                 <p class="lf-lighting-empty-value">This effect has no fixed color or persistent speed values.</p>
@@ -328,7 +328,6 @@
                                             </div>
                                             <div class="lf-lighting-primary-metrics">
                                                 <span><small>Palette</small><strong>{{ if .ConfiguredEffect }}{{ .ConfiguredPalette }}{{ else }}Unknown{{ end }}</strong></span>
-                                                <span><small>Persistent speed</small><strong>{{ if .ConfiguredCapabilityKnown }}{{ if .ConfiguredSupportsSpeed }}Supported{{ else }}Not supported{{ end }}{{ else }}Unknown{{ end }}</strong></span>
                                             </div>
                                         </div>
 
@@ -387,6 +386,55 @@
                                             </div>
                                         {{ end }}
 
+										{{ if .HasSpeedControl }}
+											<div class="lf-range-control lf-range-control-speed" data-lf-speed-control>
+												<div class="lf-range-control-header">
+													<label class="lf-range-control-label" for="lf-lighting-speed-slider">Speed</label>
+													<span class="lf-range-control-value">
+														<input
+															class="lf-range-control-number"
+															id="lf-lighting-speed-number"
+															type="number"
+															min="1"
+															max="10"
+															step="0.1"
+															value="{{ .Speed }}"
+															data-lf-speed-number
+															aria-label="Speed level"
+															aria-describedby="lf-lighting-speed-status{{ if .ClusterControlled }} lf-lighting-speed-cluster-explanation{{ end }}"
+															{{ if .ClusterControlled }}disabled{{ end }}
+														>
+													</span>
+												</div>
+												<input
+													class="lf-range-control-input"
+													id="lf-lighting-speed-slider"
+													type="range"
+													min="1"
+													max="10"
+													step="0.1"
+													value="{{ .Speed }}"
+													data-lf-speed-slider
+													data-lf-current-stored-speed="{{ .Speed }}"
+													data-lf-device-serial="{{ $.Device.Serial }}"
+													data-lf-effect="{{ .ConfiguredEffect }}"
+													data-lf-speed-control-mode="software"
+													data-lf-speed-target="{{ .SpeedTarget }}"
+													data-lf-cluster-controlled="{{ .ClusterControlled }}"
+													data-lf-number-id="lf-lighting-speed-number"
+													data-lf-status-id="lf-lighting-speed-status"
+													aria-label="Animation speed from Slow to Fast"
+													aria-describedby="lf-lighting-speed-status{{ if .ClusterControlled }} lf-lighting-speed-cluster-explanation{{ end }}"
+													{{ if .ClusterControlled }}disabled{{ end }}
+												>
+												<div class="lf-range-control-scale" aria-hidden="true"><span>Slow</span><span>Fast</span></div>
+												{{ if .ClusterControlled }}
+													<p class="lf-range-control-restriction" id="lf-lighting-speed-cluster-explanation">RGB Cluster currently owns this device's lighting output. Change cluster-wide lighting from the <a href="/rgbCluster">RGB Cluster workspace</a>.</p>
+												{{ end }}
+												<p class="lf-range-control-status" id="lf-lighting-speed-status" aria-live="polite"></p>
+											</div>
+										{{ end }}
+
                                         <div class="lf-lighting-primary-palette">
                                             <div class="lf-lighting-primary-palette-heading">
                                                 <span>Effective stored palette</span>
@@ -404,9 +452,6 @@
                                                 </div>
                                             {{ else }}
                                                 {{ template "lf-lighting-palette" .Effective }}
-                                            {{ end }}
-                                            {{ if and .Effective .Effective.HasSpeed }}
-                                                <p class="lf-lighting-speed lf-lighting-speed-primary"><span>Effective speed</span><strong>{{ .Effective.Speed }}</strong></p>
                                             {{ end }}
                                         </div>
                                     </section>
@@ -450,7 +495,7 @@
                                                             <span class="lf-lighting-palette-bridge" aria-hidden="true"></span>
                                                             <div class="lf-lighting-palette-stop"><span class="lf-lighting-palette-stop-name">End</span>{{ template "lf-lighting-color-value" .End }}</div>
                                                         </div>
-                                                        <p class="lf-lighting-speed"><span>Stored speed</span><strong>{{ .Speed }}</strong></p>
+                                                        <p class="lf-lighting-speed"><span>Stored speed</span><strong{{ if .SpeedRole }} data-lf-speed-readout="{{ .SpeedRole }}"{{ end }}>{{ .Speed }}</strong></p>
                                                     </div>
                                                     <p class="lf-lighting-source-note">The selected renderer may not consume every stored override field.</p>
                                                 {{ else }}

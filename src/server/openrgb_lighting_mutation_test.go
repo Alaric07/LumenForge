@@ -3,6 +3,8 @@ package server
 import (
 	"LumenForge/src/common"
 	"LumenForge/src/devices/openrgbimport"
+	"LumenForge/src/rgb"
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -15,7 +17,14 @@ const lightingMutationTestSerial = "openrgb-lighting-test"
 type lightingMutationCalls struct {
 	brightness []uint8
 	effects    []string
+	speeds     []lightingSpeedMutationCall
 	setError   error
+}
+
+type lightingSpeedMutationCall struct {
+	serial string
+	effect string
+	speed  float64
 }
 
 func installLightingMutationTestSeams(t *testing.T) (*openrgbimport.Device, *common.Device, *lightingMutationCalls) {
@@ -24,10 +33,12 @@ func installLightingMutationTestSeams(t *testing.T) (*openrgbimport.Device, *com
 	previousLookup := lookupOpenRGBImportForLighting
 	previousBrightness := setOpenRGBImportBrightnessValue
 	previousEffect := setOpenRGBImportEffectValue
+	previousSpeed := setOpenRGBImportSpeedValue
 	t.Cleanup(func() {
 		lookupOpenRGBImportForLighting = previousLookup
 		setOpenRGBImportBrightnessValue = previousBrightness
 		setOpenRGBImportEffectValue = previousEffect
+		setOpenRGBImportSpeedValue = previousSpeed
 	})
 
 	device := &openrgbimport.Device{
@@ -49,6 +60,10 @@ func installLightingMutationTestSeams(t *testing.T) (*openrgbimport.Device, *com
 	}
 	setOpenRGBImportEffectValue = func(_ *openrgbimport.Device, effect string) error {
 		calls.effects = append(calls.effects, effect)
+		return calls.setError
+	}
+	setOpenRGBImportSpeedValue = func(_ *openrgbimport.Device, serial, effect string, speed float64) error {
+		calls.speeds = append(calls.speeds, lightingSpeedMutationCall{serial: serial, effect: effect, speed: speed})
 		return calls.setError
 	}
 	return device, wrapper, calls
@@ -159,6 +174,55 @@ func TestOpenRGBLightingMutationRequestValidation(t *testing.T) {
 		})
 	}
 
+	speedCases := []struct {
+		name      string
+		body      string
+		wantValue *float64
+	}{
+		{name: "minimum", body: `{"serial":"openrgb-lighting-test","effect":"rainbow","speed":1}`, wantValue: float64Pointer(1)},
+		{name: "maximum", body: `{"serial":"openrgb-lighting-test","effect":"rainbow","speed":10}`, wantValue: float64Pointer(10)},
+		{name: "fraction", body: `{"serial":"openrgb-lighting-test","effect":"rainbow","speed":4.25}`, wantValue: float64Pointer(4.25)},
+		{name: "below minimum", body: `{"serial":"openrgb-lighting-test","effect":"rainbow","speed":0.99}`},
+		{name: "above maximum", body: `{"serial":"openrgb-lighting-test","effect":"rainbow","speed":10.01}`},
+		{name: "quoted number", body: `{"serial":"openrgb-lighting-test","effect":"rainbow","speed":"4"}`},
+		{name: "null", body: `{"serial":"openrgb-lighting-test","effect":"rainbow","speed":null}`},
+		{name: "missing speed", body: `{"serial":"openrgb-lighting-test","effect":"rainbow"}`},
+		{name: "missing effect", body: `{"serial":"openrgb-lighting-test","speed":4}`},
+		{name: "empty effect", body: `{"serial":"openrgb-lighting-test","effect":"","speed":4}`},
+		{name: "missing serial", body: `{"effect":"rainbow","speed":4}`},
+		{name: "empty serial", body: `{"serial":"","effect":"rainbow","speed":4}`},
+		{name: "unsupported effect", body: `{"serial":"openrgb-lighting-test","effect":"wave","speed":4}`},
+		{name: "no-speed effect", body: `{"serial":"openrgb-lighting-test","effect":"static","speed":4}`},
+		{name: "wrong serial type", body: `{"serial":1,"effect":"rainbow","speed":4}`},
+		{name: "wrong effect type", body: `{"serial":"openrgb-lighting-test","effect":1,"speed":4}`},
+		{name: "unknown field", body: `{"serial":"openrgb-lighting-test","effect":"rainbow","speed":4,"extra":true}`},
+		{name: "trailing JSON", body: `{"serial":"openrgb-lighting-test","effect":"rainbow","speed":4}{}`},
+		{name: "malformed", body: `{"serial":"openrgb-lighting-test","effect":"rainbow","speed":`},
+		{name: "non-finite", body: `{"serial":"openrgb-lighting-test","effect":"rainbow","speed":NaN}`},
+		{name: "oversized", body: strings.Repeat(" ", openRGBImportRequestLimit+1) + `{"serial":"openrgb-lighting-test","effect":"rainbow","speed":4}`},
+	}
+	for _, test := range speedCases {
+		t.Run("speed "+test.name, func(t *testing.T) {
+			calls.speeds = nil
+			recorder := requestOpenRGBLightingMutation(t, router, http.MethodPost, "/api/openrgbimport/speed", test.body)
+			if test.wantValue == nil {
+				requireLightingMutationResponse(t, recorder, 0)
+				if len(calls.speeds) != 0 {
+					t.Fatalf("speed mutation calls = %#v, want none", calls.speeds)
+				}
+				return
+			}
+			response := requireLightingMutationResponse(t, recorder, 1)
+			if response.Message != "Speed set" {
+				t.Fatalf("success message = %q, want %q", response.Message, "Speed set")
+			}
+			want := lightingSpeedMutationCall{serial: lightingMutationTestSerial, effect: "rainbow", speed: *test.wantValue}
+			if len(calls.speeds) != 1 || calls.speeds[0] != want {
+				t.Fatalf("speed mutation calls = %#v, want %#v", calls.speeds, want)
+			}
+		})
+	}
+
 	calls.setError = errors.New("private mutation failure at /tmp/internal")
 	for _, test := range []struct {
 		path string
@@ -166,6 +230,7 @@ func TestOpenRGBLightingMutationRequestValidation(t *testing.T) {
 	}{
 		{path: "/api/openrgbimport/brightness", body: `{"serial":"openrgb-lighting-test","brightness":50}`},
 		{path: "/api/openrgbimport/effect", body: `{"serial":"openrgb-lighting-test","effect":"static"}`},
+		{path: "/api/openrgbimport/speed", body: `{"serial":"openrgb-lighting-test","effect":"rainbow","speed":4}`},
 	} {
 		recorder := requestOpenRGBLightingMutation(t, router, http.MethodPost, test.path, test.body)
 		response := requireLightingMutationResponse(t, recorder, 0)
@@ -175,8 +240,131 @@ func TestOpenRGBLightingMutationRequestValidation(t *testing.T) {
 	}
 }
 
+func TestOpenRGBLightingLegacySpeedLookupErrorRedaction(t *testing.T) {
+	previousLookup := lookupOpenRGBImportLegacy
+	t.Cleanup(func() { lookupOpenRGBImportLegacy = previousLookup })
+	router := setRoutes()
+
+	for _, internalError := range []string{
+		"read /var/lib/lumenforge/database/profiles/private.json: permission denied",
+		"OpenRGB controller 7 rejected speed change",
+		"OpenRGB import lifecycle is detached",
+		"device is controlled by RGB cluster",
+		"arbitrary private lookup detail",
+	} {
+		t.Run(internalError, func(t *testing.T) {
+			lookupOpenRGBImportLegacy = func(string) (*openrgbimport.Device, error) {
+				return nil, errors.New(internalError)
+			}
+			recorder := requestOpenRGBLightingMutation(
+				t,
+				router,
+				http.MethodPost,
+				"/api/openrgbimport/speed",
+				`{"serial":"openrgb-lighting-test","speed":"fast"}`,
+			)
+			response := requireLightingMutationResponse(t, recorder, 0)
+			if response.Message != "OpenRGB device is not available" {
+				t.Fatalf("legacy speed lookup message = %q", response.Message)
+			}
+			if strings.Contains(recorder.Body.String(), internalError) {
+				t.Fatalf("legacy speed response exposed internal lookup error: %s", recorder.Body.String())
+			}
+		})
+	}
+
+	t.Run("successful categorical request remains compatible", func(t *testing.T) {
+		device := &openrgbimport.Device{}
+		lookupOpenRGBImportLegacy = func(string) (*openrgbimport.Device, error) {
+			return device, nil
+		}
+		recorder := requestOpenRGBLightingMutation(
+			t,
+			router,
+			http.MethodPost,
+			"/api/openrgbimport/speed",
+			`{"serial":"openrgb-lighting-test","speed":"slow"}`,
+		)
+		response := requireLightingMutationResponse(t, recorder, 1)
+		if response.Message != "Speed set" || device.GetSpeed() != "slow" {
+			t.Fatalf("legacy speed success response = %#v, device speed %q", response, device.GetSpeed())
+		}
+	})
+}
+
+func TestOpenRGBLightingSpeedTimeoutErrorRedaction(t *testing.T) {
+	_, _, calls := installLightingMutationTestSeams(t)
+	calls.setError = errors.Join(errors.New("wait for initial OpenRGB effect output"), context.DeadlineExceeded)
+	recorder := requestOpenRGBLightingMutation(
+		t,
+		setRoutes(),
+		http.MethodPost,
+		"/api/openrgbimport/speed",
+		`{"serial":"openrgb-lighting-test","effect":"rainbow","speed":4}`,
+	)
+	response := requireLightingMutationResponse(t, recorder, 0)
+	if response.Message != "Unable to set speed" {
+		t.Fatalf("speed timeout response message = %q", response.Message)
+	}
+	if strings.Contains(recorder.Body.String(), "DeadlineExceeded") || strings.Contains(recorder.Body.String(), "initial OpenRGB effect output") {
+		t.Fatalf("speed timeout response exposed internal error: %s", recorder.Body.String())
+	}
+}
+
 func uint8Pointer(value uint8) *uint8 {
 	return &value
+}
+
+func float64Pointer(value float64) *float64 {
+	return &value
+}
+
+func TestOpenRGBLightingSpeedClusterOwnershipGuard(t *testing.T) {
+	previousLookup := lookupOpenRGBImportForLighting
+	previousSpeed := setOpenRGBImportSpeedValue
+	t.Cleanup(func() {
+		lookupOpenRGBImportForLighting = previousLookup
+		setOpenRGBImportSpeedValue = previousSpeed
+	})
+
+	profile := &openrgbimport.DeviceProfile{Active: true, RGBProfile: "rainbow", RGBCluster: true}
+	device := &openrgbimport.Device{
+		Serial:        lightingMutationTestSerial,
+		IsOpenRGB:     true,
+		RGBModes:      []string{"rainbow"},
+		DeviceProfile: profile,
+		Rgb: &rgb.RGB{Profiles: map[string]rgb.Profile{
+			"rainbow": {ProfileName: "rainbow", Speed: 2},
+		}},
+	}
+	wrapper := &common.Device{Serial: lightingMutationTestSerial, Instance: device}
+	lookupOpenRGBImportForLighting = func(serial string) (*common.Device, *openrgbimport.Device, bool) {
+		return wrapper, device, serial == lightingMutationTestSerial
+	}
+	calls := 0
+	var observedErr error
+	setOpenRGBImportSpeedValue = func(device *openrgbimport.Device, serial, effect string, speed float64) error {
+		calls++
+		observedErr = device.SetEffectSpeed(serial, effect, speed)
+		return observedErr
+	}
+
+	recorder := requestOpenRGBLightingMutation(t, setRoutes(), http.MethodPost, "/api/openrgbimport/speed", `{"serial":"openrgb-lighting-test","effect":"rainbow","speed":4}`)
+	response := requireLightingMutationResponse(t, recorder, 0)
+	if calls != 1 {
+		t.Fatalf("cluster-owned speed mutation calls = %d, want 1", calls)
+	}
+	const ownershipError = "device is controlled by RGB cluster"
+	if observedErr == nil || observedErr.Error() != ownershipError {
+		t.Fatalf("real SetEffectSpeed error = %v, want %q", observedErr, ownershipError)
+	}
+	if response.Message != "Unable to set speed" || strings.Contains(recorder.Body.String(), ownershipError) {
+		t.Fatalf("cluster-owned speed response = %s", recorder.Body.String())
+	}
+	snapshot, ok := device.LightingSnapshot()
+	if !ok || snapshot.BaseDefinition == nil || snapshot.BaseDefinition.Speed != 2 || snapshot.ConfiguredEffect != "rainbow" {
+		t.Fatalf("cluster rejection changed Lighting state: %#v", snapshot)
+	}
 }
 
 func TestOpenRGBLightingBrightnessMutationErrorRedaction(t *testing.T) {
@@ -357,6 +545,7 @@ func TestOpenRGBLightingMutationSecurityCompatibility(t *testing.T) {
 	}{
 		{name: "brightness", path: "/api/openrgbimport/brightness", body: `{"serial":"openrgb-lighting-test","brightness":50}`},
 		{name: "effect", path: "/api/openrgbimport/effect", body: `{"serial":"openrgb-lighting-test","effect":"static"}`},
+		{name: "speed", path: "/api/openrgbimport/speed", body: `{"serial":"openrgb-lighting-test","effect":"rainbow","speed":4}`},
 	}
 	for _, route := range routes {
 		t.Run(route.name, func(t *testing.T) {
