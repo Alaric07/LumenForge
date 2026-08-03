@@ -184,6 +184,15 @@ consume three per-color Celsius thresholds. They do not consume the generic
 profile `MinTemp` and `MaxTemp` fields, so those generic fields do not belong in
 this editor.
 
+The canonical renderer contract was completed in `3f840533`. CPU Temperature
+uses Low, Middle, and High thresholds of 20, 50, and 95 Celsius in the shipped
+defaults; GPU Temperature uses 20, 50, and 80 Celsius. Thresholds are finite and
+strictly ordered as Low < Middle < High. Exact thresholds and interpolation are
+deterministic, while malformed or incomplete three-point data resolves to a
+usable Low point or otherwise black. Semantic point roles are never sorted or
+reassigned. The legacy two-point path and temperature Brightness behavior were
+not changed.
+
 ### Gradient
 
 Gradient shows:
@@ -193,6 +202,10 @@ Gradient shows:
 - stop color;
 - stop intensity;
 - Speed when supported.
+
+The completed renderer contract keeps stop intensity relative and separate
+from owning-scope Brightness. The future editor exposes those distinct values;
+it is not implemented by the renderer milestone.
 
 ### Fixed and generated-palette effects
 
@@ -262,15 +275,18 @@ Final behavior is:
   cluster frame;
 - effect Reset never resets Brightness.
 
-Two current issues remain open and must not be described as fixed:
+The Gradient renderer contract was completed in `fe8e2462`. Stop selection and
+stop-aware color and relative-intensity interpolation occur first, after which
+owning-scope Brightness scales the completed output exactly once. Maximum
+owning Brightness preserves valid prior output, zero produces black, and neither
+stop intensity nor owning Brightness is duplicated. Rendering also preserves
+caller-owned Gradient data and resolves the circular last-to-first segment on
+both sides of the cycle boundary.
 
-- Cluster output currently applies cluster Brightness, after which an imported
-  member applies individual-device Brightness again. Correct this double
-  scaling in a focused milestone.
-- Gradient currently relies on each stop's brightness/intensity and does not
-  consistently follow the owning scope's normal Brightness. The final contract
-  makes owning-scope Brightness authoritative while preserving stop intensity
-  as a relative Gradient property.
+One current issue remains open and must not be described as fixed: cluster
+output applies cluster Brightness, after which an imported member applies
+individual-device Brightness again. Correct this double scaling in the next
+focused milestone.
 
 ## 10. Static behavior
 
@@ -436,10 +452,12 @@ Speed or another genuine renderer-consumed setting.
 
 ## 17. Implementation sequence
 
-1. Define and test Low/Middle/High temperature threshold semantics.
+1. Define and test Low/Middle/High temperature threshold semantics. Completed
+   in `3f840533`.
 2. Make owning-scope Brightness authoritative for Gradient while preserving
-   per-stop intensity as a relative property.
-3. Correct imported RGB Cluster member double scaling in a focused commit.
+   per-stop intensity as a relative property. Completed in `fe8e2462`.
+3. Correct imported RGB Cluster member double scaling in a focused commit. This
+   remains unresolved and is the next production milestone.
 4. Add lighting settings types, an immutable default repository,
    defensive-copy validation, dedicated stores, a resolver, and path tests.
 5. Add dedicated OpenRGB device-lighting persistence and atomically cut

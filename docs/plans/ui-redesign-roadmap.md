@@ -206,9 +206,10 @@ zone-color conversion, or global RGB-profile conversion is planned.
   (`e3df7bcd`).
 - [x] Use canonical descriptor icon identity in modern presentation
   (`401a132e`).
-- [ ] Define and test Low/Middle/High temperature threshold semantics.
-- [ ] Make owning-scope Brightness authoritative for Gradient while preserving
-  per-stop intensity as a relative property.
+- [x] Define and test Low/Middle/High temperature threshold semantics
+  (`3f840533`).
+- [x] Make owning-scope Brightness authoritative for Gradient while preserving
+  per-stop intensity as a relative property (`fe8e2462`).
 - [ ] Correct imported RGB Cluster member double scaling in a focused commit.
 - [ ] Add immutable hidden defaults with defensive-copy tests.
 - [ ] Add complete effect-settings types and dedicated device/cluster stores.
@@ -219,6 +220,17 @@ zone-color conversion, or global RGB-profile conversion is planned.
   tests.
 - [ ] Keep renderer dispatch explicit until a proven replacement preserves
   output and lifecycle behavior.
+
+`3f840533` made canonical CPU/GPU Low/Middle/High threshold semantics explicit,
+with deterministic malformed-data fallback and unchanged valid shipped
+behavior. This is renderer and metadata foundation work, not the temperature
+editor UI.
+
+`fe8e2462` made owning Brightness scale completed Gradient output exactly once
+while keeping stop intensity relative and maximum-Brightness output compatible.
+It also corrected the pre-existing pre-first-stop circular wrap defect. This is
+renderer foundation work, not the Gradient editor UI; imported RGB Cluster
+member Brightness double scaling remains separate and unresolved.
 
 ### OpenRGB Device Lighting cutover
 
@@ -546,9 +558,10 @@ roadmap does not promise that every duplicate will be deleted.
 9. [x] Add conditional speed control (`45d1a6c9`).
 10. [x] Record the clean-break lighting configuration architecture in
     [Lighting Configuration Architecture](lighting-configuration-architecture.md).
-11. [ ] Define and test Low/Middle/High temperature threshold semantics.
-12. [ ] Make owning-scope Brightness authoritative for Gradient while
-    preserving per-stop intensity as a relative property.
+11. [x] Define and test Low/Middle/High temperature threshold semantics
+    (`3f840533`).
+12. [x] Make owning-scope Brightness authoritative for Gradient while
+    preserving per-stop intensity as a relative property (`fe8e2462`).
 13. [ ] Correct imported RGB Cluster member Brightness double scaling.
 14. [ ] Add immutable defaults, complete settings types, dedicated stores, and
     the canonical resolver.
