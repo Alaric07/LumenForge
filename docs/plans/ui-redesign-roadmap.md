@@ -212,9 +212,12 @@ zone-color conversion, or global RGB-profile conversion is planned.
   per-stop intensity as a relative property (`fe8e2462`).
 - [x] Correct imported RGB Cluster member double scaling in a focused commit
   (`267effb0`).
-- [ ] Add immutable hidden defaults with defensive-copy tests.
-- [ ] Add complete effect-settings types and dedicated device/cluster stores.
-- [ ] Add the canonical target/effect resolver and path tests.
+- [x] Add immutable hidden defaults with defensive-copy tests
+  (`4f0a38a6`).
+- [x] Add complete effect-settings types and dedicated device/cluster stores
+  (`4f0a38a6`).
+- [x] Add the canonical target/effect resolver and path tests
+  (`4f0a38a6`).
 - [ ] Add dedicated OpenRGB device-lighting persistence.
 - [ ] Derive the RGB Cluster catalogue from descriptor scope.
 - [ ] Remove duplicated metadata only after migrated consumers pass parity
@@ -237,6 +240,14 @@ Cluster Brightness now scales aggregate output once, imported member callbacks
 do not reapply stored local device Brightness, and independent OpenRGB output
 continues applying local Brightness once. Member segments are copied before
 concurrent callback dispatch to preserve aggregate-frame ownership.
+
+`4f0a38a6` added the dormant lighting-settings foundation: immutable shipped
+defaults with deep defensive copies, complete descriptor-validated effect
+settings, dedicated independent-device and RGB Cluster customization stores,
+and the canonical target/effect resolver. Reset is represented by deleting one
+target/effect customization, and the dedicated stores neither read nor write
+legacy RGB profile paths. No runtime lighting consumer was cut over in this
+milestone.
 
 ### OpenRGB Device Lighting cutover
 
@@ -536,7 +547,7 @@ must use deterministic contract tests rather than probabilistic retry loops.
 | RGB Cluster effect list | Cluster catalogue | Scope-filtered generic descriptors | `[ ]` Planned | Cluster list and behavior parity tests pass |
 | Icon identity | Stable asset naming and presentation paths | Software-effect descriptors | `[~]` Identity recorded | Presentation uses descriptor identity with fallback tests |
 | Renderer dispatch | Importer and cluster switches | Explicit dispatch until a proven replacement exists | `[!]` Decision required | Output parity and lifecycle behavior are demonstrated |
-| Default profile values | `database/rgb.json` and mutable target-local copies | Hidden immutable default repository plus complete target customizations | `[ ]` Architecture recorded | Resolver and defensive-copy tests pass; migrated targets no longer read local RGB copies |
+| Default profile values | `database/rgb.json` and mutable target-local copies | Hidden immutable default repository plus complete target customizations | `[~]` Foundation created; consumers not integrated (`4f0a38a6`) | Resolver and defensive-copy tests pass; migrated targets no longer read local RGB copies |
 | Effect-setting precedence | Device RGB definitions, RGB Override, zone colors, and `lastColor` | One target customization or hidden default | `[ ]` Architecture recorded | Renderer and presentation use the same resolver |
 | Native firmware capabilities | Native device packages and firmware mode lists | Device-owned capability adapters | Intentional separation | Normalize only proven shared semantics |
 
@@ -570,8 +581,8 @@ roadmap does not promise that every duplicate will be deleted.
     preserving per-stop intensity as a relative property (`fe8e2462`).
 13. [x] Correct imported RGB Cluster member Brightness double scaling
     (`267effb0`).
-14. [ ] Add immutable defaults, complete settings types, dedicated stores, and
-    the canonical resolver.
+14. [x] Add immutable defaults, complete settings types, dedicated stores, and
+    the canonical resolver (`4f0a38a6`).
 15. [ ] Cut OpenRGB effect selection, Brightness, Speed, rendering, restart,
     and reconnect to dedicated device-lighting persistence and the resolver.
 16. [ ] Make OpenRGB Static uniform and retire zone-owned Static colors and the

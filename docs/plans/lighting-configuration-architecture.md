@@ -463,6 +463,7 @@ Speed or another genuine renderer-consumed setting.
    Completed in `267effb0`.
 4. Add lighting settings types, an immutable default repository,
    defensive-copy validation, dedicated stores, a resolver, and path tests.
+   Completed in `4f0a38a6`.
 5. Add dedicated OpenRGB device-lighting persistence and atomically cut
    OpenRGB effect selection, Brightness, Speed, rendering, restart, and
    reconnect to the resolver.
