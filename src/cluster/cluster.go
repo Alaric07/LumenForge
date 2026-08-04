@@ -491,9 +491,10 @@ func (d *Device) distributeColors(buff []byte) {
 			break
 		}
 
-		slice := buff[offset : offset+length]
-
 		if c.WriteColorEx != nil {
+			// Each controller owns its completed frame segment. Some device-specific
+			// callbacks remap or modify their input while preparing hardware packets.
+			slice := append([]byte(nil), buff[offset:offset+length]...)
 			wg.Add(1)
 			go func(ctrl *common.ClusterController, data []byte) {
 				defer wg.Done()

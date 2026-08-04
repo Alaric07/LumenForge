@@ -2596,10 +2596,9 @@ func (d *Device) writeColorCluster(data []byte, _ int) {
 		copy(frame, data)
 	}
 
-	// Scale brightness across the entire frame
-	scaled := d.applyBrightness(frame)
-
-	conn, err := sendClusterFrame(d.openrgbConn, uint32(d.controllerId), scaled)
+	// The cluster renderer already applied cluster-owned brightness. Local
+	// device brightness remains stored but is inactive while clustered.
+	conn, err := sendClusterFrame(d.openrgbConn, uint32(d.controllerId), frame)
 	if err != nil {
 		d.recordOutputFailureLocked(err)
 	} else {
