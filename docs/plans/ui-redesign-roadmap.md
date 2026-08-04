@@ -210,7 +210,8 @@ zone-color conversion, or global RGB-profile conversion is planned.
   (`3f840533`).
 - [x] Make owning-scope Brightness authoritative for Gradient while preserving
   per-stop intensity as a relative property (`fe8e2462`).
-- [ ] Correct imported RGB Cluster member double scaling in a focused commit.
+- [x] Correct imported RGB Cluster member double scaling in a focused commit
+  (`267effb0`).
 - [ ] Add immutable hidden defaults with defensive-copy tests.
 - [ ] Add complete effect-settings types and dedicated device/cluster stores.
 - [ ] Add the canonical target/effect resolver and path tests.
@@ -229,8 +230,13 @@ editor UI.
 `fe8e2462` made owning Brightness scale completed Gradient output exactly once
 while keeping stop intensity relative and maximum-Brightness output compatible.
 It also corrected the pre-existing pre-first-stop circular wrap defect. This is
-renderer foundation work, not the Gradient editor UI; imported RGB Cluster
-member Brightness double scaling remains separate and unresolved.
+renderer foundation work, not the Gradient editor UI.
+
+`267effb0` corrected imported RGB Cluster member Brightness double scaling.
+Cluster Brightness now scales aggregate output once, imported member callbacks
+do not reapply stored local device Brightness, and independent OpenRGB output
+continues applying local Brightness once. Member segments are copied before
+concurrent callback dispatch to preserve aggregate-frame ownership.
 
 ### OpenRGB Device Lighting cutover
 
@@ -562,7 +568,8 @@ roadmap does not promise that every duplicate will be deleted.
     (`3f840533`).
 12. [x] Make owning-scope Brightness authoritative for Gradient while
     preserving per-stop intensity as a relative property (`fe8e2462`).
-13. [ ] Correct imported RGB Cluster member Brightness double scaling.
+13. [x] Correct imported RGB Cluster member Brightness double scaling
+    (`267effb0`).
 14. [ ] Add immutable defaults, complete settings types, dedicated stores, and
     the canonical resolver.
 15. [ ] Cut OpenRGB effect selection, Brightness, Speed, rendering, restart,

@@ -283,10 +283,13 @@ stop intensity nor owning Brightness is duplicated. Rendering also preserves
 caller-owned Gradient data and resolves the circular last-to-first segment on
 both sides of the cycle boundary.
 
-One current issue remains open and must not be described as fixed: cluster
-output applies cluster Brightness, after which an imported member applies
-individual-device Brightness again. Correct this double scaling in the next
-focused milestone.
+The imported RGB Cluster member Brightness defect was corrected in
+`267effb0`. Cluster Brightness now scales the completed aggregate output exactly
+once, and OpenRGB-imported member callbacks transmit their assigned bytes
+without reapplying stored local device Brightness. Independent OpenRGB output
+continues to apply local device Brightness once. Cluster dispatch also copies
+each member segment before concurrent callback execution so callbacks cannot
+mutate the aggregate frame.
 
 ## 10. Static behavior
 
@@ -456,8 +459,8 @@ Speed or another genuine renderer-consumed setting.
    in `3f840533`.
 2. Make owning-scope Brightness authoritative for Gradient while preserving
    per-stop intensity as a relative property. Completed in `fe8e2462`.
-3. Correct imported RGB Cluster member double scaling in a focused commit. This
-   remains unresolved and is the next production milestone.
+3. Correct imported RGB Cluster member double scaling in a focused commit.
+   Completed in `267effb0`.
 4. Add lighting settings types, an immutable default repository,
    defensive-copy validation, dedicated stores, a resolver, and path tests.
 5. Add dedicated OpenRGB device-lighting persistence and atomically cut
