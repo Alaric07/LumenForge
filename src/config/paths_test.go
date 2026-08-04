@@ -33,6 +33,12 @@ func TestResolvePathsInstalledUserWithXDGRoots(t *testing.T) {
 	if paths.MutableDatabaseRoot != "/srv/alice-data/lumenforge/database" {
 		t.Fatalf("MutableDatabaseRoot = %q", paths.MutableDatabaseRoot)
 	}
+	if paths.DeviceEffectSettingsFile != "/srv/alice-data/lumenforge/database/lighting/independent-device-effects.json" {
+		t.Fatalf("DeviceEffectSettingsFile = %q", paths.DeviceEffectSettingsFile)
+	}
+	if paths.ClusterEffectSettingsFile != "/srv/alice-data/lumenforge/database/lighting/rgb-cluster-effects.json" {
+		t.Fatalf("ClusterEffectSettingsFile = %q", paths.ClusterEffectSettingsFile)
+	}
 }
 
 func TestResolvePathsInstalledUserFallbacks(t *testing.T) {
@@ -330,6 +336,7 @@ func TestEnsureRuntimeDirectoriesKeepsMutableCategoriesOutsideApplication(t *tes
 	mutableDirectories := []string{
 		paths.MutableProfilesRoot,
 		paths.MutableRGBRoot,
+		paths.MutableLightingRoot,
 		paths.MutableTemperaturesRoot,
 		paths.MutableMacrosRoot,
 		paths.MutableKeyAssignmentsRoot,

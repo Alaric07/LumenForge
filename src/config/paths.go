@@ -50,6 +50,9 @@ type Paths struct {
 	DisplayFile               string
 	MutableProfilesRoot       string
 	MutableRGBRoot            string
+	MutableLightingRoot       string
+	DeviceEffectSettingsFile  string
+	ClusterEffectSettingsFile string
 	MutableTemperaturesRoot   string
 	MutableMacrosRoot         string
 	MutableKeyAssignmentsRoot string
@@ -212,6 +215,9 @@ func ResolvePaths(options PathOptions) (Paths, error) {
 		DisplayFile:               filepath.Join(dataRoot, "display.json"),
 		MutableProfilesRoot:       filepath.Join(mutableDatabaseRoot, "profiles"),
 		MutableRGBRoot:            filepath.Join(mutableDatabaseRoot, "rgb"),
+		MutableLightingRoot:       filepath.Join(mutableDatabaseRoot, "lighting"),
+		DeviceEffectSettingsFile:  filepath.Join(mutableDatabaseRoot, "lighting", "independent-device-effects.json"),
+		ClusterEffectSettingsFile: filepath.Join(mutableDatabaseRoot, "lighting", "rgb-cluster-effects.json"),
 		MutableTemperaturesRoot:   filepath.Join(mutableDatabaseRoot, "temperatures"),
 		MutableMacrosRoot:         filepath.Join(mutableDatabaseRoot, "macros"),
 		MutableKeyAssignmentsRoot: filepath.Join(mutableDatabaseRoot, "key-assignments"),
@@ -256,6 +262,7 @@ func EnsureRuntimeDirectories(paths Paths) error {
 		paths.MutableMacrosRoot,
 		paths.MutableProfilesRoot,
 		paths.MutableRGBRoot,
+		paths.MutableLightingRoot,
 		paths.MutableTemperaturesRoot,
 		paths.MutableLCDRoot,
 		paths.MutableLCDUploadRoot,
