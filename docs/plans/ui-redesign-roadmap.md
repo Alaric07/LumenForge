@@ -218,7 +218,8 @@ zone-color conversion, or global RGB-profile conversion is planned.
   (`4f0a38a6`).
 - [x] Add the canonical target/effect resolver and path tests
   (`4f0a38a6`).
-- [ ] Add dedicated OpenRGB device-lighting persistence.
+- [x] Add dedicated OpenRGB device-lighting persistence
+  (`c91a970c`).
 - [ ] Derive the RGB Cluster catalogue from descriptor scope.
 - [ ] Remove duplicated metadata only after migrated consumers pass parity
   tests.
@@ -246,17 +247,30 @@ defaults with deep defensive copies, complete descriptor-validated effect
 settings, dedicated independent-device and RGB Cluster customization stores,
 and the canonical target/effect resolver. Reset is represented by deleting one
 target/effect customization, and the dedicated stores neither read nor write
-legacy RGB profile paths. No runtime lighting consumer was cut over in this
+legacy RGB profile paths. No runtime lighting consumer was cut over in that
 milestone.
+
+`c91a970c` atomically cut OpenRGB-imported independent-device lighting to the
+new ownership model. Selected effect and device Brightness now use dedicated
+device state, complete per-effect settings use the device customization store,
+and rendering, presentation, restart, and reconnect resolve through the
+canonical resolver. Existing effect, Brightness, and conditional Speed
+interactions were preserved. Legacy target-local RGB files and user-profile
+lighting fields are no longer authoritative for those values. Heterogeneous
+Static zone state, `lastColor`, the legacy Static endpoint, Static RGB Override
+behavior, and base/effective presentation compatibility remain deliberately
+isolated for later milestones.
 
 ### OpenRGB Device Lighting cutover
 
 - [x] Add the modern protected effect selector (`01b80d4a`).
 - [x] Add the theme-aware Brightness control (`e46d19ec`).
 - [x] Add the conditional persisted Speed control (`45d1a6c9`).
-- [ ] Adapt effect selection, Brightness, and Speed from current persistence to
-  the canonical resolver without redesigning their established interactions.
-- [ ] Cut rendering, restart, and reconnect atomically to the resolver.
+- [x] Adapt effect selection, Brightness, and Speed from current persistence to
+  the canonical resolver without redesigning their established interactions
+  (`c91a970c`).
+- [x] Cut rendering, restart, and reconnect atomically to the resolver
+  (`c91a970c`).
 - [ ] Make Static one color per device; retain zones only for topology,
   addressing, names, and LED counts.
 - [ ] Retire heterogeneous OpenRGB Static zone colors without migration.
@@ -547,8 +561,8 @@ must use deterministic contract tests rather than probabilistic retry loops.
 | RGB Cluster effect list | Cluster catalogue | Scope-filtered generic descriptors | `[ ]` Planned | Cluster list and behavior parity tests pass |
 | Icon identity | Stable asset naming and presentation paths | Software-effect descriptors | `[~]` Identity recorded | Presentation uses descriptor identity with fallback tests |
 | Renderer dispatch | Importer and cluster switches | Explicit dispatch until a proven replacement exists | `[!]` Decision required | Output parity and lifecycle behavior are demonstrated |
-| Default profile values | `database/rgb.json` and mutable target-local copies | Hidden immutable default repository plus complete target customizations | `[~]` Foundation created; consumers not integrated (`4f0a38a6`) | Resolver and defensive-copy tests pass; migrated targets no longer read local RGB copies |
-| Effect-setting precedence | Device RGB definitions, RGB Override, zone colors, and `lastColor` | One target customization or hidden default | `[ ]` Architecture recorded | Renderer and presentation use the same resolver |
+| Default profile values | `database/rgb.json` and mutable target-local copies | Hidden immutable default repository plus complete target customizations | `[~]` OpenRGB integrated; other targets pending (`4f0a38a6`, `c91a970c`) | Resolver and defensive-copy tests pass; migrated targets no longer read local RGB copies |
+| Effect-setting precedence | Device RGB definitions, RGB Override, zone colors, and `lastColor` | One target customization or hidden default | `[~]` OpenRGB animated state integrated; Static and other targets pending (`c91a970c`) | Renderer and presentation use the same resolver |
 | Native firmware capabilities | Native device packages and firmware mode lists | Device-owned capability adapters | Intentional separation | Normalize only proven shared semantics |
 
 Suitable centralization targets are IDs and labels, palette and color usage,
@@ -583,8 +597,9 @@ roadmap does not promise that every duplicate will be deleted.
     (`267effb0`).
 14. [x] Add immutable defaults, complete settings types, dedicated stores, and
     the canonical resolver (`4f0a38a6`).
-15. [ ] Cut OpenRGB effect selection, Brightness, Speed, rendering, restart,
-    and reconnect to dedicated device-lighting persistence and the resolver.
+15. [x] Cut OpenRGB effect selection, Brightness, Speed, rendering, restart,
+    and reconnect to dedicated device-lighting persistence and the resolver
+    (`c91a970c`).
 16. [ ] Make OpenRGB Static uniform and retire zone-owned Static colors and the
     legacy color path without migration.
 17. [ ] Simplify Device Lighting presentation and add single-color editing and

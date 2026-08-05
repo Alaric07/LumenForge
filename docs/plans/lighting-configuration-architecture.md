@@ -466,7 +466,7 @@ Speed or another genuine renderer-consumed setting.
    Completed in `4f0a38a6`.
 5. Add dedicated OpenRGB device-lighting persistence and atomically cut
    OpenRGB effect selection, Brightness, Speed, rendering, restart, and
-   reconnect to the resolver.
+   reconnect to the resolver. Completed in `c91a970c`.
 6. Make OpenRGB Static uniform and remove `ZoneColors` and `lastColor` as
    desired-state sources together with the legacy OpenRGB color path.
 7. Replace OpenRGB snapshots with resolved control data and simplify Device
