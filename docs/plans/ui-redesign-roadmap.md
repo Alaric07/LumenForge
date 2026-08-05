@@ -256,10 +256,22 @@ device state, complete per-effect settings use the device customization store,
 and rendering, presentation, restart, and reconnect resolve through the
 canonical resolver. Existing effect, Brightness, and conditional Speed
 interactions were preserved. Legacy target-local RGB files and user-profile
-lighting fields are no longer authoritative for those values. Heterogeneous
-Static zone state, `lastColor`, the legacy Static endpoint, Static RGB Override
-behavior, and base/effective presentation compatibility remain deliberately
-isolated for later milestones.
+lighting fields are no longer authoritative for those values. At that
+milestone, heterogeneous Static zone state, `lastColor`, the legacy Static
+endpoint, Static RGB Override behavior, and base/effective presentation
+compatibility remained deliberately isolated for later milestones.
+
+`af25b031` completed uniform canonical Static ownership for independent
+OpenRGB-imported devices. Static now resolves one device-wide color through the
+canonical resolver, preserves zones only for topology and addressing, and
+applies device Brightness exactly once. `ZoneColors`, `lastColor`, Static RGB
+Override precedence, legacy profile colors, and target-local RGB files are
+inert for independent Static output. The legacy Static mutation route and its
+obsolete template controls were removed without migration or fallback. Focused,
+repeated, race, and full-repository validation passed; CodeRabbit reported no
+findings, and a fresh-state manual test confirmed shipped-default cyan output,
+canonical effect and Speed persistence for three devices, and successful
+restoration after restart.
 
 ### OpenRGB Device Lighting cutover
 
@@ -271,12 +283,14 @@ isolated for later milestones.
   (`c91a970c`).
 - [x] Cut rendering, restart, and reconnect atomically to the resolver
   (`c91a970c`).
-- [ ] Make Static one color per device; retain zones only for topology,
-  addressing, names, and LED counts.
-- [ ] Retire heterogeneous OpenRGB Static zone colors without migration.
-- [ ] Replace base/override/effective snapshots with resolved control data.
-- [ ] Simplify Device Lighting to renderer-supported controls only.
-- [ ] Add the Static/single-color editor and Reset.
+- [x] Make Static one color per device; retain zones only for topology,
+  addressing, names, and LED counts (`af25b031`).
+- [x] Retire heterogeneous OpenRGB Static zone colors, `lastColor`, Static RGB
+  Override precedence, and the legacy Static mutation path without migration
+  (`af25b031`).
+- [ ] Replace base/override/effective snapshots with resolved control data,
+  simplify Device Lighting to renderer-supported controls, and add the
+  Static/single-color editor and Reset.
 - [ ] Add the two-color Start/End editor.
 - [ ] Add Low/Middle/High temperature color and threshold editing.
 - [ ] Add the ordered Gradient editor.

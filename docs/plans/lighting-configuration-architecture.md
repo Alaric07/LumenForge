@@ -307,6 +307,15 @@ is planned.
 `ZoneColors`, `lastColor`, and `RGBOverride` are not final Static desired-state
 sources. Old Static customization may be discarded during the clean break.
 
+`af25b031` completed this ownership cutover for independent OpenRGB-imported
+devices. Static now resolves one complete single-color setting through the
+canonical resolver, fills the complete device frame uniformly, and applies
+device Brightness exactly once. Zones remain topology and addressing metadata
+only. Heterogeneous `ZoneColors`, `lastColor`, Static RGB Override precedence,
+legacy profile colors, and target-local RGB files no longer determine
+independent Static output. The legacy OpenRGB Static mutation path and its
+obsolete template controls were retired without migration or fallback.
+
 ## 11. OpenRGB imports
 
 OpenRGB importing remains separate from lighting customization. The import
@@ -468,23 +477,23 @@ Speed or another genuine renderer-consumed setting.
    OpenRGB effect selection, Brightness, Speed, rendering, restart, and
    reconnect to the resolver. Completed in `c91a970c`.
 6. Make OpenRGB Static uniform and remove `ZoneColors` and `lastColor` as
-   desired-state sources together with the legacy OpenRGB color path.
-7. Replace OpenRGB snapshots with resolved control data and simplify Device
-   Lighting.
-8. Add single-color editing and Reset.
-9. Add two-color editing.
-10. Add temperature color and threshold editing.
-11. Add Gradient editing.
-12. Cut RGB Cluster persistence and rendering to the resolver while preserving
+   desired-state sources together with the legacy OpenRGB color path. Completed
+   in `af25b031`.
+7. Replace OpenRGB snapshots with resolved control data, simplify Device
+   Lighting, and add single-color editing and Reset.
+8. Add two-color editing.
+9. Add temperature color and threshold editing.
+10. Add Gradient editing.
+11. Cut RGB Cluster persistence and rendering to the resolver while preserving
     membership and device order separately.
-13. Modernize RGB Cluster with the shared descriptor-driven controls.
-14. Delete OpenRGB override code and legacy imported-device lighting controls.
-15. Migrate native target families separately.
-16. Remove `/rgb` after every remaining consumer has parity.
-17. Remove global mutations, target-local RGB copies, remaining override
+12. Modernize RGB Cluster with the shared descriptor-driven controls.
+13. Delete OpenRGB override code and legacy imported-device lighting controls.
+14. Migrate native target families separately.
+15. Remove `/rgb` after every remaining consumer has parity.
+16. Remove global mutations, target-local RGB copies, remaining override
     infrastructure, duplicate capability adapters, and obsolete CSS and
     documentation.
-18. Add final clean-install, backup, and release documentation.
+17. Add final clean-install, backup, and release documentation.
 
 Every milestone must build and have focused tests. No milestone may
 permanently dual-read or dual-write old and new lighting state. A legacy
