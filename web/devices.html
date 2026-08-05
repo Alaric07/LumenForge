@@ -1,14 +1,4 @@
-{{ define "lf-lighting-color-value" }}
-    <span class="lf-lighting-color-value">
-        <svg class="lf-lighting-color-swatch" viewBox="0 0 28 28" focusable="false" aria-hidden="true">
-            <rect width="28" height="28" rx="5" fill="{{ .Hex }}"></rect>
-        </svg>
-        <span class="lf-lighting-color-copy">
-            <code class="lf-lighting-color-hex">{{ .Hex }}</code>
-            <span class="lf-lighting-color-rgb">{{ .RGB }}</span>
-        </span>
-    </span>
-{{ end }}
+
 
 {{ define "lf-lighting-effect-icon" }}
     <span class="lf-lighting-effect-icon-frame" aria-hidden="true">
@@ -18,109 +8,6 @@
             <span class="lf-lighting-effect-icon-fallback">◇</span>
         {{ end }}
     </span>
-{{ end }}
-
-{{ define "lf-lighting-palette" }}
-    {{ if . }}
-        <div class="lf-lighting-palette" data-palette="{{ .Palette }}">
-            {{ if eq .Palette "Single color" }}
-                {{ if .HasStart }}
-                    <div class="lf-lighting-palette-stops lf-lighting-palette-stops-single">
-                        <div class="lf-lighting-palette-stop">
-                            <span class="lf-lighting-palette-stop-name">Start</span>
-                            {{ template "lf-lighting-color-value" .Start }}
-                        </div>
-                    </div>
-                {{ else }}
-                    <p class="lf-lighting-empty-value">Stored color unavailable</p>
-                {{ end }}
-            {{ else if eq .Palette "Two color" }}
-                <div class="lf-lighting-palette-stops">
-                    {{ if .HasStart }}
-                        <div class="lf-lighting-palette-stop">
-                            <span class="lf-lighting-palette-stop-name">Start</span>
-                            {{ template "lf-lighting-color-value" .Start }}
-                        </div>
-                    {{ end }}
-                    <span class="lf-lighting-palette-bridge" aria-hidden="true"></span>
-                    {{ if .HasEnd }}
-                        <div class="lf-lighting-palette-stop">
-                            <span class="lf-lighting-palette-stop-name">End</span>
-                            {{ template "lf-lighting-color-value" .End }}
-                        </div>
-                    {{ end }}
-                </div>
-            {{ else if eq .Palette "Temperature" }}
-                <div class="lf-lighting-palette-stops lf-lighting-palette-stops-temperature">
-                    {{ if .HasStart }}
-                        <div class="lf-lighting-palette-stop">
-                            <span class="lf-lighting-palette-stop-name">Start</span>
-                            {{ template "lf-lighting-color-value" .Start }}
-                        </div>
-                    {{ end }}
-                    <span class="lf-lighting-palette-bridge" aria-hidden="true"></span>
-                    {{ if .HasMiddle }}
-                        <div class="lf-lighting-palette-stop">
-                            <span class="lf-lighting-palette-stop-name">Middle</span>
-                            {{ template "lf-lighting-color-value" .Middle }}
-                        </div>
-                    {{ end }}
-                    <span class="lf-lighting-palette-bridge" aria-hidden="true"></span>
-                    {{ if .HasEnd }}
-                        <div class="lf-lighting-palette-stop">
-                            <span class="lf-lighting-palette-stop-name">End</span>
-                            {{ template "lf-lighting-color-value" .End }}
-                        </div>
-                    {{ end }}
-                </div>
-            {{ else if eq .Palette "Gradient" }}
-                <div class="lf-lighting-palette-concept">
-                    <span class="lf-lighting-palette-gradient-mark" aria-hidden="true"></span>
-                    <span>
-                        <strong>Stored gradient definition</strong>
-                        <span>Gradient stops remain renderer-defined and are not expanded here.</span>
-                    </span>
-                </div>
-            {{ else if eq .Palette "Generated palette" }}
-                <div class="lf-lighting-palette-concept">
-                    <span class="lf-lighting-palette-generated-mark" aria-hidden="true"></span>
-                    <span>
-                        <strong>Generated palette</strong>
-                        <span>The renderer generates its palette; no fixed colors are stored.</span>
-                    </span>
-                </div>
-            {{ else if eq .Palette "None" }}
-                <div class="lf-lighting-palette-concept lf-lighting-palette-off">
-                    <span class="lf-lighting-palette-off-mark" aria-hidden="true"></span>
-                    <span>
-                        <strong>Lighting off</strong>
-                        <span>This effect does not use a color palette.</span>
-                    </span>
-                </div>
-            {{ else }}
-                <p class="lf-lighting-empty-value">Palette details unavailable</p>
-            {{ end }}
-        </div>
-    {{ else }}
-        <p class="lf-lighting-empty-value">Stored definition unavailable</p>
-    {{ end }}
-{{ end }}
-
-{{ define "lf-lighting-definition" }}
-    {{ if . }}
-        <div class="lf-lighting-definition">
-            <span class="lf-lighting-definition-kind">{{ .Palette }}</span>
-            {{ template "lf-lighting-palette" . }}
-            {{ if .HasSpeed }}
-                <p class="lf-lighting-speed"><span>Speed</span><strong{{ if .SpeedRole }} data-lf-speed-readout="{{ .SpeedRole }}"{{ end }}>{{ .Speed }}</strong></p>
-            {{ end }}
-            {{ if not .HasValues }}
-                <p class="lf-lighting-empty-value">This effect has no fixed color or persistent speed values.</p>
-            {{ end }}
-        </div>
-    {{ else }}
-        <p class="lf-lighting-empty-value">Stored definition unavailable</p>
-    {{ end }}
 {{ end }}
 
 <!DOCTYPE html>
@@ -327,7 +214,7 @@
                                                 </div>
                                             </div>
                                             <div class="lf-lighting-primary-metrics">
-                                                <span><small>Palette</small><strong>{{ if .ConfiguredEffect }}{{ .ConfiguredPalette }}{{ else }}Unknown{{ end }}</strong></span>
+                                                <span><small>Palette</small><strong>{{ if .ConfiguredEffect }}{{ .PaletteKind }}{{ else }}Unknown{{ end }}</strong></span>
                                             </div>
                                         </div>
 
@@ -419,7 +306,6 @@
 													data-lf-device-serial="{{ $.Device.Serial }}"
 													data-lf-effect="{{ .ConfiguredEffect }}"
 													data-lf-speed-control-mode="software"
-													data-lf-speed-target="{{ .SpeedTarget }}"
 													data-lf-cluster-controlled="{{ .ClusterControlled }}"
 													data-lf-number-id="lf-lighting-speed-number"
 													data-lf-status-id="lf-lighting-speed-status"
@@ -435,87 +321,63 @@
 											</div>
 										{{ end }}
 
-                                        <div class="lf-lighting-primary-palette">
-                                            <div class="lf-lighting-primary-palette-heading">
-                                                <span>Effective stored palette</span>
-                                                {{ if .Effective }}<strong>{{ .Effective.Palette }}</strong>{{ end }}
-                                            </div>
-                                            {{ if and .Effective (eq .Effective.Palette "Generated palette") }}
-                                                <div class="lf-lighting-palette" data-palette="Generated palette">
-                                                    <div class="lf-lighting-palette-concept lf-lighting-palette-generated-effect">
-                                                        {{ template "lf-lighting-effect-icon" . }}
-                                                        <span>
-                                                            <strong>Generated palette</strong>
-                                                            <span>The renderer generates its palette; no fixed colors are stored.</span>
-                                                        </span>
-                                                    </div>
+                                        {{ if eq .PaletteKind "Single color" }}
+                                            <div class="lf-color-control">
+                                                <div class="lf-color-control-header">
+                                                    <label class="lf-color-control-label" for="lf-lighting-color-input">Color</label>
                                                 </div>
-                                            {{ else }}
-                                                {{ template "lf-lighting-palette" .Effective }}
-                                            {{ end }}
-                                        </div>
-                                    </section>
-
-                                    <section class="lf-lighting-comparison" aria-labelledby="lf-lighting-comparison-title">
-                                        <header class="lf-lighting-comparison-header">
-                                            <div>
-                                                <p class="lf-section-kicker">Configuration sources</p>
-                                                <h2 id="lf-lighting-comparison-title">Stored precedence</h2>
-                                            </div>
-                                            <p>This reflects stored configuration precedence, not confirmed device output.</p>
-                                        </header>
-
-                                        <div class="lf-lighting-source-grid">
-                                            <article class="lf-lighting-source-card">
-                                                <header>
-                                                    <span class="lf-lighting-source-index">01</span>
-                                                    <div>
-                                                        <h3>Device RGB definition</h3>
-                                                        <p>Renderer-specific stored inputs</p>
-                                                    </div>
-                                                </header>
-                                                {{ template "lf-lighting-definition" .BaseDefinition }}
-                                            </article>
-
-                                            <article class="lf-lighting-source-card{{ if and .Override (not .Override.Enabled) }} lf-lighting-source-card-inactive{{ end }}">
-                                                <header>
-                                                    <span class="lf-lighting-source-index">02</span>
-                                                    <div>
-                                                        <h3>Local OpenRGB override</h3>
-                                                        <p>Stored controller-wide values</p>
-                                                    </div>
-                                                    {{ if .Override }}<span class="lf-lighting-source-state">{{ if .Override.Enabled }}Enabled{{ else }}Disabled{{ end }}</span>{{ end }}
-                                                </header>
-                                                {{ with .Override }}
-                                                    <div class="lf-lighting-override-palette">
-                                                        <div class="lf-lighting-palette-stops lf-lighting-palette-stops-temperature">
-                                                            <div class="lf-lighting-palette-stop"><span class="lf-lighting-palette-stop-name">Start</span>{{ template "lf-lighting-color-value" .Start }}</div>
-                                                            <span class="lf-lighting-palette-bridge" aria-hidden="true"></span>
-                                                            <div class="lf-lighting-palette-stop"><span class="lf-lighting-palette-stop-name">Middle</span>{{ template "lf-lighting-color-value" .Middle }}</div>
-                                                            <span class="lf-lighting-palette-bridge" aria-hidden="true"></span>
-                                                            <div class="lf-lighting-palette-stop"><span class="lf-lighting-palette-stop-name">End</span>{{ template "lf-lighting-color-value" .End }}</div>
-                                                        </div>
-                                                        <p class="lf-lighting-speed"><span>Stored speed</span><strong{{ if .SpeedRole }} data-lf-speed-readout="{{ .SpeedRole }}"{{ end }}>{{ .Speed }}</strong></p>
-                                                    </div>
-                                                    <p class="lf-lighting-source-note">The selected renderer may not consume every stored override field.</p>
-                                                {{ else }}
-                                                    <p class="lf-lighting-empty-value">No stored override</p>
+                                                <div class="lf-color-control-inputs">
+                                                    <input
+                                                        class="lf-color-control-input"
+                                                        id="lf-lighting-color-input"
+                                                        type="color"
+                                                        value="{{ .SingleColorHex }}"
+                                                        data-lf-color-input
+                                                        data-lf-current-color="{{ .SingleColorHex }}"
+                                                        data-lf-device-serial="{{ $.Device.Serial }}"
+                                                        data-lf-effect="{{ .ConfiguredEffect }}"
+                                                        data-lf-cluster-controlled="{{ .ClusterControlled }}"
+                                                        data-lf-hex-id="lf-lighting-color-hex"
+                                                        data-lf-status-id="lf-lighting-color-status"
+                                                        aria-label="Effect color"
+                                                        aria-describedby="lf-lighting-color-status{{ if .ClusterControlled }} lf-lighting-color-cluster-explanation{{ end }}"
+                                                        {{ if .ClusterControlled }}disabled{{ end }}
+                                                    >
+                                                    <input
+                                                        class="lf-color-control-hex"
+                                                        id="lf-lighting-color-hex"
+                                                        type="text"
+                                                        value="{{ .SingleColorHex }}"
+                                                        pattern="#[0-9a-fA-F]{6}"
+                                                        maxlength="7"
+                                                        data-lf-color-hex
+                                                        aria-label="Effect color hex code"
+                                                        {{ if .ClusterControlled }}disabled{{ end }}
+                                                    >
+                                                </div>
+                                                {{ if .ClusterControlled }}
+                                                    <p class="lf-range-control-restriction" id="lf-lighting-color-cluster-explanation">RGB Cluster currently owns this device's lighting output. Change cluster-wide lighting from the <a href="/rgbCluster">RGB Cluster workspace</a>.</p>
                                                 {{ end }}
-                                            </article>
+                                                <p class="lf-range-control-status" id="lf-lighting-color-status" aria-live="polite"></p>
+                                            </div>
+                                        {{ end }}
 
-                                            <article class="lf-lighting-source-card lf-lighting-source-card-effective">
-                                                <header>
-                                                    <span class="lf-lighting-source-index">03</span>
-                                                    <div>
-                                                        <h3>Effective configuration</h3>
-                                                        <p>Stored values after override precedence</p>
-                                                    </div>
-                                                </header>
-                                                {{ template "lf-lighting-definition" .Effective }}
-                                            </article>
-                                        </div>
+                                        {{ if and .Customized (not .ClusterControlled) }}
+                                            <div class="lf-reset-control">
+                                                <button
+                                                    class="lf-button lf-button-secondary lf-reset-button"
+                                                    type="button"
+                                                    data-lf-reset-button
+                                                    data-lf-device-serial="{{ $.Device.Serial }}"
+                                                    data-lf-effect="{{ .ConfiguredEffect }}"
+                                                    data-lf-status-id="lf-lighting-reset-status"
+                                                >
+                                                    Reset to default
+                                                </button>
+                                                <p class="lf-range-control-status" id="lf-lighting-reset-status" aria-live="polite"></p>
+                                            </div>
+                                        {{ end }}
                                     </section>
-
                                 </div>
 
                                 <aside class="lf-lighting-rail" aria-label="Lighting information">
@@ -537,16 +399,10 @@
                                     <section class="lf-lighting-rail-panel">
                                         <p class="lf-section-kicker">Configuration</p>
                                         <dl class="lf-lighting-rail-facts">
-                                            <div><dt>Palette capability</dt><dd>{{ if .ConfiguredEffect }}{{ .ConfiguredPalette }}{{ else }}Unknown{{ end }}</dd></div>
+                                            <div><dt>Palette capability</dt><dd>{{ if .ConfiguredEffect }}{{ .PaletteKind }}{{ else }}Unknown{{ end }}</dd></div>
                                             <div><dt>Effect support</dt><dd>{{ if .ConfiguredEffect }}{{ if .EffectSupported }}Supported{{ else }}Unsupported{{ end }}{{ else }}Not configured{{ end }}</dd></div>
-                                            <div><dt>Local override</dt><dd>{{ if .Override }}{{ if .Override.Enabled }}Enabled{{ else }}Stored, disabled{{ end }}{{ else }}Not stored{{ end }}</dd></div>
                                         </dl>
                                     </section>
-
-                                    <a class="lf-legacy-controls-link" href="/device/{{ $.Device.Serial }}">
-                                        <span>Open full controls</span>
-                                        <span aria-hidden="true">↗</span>
-                                    </a>
                                 </aside>
                             </div>
                         </section>

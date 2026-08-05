@@ -3,6 +3,7 @@ package server
 import (
 	"LumenForge/src/common"
 	"LumenForge/src/devices/openrgbimport"
+	"LumenForge/src/lightingsettings"
 	"LumenForge/src/rgb"
 	"context"
 	"errors"
@@ -18,6 +19,8 @@ type lightingMutationCalls struct {
 	brightness []uint8
 	effects    []string
 	speeds     []lightingSpeedMutationCall
+	colors     []lightingColorMutationCall
+	resets     []lightingResetMutationCall
 	setError   error
 }
 
@@ -27,6 +30,17 @@ type lightingSpeedMutationCall struct {
 	speed  float64
 }
 
+type lightingColorMutationCall struct {
+	serial string
+	effect string
+	color  lightingsettings.Color
+}
+
+type lightingResetMutationCall struct {
+	serial string
+	effect string
+}
+
 func installLightingMutationTestSeams(t *testing.T) (*openrgbimport.Device, *common.Device, *lightingMutationCalls) {
 	t.Helper()
 
@@ -34,11 +48,15 @@ func installLightingMutationTestSeams(t *testing.T) (*openrgbimport.Device, *com
 	previousBrightness := setOpenRGBImportBrightnessValue
 	previousEffect := setOpenRGBImportEffectValue
 	previousSpeed := setOpenRGBImportSpeedValue
+	previousColor := setOpenRGBImportColorValue
+	previousReset := resetOpenRGBImportCustomizationValue
 	t.Cleanup(func() {
 		lookupOpenRGBImportForLighting = previousLookup
 		setOpenRGBImportBrightnessValue = previousBrightness
 		setOpenRGBImportEffectValue = previousEffect
 		setOpenRGBImportSpeedValue = previousSpeed
+		setOpenRGBImportColorValue = previousColor
+		resetOpenRGBImportCustomizationValue = previousReset
 	})
 
 	device := &openrgbimport.Device{
@@ -64,6 +82,14 @@ func installLightingMutationTestSeams(t *testing.T) (*openrgbimport.Device, *com
 	}
 	setOpenRGBImportSpeedValue = func(_ *openrgbimport.Device, serial, effect string, speed float64) error {
 		calls.speeds = append(calls.speeds, lightingSpeedMutationCall{serial: serial, effect: effect, speed: speed})
+		return calls.setError
+	}
+	setOpenRGBImportColorValue = func(_ *openrgbimport.Device, serial, effect string, color lightingsettings.Color) error {
+		calls.colors = append(calls.colors, lightingColorMutationCall{serial: serial, effect: effect, color: color})
+		return calls.setError
+	}
+	resetOpenRGBImportCustomizationValue = func(_ *openrgbimport.Device, serial, effect string) error {
+		calls.resets = append(calls.resets, lightingResetMutationCall{serial: serial, effect: effect})
 		return calls.setError
 	}
 	return device, wrapper, calls

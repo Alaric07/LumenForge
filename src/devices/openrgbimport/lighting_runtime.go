@@ -24,6 +24,7 @@ type deviceLightingStateAccess interface {
 
 type deviceLightingEffectAccess interface {
 	Set(string, string, lightingsettings.EffectSettings) error
+	Delete(string, string) (bool, error)
 }
 
 type deviceLightingResolverAccess interface {

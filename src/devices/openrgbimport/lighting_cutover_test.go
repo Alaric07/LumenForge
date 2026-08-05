@@ -868,13 +868,7 @@ func TestOpenRGBLightingSnapshotUsesAuthoritativeStateAndResolution(t *testing.T
 	if !ok || snapshot.ConfiguredEffect != "rainbow" || !snapshot.HasBrightness || snapshot.Brightness != 35 {
 		t.Fatalf("authoritative snapshot = %#v, %t", snapshot, ok)
 	}
-	if snapshot.BaseDefinition == nil || !snapshot.BaseDefinition.HasSpeed || snapshot.BaseDefinition.Speed != speed {
-		t.Fatalf("resolved base definition = %#v", snapshot.BaseDefinition)
-	}
-	if snapshot.Effective == nil || !reflect.DeepEqual(snapshot.Effective, snapshot.BaseDefinition) {
-		t.Fatalf("effective definition revived legacy precedence: base=%#v effective=%#v", snapshot.BaseDefinition, snapshot.Effective)
-	}
-	if snapshot.Override == nil || !snapshot.Override.Enabled || snapshot.Override.Speed != 9 {
-		t.Fatalf("legacy compatibility presentation was not retained: %#v", snapshot.Override)
+	if !snapshot.HasSpeed || snapshot.Speed != speed || !snapshot.Customized {
+		t.Fatalf("resolved authoritative definition = %#v", snapshot)
 	}
 }

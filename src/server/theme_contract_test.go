@@ -338,6 +338,9 @@ func TestDevicesThemeIntegrationContract(t *testing.T) {
 		{selector: ".lf-app-shell .lf-range-control-input:disabled", contracts: []string{
 			"cursor: not-allowed",
 		}},
+		{selector: ".lf-app-shell .lf-color-control-input:focus-visible", contracts: []string{
+			"var(--lf-focus-ring)",
+		}},
 		{selector: ".lf-app-shell .lf-range-control-input:disabled::-webkit-slider-runnable-track", contracts: []string{
 			"var(--lf-control-disabled-track)",
 			"var(--lf-disabled-border)",
@@ -375,22 +378,13 @@ func TestDevicesThemeIntegrationContract(t *testing.T) {
 		}
 	}
 	rangeStart := strings.Index(appShell, ".lf-app-shell .lf-range-control {")
-	rangeEnd := strings.Index(appShell, ".lf-app-shell .lf-lighting-primary-palette {")
+	rangeEnd := strings.Index(appShell, ".lf-app-shell .lf-color-control {")
 	if rangeStart < 0 || rangeEnd <= rangeStart {
 		t.Error("shared range-control CSS block is missing or misplaced")
 	} else if literal := regexp.MustCompile(`(?i)#[0-9a-f]{3,8}|rgba?\(`).FindString(appShell[rangeStart:rangeEnd]); literal != "" {
 		t.Errorf("shared range-control CSS contains a theme-specific literal color %q", literal)
 	}
 
-	for _, renderedColor := range []string{
-		`fill="{{ .Hex }}"`,
-		`class="lf-lighting-color-hex">{{ .Hex }}</code>`,
-		`class="lf-lighting-color-rgb">{{ .RGB }}</span>`,
-	} {
-		if !strings.Contains(devicesTemplate, renderedColor) {
-			t.Errorf("device palette no longer renders the server value %q", renderedColor)
-		}
-	}
 	lowerTemplate := strings.ToLower(devicesTemplate)
 	for _, forbiddenControl := range []string{
 		"<form",

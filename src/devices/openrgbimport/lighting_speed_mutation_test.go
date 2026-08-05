@@ -122,8 +122,7 @@ func TestOpenRGBLightingSetEffectSpeedPersistenceSources(t *testing.T) {
 			}
 		}
 		snapshot, ok := device.LightingSnapshot()
-		if !ok || snapshot.BaseDefinition == nil || snapshot.Effective == nil ||
-			snapshot.BaseDefinition.Speed != 4.25 || snapshot.Effective.Speed != 4.25 {
+		if !ok || !snapshot.HasSpeed || snapshot.Speed != 4.25 || !snapshot.Customized {
 			t.Fatalf("Lighting snapshot after base speed update = %#v", snapshot)
 		}
 	})
@@ -157,8 +156,7 @@ func TestOpenRGBLightingSetEffectSpeedPersistenceSources(t *testing.T) {
 			t.Fatalf("Speed mutation changed presentation-only override state: %#v", device.DeviceProfile.RGBOverride)
 		}
 		snapshot, ok := device.LightingSnapshot()
-		if !ok || snapshot.Override == nil || snapshot.Effective == nil ||
-			snapshot.Override.Speed != 3 || snapshot.Effective.Speed != 2.5 || snapshot.BaseDefinition.Speed != 2.5 {
+		if !ok || !snapshot.HasSpeed || snapshot.Speed != 2.5 || !snapshot.Customized {
 			t.Fatalf("Lighting snapshot after override speed update = %#v", snapshot)
 		}
 	})
@@ -198,8 +196,7 @@ func TestOpenRGBLightingSetEffectSpeedPersistenceSources(t *testing.T) {
 			t.Fatalf("persisted Gradient speed = %v, want 6", got)
 		}
 		snapshot, ok := device.LightingSnapshot()
-		if !ok || snapshot.BaseDefinition == nil || snapshot.Effective == nil || snapshot.Override == nil ||
-			snapshot.BaseDefinition.Speed != 6 || snapshot.Effective.Speed != 6 || snapshot.Override.Speed != 8 {
+		if !ok || !snapshot.HasSpeed || snapshot.Speed != 6 || !snapshot.Customized {
 			t.Fatalf("Gradient snapshot precedence = %#v", snapshot)
 		}
 

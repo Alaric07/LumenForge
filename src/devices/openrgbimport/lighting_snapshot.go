@@ -1,64 +1,39 @@
 package openrgbimport
 
 import (
-	"LumenForge/src/rgb"
+	"fmt"
 	"slices"
+
+	"LumenForge/src/rgb"
 )
 
 // LightingEffectOption is a presentation-safe copy of one effect supported by
 // an imported controller.
 type LightingEffectOption struct {
-	ID              string
-	Label           string
-	CapabilityKnown bool
-	Capability      rgb.LightingEffectCapability
-}
-
-// LightingDefinitionSnapshot contains only the persisted inputs consumed by a
-// confirmed renderer. Presence flags keep black colors and zero speed distinct
-// from values that are not meaningful for an effect.
-type LightingDefinitionSnapshot struct {
-	Palette        rgb.LightingPaletteKind
-	HasStartColor  bool
-	StartColor     rgb.Color
-	HasMiddleColor bool
-	MiddleColor    rgb.Color
-	HasEndColor    bool
-	EndColor       rgb.Color
-	HasSpeed       bool
-	Speed          float64
-}
-
-// LightingOverrideSnapshot is an independent value copy of the configured
-// controller-wide override. A nil pointer in LightingSnapshot means no
-// override has been configured; Enabled distinguishes a disabled override.
-type LightingOverrideSnapshot struct {
-	Enabled     bool
-	StartColor  rgb.Color
-	MiddleColor rgb.Color
-	EndColor    rgb.Color
-	Speed       float64
+	ID    string
+	Label string
 }
 
 // LightingSnapshot is an immutable presentation/configuration view of an
 // imported controller's lighting state. It does not confirm live hardware
 // output.
 type LightingSnapshot struct {
-	HasActiveProfile  bool
 	ConfiguredEffect  string
 	EffectSupported   bool
 	SupportedEffects  []LightingEffectOption
 	HasBrightness     bool
 	Brightness        uint8
+	HasSpeed          bool
+	Speed             float64
 	ClusterControlled bool
-	BaseDefinition    *LightingDefinitionSnapshot
-	Override          *LightingOverrideSnapshot
-	Effective         *LightingDefinitionSnapshot
+	PaletteKind       string
+	SingleColorHex    string
+	Customized        bool
 }
 
 // LightingSnapshot returns a complete race-safe value snapshot. Selected
 // effect, Brightness, and effect settings come from the cut-over target state
-// and canonical resolver; legacy profile fields are presentation-only here.
+// and canonical resolver.
 func (d *Device) LightingSnapshot() (LightingSnapshot, bool) {
 	if d == nil {
 		return LightingSnapshot{}, false
@@ -78,12 +53,10 @@ func (d *Device) LightingSnapshot() (LightingSnapshot, bool) {
 		if descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect); ok {
 			option.Label = descriptor.Label
 		}
-		option.Capability, option.CapabilityKnown = rgb.LightingEffectCapabilities(effect)
 		snapshot.SupportedEffects = append(snapshot.SupportedEffects, option)
 	}
 
 	profile := d.DeviceProfile
-	snapshot.HasActiveProfile = profile != nil && profile.Active
 	snapshot.ConfiguredEffect = d.effect
 	if snapshot.ConfiguredEffect == "" {
 		snapshot.ConfiguredEffect = defaultDeviceLightingEffect
@@ -94,17 +67,8 @@ func (d *Device) LightingSnapshot() (LightingSnapshot, bool) {
 	if profile != nil {
 		snapshot.ClusterControlled = profile.RGBCluster
 	}
-	if profile != nil && profile.RGBOverride != nil {
-		snapshot.Override = &LightingOverrideSnapshot{
-			Enabled:     profile.RGBOverride.Enabled,
-			StartColor:  profile.RGBOverride.RGBStartColor,
-			MiddleColor: profile.RGBOverride.RGBMiddleColor,
-			EndColor:    profile.RGBOverride.RGBEndColor,
-			Speed:       profile.RGBOverride.RgbModeSpeed,
-		}
-	}
 
-	capability, known := rgb.LightingEffectCapabilities(snapshot.ConfiguredEffect)
+	descriptor, known := rgb.SoftwareEffectDescriptorByID(snapshot.ConfiguredEffect)
 	if !snapshot.EffectSupported || !known || d.lightingResolver == nil {
 		return snapshot, true
 	}
@@ -113,51 +77,19 @@ func (d *Device) LightingSnapshot() (LightingSnapshot, bool) {
 		return snapshot, true
 	}
 
-	definition := rgbProfileFromLightingSettings(resolution.Settings)
-	base := lightingDefinitionSnapshot(definition, capability)
-	snapshot.BaseDefinition = &base
-	// Base/Override/Effective remain temporarily for response compatibility.
-	// Runtime precedence has been removed: Effective reflects the authoritative
-	// resolved settings while Override is retained only as legacy presentation.
-	effective := base
-	snapshot.Effective = &effective
-	return snapshot, true
-}
-
-func lightingDefinitionSnapshot(definition rgb.Profile, capability rgb.LightingEffectCapability) LightingDefinitionSnapshot {
-	snapshot := LightingDefinitionSnapshot{Palette: capability.Palette}
-	if capability.UsesStartColor {
-		snapshot.HasStartColor = true
-		snapshot.StartColor = definition.StartColor
-	}
-	if capability.UsesMiddleColor {
-		snapshot.HasMiddleColor = true
-		snapshot.MiddleColor = definition.MiddleColor
-	}
-	if capability.UsesEndColor {
-		snapshot.HasEndColor = true
-		snapshot.EndColor = definition.EndColor
-	}
-	if capability.SupportsSpeed {
+	snapshot.PaletteKind = string(descriptor.PaletteKind)
+	snapshot.Customized = resolution.Customized
+	if descriptor.SupportsSpeed && resolution.Settings.Speed != nil {
 		snapshot.HasSpeed = true
-		snapshot.Speed = definition.Speed
+		snapshot.Speed = *resolution.Settings.Speed
 	}
-	return snapshot
-}
+	if descriptor.PaletteKind == rgb.LightingPaletteStaticSingle && resolution.Settings.SingleColor != nil {
+		snapshot.SingleColorHex = fmt.Sprintf("#%02x%02x%02x",
+			uint8(resolution.Settings.SingleColor.Color.Red),
+			uint8(resolution.Settings.SingleColor.Color.Green),
+			uint8(resolution.Settings.SingleColor.Color.Blue),
+		)
+	}
 
-func applyLightingOverride(definition *LightingDefinitionSnapshot, override LightingOverrideSnapshot) {
-	if definition.HasStartColor {
-		definition.StartColor = override.StartColor
-	}
-	if definition.HasMiddleColor {
-		definition.MiddleColor = override.MiddleColor
-	}
-	if definition.HasEndColor {
-		definition.EndColor = override.EndColor
-	}
-	// Gradient passes its stored speed directly to the renderer, so the
-	// controller-wide override does not replace it.
-	if definition.HasSpeed && definition.Palette != rgb.LightingPaletteGradient {
-		definition.Speed = override.Speed
-	}
+	return snapshot, true
 }

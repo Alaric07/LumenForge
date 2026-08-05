@@ -27,6 +27,14 @@
     const speedSuccessMilliseconds = 1800;
     const keyboardCommitMilliseconds = 400;
     const speedFailureMessage = "Unable to change speed. Try again.";
+    const colorEndpoint = "/api/openrgbimport/single-color";
+    const colorTimeoutMilliseconds = 10000;
+    const colorSuccessMilliseconds = 1800;
+    const colorFailureMessage = "Unable to change color. Try again.";
+    const resetEndpoint = "/api/openrgbimport/effect-reset";
+    const resetTimeoutMilliseconds = 10000;
+    const resetSuccessMilliseconds = 3000;
+    const resetFailureMessage = "Unable to reset effect. Try again.";
     const rangeAdjustmentKeys = new Set([
         "ArrowLeft",
         "ArrowRight",
@@ -301,6 +309,52 @@
             const result = await response.json();
             if (!result || result.status !== 1) {
                 throw new Error("speed mutation was rejected");
+            }
+        } finally {
+            browser.clearTimeout(timeout);
+        }
+    }
+
+    async function submitColor(browser, serial, effect, color) {
+        const controller = new browser.AbortController();
+        const timeout = browser.setTimeout(function () {
+            controller.abort();
+        }, colorTimeoutMilliseconds);
+        try {
+            const response = await browser.fetch(colorEndpoint, {
+                method: "POST",
+                body: JSON.stringify({serial: serial, effect: effect, color: color}),
+                signal: controller.signal
+            });
+            if (!response.ok) {
+                throw new Error("color request failed");
+            }
+            const result = await response.json();
+            if (!result || result.status !== 1) {
+                throw new Error("color mutation was rejected");
+            }
+        } finally {
+            browser.clearTimeout(timeout);
+        }
+    }
+
+    async function submitReset(browser, serial, effect) {
+        const controller = new browser.AbortController();
+        const timeout = browser.setTimeout(function () {
+            controller.abort();
+        }, resetTimeoutMilliseconds);
+        try {
+            const response = await browser.fetch(resetEndpoint, {
+                method: "POST",
+                body: JSON.stringify({serial: serial, effect: effect}),
+                signal: controller.signal
+            });
+            if (!response.ok) {
+                throw new Error("reset request failed");
+            }
+            const result = await response.json();
+            if (!result || result.status !== 1) {
+                throw new Error("reset mutation was rejected");
             }
         } finally {
             browser.clearTimeout(timeout);
@@ -646,6 +700,94 @@
         return handleChange;
     }
 
+    function bindColorControl(browser, colorInput) {
+        const clusterControlled = colorInput.dataset.lfClusterControlled === "true";
+        if (clusterControlled) return null;
+        const hexInput = browser.document.getElementById(colorInput.dataset.lfHexId);
+        const status = browser.document.getElementById(colorInput.dataset.lfStatusId);
+        if (!hexInput) return null;
+
+        let confirmedColor = colorInput.dataset.lfCurrentColor.toLowerCase();
+        let requestInFlight = false;
+        const setStatus = createStatusController(browser, status, colorSuccessMilliseconds);
+
+        function preview(value) {
+            if (/^#[0-9a-fA-F]{6}$/.test(value)) {
+                colorInput.value = value.toLowerCase();
+                hexInput.value = value.toLowerCase();
+            }
+        }
+
+        async function commit(value) {
+            if (requestInFlight) return;
+            if (!/^#[0-9a-fA-F]{6}$/.test(value)) {
+                colorInput.value = confirmedColor;
+                hexInput.value = confirmedColor;
+                return;
+            }
+            const normalized = value.toLowerCase();
+            if (normalized === confirmedColor) return;
+            requestInFlight = true;
+            colorInput.disabled = true;
+            hexInput.disabled = true;
+            setStatus("Saving color…", false);
+            try {
+                await submitColor(browser, colorInput.dataset.lfDeviceSerial, colorInput.dataset.lfEffect, normalized);
+                confirmedColor = normalized;
+                colorInput.dataset.lfCurrentColor = normalized;
+                setStatus("Color saved.", true);
+                browser.location.reload();
+            } catch (_) {
+                colorInput.value = confirmedColor;
+                hexInput.value = confirmedColor;
+                setStatus(colorFailureMessage, false);
+                colorInput.disabled = false;
+                hexInput.disabled = false;
+                requestInFlight = false;
+            }
+        }
+
+        colorInput.addEventListener("input", function() { hexInput.value = colorInput.value.toLowerCase(); });
+        colorInput.addEventListener("change", function() { commit(colorInput.value); });
+        hexInput.addEventListener("input", function() { preview(hexInput.value); });
+        hexInput.addEventListener("change", function() { commit(hexInput.value); });
+        hexInput.addEventListener("keydown", function(e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                commit(hexInput.value);
+            }
+        });
+        return commit;
+    }
+
+    function bindResetButton(browser, button) {
+        const clusterControlled = button.dataset.lfClusterControlled === "true";
+        if (clusterControlled) return null;
+        const status = browser.document.getElementById(button.dataset.lfStatusId);
+        if (!status) return null;
+
+        let requestInFlight = false;
+        const setStatus = createStatusController(browser, status, resetSuccessMilliseconds);
+
+        async function handleClick() {
+            if (requestInFlight) return;
+            requestInFlight = true;
+            button.disabled = true;
+            setStatus("Resetting effect…", false);
+            try {
+                await submitReset(browser, button.dataset.lfDeviceSerial, button.dataset.lfEffect);
+                setStatus("Effect reset.", true);
+                browser.location.reload();
+            } catch (_) {
+                setStatus(resetFailureMessage, false);
+                button.disabled = false;
+                requestInFlight = false;
+            }
+        }
+        button.addEventListener("click", handleClick);
+        return handleClick;
+    }
+
     function init(browser) {
         const selectors = browser.document.querySelectorAll("[data-lf-effect-selector]");
         for (const selector of selectors) {
@@ -659,18 +801,32 @@
         for (const slider of speedSliders) {
             bindSpeedSlider(browser, slider);
         }
+        const colorInputs = browser.document.querySelectorAll("[data-lf-color-input]");
+        for (const input of colorInputs) {
+            bindColorControl(browser, input);
+        }
+        const resetButtons = browser.document.querySelectorAll("[data-lf-reset-button]");
+        for (const button of resetButtons) {
+            bindResetButton(browser, button);
+        }
     }
 
     return {
         bindBrightnessSlider,
         bindEffectSelector,
         bindSpeedSlider,
+        bindColorControl,
+        bindResetButton,
         brightnessEndpoint,
         effectEndpoint,
+        colorEndpoint,
+        resetEndpoint,
         init,
         submitBrightness,
         submitEffect,
         submitSpeed,
+        submitColor,
+        submitReset,
         speedEndpoint
     };
 });

@@ -1537,19 +1537,12 @@ func (d *Device) SetBrightness(brightness uint8) error {
 	return err
 }
 
-// SetEffectSpeed persists and reapplies the current imported-device software
-// effect speed. The supplied speed is the renderer value, not the UI level.
-func (d *Device) SetEffectSpeed(expectedSerial, effect string, speed float64) error {
-	if d == nil {
-		return fmt.Errorf("OpenRGB import is not available")
-	}
-	if math.IsNaN(speed) || math.IsInf(speed, 0) {
-		return fmt.Errorf("OpenRGB effect speed is invalid")
-	}
-
-	d.effectTransitionMu.Lock()
-	defer d.effectTransitionMu.Unlock()
-
+// acquireEffectMutationLock validates the expected serial, device profile state,
+// cluster control, and effect staleness.
+//
+// On success, d.mu is acquired and remains held for the caller.
+// On failure, d.mu is not held and an error is returned.
+func (d *Device) acquireEffectMutationLock(expectedSerial, effect string) error {
 	d.mu.Lock()
 	if err := d.validateEffectTransitionLocked(expectedSerial); err != nil {
 		d.mu.Unlock()
@@ -1570,6 +1563,25 @@ func (d *Device) SetEffectSpeed(expectedSerial, effect string, speed float64) er
 	if !slices.Contains(d.RGBModes, effect) {
 		d.mu.Unlock()
 		return fmt.Errorf("unsupported OpenRGB effect")
+	}
+	return nil
+}
+
+// SetEffectSpeed persists and reapplies the current imported-device software
+// effect speed. The supplied speed is the renderer value, not the UI level.
+func (d *Device) SetEffectSpeed(expectedSerial, effect string, speed float64) error {
+	if d == nil {
+		return fmt.Errorf("OpenRGB import is not available")
+	}
+	if math.IsNaN(speed) || math.IsInf(speed, 0) {
+		return fmt.Errorf("OpenRGB effect speed is invalid")
+	}
+
+	d.effectTransitionMu.Lock()
+	defer d.effectTransitionMu.Unlock()
+
+	if err := d.acquireEffectMutationLock(expectedSerial, effect); err != nil {
+		return err
 	}
 	descriptor, known := rgb.SoftwareEffectDescriptorByID(effect)
 	if !known || !descriptor.Scope.Includes(rgb.EffectScopeDevice) || !descriptor.SupportsSpeed {
@@ -1600,6 +1612,78 @@ func (d *Device) SetEffectSpeed(expectedSerial, effect string, speed float64) er
 	if err = d.lightingEffects.Set(d.Serial, effect, settings); err != nil {
 		d.mu.Unlock()
 		return fmt.Errorf("save OpenRGB effect speed: %w", err)
+	}
+
+	return d.applyPersistedEffectTransitionLocked(context.Background(), effect, true, expectedSerial, true)
+}
+
+// SetEffectColor persists and reapplies the current imported-device software
+// effect's single color. The supplied color is the complete target state.
+func (d *Device) SetEffectColor(expectedSerial, effect string, color lightingsettings.Color) error {
+	if d == nil {
+		return fmt.Errorf("OpenRGB import is not available")
+	}
+
+	d.effectTransitionMu.Lock()
+	defer d.effectTransitionMu.Unlock()
+
+	if err := d.acquireEffectMutationLock(expectedSerial, effect); err != nil {
+		return err
+	}
+	descriptor, known := rgb.SoftwareEffectDescriptorByID(effect)
+	if !known || !descriptor.Scope.Includes(rgb.EffectScopeDevice) || descriptor.PaletteKind != rgb.LightingPaletteStaticSingle {
+		d.mu.Unlock()
+		return fmt.Errorf("OpenRGB effect does not support single-color customization")
+	}
+
+	resolution, err := d.resolveLightingSettings(effect)
+	if err != nil {
+		d.mu.Unlock()
+		return fmt.Errorf("resolve OpenRGB effect settings: %w", err)
+	}
+	settings := resolution.Settings.Clone()
+	settings.SingleColor = &lightingsettings.SingleColorSettings{Color: color}
+	if err = lightingsettings.Validate(settings); err != nil {
+		d.mu.Unlock()
+		return fmt.Errorf("validate OpenRGB effect color: %w", err)
+	}
+	if d.lightingEffects == nil {
+		d.mu.Unlock()
+		return fmt.Errorf("OpenRGB effect customization store is unavailable")
+	}
+	if err = d.lightingEffects.Set(d.Serial, effect, settings); err != nil {
+		d.mu.Unlock()
+		return fmt.Errorf("save OpenRGB effect color: %w", err)
+	}
+
+	return d.applyPersistedEffectTransitionLocked(context.Background(), effect, true, expectedSerial, true)
+}
+
+// ResetEffectCustomization removes the selected effect's local customization and,
+// when one existed, restarts the renderer with the resolved hidden default.
+func (d *Device) ResetEffectCustomization(expectedSerial, effect string) error {
+	if d == nil {
+		return fmt.Errorf("OpenRGB import is not available")
+	}
+
+	d.effectTransitionMu.Lock()
+	defer d.effectTransitionMu.Unlock()
+
+	if err := d.acquireEffectMutationLock(expectedSerial, effect); err != nil {
+		return err
+	}
+	if d.lightingEffects == nil {
+		d.mu.Unlock()
+		return fmt.Errorf("OpenRGB effect customization store is unavailable")
+	}
+	deleted, err := d.lightingEffects.Delete(d.Serial, effect)
+	if err != nil {
+		d.mu.Unlock()
+		return fmt.Errorf("reset OpenRGB effect customization: %w", err)
+	}
+	if !deleted {
+		d.mu.Unlock()
+		return nil
 	}
 
 	return d.applyPersistedEffectTransitionLocked(context.Background(), effect, true, expectedSerial, true)

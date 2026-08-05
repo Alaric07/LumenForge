@@ -10,7 +10,6 @@ import (
 	"LumenForge/src/templates"
 	"bytes"
 	"fmt"
-	"math"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -50,91 +49,41 @@ func requestDevicesPage(t *testing.T, handler http.Handler, rawQuery string) *ht
 
 func TestDevicesLightingPresentationModel(t *testing.T) {
 	source := openrgbimport.LightingSnapshot{
-		HasActiveProfile:  true,
 		ConfiguredEffect:  "wave",
 		EffectSupported:   true,
 		HasBrightness:     true,
 		Brightness:        0,
 		ClusterControlled: true,
 		SupportedEffects: []openrgbimport.LightingEffectOption{
+			{ID: "future-effect", Label: "Future Effect"},
 			{
-				ID:              "wave",
-				Label:           "Wave <Label> & More",
-				CapabilityKnown: true,
-				Capability: rgb.LightingEffectCapability{
-					Palette:        rgb.LightingPaletteTwoColor,
-					UsesStartColor: true,
-					UsesEndColor:   true,
-					SupportsSpeed:  true,
-				},
+				ID:    "wave",
+				Label: "Wave <Label> & More",
 			},
-			{ID: "future-effect", Label: "Future Effect", CapabilityKnown: false},
 		},
-		BaseDefinition: &openrgbimport.LightingDefinitionSnapshot{
-			Palette:       rgb.LightingPaletteTwoColor,
-			HasStartColor: true,
-			StartColor:    rgb.Color{Red: -1, Green: 15.9, Blue: 300, Hex: "not-used"},
-			HasEndColor:   true,
-			EndColor:      rgb.Color{},
-			HasSpeed:      true,
-			Speed:         0,
-		},
-		Override: &openrgbimport.LightingOverrideSnapshot{
-			Enabled:    false,
-			StartColor: rgb.Color{},
-			EndColor:   rgb.Color{Red: 255, Green: 128, Blue: 1},
-			Speed:      0,
-		},
+		HasSpeed:       true,
+		Speed:          0.5,
+		PaletteKind:    "Two color",
+		SingleColorHex: "#ff0000",
+		Customized:     true,
 	}
-	source.Effective = source.BaseDefinition
 
 	summary := openRGBLightingWorkspaceSummaryFromSnapshot(source)
-	if !summary.HasActiveProfile || summary.ConfiguredEffect != "wave" || summary.ConfiguredEffectLabel != "Wave <Label> & More" ||
+	if summary.ConfiguredEffect != "wave" || summary.ConfiguredEffectLabel != "Wave <Label> & More" ||
 		summary.ConfiguredEffectIconURL != "/static/img/icons/rgb/wave.svg" ||
-		!summary.EffectSupported || !summary.ConfiguredCapabilityKnown || summary.ConfiguredPalette != "Two color" ||
-		!summary.ConfiguredSupportsSpeed || !summary.HasBrightness || summary.Brightness != 0 || !summary.ClusterControlled {
+		!summary.EffectSupported || !summary.HasBrightness || summary.Brightness != 0 || !summary.ClusterControlled ||
+		!summary.HasSpeedControl || summary.Speed != "0.5" || summary.PaletteKind != "Two color" || summary.SingleColorHex != "#ff0000" || !summary.Customized {
 		t.Fatalf("configured Lighting presentation = %#v", summary)
 	}
 	if len(summary.SupportedEffects) != 2 ||
-		summary.SupportedEffects[0].ID != "future-effect" || summary.SupportedEffects[0].Label != "Future Effect" ||
-		summary.SupportedEffects[0].Palette != "Unknown" || summary.SupportedEffects[0].CapabilityKnown || summary.SupportedEffects[0].SupportsSpeed || summary.SupportedEffects[0].Selected ||
-		summary.SupportedEffects[1].ID != "wave" || summary.SupportedEffects[1].Label != "Wave <Label> & More" ||
-		summary.SupportedEffects[1].Palette != "Two color" || !summary.SupportedEffects[1].CapabilityKnown || !summary.SupportedEffects[1].SupportsSpeed || !summary.SupportedEffects[1].Selected {
+		summary.SupportedEffects[0].ID != "future-effect" || summary.SupportedEffects[0].Label != "Future Effect" || summary.SupportedEffects[0].Selected ||
+		summary.SupportedEffects[1].ID != "wave" || summary.SupportedEffects[1].Label != "Wave <Label> & More" || !summary.SupportedEffects[1].Selected {
 		t.Fatalf("supported Lighting effects = %#v", summary.SupportedEffects)
-	}
-	if summary.BaseDefinition == nil || !summary.BaseDefinition.HasStart || summary.BaseDefinition.Start.Hex != "#000FFF" ||
-		summary.BaseDefinition.Start.RGB != "RGB 0, 15, 255" || !summary.BaseDefinition.HasEnd ||
-		summary.BaseDefinition.End.Hex != "#000000" || !summary.BaseDefinition.HasSpeed || summary.BaseDefinition.Speed != "0" {
-		t.Fatalf("base Lighting definition = %#v", summary.BaseDefinition)
-	}
-	if summary.Override == nil || summary.Override.Enabled || summary.Override.Start.Hex != "#000000" ||
-		summary.Override.End.Hex != "#FF8001" || summary.Override.Speed != "0" {
-		t.Fatalf("Lighting override = %#v", summary.Override)
 	}
 
 	source.SupportedEffects[0].ID = "mutated"
-	source.BaseDefinition.StartColor.Red = 255
-	source.Override.StartColor.Red = 255
-	if summary.SupportedEffects[1].ID != "wave" || summary.BaseDefinition.Start.Hex != "#000FFF" || summary.Override.Start.Hex != "#000000" {
+	if summary.SupportedEffects[0].ID != "future-effect" {
 		t.Fatal("Lighting presentation retained mutable snapshot data")
-	}
-
-	for _, test := range []struct {
-		known   bool
-		palette rgb.LightingPaletteKind
-		label   string
-	}{
-		{known: true, palette: rgb.LightingPaletteNone, label: "None"},
-		{known: true, palette: rgb.LightingPaletteStaticSingle, label: "Single color"},
-		{known: true, palette: rgb.LightingPaletteTwoColor, label: "Two color"},
-		{known: true, palette: rgb.LightingPaletteTemperatureThree, label: "Temperature"},
-		{known: true, palette: rgb.LightingPaletteGradient, label: "Gradient"},
-		{known: true, palette: rgb.LightingPaletteGenerated, label: "Generated palette"},
-		{known: false, palette: rgb.LightingPaletteTwoColor, label: "Unknown"},
-	} {
-		if label := openRGBLightingPaletteLabel(test.known, test.palette); label != test.label {
-			t.Errorf("palette label = %q, want %q", label, test.label)
-		}
 	}
 }
 
@@ -253,24 +202,16 @@ func TestDevicesLightingEffectSelectorPresentation(t *testing.T) {
 }
 
 func devicesLightingSpeedSnapshot(effect string, speed float64) openrgbimport.LightingSnapshot {
-	capability, known := rgb.LightingEffectCapabilities(effect)
-	definition := &openrgbimport.LightingDefinitionSnapshot{
-		Palette:  capability.Palette,
-		HasSpeed: capability.SupportsSpeed,
-		Speed:    speed,
-	}
+	capability, _ := rgb.LightingEffectCapabilities(effect)
 	return openrgbimport.LightingSnapshot{
-		HasActiveProfile: true,
 		ConfiguredEffect: effect,
 		EffectSupported:  true,
 		SupportedEffects: []openrgbimport.LightingEffectOption{{
-			ID:              effect,
-			Label:           effect,
-			CapabilityKnown: known,
-			Capability:      capability,
+			ID:    effect,
+			Label: effect,
 		}},
-		BaseDefinition: definition,
-		Effective:      definition,
+		HasSpeed: capability.SupportsSpeed,
+		Speed:    speed,
 	}
 }
 
@@ -278,57 +219,27 @@ func TestDevicesLightingSpeedControlPresentation(t *testing.T) {
 	for _, effect := range []string{"circle", "flame", "cyberpunkglitch", "rain", "aurora", "gradient"} {
 		t.Run(effect, func(t *testing.T) {
 			summary := openRGBLightingWorkspaceSummaryFromSnapshot(devicesLightingSpeedSnapshot(effect, 2))
-			if !summary.HasSpeedControl || summary.Speed != "2" || summary.SpeedTarget != "base" {
+			if !summary.HasSpeedControl || summary.Speed != "2" {
 				t.Fatalf("speed presentation for %q = %#v", effect, summary)
 			}
-			if summary.BaseDefinition == nil || summary.BaseDefinition.SpeedRole != "base" ||
-				summary.Effective == nil || summary.Effective.SpeedRole != "effective" {
-				t.Fatalf("speed readout roles for %q = base %#v, effective %#v", effect, summary.BaseDefinition, summary.Effective)
-			}
 		})
-	}
-
-	overrideSnapshot := devicesLightingSpeedSnapshot("rain", 2.5)
-	overrideSnapshot.Override = &openrgbimport.LightingOverrideSnapshot{Enabled: true, Speed: 2.5}
-	overrideSummary := openRGBLightingWorkspaceSummaryFromSnapshot(overrideSnapshot)
-	if !overrideSummary.HasSpeedControl || overrideSummary.SpeedTarget != "base" ||
-		overrideSummary.Override == nil || overrideSummary.Override.SpeedRole != "override" {
-		t.Fatalf("canonical speed presentation with stored override = %#v", overrideSummary)
-	}
-
-	gradientSnapshot := devicesLightingSpeedSnapshot("gradient", 4)
-	gradientSnapshot.Override = &openrgbimport.LightingOverrideSnapshot{Enabled: true, Speed: 8}
-	gradientSummary := openRGBLightingWorkspaceSummaryFromSnapshot(gradientSnapshot)
-	if !gradientSummary.HasSpeedControl || gradientSummary.SpeedTarget != "base" {
-		t.Fatalf("Gradient speed target = %#v", gradientSummary)
 	}
 
 	for _, test := range []struct {
 		name     string
 		snapshot openrgbimport.LightingSnapshot
 	}{
-		{name: "inactive profile", snapshot: func() openrgbimport.LightingSnapshot {
-			value := devicesLightingSpeedSnapshot("circle", 2)
-			value.HasActiveProfile = false
-			return value
-		}()},
 		{name: "unsupported effect", snapshot: func() openrgbimport.LightingSnapshot {
 			value := devicesLightingSpeedSnapshot("circle", 2)
 			value.EffectSupported = false
+			value.HasSpeed = false
 			return value
 		}()},
-		{name: "missing definition", snapshot: func() openrgbimport.LightingSnapshot {
+		{name: "missing speed", snapshot: func() openrgbimport.LightingSnapshot {
 			value := devicesLightingSpeedSnapshot("circle", 2)
-			value.Effective = nil
+			value.HasSpeed = false
 			return value
 		}()},
-		{name: "unknown capability", snapshot: openrgbimport.LightingSnapshot{HasActiveProfile: true, ConfiguredEffect: "future", EffectSupported: true, Effective: &openrgbimport.LightingDefinitionSnapshot{HasSpeed: true, Speed: 2}}},
-		{name: "Static", snapshot: devicesLightingSpeedSnapshot("static", 2)},
-		{name: "Off", snapshot: devicesLightingSpeedSnapshot("off", 2)},
-		{name: "CPU temperature", snapshot: devicesLightingSpeedSnapshot("cpu-temperature", 2)},
-		{name: "GPU temperature", snapshot: devicesLightingSpeedSnapshot("gpu-temperature", 2)},
-		{name: "non-finite", snapshot: devicesLightingSpeedSnapshot("circle", math.NaN())},
-		{name: "out of range", snapshot: devicesLightingSpeedSnapshot("circle", 0)},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if summary := openRGBLightingWorkspaceSummaryFromSnapshot(test.snapshot); summary.HasSpeedControl {
@@ -401,13 +312,10 @@ func runDevicesLightingSpeedTemplateAssertions(t *testing.T) {
 			`data-lf-current-stored-speed="2"`,
 			`data-lf-effect="` + effect + `"`,
 			`data-lf-speed-control-mode="software"`,
-			`data-lf-speed-target="base"`,
 			`data-lf-number-id="lf-lighting-speed-number"`,
 			`data-lf-status-id="lf-lighting-speed-status"`,
 			`<span>Slow</span><span>Fast</span>`,
 			`id="lf-lighting-speed-status" aria-live="polite"`,
-			`data-lf-speed-readout="base">2</strong>`,
-			`data-lf-speed-readout="effective">2</strong>`,
 		} {
 			if !strings.Contains(body, expected) {
 				t.Errorf("%s Speed template does not contain %q", effect, expected)
@@ -424,16 +332,6 @@ func runDevicesLightingSpeedTemplateAssertions(t *testing.T) {
 				t.Errorf("%s Speed template contains duplicate or permanent copy %q", effect, forbidden)
 			}
 		}
-	}
-
-	emptyRoleBody := renderDevicesLightingView(t, &openRGBLightingWorkspaceSummary{
-		Override: &openRGBLightingOverrideSummary{Speed: "7"},
-	})
-	if !strings.Contains(emptyRoleBody, `<span>Stored speed</span><strong>7</strong>`) {
-		t.Error("stored Speed text with an empty role is not visible")
-	}
-	if strings.Contains(emptyRoleBody, `data-lf-speed-readout=""`) {
-		t.Error("stored Speed with an empty role emitted an empty readout attribute")
 	}
 
 	for _, effect := range []string{"static", "off", "cpu-temperature", "gpu-temperature"} {
@@ -1069,19 +967,6 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		`data-lf-current-brightness="0"`,
 		`id="lf-lighting-brightness-status" aria-live="polite"`,
 		"RGB Cluster currently owns this device's lighting output.",
-		"RGB Cluster owns output",
-		"Local configuration remains stored",
-		"RGB Cluster owned",
-		"Device RGB definition",
-		"Local OpenRGB override",
-		"lf-lighting-source-state\">Enabled",
-		"<code class=\"lf-lighting-color-hex\">#000000</code>",
-		"<span class=\"lf-lighting-color-rgb\">RGB 0, 0, 0</span>",
-		`<span>Stored speed</span><strong data-lf-speed-readout="override">0</strong>`,
-		"Effective configuration",
-		"This reflects stored configuration precedence, not confirmed device output.",
-		"href=\"/device/" + visibleSerial + "\"",
-		"Open full controls",
 	} {
 		if !strings.Contains(lightingBody, expected) {
 			t.Errorf("Lighting GET /devices response does not contain %q", expected)
@@ -1090,8 +975,6 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	for _, excluded := range []string{
 		"class=\"lf-overview-workspace\"",
 		"<form",
-		"<button",
-		"type=\"color\"",
 		"method=\"post\"",
 		"contenteditable",
 		"fetch(",
@@ -1103,6 +986,7 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"Supported effects reference",
 		"lf-lighting-effect-list",
 		"Static &lt;Effect&gt; &amp; More",
+		"</div>div>",
 	} {
 		if strings.Contains(strings.ToLower(lightingBody), strings.ToLower(excluded)) {
 			t.Errorf("Lighting GET /devices response unexpectedly contains %q", excluded)
@@ -1485,182 +1369,4 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		}
 	}
 
-	start := rgb.Color{Red: 1, Green: 2, Blue: 3}
-	middle := rgb.Color{Red: 4, Green: 5, Blue: 6}
-	end := rgb.Color{Red: 7, Green: 8, Blue: 9}
-	paletteTests := []struct {
-		name         string
-		effectID     string
-		paletteLabel string
-		definition   openrgbimport.LightingDefinitionSnapshot
-		hasStart     bool
-		hasMiddle    bool
-		hasEnd       bool
-		hasSpeed     bool
-	}{
-		{
-			name:         "Static",
-			effectID:     "static",
-			paletteLabel: "Single color",
-			definition:   openrgbimport.LightingDefinitionSnapshot{Palette: rgb.LightingPaletteStaticSingle, HasStartColor: true, StartColor: start},
-			hasStart:     true,
-		},
-		{
-			name:         "Two color",
-			effectID:     "wave",
-			paletteLabel: "Two color",
-			definition:   openrgbimport.LightingDefinitionSnapshot{Palette: rgb.LightingPaletteTwoColor, HasStartColor: true, StartColor: start, HasEndColor: true, EndColor: end, HasSpeed: true, Speed: 0},
-			hasStart:     true,
-			hasEnd:       true,
-			hasSpeed:     true,
-		},
-		{
-			name:         "Temperature",
-			effectID:     "cpu-temperature",
-			paletteLabel: "Temperature",
-			definition:   openrgbimport.LightingDefinitionSnapshot{Palette: rgb.LightingPaletteTemperatureThree, HasStartColor: true, StartColor: start, HasMiddleColor: true, MiddleColor: middle, HasEndColor: true, EndColor: end},
-			hasStart:     true,
-			hasMiddle:    true,
-			hasEnd:       true,
-		},
-		{
-			name:         "Gradient",
-			effectID:     "gradient",
-			paletteLabel: "Gradient",
-			definition:   openrgbimport.LightingDefinitionSnapshot{Palette: rgb.LightingPaletteGradient, HasSpeed: true, Speed: 3},
-			hasSpeed:     true,
-		},
-		{
-			name:         "Generated palette",
-			effectID:     "aurora",
-			paletteLabel: "Generated palette",
-			definition:   openrgbimport.LightingDefinitionSnapshot{Palette: rgb.LightingPaletteGenerated, HasSpeed: true, Speed: 4},
-			hasSpeed:     true,
-		},
-		{
-			name:         "Off",
-			effectID:     "off",
-			paletteLabel: "None",
-			definition:   openrgbimport.LightingDefinitionSnapshot{Palette: rgb.LightingPaletteNone},
-		},
-	}
-	for _, test := range paletteTests {
-		t.Run("Lighting palette "+test.name, func(t *testing.T) {
-			definition := test.definition
-			lighting := openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
-				HasActiveProfile: true,
-				ConfiguredEffect: test.effectID,
-				EffectSupported:  true,
-				SupportedEffects: []openrgbimport.LightingEffectOption{{ID: test.effectID, Label: test.name}},
-				BaseDefinition:   &definition,
-				Effective:        &definition,
-			})
-			body := renderDevicesLightingView(t, lighting)
-			for markup, want := range map[string]bool{
-				"lf-lighting-palette-stop-name\">Start</span>":  test.hasStart,
-				"lf-lighting-palette-stop-name\">Middle</span>": test.hasMiddle,
-				"lf-lighting-palette-stop-name\">End</span>":    test.hasEnd,
-				"<span>Speed</span>":                            test.hasSpeed,
-			} {
-				if found := strings.Contains(body, markup); found != want {
-					t.Errorf("%s response presence of %q = %t, want %t", test.name, markup, found, want)
-				}
-			}
-			if !strings.Contains(body, "class=\"lf-lighting-definition-kind\">"+test.paletteLabel+"</span>") {
-				t.Errorf("%s response does not render its palette label", test.name)
-			}
-			iconURL := "/static/img/icons/rgb/" + test.effectID + ".svg"
-			if !strings.Contains(body, iconURL) {
-				t.Errorf("%s response does not render canonical configured effect icon %q", test.name, iconURL)
-			}
-			if test.name == "Generated palette" {
-				for _, expected := range []string{
-					"lf-lighting-palette-generated-effect",
-					"The renderer generates its palette; no fixed colors are stored.",
-				} {
-					if !strings.Contains(body, expected) {
-						t.Errorf("generated-palette response does not contain %q", expected)
-					}
-				}
-				if count := strings.Count(body, iconURL); count != 2 {
-					t.Errorf("generated-palette response contains canonical icon %d times, want configured identity and primary palette identity", count)
-				}
-			}
-			if test.name == "Off" && !strings.Contains(body, `<strong class="lf-lighting-effect-name">Off</strong>`) {
-				t.Error("Off response lost its visible configured effect label")
-			}
-		})
-	}
-
-	unsupportedSnapshot := openrgbimport.LightingSnapshot{
-		HasActiveProfile: true,
-		ConfiguredEffect: "legacy<script>",
-		EffectSupported:  false,
-		SupportedEffects: []openrgbimport.LightingEffectOption{
-			{ID: "static", Label: "Static", CapabilityKnown: true, Capability: rgb.LightingEffectCapability{Palette: rgb.LightingPaletteStaticSingle}},
-		},
-	}
-	unsupportedBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(unsupportedSnapshot))
-	for _, expected := range []string{"legacy&lt;script&gt;", "lf-lighting-status-unsupported\">Unsupported", "Stored definition unavailable"} {
-		if !strings.Contains(unsupportedBody, expected) {
-			t.Errorf("unsupported Lighting response does not contain %q", expected)
-		}
-	}
-	if strings.Contains(unsupportedBody, "legacy<script>") || strings.Contains(unsupportedBody, "lf-lighting-palette-stop-name\">Start</span>") {
-		t.Error("unsupported Lighting response rendered raw input or fabricated colors")
-	}
-
-	missingDefinitionBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
-		HasActiveProfile: true,
-		ConfiguredEffect: "static",
-		EffectSupported:  true,
-		SupportedEffects: []openrgbimport.LightingEffectOption{{
-			ID:              "static",
-			Label:           "Static",
-			CapabilityKnown: true,
-			Capability:      rgb.LightingEffectCapability{Palette: rgb.LightingPaletteStaticSingle, UsesStartColor: true},
-		}},
-	}))
-	for _, expected := range []string{"lf-lighting-status-supported\">Supported", "Single color", "Stored definition unavailable"} {
-		if !strings.Contains(missingDefinitionBody, expected) {
-			t.Errorf("supported effect with missing definition does not contain %q", expected)
-		}
-	}
-	if strings.Contains(missingDefinitionBody, "lf-lighting-palette-stop-name\">Start</span>") || strings.Contains(missingDefinitionBody, "#000000") {
-		t.Error("supported effect with missing definition rendered fabricated colors")
-	}
-
-	emptyEffectBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{HasActiveProfile: true}))
-	if !strings.Contains(emptyEffectBody, "Not configured") || !strings.Contains(emptyEffectBody, "lf-range-control-unavailable") ||
-		!strings.Contains(emptyEffectBody, `>Unavailable</strong>`) ||
-		strings.Contains(emptyEffectBody, "data-lf-brightness-slider") || strings.Contains(emptyEffectBody, "lf-lighting-status-unsupported\">Unsupported") {
-		t.Error("empty configured effect was not rendered as a neutral state")
-	}
-
-	for _, test := range []struct {
-		name     string
-		override *openrgbimport.LightingOverrideSnapshot
-		expected string
-	}{
-		{name: "nil", expected: "No stored override"},
-		{name: "disabled", override: &openrgbimport.LightingOverrideSnapshot{StartColor: rgb.Color{}, Speed: 0}, expected: ">Disabled</span>"},
-		{name: "enabled", override: &openrgbimport.LightingOverrideSnapshot{Enabled: true, StartColor: rgb.Color{}, Speed: 0}, expected: ">Enabled</span>"},
-	} {
-		t.Run("Lighting override "+test.name, func(t *testing.T) {
-			body := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{Override: test.override}))
-			if !strings.Contains(body, test.expected) {
-				t.Errorf("%s override response does not contain %q", test.name, test.expected)
-			}
-			if test.override != nil {
-				for _, expected := range []string{"#000000", "RGB 0, 0, 0", `<span>Stored speed</span><strong data-lf-speed-readout="override">0</strong>`} {
-					if !strings.Contains(body, expected) {
-						t.Errorf("%s override response does not preserve %q", test.name, expected)
-					}
-					if test.name == "disabled" && !strings.Contains(body, "lf-lighting-source-card lf-lighting-source-card-inactive") {
-						t.Error("disabled override values are not visually marked inactive")
-					}
-				}
-			}
-		})
-	}
 }

@@ -1330,362 +1330,149 @@
     background: var(--lf-surface-subdued);
 }
 
-.lf-app-shell .lf-lighting-primary-palette {
+.lf-app-shell .lf-color-control {
     margin-top: 26px;
-    padding: 20px;
+    padding: 18px 20px;
+    border: 1px solid var(--lf-border-subtle);
     border-radius: 11px;
-    background: var(--lf-panel-secondary);
-    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--lf-border-panel) 60%, transparent);
+    background: color-mix(in srgb, var(--lf-panel-secondary) 92%, transparent);
 }
 
-.lf-app-shell .lf-lighting-primary-palette-heading {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    margin-bottom: 16px;
-    color: var(--lf-text-secondary);
-    font-size: 12px;
+.lf-app-shell .lf-color-control-header {
+    margin-bottom: 12px;
 }
 
-.lf-app-shell .lf-lighting-primary-palette-heading strong {
-    color: var(--lf-text-primary);
-    font-weight: 700;
-}
-
-.lf-app-shell .lf-lighting-palette {
-    min-width: 0;
-}
-
-.lf-app-shell .lf-lighting-palette-stops {
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.lf-app-shell .lf-lighting-palette-stops-single {
-    max-width: 320px;
-}
-
-.lf-app-shell .lf-lighting-palette-stop {
-    min-width: 0;
-    flex: 1 1 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 13px;
-    border: 1px solid var(--lf-border-subtle);
-    border-radius: 9px;
-    background:
-        linear-gradient(45deg, rgba(255, 255, 255, 0.025) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.025) 75%),
-        var(--lf-panel-elevated);
-    background-size: 12px 12px;
-}
-
-.lf-app-shell .lf-lighting-palette-bridge {
-    min-width: 22px;
-    height: 2px;
-    flex: 0.25 1 44px;
-    border-radius: 2px;
-    background: linear-gradient(90deg, var(--lf-accent-secondary), var(--lf-accent-highlight));
-    opacity: 0.68;
-}
-
-.lf-app-shell .lf-lighting-color-value {
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.lf-app-shell .lf-lighting-color-swatch {
-    width: 40px;
-    height: 40px;
-    flex: 0 0 auto;
-    overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--lf-text-primary) 34%, var(--lf-border-panel));
-    border-radius: 7px;
-    background: #000;
-    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.28);
-}
-
-.lf-app-shell .lf-lighting-color-copy {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-}
-
-.lf-app-shell .lf-lighting-color-hex {
-    font-size: 12px;
-}
-
-.lf-app-shell .lf-lighting-color-rgb {
-    color: var(--lf-text-technical);
-    font-size: 11px;
-    white-space: nowrap;
-}
-
-.lf-app-shell .lf-lighting-palette-concept {
-    min-height: 112px;
-    display: flex;
-    align-items: center;
-    gap: 17px;
-    padding: 16px;
-    border: 1px solid var(--lf-border-subtle);
-    border-radius: 10px;
-    background: var(--lf-panel-elevated);
-}
-
-.lf-app-shell .lf-lighting-palette-concept > span:last-child {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.lf-app-shell .lf-lighting-palette-concept strong {
+.lf-app-shell .lf-color-control-label {
+    display: block;
     color: var(--lf-text-primary);
     font-size: 15px;
+    font-weight: 720;
 }
 
-.lf-app-shell .lf-lighting-palette-concept span span {
-    color: var(--lf-text-secondary);
-    font-size: 12px;
-    line-height: 1.45;
-}
-
-.lf-app-shell .lf-lighting-palette-generated-effect .lf-lighting-effect-icon-frame {
-    width: 72px;
-    height: 72px;
-}
-
-.lf-app-shell .lf-lighting-palette-generated-effect .lf-lighting-effect-icon-art {
-    width: 50px;
-    height: 50px;
-}
-
-.lf-app-shell .lf-lighting-palette-gradient-mark,
-.lf-app-shell .lf-lighting-palette-generated-mark,
-.lf-app-shell .lf-lighting-palette-off-mark {
-    width: 72px;
-    height: 72px;
-    flex: 0 0 auto;
-    border: 1px solid var(--lf-border-panel);
-    border-radius: 10px;
-}
-
-.lf-app-shell .lf-lighting-palette-gradient-mark {
-    background:
-        repeating-linear-gradient(135deg, transparent 0 9px, color-mix(in srgb, var(--lf-accent-highlight) 23%, transparent) 9px 11px),
-        var(--lf-panel-secondary);
-}
-
-.lf-app-shell .lf-lighting-palette-generated-mark {
-    background:
-        radial-gradient(circle at 28% 30%, var(--lf-accent-secondary) 0 7%, transparent 8%),
-        radial-gradient(circle at 67% 28%, var(--lf-accent-highlight) 0 7%, transparent 8%),
-        radial-gradient(circle at 48% 68%, var(--lf-accent-primary) 0 9%, transparent 10%),
-        var(--lf-panel-secondary);
-}
-
-.lf-app-shell .lf-lighting-palette-off-mark {
-    position: relative;
-    background: var(--lf-panel-secondary);
-}
-
-.lf-app-shell .lf-lighting-palette-off-mark::before {
-    width: 24px;
-    height: 24px;
-    position: absolute;
-    top: 22px;
-    left: 22px;
-    content: "";
-    border: 2px solid var(--lf-text-secondary);
-    border-radius: 50%;
-    opacity: 0.6;
-}
-
-.lf-app-shell .lf-lighting-palette-off-mark::after {
-    width: 2px;
-    height: 20px;
-    position: absolute;
-    top: 16px;
-    left: 34px;
-    content: "";
-    background: var(--lf-text-secondary);
-    box-shadow: 0 0 0 4px var(--lf-panel-secondary);
-    opacity: 0.72;
-}
-
-.lf-app-shell .lf-lighting-speed {
+.lf-app-shell .lf-color-control-inputs {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    margin: 14px 0 0;
-    padding-top: 13px;
-    border-top: 1px solid var(--lf-border-subtle);
-    color: var(--lf-text-secondary);
-    font-size: 12px;
-}
-
-.lf-app-shell .lf-lighting-speed strong {
-    color: var(--lf-text-primary);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 13px;
-}
-
-.lf-app-shell .lf-lighting-comparison {
-    padding: clamp(22px, 3vw, 28px);
-}
-
-.lf-app-shell .lf-lighting-comparison-header p {
-    max-width: 380px;
-    margin: 2px 0 0;
-    color: var(--lf-text-secondary);
-    font-size: 12px;
-    line-height: 1.5;
-    text-align: right;
-}
-
-.lf-app-shell .lf-lighting-source-grid {
-    min-width: 0;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
-    margin-top: 22px;
 }
 
-.lf-app-shell .lf-lighting-source-card {
-    min-width: 0;
-    padding: 17px;
-    border: 1px solid var(--lf-border-subtle);
-    border-radius: 10px;
-    background: var(--lf-panel-secondary);
+.lf-app-shell .lf-color-control-input {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid var(--lf-border-emphasized);
+    border-radius: 8px;
+    background: none;
+    cursor: pointer;
 }
 
-.lf-app-shell .lf-lighting-source-card > header {
-    min-width: 0;
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    min-height: 66px;
+.lf-app-shell .lf-color-control-input::-webkit-color-swatch-wrapper {
+    padding: 2px;
 }
 
-.lf-app-shell .lf-lighting-source-card > header > div {
-    min-width: 0;
+.lf-app-shell .lf-color-control-input::-webkit-color-swatch {
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 5px;
 }
 
-.lf-app-shell .lf-lighting-source-index {
-    color: var(--lf-accent-highlight);
-    font-size: 10px;
+.lf-app-shell .lf-color-control-input::-moz-color-swatch {
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 5px;
 }
 
-.lf-app-shell .lf-lighting-source-card h3 {
-    margin: 0;
-    color: var(--lf-text-primary);
-    font-size: 14px;
-    line-height: 1.3;
-    overflow-wrap: normal;
-}
-
-.lf-app-shell .lf-lighting-source-card header p {
-    margin: 5px 0 0;
-    color: var(--lf-text-secondary);
-    font-size: 11px;
-    line-height: 1.4;
-}
-
-.lf-app-shell .lf-lighting-source-state {
-    margin-left: auto;
-}
-
-.lf-app-shell .lf-lighting-source-card-inactive {
-    background: var(--lf-surface-subdued);
+.lf-app-shell .lf-color-control-input:disabled {
+    cursor: not-allowed;
     opacity: 0.72;
 }
 
-.lf-app-shell .lf-lighting-source-card-inactive .lf-lighting-color-swatch {
-    filter: saturate(0.58);
+.lf-app-shell .lf-color-control-input:focus-visible {
+    outline: 3px solid var(--lf-focus-ring);
+    outline-offset: 2px;
 }
 
-.lf-app-shell .lf-lighting-source-card-effective {
-    border-color: var(--lf-border-emphasized);
-    background:
-        linear-gradient(145deg, color-mix(in srgb, var(--lf-accent-secondary) 10%, transparent), transparent 56%),
-        var(--lf-panel-elevated);
-    box-shadow: var(--lf-shadow-soft), inset 0 2px 0 var(--lf-border-emphasized);
+.lf-app-shell .lf-color-control-hex {
+    width: 10ch;
+    padding: 8px 12px;
+    border: 1px solid var(--lf-border-emphasized);
+    border-radius: 8px;
+    color: var(--lf-text-primary);
+    background: var(--lf-surface-subdued);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 14px;
 }
 
-.lf-app-shell .lf-lighting-definition-kind {
-    display: inline-block;
-    margin-bottom: 12px;
+.lf-app-shell .lf-color-control-hex:focus-visible {
+    outline: 3px solid var(--lf-focus-ring);
+    outline-offset: 1px;
+}
+
+.lf-app-shell .lf-color-control-hex:disabled {
     color: var(--lf-text-muted);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
+    cursor: not-allowed;
 }
 
-.lf-app-shell .lf-lighting-source-card .lf-lighting-palette-stops {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
-}
-
-.lf-app-shell .lf-lighting-source-card .lf-lighting-palette-bridge {
-    width: 2px;
-    min-width: 2px;
-    height: 12px;
-    margin-left: 28px;
-}
-
-.lf-app-shell .lf-lighting-source-card .lf-lighting-palette-stop {
-    padding: 10px;
-}
-
-.lf-app-shell .lf-lighting-source-card .lf-lighting-color-swatch {
-    width: 32px;
-    height: 32px;
-}
-
-.lf-app-shell .lf-lighting-source-card .lf-lighting-color-rgb {
-    white-space: normal;
-}
-
-.lf-app-shell .lf-lighting-source-card .lf-lighting-palette-concept {
-    min-height: 0;
-    align-items: flex-start;
-    padding: 11px;
-}
-
-.lf-app-shell .lf-lighting-source-card .lf-lighting-palette-gradient-mark,
-.lf-app-shell .lf-lighting-source-card .lf-lighting-palette-generated-mark,
-.lf-app-shell .lf-lighting-source-card .lf-lighting-palette-off-mark {
-    width: 44px;
-    height: 44px;
-}
-
-.lf-app-shell .lf-lighting-source-card .lf-lighting-palette-off-mark::before,
-.lf-app-shell .lf-lighting-source-card .lf-lighting-palette-off-mark::after {
-    display: none;
-}
-
-.lf-app-shell .lf-lighting-source-note,
-.lf-app-shell .lf-lighting-empty-value {
+.lf-app-shell .lf-color-control-status,
+.lf-app-shell .lf-color-control-restriction {
+    margin: 12px 0 0;
     color: var(--lf-text-secondary);
     font-size: 12px;
     line-height: 1.5;
 }
 
-.lf-app-shell .lf-lighting-source-note {
-    margin: 13px 0 0;
+.lf-app-shell .lf-color-control-restriction {
+    padding: 9px 11px;
+    border: 1px solid var(--lf-border-emphasized);
+    border-radius: 7px;
+    background: var(--lf-surface-subdued);
 }
 
-.lf-app-shell .lf-lighting-empty-value {
-    margin: 14px 0 0;
+.lf-app-shell .lf-color-control-restriction a {
+    color: var(--lf-accent-highlight);
+    font-weight: 700;
+}
+
+.lf-app-shell .lf-reset-control {
+    margin-top: 26px;
+    padding-top: 26px;
+    border-top: 1px solid var(--lf-border-subtle);
+}
+
+.lf-app-shell .lf-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+
+.lf-app-shell .lf-button-secondary {
+    border-color: var(--lf-border-emphasized);
+    color: var(--lf-text-primary);
+    background: var(--lf-surface-subdued);
+}
+
+.lf-app-shell .lf-button-secondary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--lf-surface-subdued) 80%, var(--lf-text-primary));
+}
+
+.lf-app-shell .lf-button:focus-visible {
+    outline: 3px solid var(--lf-focus-ring);
+    outline-offset: 2px;
+}
+
+.lf-app-shell .lf-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.lf-app-shell .lf-reset-button {
+    width: 100%;
 }
 
 .lf-app-shell .lf-lighting-rail-icon {

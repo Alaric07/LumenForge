@@ -1146,6 +1146,8 @@ test("multiple brightness controls keep transient success timers isolated", asyn
             return controls.map(function (control) { return control.slider; });
         }
         if (selector === "[data-lf-speed-slider]") return [];
+        if (selector === "[data-lf-color-input]") return [];
+        if (selector === "[data-lf-reset-button]") return [];
         assert.equal(selector, "[data-lf-brightness-readout]");
         return [];
     };
@@ -1902,7 +1904,7 @@ test("Lighting initialization tolerates pages without interactive controls", fun
 
     lighting.init(browser);
 
-    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]"]);
+    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-reset-button]"]);
 });
 
 test("Lighting initialization supports isolated and combined interactive controls", function () {
@@ -1937,6 +1939,7 @@ test("Lighting initialization supports isolated and combined interactive control
     const speedControl = speedSliderFixture();
     speedFixture.browser.document.querySelectorAll = function (selector) {
         if (selector === "[data-lf-speed-slider]") return [speedControl.slider];
+        if (selector === "[data-lf-color-input]" || selector === "[data-lf-reset-button]") return [];
         return [];
     };
     lighting.init(speedFixture.browser);
@@ -1972,6 +1975,7 @@ test("Lighting initialization supports isolated and combined interactive control
                 if (selector === "[data-lf-effect-selector]") return [combinedEffect.selector];
                 if (selector === "[data-lf-brightness-slider]") return [combinedBrightness.slider];
                 if (selector === "[data-lf-speed-slider]") return [combinedSpeed.slider];
+                if (selector === "[data-lf-color-input]" || selector === "[data-lf-reset-button]") return [];
                 return [];
             }
         },
@@ -1983,4 +1987,199 @@ test("Lighting initialization supports isolated and combined interactive control
     assert.equal(typeof combinedEffect.handler(), "function");
     assert.equal(typeof combinedBrightness.handlers.input, "function");
     assert.equal(typeof combinedSpeed.handlers.input, "function");
+});
+function colorBrowserFixture(fetchImplementation, overrides) {
+    const colorHandlers = {};
+    const hexHandlers = {};
+    const resetHandlers = {};
+    const colorInput = {
+        disabled: false,
+        dataset: {
+            lfDeviceSerial: "test-device",
+            lfEffect: "static",
+            lfCurrentColor: "#ff0000",
+            lfHexId: "hex-input",
+            lfStatusId: "color-status"
+        },
+        value: "#ff0000",
+        addEventListener: function(event, handler) { colorHandlers[event] = handler; }
+    };
+    const hexInput = {
+        disabled: false,
+        value: "#ff0000",
+        addEventListener: function(event, handler) { hexHandlers[event] = handler; }
+    };
+    const status = {textContent: ""};
+    const resetButton = {
+        disabled: false,
+        dataset: {
+            lfDeviceSerial: "test-device",
+            lfEffect: "static",
+            lfStatusId: "reset-status"
+        },
+        addEventListener: function(event, handler) { resetHandlers[event] = handler; }
+    };
+    let reloads = 0;
+    const browser = {
+        AbortController: AbortController,
+        document: {
+            getElementById: function(id) {
+                if (id === "hex-input") return hexInput;
+                if (id === "color-status") return status;
+                if (id === "reset-status") return status;
+                return null;
+            }
+        },
+        fetch: fetchImplementation,
+        location: {
+            reload: function() { reloads++; }
+        },
+        setTimeout: setTimeout,
+        clearTimeout: clearTimeout
+    };
+    Object.assign(browser, overrides || {});
+    return {browser, colorInput, colorHandlers, hexInput, hexHandlers, resetButton, resetHandlers, status, getReloads: () => reloads};
+}
+
+test("bindColorControl normalizes and commits a valid color and reloads on success", async function() {
+    let requested = false;
+    const {browser, colorInput, colorHandlers, hexInput, hexHandlers, getReloads, status} = colorBrowserFixture(async function(url, options) {
+        assert.equal(url, "/api/openrgbimport/single-color");
+        const body = JSON.parse(options.body);
+        assert.equal(body.color, "#00ff00");
+        assert.equal(body.serial, "test-device");
+        assert.equal(body.effect, "static");
+        requested = true;
+        return {ok: true, json: async () => ({status: 1})};
+    });
+
+    const commit = lighting.bindColorControl(browser, colorInput);
+    hexInput.value = "#00FF00";
+    hexHandlers.input(); // trigger preview
+    assert.equal(colorInput.value, "#00ff00");
+
+    const promise = commit(colorInput.value);
+    assert.ok(colorInput.disabled);
+    assert.ok(hexInput.disabled);
+    assert.equal(status.textContent, "Saving color…");
+
+    await promise;
+
+    assert.ok(requested);
+    assert.equal(getReloads(), 1);
+    assert.equal(status.textContent, "Color saved.");
+});
+
+test("bindColorControl restores confirmed state and controls on failure", async function() {
+    let requested = false;
+    const {browser, colorInput, colorHandlers, hexInput, hexHandlers, getReloads, status} = colorBrowserFixture(async function(url, options) {
+        requested = true;
+        return {ok: false, json: async () => ({})};
+    });
+
+    const commit = lighting.bindColorControl(browser, colorInput);
+
+    colorInput.value = "#0000ff";
+    const promise = commit(colorInput.value);
+
+    await promise;
+
+    assert.ok(requested);
+    assert.equal(getReloads(), 0);
+    assert.equal(status.textContent, "Unable to change color. Try again.");
+    assert.ok(!colorInput.disabled);
+    assert.ok(!hexInput.disabled);
+    assert.equal(colorInput.value, "#ff0000"); // restored to original
+    assert.equal(hexInput.value, "#ff0000"); // restored to original
+});
+
+test("bindColorControl ignores invalid colors and does not make requests", async function() {
+    let requested = false;
+    const {browser, colorInput, colorHandlers, hexInput} = colorBrowserFixture(async function(url, options) {
+        requested = true;
+        return {ok: true, json: async () => ({status: 1})};
+    });
+
+    const commit = lighting.bindColorControl(browser, colorInput);
+
+    colorInput.value = "invalid";
+    await commit(colorInput.value);
+
+    assert.ok(!requested);
+    assert.equal(colorInput.value, "#ff0000"); // restored to original
+});
+
+test("bindResetButton commits a reset and reloads on success", async function() {
+    let requested = false;
+    const {browser, resetButton, resetHandlers, getReloads, status} = colorBrowserFixture(async function(url, options) {
+        assert.equal(url, "/api/openrgbimport/effect-reset");
+        const body = JSON.parse(options.body);
+        assert.equal(body.serial, "test-device");
+        assert.equal(body.effect, "static");
+        requested = true;
+        return {ok: true, json: async () => ({status: 1})};
+    });
+
+    const commit = lighting.bindResetButton(browser, resetButton);
+
+    const promise = commit();
+    assert.ok(resetButton.disabled);
+    assert.equal(status.textContent, "Resetting effect…");
+
+    await promise;
+
+    assert.ok(requested);
+    assert.equal(getReloads(), 1);
+    assert.equal(status.textContent, "Effect reset.");
+});
+
+test("bindResetButton restores control on failure", async function() {
+    let requested = false;
+    const {browser, resetButton, resetHandlers, getReloads, status} = colorBrowserFixture(async function(url, options) {
+        requested = true;
+        return {ok: false, json: async () => ({})};
+    });
+
+    const commit = lighting.bindResetButton(browser, resetButton);
+
+    const promise = commit();
+    assert.ok(resetButton.disabled);
+    assert.equal(status.textContent, "Resetting effect…");
+
+    await promise;
+
+    assert.ok(requested);
+    assert.equal(getReloads(), 0);
+    assert.ok(!resetButton.disabled);
+    assert.equal(status.textContent, "Unable to reset effect. Try again.");
+});
+
+test("bindResetButton aborts a stalled request and restores control", async function() {
+    let aborted = false;
+    let promiseResolve;
+    const fetchPromise = new Promise(resolve => { promiseResolve = resolve; });
+    const timers = [];
+
+    const {browser, resetButton, status} = colorBrowserFixture(async function(url, options) {
+        options.signal.addEventListener("abort", () => { aborted = true; });
+        await fetchPromise;
+        if (aborted) throw new Error("AbortError");
+        return {ok: true, json: async () => ({status: 1})};
+    }, {
+        setTimeout: function(fn, ms) { timers.push(fn); return timers.length; },
+        clearTimeout: function() {}
+    });
+
+    const commit = lighting.bindResetButton(browser, resetButton);
+    const promise = commit();
+
+    assert.equal(timers.length, 1); // abort timer
+    timers[0](); // trigger timeout
+    promiseResolve();
+
+    await promise;
+
+    assert.ok(aborted);
+    assert.ok(!resetButton.disabled);
+    assert.equal(status.textContent, "Unable to reset effect. Try again.");
 });

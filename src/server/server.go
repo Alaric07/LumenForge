@@ -19,6 +19,7 @@ import (
 	"LumenForge/src/inputmanager"
 	"LumenForge/src/language"
 	"LumenForge/src/lifecycle"
+	"LumenForge/src/lightingsettings"
 	"LumenForge/src/localnetwork"
 	"LumenForge/src/logger"
 	"LumenForge/src/macro"
@@ -90,6 +91,12 @@ var (
 	}
 	setOpenRGBImportSpeedValue = func(device *openrgbimport.Device, serial, effect string, speed float64) error {
 		return device.SetEffectSpeed(serial, effect, speed)
+	}
+	setOpenRGBImportColorValue = func(device *openrgbimport.Device, serial, effect string, color lightingsettings.Color) error {
+		return device.SetEffectColor(serial, effect, color)
+	}
+	resetOpenRGBImportCustomizationValue = func(device *openrgbimport.Device, serial, effect string) error {
+		return device.ResetEffectCustomization(serial, effect)
 	}
 	mediaInputControl = inputmanager.InputControlKeyboard
 )
@@ -2346,62 +2353,26 @@ type devicesWorkspaceSummary struct {
 	View         string
 }
 
-type openRGBLightingColorSummary struct {
-	Hex string
-	RGB string
-}
-
 type openRGBLightingEffectSummary struct {
-	ID              string
-	Label           string
-	Selected        bool
-	CapabilityKnown bool
-	Palette         string
-	SupportsSpeed   bool
-}
-
-type openRGBLightingDefinitionSummary struct {
-	Palette   string
-	HasValues bool
-	HasStart  bool
-	Start     openRGBLightingColorSummary
-	HasMiddle bool
-	Middle    openRGBLightingColorSummary
-	HasEnd    bool
-	End       openRGBLightingColorSummary
-	HasSpeed  bool
-	Speed     string
-	SpeedRole string
-}
-
-type openRGBLightingOverrideSummary struct {
-	Enabled   bool
-	Start     openRGBLightingColorSummary
-	Middle    openRGBLightingColorSummary
-	End       openRGBLightingColorSummary
-	Speed     string
-	SpeedRole string
+	ID       string
+	Label    string
+	Selected bool
 }
 
 type openRGBLightingWorkspaceSummary struct {
-	HasActiveProfile          bool
-	ConfiguredEffect          string
-	ConfiguredEffectLabel     string
-	ConfiguredEffectIconURL   string
-	EffectSupported           bool
-	ConfiguredCapabilityKnown bool
-	ConfiguredPalette         string
-	ConfiguredSupportsSpeed   bool
-	SupportedEffects          []openRGBLightingEffectSummary
-	HasBrightness             bool
-	Brightness                uint8
-	HasSpeedControl           bool
-	Speed                     string
-	SpeedTarget               string
-	ClusterControlled         bool
-	BaseDefinition            *openRGBLightingDefinitionSummary
-	Override                  *openRGBLightingOverrideSummary
-	Effective                 *openRGBLightingDefinitionSummary
+	ConfiguredEffect        string
+	ConfiguredEffectLabel   string
+	ConfiguredEffectIconURL string
+	EffectSupported         bool
+	SupportedEffects        []openRGBLightingEffectSummary
+	HasBrightness           bool
+	Brightness              uint8
+	HasSpeedControl         bool
+	Speed                   string
+	ClusterControlled       bool
+	PaletteKind             string
+	SingleColorHex          string
+	Customized              bool
 }
 
 func openRGBWorkspaceDisplayIdentifierLabel(label string) string {
@@ -2444,48 +2415,6 @@ func openRGBWorkspaceSummaryFromSnapshot(snapshot openrgbimport.DeviceSnapshot) 
 	return summary
 }
 
-func openRGBLightingPaletteLabel(known bool, palette rgb.LightingPaletteKind) string {
-	if !known {
-		return "Unknown"
-	}
-	switch palette {
-	case rgb.LightingPaletteNone:
-		return "None"
-	case rgb.LightingPaletteStaticSingle:
-		return "Single color"
-	case rgb.LightingPaletteTwoColor:
-		return "Two color"
-	case rgb.LightingPaletteTemperatureThree:
-		return "Temperature"
-	case rgb.LightingPaletteGradient:
-		return "Gradient"
-	case rgb.LightingPaletteGenerated:
-		return "Generated palette"
-	default:
-		return "Unknown"
-	}
-}
-
-func openRGBLightingColorComponent(value float64) uint8 {
-	if math.IsNaN(value) || value <= 0 {
-		return 0
-	}
-	if value >= 255 {
-		return 255
-	}
-	return uint8(value)
-}
-
-func openRGBLightingColorFromRGB(color rgb.Color) openRGBLightingColorSummary {
-	red := openRGBLightingColorComponent(color.Red)
-	green := openRGBLightingColorComponent(color.Green)
-	blue := openRGBLightingColorComponent(color.Blue)
-	return openRGBLightingColorSummary{
-		Hex: fmt.Sprintf("#%02X%02X%02X", red, green, blue),
-		RGB: fmt.Sprintf("RGB %d, %d, %d", red, green, blue),
-	}
-}
-
 func openRGBLightingEffectDisplayLabel(id, label string) string {
 	if strings.TrimSpace(label) != "" || id == "" {
 		return label
@@ -2508,67 +2437,34 @@ func openRGBLightingEffectIconURL(id string) string {
 			return ""
 		}
 	}
-	return "/static/img/icons/rgb/" + descriptor.Icon
-}
-
-func openRGBLightingDefinitionFromSnapshot(snapshot *openrgbimport.LightingDefinitionSnapshot) *openRGBLightingDefinitionSummary {
-	if snapshot == nil {
-		return nil
-	}
-	summary := &openRGBLightingDefinitionSummary{
-		Palette:   openRGBLightingPaletteLabel(true, snapshot.Palette),
-		HasStart:  snapshot.HasStartColor,
-		HasMiddle: snapshot.HasMiddleColor,
-		HasEnd:    snapshot.HasEndColor,
-		HasSpeed:  snapshot.HasSpeed,
-		Speed:     strconv.FormatFloat(snapshot.Speed, 'f', -1, 64),
-	}
-	if snapshot.HasStartColor {
-		summary.Start = openRGBLightingColorFromRGB(snapshot.StartColor)
-	}
-	if snapshot.HasMiddleColor {
-		summary.Middle = openRGBLightingColorFromRGB(snapshot.MiddleColor)
-	}
-	if snapshot.HasEndColor {
-		summary.End = openRGBLightingColorFromRGB(snapshot.EndColor)
-	}
-	summary.HasValues = summary.HasStart || summary.HasMiddle || summary.HasEnd || summary.HasSpeed
-	return summary
+	return "/static/img/icons/rgb/" + stem + ".svg"
 }
 
 func openRGBLightingWorkspaceSummaryFromSnapshot(snapshot openrgbimport.LightingSnapshot) *openRGBLightingWorkspaceSummary {
 	summary := &openRGBLightingWorkspaceSummary{
-		HasActiveProfile:  snapshot.HasActiveProfile,
 		ConfiguredEffect:  snapshot.ConfiguredEffect,
 		EffectSupported:   snapshot.EffectSupported,
 		HasBrightness:     snapshot.HasBrightness,
 		Brightness:        snapshot.Brightness,
 		ClusterControlled: snapshot.ClusterControlled,
 		SupportedEffects:  make([]openRGBLightingEffectSummary, len(snapshot.SupportedEffects)),
-		BaseDefinition:    openRGBLightingDefinitionFromSnapshot(snapshot.BaseDefinition),
-		Effective:         openRGBLightingDefinitionFromSnapshot(snapshot.Effective),
+		PaletteKind:       snapshot.PaletteKind,
+		SingleColorHex:    snapshot.SingleColorHex,
+		Customized:        snapshot.Customized,
 	}
-	if summary.BaseDefinition != nil {
-		summary.BaseDefinition.SpeedRole = "base"
-	}
-	if summary.Effective != nil {
-		summary.Effective.SpeedRole = "effective"
+	if snapshot.HasSpeed {
+		summary.HasSpeedControl = true
+		summary.Speed = strconv.FormatFloat(snapshot.Speed, 'f', -1, 64)
 	}
 	for index, effect := range snapshot.SupportedEffects {
 		displayLabel := openRGBLightingEffectDisplayLabel(effect.ID, effect.Label)
 		summary.SupportedEffects[index] = openRGBLightingEffectSummary{
-			ID:              effect.ID,
-			Label:           displayLabel,
-			Selected:        snapshot.EffectSupported && effect.ID == snapshot.ConfiguredEffect,
-			CapabilityKnown: effect.CapabilityKnown,
-			Palette:         openRGBLightingPaletteLabel(effect.CapabilityKnown, effect.Capability.Palette),
-			SupportsSpeed:   effect.CapabilityKnown && effect.Capability.SupportsSpeed,
+			ID:       effect.ID,
+			Label:    displayLabel,
+			Selected: snapshot.EffectSupported && effect.ID == snapshot.ConfiguredEffect,
 		}
 		if effect.ID == snapshot.ConfiguredEffect {
 			summary.ConfiguredEffectLabel = displayLabel
-			summary.ConfiguredCapabilityKnown = effect.CapabilityKnown
-			summary.ConfiguredPalette = openRGBLightingPaletteLabel(effect.CapabilityKnown, effect.Capability.Palette)
-			summary.ConfiguredSupportsSpeed = effect.CapabilityKnown && effect.Capability.SupportsSpeed
 			if snapshot.EffectSupported {
 				summary.ConfiguredEffectIconURL = openRGBLightingEffectIconURL(effect.ID)
 			}
@@ -2582,29 +2478,6 @@ func openRGBLightingWorkspaceSummaryFromSnapshot(snapshot openrgbimport.Lighting
 		}
 		return leftLabel < rightLabel
 	})
-	if snapshot.ConfiguredEffect != "" && summary.ConfiguredPalette == "" {
-		summary.ConfiguredPalette = "Unknown"
-	}
-	if snapshot.Override != nil {
-		summary.Override = &openRGBLightingOverrideSummary{
-			Enabled:   snapshot.Override.Enabled,
-			Start:     openRGBLightingColorFromRGB(snapshot.Override.StartColor),
-			Middle:    openRGBLightingColorFromRGB(snapshot.Override.MiddleColor),
-			End:       openRGBLightingColorFromRGB(snapshot.Override.EndColor),
-			Speed:     strconv.FormatFloat(snapshot.Override.Speed, 'f', -1, 64),
-			SpeedRole: "override",
-		}
-	}
-	if snapshot.HasActiveProfile && snapshot.ConfiguredEffect != "" && snapshot.EffectSupported &&
-		summary.ConfiguredCapabilityKnown && summary.ConfiguredSupportsSpeed && snapshot.Effective != nil &&
-		snapshot.Effective.HasSpeed && !math.IsNaN(snapshot.Effective.Speed) && !math.IsInf(snapshot.Effective.Speed, 0) {
-		minimum, maximum := rgb.ProfileSpeedRange(snapshot.ConfiguredEffect)
-		if snapshot.Effective.Speed >= minimum && snapshot.Effective.Speed <= maximum {
-			summary.HasSpeedControl = true
-			summary.Speed = strconv.FormatFloat(snapshot.Effective.Speed, 'f', -1, 64)
-			summary.SpeedTarget = "base"
-		}
-	}
 	return summary
 }
 
@@ -3201,6 +3074,68 @@ func setOpenRGBImportBrightness(w http.ResponseWriter, r *http.Request) {
 	resp.Send(w)
 }
 
+func setOpenRGBImportSingleColor(w http.ResponseWriter, r *http.Request) {
+	request := struct {
+		Serial string `json:"serial"`
+		Effect string `json:"effect"`
+		Color  string `json:"color"`
+	}{}
+	if !decodeOpenRGBImportRequest(w, r, &request) {
+		return
+	}
+	if request.Serial == "" || request.Effect == "" || request.Color == "" {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Missing required properties"}).Send(w)
+		return
+	}
+	color, err := parseHexColor(request.Color)
+	if err != nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Invalid color format"}).Send(w)
+		return
+	}
+	device, err := getOpenRGBImportLightingDeviceBySerial(request.Serial)
+	if err != nil || device == nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "OpenRGB import is unavailable"}).Send(w)
+		return
+	}
+	if !device.SupportsEffect(request.Effect) {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Unsupported effect"}).Send(w)
+		return
+	}
+	if err := setOpenRGBImportColorValue(device, request.Serial, request.Effect, color); err != nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Failed to set device color"}).Send(w)
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Applied successfully"}).Send(w)
+}
+
+func resetOpenRGBImportEffectCustomization(w http.ResponseWriter, r *http.Request) {
+	request := struct {
+		Serial string `json:"serial"`
+		Effect string `json:"effect"`
+	}{}
+	if !decodeOpenRGBImportRequest(w, r, &request) {
+		return
+	}
+	if request.Serial == "" || request.Effect == "" {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Missing required properties"}).Send(w)
+		return
+	}
+	device, err := getOpenRGBImportLightingDeviceBySerial(request.Serial)
+	if err != nil || device == nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "OpenRGB import is unavailable"}).Send(w)
+		return
+	}
+	if !device.SupportsEffect(request.Effect) {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Unsupported effect"}).Send(w)
+		return
+	}
+	if err := resetOpenRGBImportCustomizationValue(device, request.Serial, request.Effect); err != nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Failed to reset effect customization"}).Send(w)
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Reset successfully"}).Send(w)
+}
+
 func setOpenRGBImportEffect(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Serial *string `json:"serial"`
@@ -3424,6 +3359,8 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/openrgbimport/remove", http.MethodPost, removeOpenRGBImportControllers)
 	handleFunc(r, "/api/openrgbimport/refresh", http.MethodPost, refreshOpenRGBImportManager)
 	handleFunc(r, "/api/openrgbimport/speed", http.MethodPost, setOpenRGBImportSpeed)
+	handleFunc(r, "/api/openrgbimport/single-color", http.MethodPost, setOpenRGBImportSingleColor)
+	handleFunc(r, "/api/openrgbimport/effect-reset", http.MethodPost, resetOpenRGBImportEffectCustomization)
 	handleFunc(r, "/api/openrgbimport/effect", http.MethodPost, setOpenRGBImportEffect)
 	handleFunc(r, "/api/openrgbimport/brightness", http.MethodPost, setOpenRGBImportBrightness)
 	handleFunc(r, "/api/openrgbimport/config", http.MethodPost, setOpenRGBImportConfig)
