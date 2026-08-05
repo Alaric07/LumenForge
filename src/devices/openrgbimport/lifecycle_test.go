@@ -217,35 +217,17 @@ func assertLifecycleGateAvailable(t *testing.T, gate chan struct{}) {
 	releaseGate(gate)
 }
 
-func TestPrepareImportDeepCopiesRGBAndCompletesLiveDefaultProfile(t *testing.T) {
+func TestPrepareImportUsesResolvedDefaultsAndCompletesLiveDefaultProfile(t *testing.T) {
 	_, _ = setupLifecycleTest(t)
-	globalBeforeValue := rgb.GetRGB()
-	globalBefore := cloneRGBState(&globalBeforeValue)
 	globalConfig := testConfig("openrgb-prepare-global", "Global")
 	globalPrepared, err := prepareImport(globalConfig.Serial, globalConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
-	globalPrepared.device.Rgb.Profiles["mutation-probe"] = rgb.Profile{ProfileName: "mutation-probe"}
-	globalAfterValue := rgb.GetRGB()
-	globalAfter := cloneRGBState(&globalAfterValue)
-	if !reflect.DeepEqual(globalBefore, globalAfter) {
-		t.Fatal("mutating a prepared import changed rgb.GetRGB global state")
+	if globalPrepared.device.Rgb != nil {
+		t.Fatal("prepared import retained a legacy target-local RGB copy")
 	}
 	t.Cleanup(globalPrepared.device.Stop)
-
-	template := rgb.RGB{
-		Device: "Global Template",
-		Profiles: map[string]rgb.Profile{
-			"gradient": {
-				ProfileName: "gradient",
-				Gradients: map[int]rgb.Color{
-					0: {Red: 10, Green: 20, Blue: 30},
-				},
-			},
-		},
-	}
-	lifecycleRGBTemplate = func() rgb.RGB { return template }
 
 	firstConfig := testConfig("openrgb-prepare-first", "First")
 	secondConfig := testConfig("openrgb-prepare-second", "Second")
@@ -271,23 +253,14 @@ func TestPrepareImportDeepCopiesRGBAndCompletesLiveDefaultProfile(t *testing.T) 
 		t.Fatalf("second fresh default profile membership = %#v, active profile %p", second.device.UserProfiles, second.device.DeviceProfile)
 	}
 
-	firstGradient := first.device.Rgb.Profiles["gradient"]
+	firstGradient := first.device.GetRgbProfile("gradient")
+	secondGradient := second.device.GetRgbProfile("gradient")
+	if firstGradient == nil || secondGradient == nil || len(firstGradient.Gradients) == 0 || len(secondGradient.Gradients) == 0 {
+		t.Fatalf("resolved Gradient defaults are incomplete: first=%#v second=%#v", firstGradient, secondGradient)
+	}
 	firstGradient.Gradients[0] = rgb.Color{Red: 200}
-	firstGradient.Gradients[1] = rgb.Color{Green: 201}
-	first.device.Rgb.Profiles["gradient"] = firstGradient
-	first.device.Rgb.Profiles["new-profile"] = rgb.Profile{ProfileName: "new-profile"}
-
-	if _, ok := template.Profiles["new-profile"]; ok {
-		t.Fatal("prepared import mutated the global RGB template profile map")
-	}
-	if got := template.Profiles["gradient"].Gradients[0].Red; got != 10 {
-		t.Fatalf("prepared import mutated global template gradients: %v", got)
-	}
-	if _, ok := second.device.Rgb.Profiles["new-profile"]; ok {
-		t.Fatal("fresh imports share their RGB profile map")
-	}
-	if got := second.device.Rgb.Profiles["gradient"].Gradients[0].Red; got != 10 {
-		t.Fatalf("fresh imports share gradient maps: %v", got)
+	if secondAgain := second.device.GetRgbProfile("gradient"); reflect.DeepEqual(firstGradient, secondAgain) {
+		t.Fatal("prepared imports share mutable resolved Gradient data")
 	}
 	wantCatalogue := importerSoftwareEffectCatalogue()
 	if !slices.Equal(first.device.RGBModes, wantCatalogue) || !slices.Equal(second.device.RGBModes, wantCatalogue) {
@@ -1286,7 +1259,7 @@ func TestUnmatchedAllZeroFallbackImportsOnce(t *testing.T) {
 		live.Config == nil ||
 		!reflect.DeepEqual(live.Config.Zones, cfg.Zones) ||
 		live.DeviceProfile == nil ||
-		live.Rgb == nil ||
+		live.Rgb != nil ||
 		registry.count() != 1 ||
 		enabledConfiguredCount() != 1 ||
 		managerAdds.Load() != 1 ||
@@ -1303,13 +1276,13 @@ func TestUnmatchedAllZeroFallbackImportsOnce(t *testing.T) {
 		)
 	}
 
-	for _, path := range []string{
-		filepath.Join(root, "database", "rgb", serial+".json"),
-		filepath.Join(root, "database", "profiles", serial+".json"),
-	} {
-		if _, err = os.Stat(path); err != nil {
-			t.Fatalf("fallback artifact %q was not created: %v", path, err)
-		}
+	profilePath := filepath.Join(root, "database", "profiles", serial+".json")
+	if _, err = os.Stat(profilePath); err != nil {
+		t.Fatalf("fallback profile artifact %q was not created: %v", profilePath, err)
+	}
+	legacyRGBPath := filepath.Join(root, "database", "rgb", serial+".json")
+	if _, err = os.Stat(legacyRGBPath); !os.IsNotExist(err) {
+		t.Fatalf("fallback import created legacy RGB artifact %q: %v", legacyRGBPath, err)
 	}
 
 	rediscovered, err := DiscoverPreview(context.Background())
@@ -1695,7 +1668,7 @@ func TestLegacyExternalSerialCanonicalizationSurvivesImportRollback(t *testing.T
 		{name: "n-a", stored: " n/a ", discovered: "canonical-na", want: ""},
 		{name: "padded-usable", stored: " canonical-usable ", discovered: "canonical-usable", want: "canonical-usable"},
 	}
-	failures := []string{"artifact", "registry", "cluster", "manager"}
+	failures := []string{"registry", "cluster", "manager"}
 
 	for _, external := range externalCases {
 		for _, failure := range failures {
@@ -1757,10 +1730,6 @@ func TestLegacyExternalSerialCanonicalizationSurvivesImportRollback(t *testing.T
 					return nil
 				}
 				switch failure {
-				case "artifact":
-					createArtifactFile = func(string, []byte) (bool, error) {
-						return false, errors.New("injected artifact activation failure")
-					}
 				case "registry":
 					registry.failRegister = true
 				}
@@ -2104,12 +2073,7 @@ func TestImportRemoveAndExactDisabledReimport(t *testing.T) {
 	if len(store.Devices) != 1 || store.Devices[serial].Disabled {
 		t.Fatalf("store after subset import = %#v", store)
 	}
-	rgbPath := filepath.Join(root, "database", "rgb", serial+".json")
 	profilePath := filepath.Join(root, "database", "profiles", serial+".json")
-	rgbBefore, err := os.ReadFile(rgbPath)
-	if err != nil {
-		t.Fatal(err)
-	}
 	profileBefore, err := os.ReadFile(profilePath)
 	if err != nil {
 		t.Fatal(err)
@@ -2131,10 +2095,9 @@ func TestImportRemoveAndExactDisabledReimport(t *testing.T) {
 	if !store.Devices[serial].Disabled || registry.count() != 0 || enabledConfiguredCount() != 0 {
 		t.Fatalf("removed membership store=%#v registry=%d configured=%d", store, registry.count(), enabledConfiguredCount())
 	}
-	rgbAfter, _ := os.ReadFile(rgbPath)
 	profileAfter, _ := os.ReadFile(profilePath)
-	if string(rgbAfter) != string(rgbBefore) || string(profileAfter) != string(profileBefore) {
-		t.Fatal("removal changed preserved RGB/profile artifacts")
+	if string(profileAfter) != string(profileBefore) {
+		t.Fatal("removal changed preserved profile artifact")
 	}
 
 	reimported, err := ImportControllers(context.Background(), []string{key}, registry.hooks())
@@ -2808,12 +2771,7 @@ func TestActivatingPublishedImportRejectsArtifactMutations(t *testing.T) {
 		t.Fatal("prepared wrapper was publicly mutable before transaction commit")
 	}
 
-	rgbPath := filepath.Join(root, "database", "rgb", serial+".json")
 	profilePath := filepath.Join(root, "database", "profiles", serial+".json")
-	rgbBefore, err := os.ReadFile(rgbPath)
-	if err != nil {
-		t.Fatal(err)
-	}
 	profileBefore, err := os.ReadFile(profilePath)
 	if err != nil {
 		t.Fatal(err)
@@ -2828,15 +2786,11 @@ func TestActivatingPublishedImportRejectsArtifactMutations(t *testing.T) {
 		exposed.UpdateRgbProfileData("static", rgb.Profile{ProfileName: "static"}) != 0 {
 		t.Fatal("activating device accepted a profile, RGB, or cluster mutation")
 	}
-	rgbDuring, err := os.ReadFile(rgbPath)
-	if err != nil {
-		t.Fatal(err)
-	}
 	profileDuring, err := os.ReadFile(profilePath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(rgbDuring) != string(rgbBefore) || string(profileDuring) != string(profileBefore) {
+	if string(profileDuring) != string(profileBefore) {
 		t.Fatal("activating device changed transaction-created artifacts")
 	}
 	if _, statErr := os.Stat(filepath.Join(root, "database", "profiles", serial+"-stale.json")); !os.IsNotExist(statErr) {
@@ -2854,9 +2808,6 @@ func TestActivatingPublishedImportRejectsArtifactMutations(t *testing.T) {
 	}
 	if registry.count() != 0 || enabledConfiguredCount() != 0 {
 		t.Fatalf("failed activating import left registry=%d configured=%d", registry.count(), enabledConfiguredCount())
-	}
-	if _, statErr := os.Stat(rgbPath); !os.IsNotExist(statErr) {
-		t.Fatalf("failed import left RGB artifact: %v", statErr)
 	}
 	if _, statErr := os.Stat(profilePath); !os.IsNotExist(statErr) {
 		t.Fatalf("failed import left profile artifact: %v", statErr)
@@ -2948,12 +2899,7 @@ func TestDetachedStaleObjectCannotMutateDisabledOrReimportedState(t *testing.T) 
 		t.Fatalf("reimport device = %p, old detached device = %p", newDevice, oldDevice)
 	}
 
-	rgbPath := filepath.Join(root, "database", "rgb", serial+".json")
 	profilePath := filepath.Join(root, "database", "profiles", serial+".json")
-	rgbBefore, err := os.ReadFile(rgbPath)
-	if err != nil {
-		t.Fatal(err)
-	}
 	profileBefore, err := os.ReadFile(profilePath)
 	if err != nil {
 		t.Fatal(err)
@@ -2996,16 +2942,11 @@ func TestDetachedStaleObjectCannotMutateDisabledOrReimportedState(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	rgbAfter, err := os.ReadFile(rgbPath)
-	if err != nil {
-		t.Fatal(err)
-	}
 	profileAfter, err := os.ReadFile(profilePath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(storeAfter, storeBefore) ||
-		string(rgbAfter) != string(rgbBefore) ||
 		string(profileAfter) != string(profileBefore) ||
 		!reflect.DeepEqual(oldDevice.Snapshot(), oldBefore) {
 		t.Fatal("detached stale calls changed store, artifacts, or old runtime state")

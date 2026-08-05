@@ -390,6 +390,10 @@ func TestSaveDeviceConfigPreservesCallerAndValidBehavior(t *testing.T) {
 	if device.colorCount != 2 || device.ZoneAmount != 1 {
 		t.Fatalf("saved dimensions = colorCount %d, zones %d", device.colorCount, device.ZoneAmount)
 	}
+	lightingState, found, err := device.lightingState.Resolve(serial)
+	if err != nil || !found || lightingState != (DeviceLightingState{SelectedEffect: "static", Brightness: 100}) {
+		t.Fatalf("device configuration lighting state = %#v, %t, %v", lightingState, found, err)
+	}
 
 	store, err := loadConfigStore()
 	if err != nil {

@@ -102,11 +102,11 @@ func assertUserProfileOverrideExistingFields(t *testing.T, saved, source *Device
 		t.Fatal("new user profile unexpectedly became active")
 	}
 	if saved.Path != expectedPath || saved.Product != source.Product || saved.Serial != source.Serial ||
-		saved.RGBProfile != source.RGBProfile || saved.RGBCluster != source.RGBCluster {
+		saved.RGBCluster != source.RGBCluster {
 		t.Fatalf("saved profile identity/state = %#v, source %#v, expected path %q", saved, source, expectedPath)
 	}
-	if saved.BrightnessSlider == nil || source.BrightnessSlider == nil || *saved.BrightnessSlider != *source.BrightnessSlider {
-		t.Fatalf("saved brightness = %#v, source %#v", saved.BrightnessSlider, source.BrightnessSlider)
+	if saved.RGBProfile != "" || saved.BrightnessSlider != nil {
+		t.Fatalf("saved legacy lighting fields = effect %q, brightness %#v", saved.RGBProfile, saved.BrightnessSlider)
 	}
 	if !reflect.DeepEqual(saved.ZoneColors, source.ZoneColors) {
 		t.Fatalf("saved zones = %#v, source %#v", saved.ZoneColors, source.ZoneColors)

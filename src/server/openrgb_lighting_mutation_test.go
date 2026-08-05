@@ -361,9 +361,8 @@ func TestOpenRGBLightingSpeedClusterOwnershipGuard(t *testing.T) {
 	if response.Message != "Unable to set speed" || strings.Contains(recorder.Body.String(), ownershipError) {
 		t.Fatalf("cluster-owned speed response = %s", recorder.Body.String())
 	}
-	snapshot, ok := device.LightingSnapshot()
-	if !ok || snapshot.BaseDefinition == nil || snapshot.BaseDefinition.Speed != 2 || snapshot.ConfiguredEffect != "rainbow" {
-		t.Fatalf("cluster rejection changed Lighting state: %#v", snapshot)
+	if device.DeviceProfile != profile || profile.RGBProfile != "rainbow" || device.Rgb.Profiles["rainbow"].Speed != 2 {
+		t.Fatalf("cluster rejection changed fixture state: profile=%#v RGB=%#v", profile, device.Rgb)
 	}
 }
 

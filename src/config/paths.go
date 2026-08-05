@@ -51,6 +51,7 @@ type Paths struct {
 	MutableProfilesRoot       string
 	MutableRGBRoot            string
 	MutableLightingRoot       string
+	OpenRGBDeviceLightingFile string
 	DeviceEffectSettingsFile  string
 	ClusterEffectSettingsFile string
 	MutableTemperaturesRoot   string
@@ -216,6 +217,7 @@ func ResolvePaths(options PathOptions) (Paths, error) {
 		MutableProfilesRoot:       filepath.Join(mutableDatabaseRoot, "profiles"),
 		MutableRGBRoot:            filepath.Join(mutableDatabaseRoot, "rgb"),
 		MutableLightingRoot:       filepath.Join(mutableDatabaseRoot, "lighting"),
+		OpenRGBDeviceLightingFile: filepath.Join(mutableDatabaseRoot, "lighting", "openrgb-device-state.json"),
 		DeviceEffectSettingsFile:  filepath.Join(mutableDatabaseRoot, "lighting", "independent-device-effects.json"),
 		ClusterEffectSettingsFile: filepath.Join(mutableDatabaseRoot, "lighting", "rgb-cluster-effects.json"),
 		MutableTemperaturesRoot:   filepath.Join(mutableDatabaseRoot, "temperatures"),

@@ -56,8 +56,9 @@ type LightingSnapshot struct {
 	Effective         *LightingDefinitionSnapshot
 }
 
-// LightingSnapshot returns a complete race-safe value snapshot using the
-// established Device.mu -> rgbMutex lock order.
+// LightingSnapshot returns a complete race-safe value snapshot. Selected
+// effect, Brightness, and effect settings come from the cut-over target state
+// and canonical resolver; legacy profile fields are presentation-only here.
 func (d *Device) LightingSnapshot() (LightingSnapshot, bool) {
 	if d == nil {
 		return LightingSnapshot{}, false
@@ -69,9 +70,6 @@ func (d *Device) LightingSnapshot() (LightingSnapshot, bool) {
 		return LightingSnapshot{}, false
 	}
 
-	d.rgbMutex.RLock()
-	defer d.rgbMutex.RUnlock()
-
 	snapshot := LightingSnapshot{
 		SupportedEffects: make([]LightingEffectOption, 0, len(d.RGBModes)),
 	}
@@ -79,29 +77,24 @@ func (d *Device) LightingSnapshot() (LightingSnapshot, bool) {
 		option := LightingEffectOption{ID: effect}
 		if descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect); ok {
 			option.Label = descriptor.Label
-		} else if d.Rgb != nil {
-			if definition, ok := d.Rgb.Profiles[effect]; ok {
-				option.Label = definition.ProfileName
-			}
 		}
 		option.Capability, option.CapabilityKnown = rgb.LightingEffectCapabilities(effect)
 		snapshot.SupportedEffects = append(snapshot.SupportedEffects, option)
 	}
 
 	profile := d.DeviceProfile
-	if profile == nil || !profile.Active {
-		return snapshot, true
+	snapshot.HasActiveProfile = profile != nil && profile.Active
+	snapshot.ConfiguredEffect = d.effect
+	if snapshot.ConfiguredEffect == "" {
+		snapshot.ConfiguredEffect = defaultDeviceLightingEffect
 	}
-
-	snapshot.HasActiveProfile = true
-	snapshot.ConfiguredEffect = profile.RGBProfile
-	snapshot.EffectSupported = slices.Contains(d.RGBModes, profile.RGBProfile)
-	snapshot.ClusterControlled = profile.RGBCluster
-	if profile.BrightnessSlider != nil {
-		snapshot.HasBrightness = true
-		snapshot.Brightness = *profile.BrightnessSlider
+	snapshot.EffectSupported = slices.Contains(d.RGBModes, snapshot.ConfiguredEffect)
+	snapshot.HasBrightness = true
+	snapshot.Brightness = d.brightness
+	if profile != nil {
+		snapshot.ClusterControlled = profile.RGBCluster
 	}
-	if profile.RGBOverride != nil {
+	if profile != nil && profile.RGBOverride != nil {
 		snapshot.Override = &LightingOverrideSnapshot{
 			Enabled:     profile.RGBOverride.Enabled,
 			StartColor:  profile.RGBOverride.RGBStartColor,
@@ -111,21 +104,22 @@ func (d *Device) LightingSnapshot() (LightingSnapshot, bool) {
 		}
 	}
 
-	capability, known := rgb.LightingEffectCapabilities(profile.RGBProfile)
-	if !snapshot.EffectSupported || !known || d.Rgb == nil {
+	capability, known := rgb.LightingEffectCapabilities(snapshot.ConfiguredEffect)
+	if !snapshot.EffectSupported || !known || d.lightingResolver == nil {
 		return snapshot, true
 	}
-	definition, ok := d.Rgb.Profiles[profile.RGBProfile]
-	if !ok {
+	resolution, err := d.resolveLightingSettings(snapshot.ConfiguredEffect)
+	if err != nil {
 		return snapshot, true
 	}
 
+	definition := rgbProfileFromLightingSettings(resolution.Settings)
 	base := lightingDefinitionSnapshot(definition, capability)
 	snapshot.BaseDefinition = &base
+	// Base/Override/Effective remain temporarily for response compatibility.
+	// Runtime precedence has been removed: Effective reflects the authoritative
+	// resolved settings while Override is retained only as legacy presentation.
 	effective := base
-	if snapshot.Override != nil && snapshot.Override.Enabled {
-		applyLightingOverride(&effective, *snapshot.Override)
-	}
 	snapshot.Effective = &effective
 	return snapshot, true
 }

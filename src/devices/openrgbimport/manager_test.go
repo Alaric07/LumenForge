@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -30,9 +31,23 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	config.Init()
+	repositoryRoot := filepath.Clean(filepath.Join(originalWorkingDirectory, "..", "..", ".."))
+	paths, err := config.ResolvePaths(config.PathOptions{
+		Mode:             config.ServiceModeDevelopment,
+		ApplicationRoot:  repositoryRoot,
+		ConfigRoot:       temporaryDirectory,
+		DataRoot:         temporaryDirectory,
+		WorkingDirectory: repositoryRoot,
+	})
+	if err != nil {
+		panic(err)
+	}
+	testShippedDatabaseRoot = paths.ShippedDatabaseRoot
+	restorePaths := config.UsePathsForTest(paths)
 	logger.Init()
 
 	code := m.Run()
+	restorePaths()
 	_ = os.Chdir(originalWorkingDirectory)
 	_ = os.RemoveAll(temporaryDirectory)
 	os.Exit(code)
@@ -47,6 +62,23 @@ func useStorePath(t *testing.T) string {
 		configStorePath = previous
 	})
 	return path
+}
+
+var testLightingRuntimeSequence atomic.Uint64
+var testShippedDatabaseRoot string
+
+func attachTestLightingRuntime(device *Device) {
+	paths := config.GetPaths()
+	root := filepath.Join(paths.MutableDataRoot, "test-lighting", fmt.Sprintf("%d", testLightingRuntimeSequence.Add(1)))
+	lightingPaths := deviceLightingPathsForMutableRoot(root)
+	lightingPaths.ShippedDatabaseRoot = testShippedDatabaseRoot
+	runtime, err := loadDeviceLightingRuntime(lightingPaths)
+	if err != nil {
+		panic(err)
+	}
+	if err = device.attachLightingRuntime(runtime); err != nil {
+		panic(err)
+	}
 }
 
 func testConfig(serial, product string) DeviceConfig {
@@ -74,6 +106,7 @@ func testDevice(cfg DeviceConfig) *Device {
 		effect:       "static",
 		speed:        2,
 	}
+	attachTestLightingRuntime(d)
 	d.createDevice()
 	d.instance.Unavailable = true
 	return d
@@ -389,8 +422,8 @@ func TestConfiguredBootstrapReturnsPlaceholderBeforeAsyncBind(t *testing.T) {
 	if device == nil || device.ControllerID() != -1 {
 		t.Fatalf("placeholder controller ID = %v, want -1", device)
 	}
-	if device.Config == nil || device.DeviceProfile == nil || device.Rgb == nil {
-		t.Fatal("placeholder did not load saved zone, profile, and RGB state")
+	if device.Config == nil || device.DeviceProfile == nil || device.lightingResolver == nil {
+		t.Fatal("placeholder did not load saved zone, profile, and canonical lighting state")
 	}
 
 	availability := make(chan bool, 4)

@@ -200,7 +200,7 @@ func TestOpenRGBSoftwareEffectEligibilityRejectsUnsupportedProfiles(t *testing.T
 }
 
 func TestOpenRGBSoftwareEffectResumeUsesEligibilityBoundary(t *testing.T) {
-	profileDir, frames := installSoftwareEffectResumeSeams(t)
+	_, frames := installSoftwareEffectResumeSeams(t)
 	device := newLightingMutationDevice()
 	brightness := uint8(100)
 	device.RGBModes = importerSoftwareEffectCatalogue()
@@ -211,38 +211,21 @@ func TestOpenRGBSoftwareEffectResumeUsesEligibilityBoundary(t *testing.T) {
 	device.DeviceProfile.RGBProfile = "unknown"
 	device.DeviceProfile.BrightnessSlider = &brightness
 
-	if err := device.resumeDesiredState(context.Background()); err != nil {
-		t.Fatalf("resume unknown persisted effect: %v", err)
+	if err := device.resumeDesiredState(context.Background()); err == nil {
+		t.Fatal("resume accepted invalid authoritative effect state")
 	}
-	t.Cleanup(device.Stop)
-
-	var frame []byte
 	select {
-	case frame = <-frames:
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for resumed Static fallback frame")
-	}
-	device.Stop()
-
-	wantFrame := []byte{
-		12, 34, 56,
-		12, 34, 56,
-		12, 34, 56,
-		12, 34, 56,
-	}
-	if !bytes.Equal(frame, wantFrame) {
-		t.Fatalf("resumed unsupported effect frame = %v, want Static fallback %v", frame, wantFrame)
+	case frame := <-frames:
+		t.Fatalf("invalid authoritative effect produced fallback output: %v", frame)
+	default:
 	}
 	if device.effect != "unknown" || device.DeviceProfile.RGBProfile != "unknown" {
 		t.Fatalf("resumed unsupported profile changed: effect = %q, profile = %q", device.effect, device.DeviceProfile.RGBProfile)
 	}
-	if persisted := readLightingDeviceProfile(t, profileDir); persisted.RGBProfile != "unknown" {
-		t.Fatalf("persisted unsupported profile = %q, want unknown", persisted.RGBProfile)
-	}
 }
 
 func TestOpenRGBSoftwareEffectExpandedResumeUsesRenderer(t *testing.T) {
-	profileDir, frames := installSoftwareEffectResumeSeams(t)
+	_, frames := installSoftwareEffectResumeSeams(t)
 	device := newLightingMutationDevice()
 	brightness := uint8(100)
 	device.RGBModes = importerSoftwareEffectCatalogue()
@@ -260,6 +243,9 @@ func TestOpenRGBSoftwareEffectExpandedResumeUsesRenderer(t *testing.T) {
 			Speed:       2,
 		},
 	}}
+	if err := device.lightingState.Set(device.Serial, DeviceLightingState{SelectedEffect: "arc", Brightness: brightness}); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := device.resumeDesiredState(context.Background()); err != nil {
 		t.Fatalf("resume newly supported persisted effect: %v", err)
@@ -285,8 +271,9 @@ func TestOpenRGBSoftwareEffectExpandedResumeUsesRenderer(t *testing.T) {
 	if device.effect != "arc" || device.DeviceProfile.RGBProfile != "arc" {
 		t.Fatalf("resumed newly supported profile changed: effect = %q, profile = %q", device.effect, device.DeviceProfile.RGBProfile)
 	}
-	if persisted := readLightingDeviceProfile(t, profileDir); persisted.RGBProfile != "arc" {
-		t.Fatalf("persisted newly supported profile = %q, want arc", persisted.RGBProfile)
+	state, found, stateErr := device.lightingState.Resolve(device.Serial)
+	if stateErr != nil || !found || state.SelectedEffect != "arc" {
+		t.Fatalf("persisted newly supported state = %#v, %t, %v", state, found, stateErr)
 	}
 }
 

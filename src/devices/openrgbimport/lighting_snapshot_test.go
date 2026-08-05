@@ -13,7 +13,8 @@ func lightingTestColor(red, green, blue float64) rgb.Color {
 
 func lightingTestDevice(effect string, modes []string, definitions map[string]rgb.Profile) *Device {
 	brightness := uint8(50)
-	return &Device{
+	device := &Device{
+		Serial:    "openrgb-lighting-snapshot-test",
 		IsOpenRGB: true,
 		RGBModes:  append([]string(nil), modes...),
 		DeviceProfile: &DeviceProfile{
@@ -23,6 +24,18 @@ func lightingTestDevice(effect string, modes []string, definitions map[string]rg
 		},
 		Rgb: &rgb.RGB{Profiles: definitions},
 	}
+	attachTestLightingRuntime(device)
+	device.effect = effect
+	device.brightness = brightness
+	for effectID, definition := range definitions {
+		settings, err := lightingSettingsFromRGBProfile(effectID, definition)
+		if err == nil {
+			if err = device.lightingEffects.Set(device.Serial, effectID, settings); err != nil {
+				panic(err)
+			}
+		}
+	}
+	return device
 }
 
 func TestOpenRGBLightingSnapshotNilAndInactive(t *testing.T) {
@@ -87,9 +100,7 @@ func TestOpenRGBLightingSnapshotConfiguredState(t *testing.T) {
 	if snapshot.Override == nil || !snapshot.Override.Enabled || snapshot.Override.Speed != 0 {
 		t.Fatalf("override = %+v", snapshot.Override)
 	}
-	if snapshot.Effective == nil || snapshot.Effective.StartColor != device.DeviceProfile.RGBOverride.RGBStartColor ||
-		snapshot.Effective.EndColor != device.DeviceProfile.RGBOverride.RGBEndColor || snapshot.Effective.HasMiddleColor ||
-		snapshot.Effective.Speed != 0 {
+	if snapshot.Effective == nil || !reflect.DeepEqual(snapshot.Effective, snapshot.BaseDefinition) {
 		t.Fatalf("effective definition = %+v", snapshot.Effective)
 	}
 }
@@ -132,25 +143,21 @@ func TestOpenRGBLightingSnapshotPaletteSemantics(t *testing.T) {
 		RgbModeSpeed:   0,
 	}
 	tests := []struct {
-		name            string
-		effect          string
-		palette         rgb.LightingPaletteKind
-		start           bool
-		middle          bool
-		end             bool
-		speed           bool
-		effectiveSpeed  float64
-		effectiveStart  rgb.Color
-		effectiveMiddle rgb.Color
-		effectiveEnd    rgb.Color
+		name    string
+		effect  string
+		palette rgb.LightingPaletteKind
+		start   bool
+		middle  bool
+		end     bool
+		speed   bool
 	}{
-		{name: "static", effect: "static", palette: rgb.LightingPaletteStaticSingle, start: true, effectiveStart: override.RGBStartColor},
+		{name: "static", effect: "static", palette: rgb.LightingPaletteStaticSingle, start: true},
 		{name: "off", effect: "off", palette: rgb.LightingPaletteNone},
-		{name: "two color", effect: "wave", palette: rgb.LightingPaletteTwoColor, start: true, end: true, speed: true, effectiveStart: override.RGBStartColor, effectiveEnd: override.RGBEndColor},
-		{name: "CPU temperature", effect: "cpu-temperature", palette: rgb.LightingPaletteTemperatureThree, start: true, middle: true, end: true, effectiveStart: override.RGBStartColor, effectiveMiddle: override.RGBMiddleColor, effectiveEnd: override.RGBEndColor},
-		{name: "GPU temperature", effect: "gpu-temperature", palette: rgb.LightingPaletteTemperatureThree, start: true, middle: true, end: true, effectiveStart: override.RGBStartColor, effectiveMiddle: override.RGBMiddleColor, effectiveEnd: override.RGBEndColor},
+		{name: "two color", effect: "wave", palette: rgb.LightingPaletteTwoColor, start: true, end: true, speed: true},
+		{name: "CPU temperature", effect: "cpu-temperature", palette: rgb.LightingPaletteTemperatureThree, start: true, middle: true, end: true},
+		{name: "GPU temperature", effect: "gpu-temperature", palette: rgb.LightingPaletteTemperatureThree, start: true, middle: true, end: true},
 		{name: "generated", effect: "rainbow", palette: rgb.LightingPaletteGenerated, speed: true},
-		{name: "gradient", effect: "gradient", palette: rgb.LightingPaletteGradient, speed: true, effectiveSpeed: 6},
+		{name: "gradient", effect: "gradient", palette: rgb.LightingPaletteGradient, speed: true},
 	}
 
 	for _, tt := range tests {
@@ -178,17 +185,8 @@ func TestOpenRGBLightingSnapshotPaletteSemantics(t *testing.T) {
 				base.HasMiddleColor != tt.middle || base.HasEndColor != tt.end || base.HasSpeed != tt.speed {
 				t.Fatalf("base definition = %+v", base)
 			}
-			if tt.start && effective.StartColor != tt.effectiveStart {
-				t.Errorf("effective start = %+v, want %+v", effective.StartColor, tt.effectiveStart)
-			}
-			if tt.middle && effective.MiddleColor != tt.effectiveMiddle {
-				t.Errorf("effective middle = %+v, want %+v", effective.MiddleColor, tt.effectiveMiddle)
-			}
-			if tt.end && effective.EndColor != tt.effectiveEnd {
-				t.Errorf("effective end = %+v, want %+v", effective.EndColor, tt.effectiveEnd)
-			}
-			if effective.HasSpeed && effective.Speed != tt.effectiveSpeed {
-				t.Errorf("effective speed = %v, want %v", effective.Speed, tt.effectiveSpeed)
+			if !reflect.DeepEqual(effective, base) {
+				t.Errorf("presentation-only override changed effective definition: base=%+v effective=%+v", base, effective)
 			}
 			if (tt.palette == rgb.LightingPaletteGenerated || tt.palette == rgb.LightingPaletteGradient || tt.palette == rgb.LightingPaletteNone) &&
 				(effective.HasStartColor || effective.HasMiddleColor || effective.HasEndColor) {
@@ -203,7 +201,7 @@ func TestOpenRGBLightingSnapshotUnknownStates(t *testing.T) {
 		device := lightingTestDevice("static", []string{"static"}, map[string]rgb.Profile{"static": {ProfileName: "Static"}})
 		device.DeviceProfile = nil
 		snapshot, ok := device.LightingSnapshot()
-		if !ok || snapshot.HasActiveProfile || snapshot.ConfiguredEffect != "" || snapshot.BaseDefinition != nil || len(snapshot.SupportedEffects) != 1 {
+		if !ok || snapshot.HasActiveProfile || snapshot.ConfiguredEffect != "static" || snapshot.BaseDefinition == nil || len(snapshot.SupportedEffects) != 1 {
 			t.Fatalf("snapshot = %+v, %t", snapshot, ok)
 		}
 	})
@@ -212,7 +210,7 @@ func TestOpenRGBLightingSnapshotUnknownStates(t *testing.T) {
 		device := lightingTestDevice("static", []string{"static"}, map[string]rgb.Profile{"static": {ProfileName: "Static"}})
 		device.DeviceProfile.Active = false
 		snapshot, ok := device.LightingSnapshot()
-		if !ok || snapshot.HasActiveProfile || snapshot.BaseDefinition != nil {
+		if !ok || snapshot.HasActiveProfile || snapshot.BaseDefinition == nil {
 			t.Fatalf("snapshot = %+v, %t", snapshot, ok)
 		}
 	})
@@ -231,7 +229,7 @@ func TestOpenRGBLightingSnapshotUnknownStates(t *testing.T) {
 	t.Run("empty configured effect", func(t *testing.T) {
 		device := lightingTestDevice("", []string{"static"}, map[string]rgb.Profile{"static": {ProfileName: "Static"}})
 		snapshot, ok := device.LightingSnapshot()
-		if !ok || snapshot.ConfiguredEffect != "" || snapshot.EffectSupported || snapshot.BaseDefinition != nil {
+		if !ok || snapshot.ConfiguredEffect != "static" || !snapshot.EffectSupported || snapshot.BaseDefinition == nil {
 			t.Fatalf("snapshot = %+v, %t", snapshot, ok)
 		}
 	})
@@ -239,7 +237,7 @@ func TestOpenRGBLightingSnapshotUnknownStates(t *testing.T) {
 	t.Run("supported effect missing definition", func(t *testing.T) {
 		device := lightingTestDevice("wave", []string{"wave"}, map[string]rgb.Profile{})
 		snapshot, ok := device.LightingSnapshot()
-		if !ok || !snapshot.EffectSupported || len(snapshot.SupportedEffects) != 1 || snapshot.BaseDefinition != nil || snapshot.Effective != nil {
+		if !ok || !snapshot.EffectSupported || len(snapshot.SupportedEffects) != 1 || snapshot.BaseDefinition == nil || snapshot.Effective == nil {
 			t.Fatalf("snapshot = %+v, %t", snapshot, ok)
 		}
 	})
@@ -248,7 +246,7 @@ func TestOpenRGBLightingSnapshotUnknownStates(t *testing.T) {
 		device := lightingTestDevice("wave", []string{"wave"}, nil)
 		device.Rgb = nil
 		snapshot, ok := device.LightingSnapshot()
-		if !ok || !snapshot.EffectSupported || len(snapshot.SupportedEffects) != 1 || snapshot.BaseDefinition != nil || snapshot.Effective != nil {
+		if !ok || !snapshot.EffectSupported || len(snapshot.SupportedEffects) != 1 || snapshot.BaseDefinition == nil || snapshot.Effective == nil {
 			t.Fatalf("snapshot = %+v, %t", snapshot, ok)
 		}
 	})
@@ -295,8 +293,8 @@ func TestOpenRGBLightingSnapshotOverrideStates(t *testing.T) {
 		if snapshot.Override == nil || snapshot.Override.StartColor != (rgb.Color{}) || snapshot.Override.Speed != 0 {
 			t.Fatalf("override = %+v", snapshot.Override)
 		}
-		if snapshot.Effective == nil || !snapshot.Effective.HasStartColor || snapshot.Effective.StartColor != (rgb.Color{}) {
-			t.Fatalf("black override was not effective: %+v", snapshot.Effective)
+		if snapshot.Effective == nil || !snapshot.Effective.HasStartColor || snapshot.Effective.StartColor != baseStart {
+			t.Fatalf("presentation-only override changed effective state: %+v", snapshot.Effective)
 		}
 	})
 }
@@ -312,7 +310,7 @@ func TestOpenRGBLightingSnapshotBrightnessAndCluster(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			device := lightingTestDevice("static", []string{"static"}, map[string]rgb.Profile{"static": {}})
-			*device.DeviceProfile.BrightnessSlider = tt.brightness
+			device.brightness = tt.brightness
 			device.DeviceProfile.RGBCluster = true
 			snapshot, _ := device.LightingSnapshot()
 			if !snapshot.HasBrightness || snapshot.Brightness != tt.brightness || !snapshot.ClusterControlled {
@@ -323,9 +321,10 @@ func TestOpenRGBLightingSnapshotBrightnessAndCluster(t *testing.T) {
 
 	device := lightingTestDevice("static", []string{"static"}, map[string]rgb.Profile{"static": {}})
 	device.DeviceProfile.BrightnessSlider = nil
+	device.brightness = 64
 	snapshot, _ := device.LightingSnapshot()
-	if snapshot.HasBrightness || snapshot.Brightness != 0 {
-		t.Fatalf("missing brightness was presented as configured: %+v", snapshot)
+	if !snapshot.HasBrightness || snapshot.Brightness != 64 {
+		t.Fatalf("legacy profile brightness affected authoritative state: %+v", snapshot)
 	}
 }
 
@@ -389,7 +388,7 @@ func TestOpenRGBLightingSnapshotConcurrentRead(t *testing.T) {
 		"static": {ProfileName: "Static", StartColor: lightingTestColor(1, 0, 0)},
 		"wave":   {ProfileName: "Wave", StartColor: lightingTestColor(2, 0, 0), EndColor: lightingTestColor(3, 0, 0), Speed: 4},
 	})
-	*device.DeviceProfile.BrightnessSlider = 25
+	device.brightness = 25
 
 	var wait sync.WaitGroup
 	wait.Add(2)
@@ -397,19 +396,15 @@ func TestOpenRGBLightingSnapshotConcurrentRead(t *testing.T) {
 		defer wait.Done()
 		for i := 0; i < 500; i++ {
 			device.mu.Lock()
-			device.rgbMutex.Lock()
 			if i%2 == 0 {
-				brightness := uint8(25)
-				device.DeviceProfile = &DeviceProfile{Active: true, RGBProfile: "static", BrightnessSlider: &brightness}
+				device.effect = "static"
+				device.brightness = 25
 				device.RGBModes = []string{"static", "wave"}
-				device.Rgb.Profiles["static"] = rgb.Profile{ProfileName: "Static", StartColor: lightingTestColor(1, 0, 0)}
 			} else {
-				brightness := uint8(75)
-				device.DeviceProfile = &DeviceProfile{Active: true, RGBProfile: "wave", BrightnessSlider: &brightness}
+				device.effect = "wave"
+				device.brightness = 75
 				device.RGBModes = []string{"wave", "static"}
-				device.Rgb.Profiles["wave"] = rgb.Profile{ProfileName: "Wave", StartColor: lightingTestColor(2, 0, 0), EndColor: lightingTestColor(3, 0, 0), Speed: 4}
 			}
-			device.rgbMutex.Unlock()
 			device.mu.Unlock()
 		}
 	}()

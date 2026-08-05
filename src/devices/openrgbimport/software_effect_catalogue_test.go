@@ -189,7 +189,7 @@ func TestOpenRGBSoftwareEffectCatalogueContractsAndFrames(t *testing.T) {
 }
 
 func TestOpenRGBSoftwareEffectCatalogueMutationValidation(t *testing.T) {
-	profileDir, _ := installLightingDeviceTestSeams(t)
+	_, _ = installLightingDeviceTestSeams(t)
 	installLightingTemperatureTestSeams(t, 45, 60, 65)
 	profiles := shippedSoftwareEffectProfiles(t)
 	profiles["off"] = rgb.Profile{}
@@ -208,8 +208,9 @@ func TestOpenRGBSoftwareEffectCatalogueMutationValidation(t *testing.T) {
 			if device.effect != effect || device.DeviceProfile.RGBProfile != effect {
 				t.Fatalf("selected effect = %q, profile = %q, want %q", device.effect, device.DeviceProfile.RGBProfile, effect)
 			}
-			if persisted := readLightingDeviceProfile(t, profileDir); persisted.RGBProfile != effect {
-				t.Fatalf("persisted effect = %q, want %q", persisted.RGBProfile, effect)
+			state, found, stateErr := device.lightingState.Resolve(device.Serial)
+			if stateErr != nil || !found || state.SelectedEffect != effect {
+				t.Fatalf("persisted effect = %#v, %t, %v; want %q", state, found, stateErr, effect)
 			}
 		})
 	}

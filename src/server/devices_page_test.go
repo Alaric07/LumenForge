@@ -291,9 +291,9 @@ func TestDevicesLightingSpeedControlPresentation(t *testing.T) {
 	overrideSnapshot := devicesLightingSpeedSnapshot("rain", 2.5)
 	overrideSnapshot.Override = &openrgbimport.LightingOverrideSnapshot{Enabled: true, Speed: 2.5}
 	overrideSummary := openRGBLightingWorkspaceSummaryFromSnapshot(overrideSnapshot)
-	if !overrideSummary.HasSpeedControl || overrideSummary.SpeedTarget != "override" ||
+	if !overrideSummary.HasSpeedControl || overrideSummary.SpeedTarget != "base" ||
 		overrideSummary.Override == nil || overrideSummary.Override.SpeedRole != "override" {
-		t.Fatalf("enabled override speed presentation = %#v", overrideSummary)
+		t.Fatalf("canonical speed presentation with stored override = %#v", overrideSummary)
 	}
 
 	gradientSnapshot := devicesLightingSpeedSnapshot("gradient", 4)

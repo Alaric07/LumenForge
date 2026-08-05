@@ -36,6 +36,9 @@ func TestResolvePathsInstalledUserWithXDGRoots(t *testing.T) {
 	if paths.DeviceEffectSettingsFile != "/srv/alice-data/lumenforge/database/lighting/independent-device-effects.json" {
 		t.Fatalf("DeviceEffectSettingsFile = %q", paths.DeviceEffectSettingsFile)
 	}
+	if paths.OpenRGBDeviceLightingFile != "/srv/alice-data/lumenforge/database/lighting/openrgb-device-state.json" {
+		t.Fatalf("OpenRGBDeviceLightingFile = %q", paths.OpenRGBDeviceLightingFile)
+	}
 	if paths.ClusterEffectSettingsFile != "/srv/alice-data/lumenforge/database/lighting/rgb-cluster-effects.json" {
 		t.Fatalf("ClusterEffectSettingsFile = %q", paths.ClusterEffectSettingsFile)
 	}

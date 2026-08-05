@@ -5,6 +5,7 @@ import (
 	"LumenForge/src/common"
 	"LumenForge/src/config"
 	"LumenForge/src/dashboard"
+	"LumenForge/src/lightingsettings"
 	"LumenForge/src/logger"
 	"LumenForge/src/openrgb"
 	"LumenForge/src/rgb"
@@ -12,6 +13,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -63,10 +65,6 @@ var (
 	deviceProfileDir             = func() string {
 		return filepath.Join(config.GetPaths().MutableDataRoot, "database", "profiles")
 	}
-	rgbProfileDir = func() string {
-		return filepath.Join(config.GetPaths().MutableDataRoot, "database", "rgb")
-	}
-	saveRGBProfileData         = common.SaveJsonData
 	initialEffectOutputContext = func() (context.Context, context.CancelFunc) {
 		return context.WithTimeout(context.Background(), initialEffectOutputTimeout)
 	}
@@ -110,8 +108,8 @@ type DeviceProfile struct {
 	Path             string             `json:"Path"`
 	Product          string             `json:"Product"`
 	Serial           string             `json:"Serial"`
-	RGBProfile       string             `json:"RGBProfile"`
-	BrightnessSlider *uint8             `json:"BrightnessSlider"`
+	RGBProfile       string             `json:"-"`
+	BrightnessSlider *uint8             `json:"-"`
 	ZoneColors       map[int]ZoneColors `json:"ZoneColors"`
 	RGBCluster       bool               `json:"RGBCluster"`
 	RGBOverride      *RGBOverride       `json:"RGBOverride"`
@@ -136,6 +134,9 @@ type Device struct {
 	Rgb                *rgb.RGB
 	rgbMutex           sync.RWMutex
 	RGBModes           []string
+	lightingState      deviceLightingStateAccess
+	lightingEffects    deviceLightingEffectAccess
+	lightingResolver   deviceLightingResolverAccess
 
 	brightness uint8
 	lastColor  []byte
@@ -726,7 +727,7 @@ func (d *Device) applyConfigLocked(cfg *DeviceConfig, brightness uint8) {
 		d.colorCount = 0
 		d.ZoneAmount = 0
 		d.DeviceProfile = nil
-		d.effect = "static"
+		d.effect = defaultDeviceLightingEffect
 		return
 	}
 
@@ -739,12 +740,12 @@ func (d *Device) applyConfigLocked(cfg *DeviceConfig, brightness uint8) {
 	d.colorCount = configLedCount(cfg)
 	d.ZoneAmount = len(cfg.Zones)
 	d.DeviceProfile = &DeviceProfile{
-		RGBProfile:       "static",
+		RGBProfile:       defaultDeviceLightingEffect,
 		BrightnessSlider: &brightness,
 		ZoneColors:       buildZoneColorsFromConfig(cfg, d.lastColor),
 		RGBCluster:       wasCluster,
 	}
-	d.effect = "static"
+	d.effect = defaultDeviceLightingEffect
 }
 
 func checkOpenRGBStable(attempts int, delay time.Duration) error {
@@ -837,14 +838,53 @@ func (d *Device) SaveDeviceConfig(cfg *DeviceConfig) error {
 	}
 	riskyIncrease := hasLEDCountIncrease(savedCfg, &validated)
 
-	brightness := uint8(d.brightness)
-	if d.DeviceProfile != nil && d.DeviceProfile.BrightnessSlider != nil {
-		brightness = *d.DeviceProfile.BrightnessSlider
-	}
 	previousCfg := cloneDeviceConfig(d.Config)
-	previousBrightness := brightness
-	if d.DeviceProfile == nil || d.DeviceProfile.BrightnessSlider == nil {
-		previousBrightness = d.brightness
+	previousProfile := cloneDeviceProfile(d.DeviceProfile)
+	if d.lightingState == nil {
+		return fmt.Errorf("OpenRGB device lighting state is unavailable")
+	}
+	previousPersistedLightingState, previousLightingStateFound, err := d.lightingState.Resolve(d.Serial)
+	if err != nil {
+		return fmt.Errorf("load device lighting state before configuration save: %w", err)
+	}
+	previousEffectiveLightingState := previousPersistedLightingState
+	if !previousLightingStateFound {
+		previousEffectiveLightingState = DefaultDeviceLightingState()
+	}
+	brightness := previousEffectiveLightingState.Brightness
+	temporaryLightingState := DeviceLightingState{
+		SelectedEffect: defaultDeviceLightingEffect,
+		Brightness:     brightness,
+	}
+	if err = d.lightingState.Set(d.Serial, temporaryLightingState); err != nil {
+		return fmt.Errorf("save Static effect selection for device configuration: %w", err)
+	}
+	restoreInMemory := func(state DeviceLightingState) {
+		d.applyConfigLocked(previousCfg, state.Brightness)
+		if previousProfile != nil {
+			d.DeviceProfile = cloneDeviceProfile(previousProfile)
+		}
+		d.effect = state.SelectedEffect
+		d.brightness = state.Brightness
+		if d.DeviceProfile != nil {
+			d.DeviceProfile.RGBProfile = state.SelectedEffect
+			value := state.Brightness
+			d.DeviceProfile.BrightnessSlider = &value
+		}
+	}
+	rollback := func(cause error) error {
+		var rollbackErr error
+		if previousLightingStateFound {
+			rollbackErr = d.lightingState.Set(d.Serial, previousPersistedLightingState)
+		} else {
+			_, rollbackErr = d.lightingState.Delete(d.Serial)
+		}
+		if rollbackErr != nil {
+			restoreInMemory(temporaryLightingState)
+			return errors.Join(cause, fmt.Errorf("restore device lighting state after configuration failure: %w", rollbackErr))
+		}
+		restoreInMemory(previousEffectiveLightingState)
+		return cause
 	}
 
 	d.stopEffectLoopLocked()
@@ -855,14 +895,12 @@ func (d *Device) SaveDeviceConfig(cfg *DeviceConfig) error {
 	if d.controllerId >= 0 {
 		time.Sleep(hardwareBufferDrainDelay)
 		if err := sendConfigFrame(uint32(d.controllerId), d.buildZoneFrame()); err != nil {
-			d.applyConfigLocked(previousCfg, previousBrightness)
 			d.recordOutputFailureLocked(err)
-			return err
+			return rollback(err)
 		}
 		if riskyIncrease {
 			if err := checkOpenRGBStable(4, 500*time.Millisecond); err != nil {
-				d.applyConfigLocked(previousCfg, previousBrightness)
-				return fmt.Errorf("OpenRGB became unavailable after applying increased LED counts; config was not saved. Confirm zone and LED counts in OpenRGB and try again")
+				return rollback(fmt.Errorf("OpenRGB became unavailable after applying increased LED counts; config was not saved. Confirm zone and LED counts in OpenRGB and try again"))
 			}
 		}
 	}
@@ -882,7 +920,7 @@ func (d *Device) SaveDeviceConfig(cfg *DeviceConfig) error {
 		store.Devices[d.Serial] = canonicalDeviceConfigForPersistence(validated)
 		return nil
 	}); err != nil {
-		return err
+		return rollback(err)
 	}
 
 	if d.DeviceProfile != nil {
@@ -898,7 +936,7 @@ func (d *Device) SaveDeviceConfig(cfg *DeviceConfig) error {
 	return nil
 }
 
-func newOfflineDevice(serial string, cfg DeviceConfig) *Device {
+func newOfflineDevice(serial string, cfg DeviceConfig, runtime *deviceLightingRuntime) (*Device, error) {
 	colorCount := configLedCount(&cfg)
 	productName := strings.TrimSpace(cfg.Product)
 	if productName == "" {
@@ -926,7 +964,9 @@ func newOfflineDevice(serial string, cfg DeviceConfig) *Device {
 	}
 
 	d.RGBModes = importerSoftwareEffectCatalogue()
-	d.loadRgb()
+	if err := d.attachLightingRuntime(runtime); err != nil {
+		return nil, err
+	}
 
 	defaultBrightness := uint8(100)
 	d.DeviceProfile = &DeviceProfile{
@@ -936,10 +976,14 @@ func newOfflineDevice(serial string, cfg DeviceConfig) *Device {
 		ZoneColors:       buildZoneColorsFromConfig(&cfg, d.lastColor),
 	}
 	d.loadDeviceProfiles()
-	d.saveDeviceProfile()
+	if d.DeviceProfile != nil {
+		d.DeviceProfile.RGBProfile = d.effect
+		brightness := d.brightness
+		d.DeviceProfile.BrightnessSlider = &brightness
+	}
 	d.setupClusterController()
 
-	return d
+	return d, nil
 }
 
 func InitAll() []*common.Device {
@@ -977,11 +1021,22 @@ func InitAll() []*common.Device {
 	}
 	openrgb.SetDisconnected(nil)
 	sort.Strings(serials)
+	runtime, err := loadDeviceLightingRuntime(config.GetPaths())
+	if err != nil {
+		openrgb.SetDisconnected(err)
+		logger.Log(logger.Fields{"error": err}).Error("Unable to load OpenRGB device lighting state")
+		setConfiguredDevices(nil)
+		return nil
+	}
 
 	configured := make(map[string]*Device, len(serials))
 	result := make([]*common.Device, 0, len(serials))
 	for _, serial := range serials {
-		d := newOfflineDevice(serial, store.Devices[serial])
+		d, deviceErr := newOfflineDevice(serial, store.Devices[serial], runtime)
+		if deviceErr != nil {
+			logger.Log(logger.Fields{"error": deviceErr, "serial": serial}).Error("Unable to initialize OpenRGB device lighting state")
+			continue
+		}
 		d.createDevice()
 		d.instance.Unavailable = true
 		configured[serial] = d
@@ -1149,8 +1204,14 @@ func (d *Device) Snapshot() DeviceSnapshot {
 	if effect == "" {
 		effect = "static"
 	}
+	resolvedSpeed := d.speed
+	if descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect); ok && descriptor.SupportsSpeed {
+		if profile := d.GetRgbProfile(effect); profile != nil {
+			resolvedSpeed = profile.Speed
+		}
+	}
 	speed := "normal"
-	switch d.speed {
+	switch resolvedSpeed {
 	case 4.0:
 		speed = "slow"
 	case 0.8:
@@ -1166,9 +1227,18 @@ func (d *Device) Snapshot() DeviceSnapshot {
 	}
 	rgbCluster := d.DeviceProfile != nil && d.DeviceProfile.RGBCluster
 
-	d.rgbMutex.RLock()
-	rgbState := cloneRGBState(d.Rgb)
-	d.rgbMutex.RUnlock()
+	var rgbState *rgb.RGB
+	if resolved := d.GetRgbProfiles(); resolved != nil {
+		if state, ok := resolved.(rgb.RGB); ok {
+			rgbState = cloneRGBState(&state)
+		}
+	}
+	presentationProfile := cloneDeviceProfile(d.DeviceProfile)
+	if presentationProfile != nil {
+		presentationProfile.RGBProfile = effect
+		brightness := d.brightness
+		presentationProfile.BrightnessSlider = &brightness
+	}
 
 	return DeviceSnapshot{
 		Product:            d.Product,
@@ -1181,7 +1251,7 @@ func (d *Device) Snapshot() DeviceSnapshot {
 		Version:            d.Version,
 		Description:        d.Description,
 		Config:             cloneDeviceConfig(d.Config),
-		DeviceProfile:      cloneDeviceProfile(d.DeviceProfile),
+		DeviceProfile:      presentationProfile,
 		UserProfiles:       userProfiles,
 		Rgb:                rgbState,
 		RGBModes:           append([]string(nil), d.RGBModes...),
@@ -1309,14 +1379,11 @@ func (d *Device) resumeDesiredState(ctx context.Context) error {
 	}
 	effect := d.effect
 	if effect == "" {
-		effect = d.DeviceProfile.RGBProfile
-	}
-	if effect == "" {
-		effect = "static"
+		effect = defaultDeviceLightingEffect
 	}
 	d.mu.Unlock()
 
-	return d.setEffectContext(ctx, effect, false, false)
+	return d.setEffectContext(ctx, effect, false, false, false)
 }
 
 func (d *Device) recordOutputFailureLocked(err error) {
@@ -1459,6 +1526,15 @@ func (d *Device) SetColor(rgbBytes []byte) error {
 	if len(rgbBytes) < 3 {
 		return fmt.Errorf("invalid rgb value")
 	}
+	if d.lightingState == nil {
+		return fmt.Errorf("OpenRGB device lighting state is unavailable")
+	}
+	if err := d.lightingState.Set(d.Serial, DeviceLightingState{
+		SelectedEffect: defaultDeviceLightingEffect,
+		Brightness:     d.brightness,
+	}); err != nil {
+		return fmt.Errorf("save Static effect selection: %w", err)
+	}
 
 	d.lastColor = []byte{rgbBytes[0], rgbBytes[1], rgbBytes[2]}
 
@@ -1525,16 +1601,18 @@ func (d *Device) SetBrightness(brightness uint8) error {
 		return fmt.Errorf("brightness must be between 0 and 100")
 	}
 
-	previousBrightness := d.brightness
-	previousProfile := cloneDeviceProfile(d.DeviceProfile)
+	if d.lightingState == nil {
+		return fmt.Errorf("OpenRGB device lighting state is unavailable")
+	}
+	if err := d.lightingState.Set(d.Serial, DeviceLightingState{
+		SelectedEffect: d.effect,
+		Brightness:     brightness,
+	}); err != nil {
+		return fmt.Errorf("save brightness: %w", err)
+	}
 	d.brightness = brightness
 	if d.DeviceProfile != nil {
 		d.DeviceProfile.BrightnessSlider = &brightness
-		if err := d.saveDeviceProfileChecked(); err != nil {
-			d.brightness = previousBrightness
-			*d.DeviceProfile = *previousProfile
-			return fmt.Errorf("save brightness: %w", err)
-		}
 	}
 
 	// If an effect is running, let the effect loop pick up the new brightness.
@@ -1565,21 +1643,6 @@ func (d *Device) SetBrightness(brightness uint8) error {
 	return err
 }
 
-func (d *Device) saveRgbProfileCheckedLocked() error {
-	if d.Rgb == nil {
-		return fmt.Errorf("RGB profile data is not available")
-	}
-	directory := rgbProfileDir()
-	if err := os.MkdirAll(directory, 0o755); err != nil {
-		return fmt.Errorf("prepare RGB profile directory: %w", err)
-	}
-	path := filepath.Join(directory, d.Serial+".json")
-	if err := saveRGBProfileData(path, d.Rgb); err != nil {
-		return fmt.Errorf("write RGB profile: %w", err)
-	}
-	return nil
-}
-
 // SetEffectSpeed persists and reapplies the current imported-device software
 // effect speed. The supplied speed is the renderer value, not the UI level.
 func (d *Device) SetEffectSpeed(expectedSerial, effect string, speed float64) error {
@@ -1606,7 +1669,7 @@ func (d *Device) SetEffectSpeed(expectedSerial, effect string, speed float64) er
 		d.mu.Unlock()
 		return fmt.Errorf("device is controlled by RGB cluster")
 	}
-	if effect == "" || effect != d.DeviceProfile.RGBProfile {
+	if effect == "" || effect != d.effect {
 		d.mu.Unlock()
 		return fmt.Errorf("OpenRGB effect selection is stale")
 	}
@@ -1625,64 +1688,60 @@ func (d *Device) SetEffectSpeed(expectedSerial, effect string, speed float64) er
 		return fmt.Errorf("OpenRGB effect speed is outside the accepted range")
 	}
 
-	d.rgbMutex.Lock()
-	if d.Rgb == nil {
-		d.rgbMutex.Unlock()
+	resolution, err := d.resolveLightingSettings(effect)
+	if err != nil {
 		d.mu.Unlock()
-		return fmt.Errorf("OpenRGB effect definition is not available")
+		return fmt.Errorf("resolve OpenRGB effect settings: %w", err)
 	}
-	definition, exists := d.Rgb.Profiles[effect]
-	if !exists {
-		d.rgbMutex.Unlock()
+	settings := resolution.Settings.Clone()
+	settings.Speed = &speed
+	if err = lightingsettings.Validate(settings); err != nil {
 		d.mu.Unlock()
-		return fmt.Errorf("OpenRGB effect definition is not available")
+		return fmt.Errorf("validate OpenRGB effect speed: %w", err)
 	}
-
-	useOverride := softwareEffectUsesOverrideSpeed(effect, d.DeviceProfile.RGBOverride)
-	if useOverride {
-		d.rgbMutex.Unlock()
-		previousProfile := cloneDeviceProfile(d.DeviceProfile)
-		d.DeviceProfile.RGBOverride.RgbModeSpeed = speed
-		if err := d.saveDeviceProfileChecked(); err != nil {
-			*d.DeviceProfile = *previousProfile
-			d.mu.Unlock()
-			return fmt.Errorf("save OpenRGB effect speed: %w", err)
-		}
-	} else {
-		previousDefinition := definition
-		definition.Speed = speed
-		d.Rgb.Profiles[effect] = definition
-		if err := d.saveRgbProfileCheckedLocked(); err != nil {
-			d.Rgb.Profiles[effect] = previousDefinition
-			d.rgbMutex.Unlock()
-			d.mu.Unlock()
-			return fmt.Errorf("save OpenRGB effect speed: %w", err)
-		}
-		d.rgbMutex.Unlock()
+	if d.lightingEffects == nil {
+		d.mu.Unlock()
+		return fmt.Errorf("OpenRGB effect customization store is unavailable")
+	}
+	if err = d.lightingEffects.Set(d.Serial, effect, settings); err != nil {
+		d.mu.Unlock()
+		return fmt.Errorf("save OpenRGB effect speed: %w", err)
 	}
 
 	return d.applyPersistedEffectTransitionLocked(context.Background(), effect, true, expectedSerial, true)
 }
 
-func (d *Device) SetSpeed(speed string) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if d.lifecycleInactiveLocked() {
-		return
-	}
-
+func (d *Device) SetSpeed(speed string) error {
+	value := 2.0
 	switch speed {
 	case "slow":
-		d.speed = 4.0
+		value = 4.0
 	case "fast":
-		d.speed = 0.8
-	default:
-		d.speed = 2.0
+		value = 0.8
 	}
+	d.mu.Lock()
+	if d.lifecycleInactiveLocked() {
+		err := d.lifecycleMutationErrorLocked()
+		d.mu.Unlock()
+		return err
+	}
+	serial := d.Serial
+	effect := d.effect
+	d.mu.Unlock()
+	descriptor, supportsCanonicalSpeed := rgb.SoftwareEffectDescriptorByID(effect)
+	if supportsCanonicalSpeed && descriptor.SupportsSpeed {
+		if err := d.SetEffectSpeed(serial, effect, value); err != nil {
+			return err
+		}
+	}
+	d.mu.Lock()
+	d.speed = value
+	d.mu.Unlock()
+	return nil
 }
 
 func (d *Device) SetEffect(effect string) error {
-	return d.setEffectContext(context.Background(), effect, true, true)
+	return d.setEffectContext(context.Background(), effect, true, true, true)
 }
 
 func (d *Device) validateEffectTransitionLocked(expectedSerial string) error {
@@ -1703,7 +1762,7 @@ func (d *Device) validateEffectTransitionLocked(expectedSerial string) error {
 	return nil
 }
 
-func (d *Device) setEffectContext(ctx context.Context, effect string, reportFailure, validateEffect bool) error {
+func (d *Device) setEffectContext(ctx context.Context, effect string, reportFailure, validateEffect, persist bool) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -1721,17 +1780,26 @@ func (d *Device) setEffectContext(ctx context.Context, effect string, reportFail
 		return fmt.Errorf("unsupported OpenRGB effect")
 	}
 
-	previousEffect := d.effect
-	previousProfile := cloneDeviceProfile(d.DeviceProfile)
-	d.effect = effect
-	if d.DeviceProfile != nil {
-		d.DeviceProfile.RGBProfile = effect
-		if err := d.saveDeviceProfileChecked(); err != nil {
-			d.effect = previousEffect
-			*d.DeviceProfile = *previousProfile
+	if _, err := d.resolveLightingSettings(effect); err != nil {
+		d.mu.Unlock()
+		return fmt.Errorf("resolve effect: %w", err)
+	}
+	if persist {
+		if d.lightingState == nil {
+			d.mu.Unlock()
+			return fmt.Errorf("OpenRGB device lighting state is unavailable")
+		}
+		if err := d.lightingState.Set(d.Serial, DeviceLightingState{
+			SelectedEffect: effect,
+			Brightness:     d.brightness,
+		}); err != nil {
 			d.mu.Unlock()
 			return fmt.Errorf("save effect: %w", err)
 		}
+	}
+	d.effect = effect
+	if d.DeviceProfile != nil {
+		d.DeviceProfile.RGBProfile = effect
 	}
 
 	return d.applyPersistedEffectTransitionLocked(ctx, effect, reportFailure, expectedSerial, false)
@@ -1745,10 +1813,6 @@ func dispatchEligibleSoftwareEffect(effect string, supportedEffects []string, ru
 		return false
 	}
 	return dispatchSoftwareEffect(effect, runner, startTime, profile)
-}
-
-func softwareEffectUsesOverrideSpeed(effect string, override *RGBOverride) bool {
-	return effect != "gradient" && override != nil && override.Enabled
 }
 
 func waitForInitialEffectOutput(initialOutput <-chan error) error {
@@ -1925,52 +1989,21 @@ func (d *Device) applyPersistedEffectTransitionLocked(ctx context.Context, effec
 		return err
 	}
 
+	profile := d.GetRgbProfile(effect)
+	if profile == nil {
+		d.mu.Unlock()
+		return fmt.Errorf("resolved OpenRGB effect settings are unavailable")
+	}
 	stop := make(chan struct{})
 	done := make(chan struct{})
 	d.stopChan = stop
 	d.doneChan = done
 	d.running = true
-
-	var initialStartColor *rgb.Color
-	var initialEndColor *rgb.Color
-	var initialSpeed float64 = d.speed
-
-	profile := d.GetRgbProfile(effect)
-	if profile != nil {
-		initialStartColor = &profile.StartColor
-		initialEndColor = &profile.EndColor
-		initialSpeed = profile.Speed
-	} else {
-		initialStartColor = &rgb.Color{
-			Red:        float64(d.lastColor[0]),
-			Green:      float64(d.lastColor[1]),
-			Blue:       float64(d.lastColor[2]),
-			Brightness: rgb.GetBrightnessValueFloat(d.brightness),
-		}
-		initialEndColor = &rgb.Color{
-			Red:        255,
-			Green:      0,
-			Blue:       255,
-			Brightness: rgb.GetBrightnessValueFloat(d.brightness),
-		}
-	}
-	var override *RGBOverride
-	if d.DeviceProfile != nil {
-		override = d.DeviceProfile.RGBOverride
-	}
-	if override != nil && override.Enabled {
-		initialStartColor = &override.RGBStartColor
-		initialEndColor = &override.RGBEndColor
-	}
-	if softwareEffectUsesOverrideSpeed(effect, override) {
-		initialSpeed = override.RgbModeSpeed
-	}
-
 	runner := rgb.New(
 		d.colorCount,
-		initialSpeed,
-		initialStartColor,
-		initialEndColor,
+		profile.Speed,
+		&profile.StartColor,
+		&profile.EndColor,
 		rgb.GetBrightnessValueFloat(d.brightness),
 		0,
 		0,
@@ -2014,48 +2047,29 @@ func (d *Device) applyPersistedEffectTransitionLocked(ctx context.Context, effec
 					return
 				}
 
-				// refresh dynamic values from saved profile if exists, else from device defaults
+				// Refresh from the canonical resolver. Resolution returns a defensive
+				// complete record and never materializes a customization.
 				pf := d.GetRgbProfile(d.effect)
-				if pf != nil {
-					runner.RgbModeSpeed = pf.Speed
-					runner.RGBBrightness = rgb.GetBrightnessValueFloat(d.brightness)
-					runner.RGBStartColor = &pf.StartColor
-					runner.RGBMiddleColor = &pf.MiddleColor
-					runner.RGBEndColor = &pf.EndColor
-					runner.MinTemp = pf.MinTemp
-					runner.MaxTemp = pf.MaxTemp
-				} else {
-					runner.RgbModeSpeed = d.speed
-					runner.RGBBrightness = rgb.GetBrightnessValueFloat(d.brightness)
-					runner.RGBStartColor = &rgb.Color{
-						Red:        float64(d.lastColor[0]),
-						Green:      float64(d.lastColor[1]),
-						Blue:       float64(d.lastColor[2]),
-						Brightness: rgb.GetBrightnessValueFloat(d.brightness),
-					}
-					runner.RGBEndColor = &rgb.Color{
-						Red:        255,
-						Green:      0,
-						Blue:       255,
-						Brightness: rgb.GetBrightnessValueFloat(d.brightness),
-					}
+				if pf == nil {
+					d.running = false
+					d.stopChan = nil
+					d.doneChan = nil
+					err := fmt.Errorf("resolved OpenRGB effect settings are unavailable")
+					d.recordOutputFailureLocked(err)
+					d.mu.Unlock()
+					reportInitialOutput(err)
+					return
 				}
+				runner.RgbModeSpeed = pf.Speed
+				runner.RGBBrightness = rgb.GetBrightnessValueFloat(d.brightness)
+				runner.RGBStartColor = &pf.StartColor
+				runner.RGBMiddleColor = &pf.MiddleColor
+				runner.RGBEndColor = &pf.EndColor
+				runner.MinTemp = pf.MinTemp
+				runner.MaxTemp = pf.MaxTemp
 
 				if runner.RGBMiddleColor == nil {
 					runner.RGBMiddleColor = &rgb.Color{}
-				}
-
-				var override *RGBOverride
-				if d.DeviceProfile != nil {
-					override = d.DeviceProfile.RGBOverride
-				}
-				if override != nil && override.Enabled {
-					runner.RGBStartColor = &override.RGBStartColor
-					runner.RGBEndColor = &override.RGBEndColor
-					runner.RGBMiddleColor = &override.RGBMiddleColor
-				}
-				if softwareEffectUsesOverrideSpeed(d.effect, override) {
-					runner.RgbModeSpeed = common.FClamp(override.RgbModeSpeed, 0.1, 10)
 				}
 
 				dispatchEligibleSoftwareEffect(d.effect, d.RGBModes, runner, &startTime, pf)
@@ -2114,7 +2128,13 @@ func (d *Device) GetEffect() string {
 func (d *Device) GetSpeed() string {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	switch d.speed {
+	resolvedSpeed := d.speed
+	if descriptor, ok := rgb.SoftwareEffectDescriptorByID(d.effect); ok && descriptor.SupportsSpeed {
+		if profile := d.GetRgbProfile(d.effect); profile != nil {
+			resolvedSpeed = profile.Speed
+		}
+	}
+	switch resolvedSpeed {
 	case 4.0:
 		return "slow"
 	case 0.8:
@@ -2197,10 +2217,13 @@ func (d *Device) saveDeviceProfile() {
 func (d *Device) loadDeviceProfiles() {
 	profileList := make(map[string]*DeviceProfile)
 	profileDir := deviceProfileDir()
-	_ = os.MkdirAll(profileDir, 0o755)
 
 	files, err := os.ReadDir(profileDir)
 	if err != nil {
+		if os.IsNotExist(err) {
+			d.UserProfiles = profileList
+			return
+		}
 		logger.Log(logger.Fields{"error": err, "location": profileDir, "serial": d.Serial}).Warn("Unable to read profiles directory")
 		return
 	}
@@ -2267,10 +2290,6 @@ func (d *Device) getDeviceProfile() {
 		for _, pf := range d.UserProfiles {
 			if pf.Active {
 				d.DeviceProfile = pf
-				if pf.BrightnessSlider != nil {
-					d.brightness = *pf.BrightnessSlider
-				}
-				d.effect = pf.RGBProfile
 				foundActive = true
 				break
 			}
@@ -2279,10 +2298,6 @@ func (d *Device) getDeviceProfile() {
 			if pf, ok := d.UserProfiles["default"]; ok {
 				pf.Active = true
 				d.DeviceProfile = pf
-				if pf.BrightnessSlider != nil {
-					d.brightness = *pf.BrightnessSlider
-				}
-				d.effect = pf.RGBProfile
 			}
 		}
 	}
@@ -2416,17 +2431,12 @@ func (d *Device) ChangeDeviceProfile(profileName string) uint8 {
 	d.DeviceProfile = newProfile
 	d.saveDeviceProfile()
 
-	if newProfile.BrightnessSlider != nil {
-		d.brightness = *newProfile.BrightnessSlider
-	}
-	d.effect = newProfile.RGBProfile
 	clusterController := d.clusterControllerLocked()
-	effect := d.effect
 	d.mu.Unlock()
 
 	d.replaceClusterController(clusterController)
 	if clusterController == nil {
-		_ = d.SetEffect(effect)
+		_ = d.resumeDesiredState(context.Background())
 	}
 
 	return 1
@@ -2637,7 +2647,7 @@ func (d *Device) ProcessSetRgbCluster(enabled bool) uint8 {
 		d.replaceClusterController(nil)
 		if effect != "" {
 			go func() {
-				_ = d.SetEffect(effect)
+				_ = d.resumeDesiredState(context.Background())
 			}()
 		}
 	}
@@ -2702,124 +2712,30 @@ func (d *Device) StopDirty() uint8 {
 }
 
 func (d *Device) GetRgbProfiles() interface{} {
-	d.rgbMutex.RLock()
-	defer d.rgbMutex.RUnlock()
-
-	if d.Rgb == nil {
+	if d == nil || d.lightingResolver == nil {
 		return nil
 	}
-
-	tmp := *cloneRGBState(d.Rgb)
-
-	// Filter unsupported modes out
-	profiles := make(map[string]rgb.Profile, len(tmp.Profiles))
-	for key, value := range tmp.Profiles {
-		if slices.Contains(d.RGBModes, key) {
-			profiles[key] = cloneRGBProfile(value)
+	profiles := make(map[string]rgb.Profile, len(d.RGBModes))
+	for _, effect := range d.RGBModes {
+		resolution, err := d.resolveLightingSettings(effect)
+		if err != nil {
+			continue
 		}
+		profiles[effect] = rgbProfileFromLightingSettings(resolution.Settings)
 	}
-	tmp.Profiles = profiles
-	return tmp
+	return rgb.RGB{Device: d.Product, Profiles: profiles}
 }
 
 func (d *Device) GetRgbProfile(profile string) *rgb.Profile {
-	d.rgbMutex.RLock()
-	defer d.rgbMutex.RUnlock()
-
-	if d.Rgb == nil {
+	if d == nil || d.lightingResolver == nil {
 		return nil
 	}
-
-	if val, ok := d.Rgb.Profiles[profile]; ok {
-		cloned := cloneRGBProfile(val)
-		return &cloned
-	}
-	return nil
-}
-
-func (d *Device) loadRgb() {
-	d.rgbMutex.Lock()
-	defer d.rgbMutex.Unlock()
-
-	pwd := config.GetPaths().MutableDataRoot
-	rgbDirectory := filepath.Join(pwd, "database", "rgb")
-	rgbFilename := filepath.Join(rgbDirectory, d.Serial+".json")
-
-	// Ensure directory exists
-	_ = os.MkdirAll(rgbDirectory, 0o755)
-
-	if !common.FileExists(rgbFilename) {
-		profile := rgb.GetRGB()
-		profile.Device = d.Product
-		if profile.Profiles == nil {
-			profile.Profiles = make(map[string]rgb.Profile)
-		}
-
-		if err := common.SaveJsonData(rgbFilename, profile); err != nil {
-			fmt.Printf("Unable to write rgb profile data for %s: %v\n", d.Serial, err)
-			return
-		}
-	}
-
-	file, err := os.Open(rgbFilename)
+	resolution, err := d.resolveLightingSettings(profile)
 	if err != nil {
-		fmt.Printf("Unable to load RGB for %s: %v\n", d.Serial, err)
-		return
+		return nil
 	}
-	defer file.Close()
-
-	if err = json.NewDecoder(file).Decode(&d.Rgb); err != nil {
-		fmt.Printf("Unable to decode profile for %s: %v\n", d.Serial, err)
-		return
-	}
-	if d.Rgb.Profiles == nil {
-		d.Rgb.Profiles = make(map[string]rgb.Profile)
-	}
-
-	// Upgrade profiles
-	d.upgradeRgbProfileLocked(rgbFilename, []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch"})
-}
-
-func (d *Device) upgradeRgbProfileLocked(path string, profiles []string) {
-	if d.Rgb == nil {
-		return
-	}
-	save := false
-	for _, profile := range profiles {
-		if _, ok := d.Rgb.Profiles[profile]; !ok {
-			save = true
-			template := rgb.GetRgbProfile(profile)
-			if template == nil {
-				d.Rgb.Profiles[profile] = rgb.Profile{}
-			} else {
-				d.Rgb.Profiles[profile] = *template
-			}
-		}
-	}
-
-	if save {
-		if err := common.SaveJsonData(path, d.Rgb); err != nil {
-			fmt.Printf("Unable to upgrade rgb profile data for %s: %v\n", d.Serial, err)
-			return
-		}
-	}
-}
-
-func (d *Device) saveRgbProfile() {
-	d.rgbMutex.Lock()
-	defer d.rgbMutex.Unlock()
-
-	if d.Rgb == nil {
-		return
-	}
-
-	pwd := config.GetPaths().MutableDataRoot
-	rgbFilename := filepath.Join(pwd, "database", "rgb", d.Serial+".json")
-
-	if err := common.SaveJsonData(rgbFilename, d.Rgb); err != nil {
-		fmt.Printf("Unable to write device rgb profile data for %s: %v\n", d.Serial, err)
-		return
-	}
+	resolved := rgbProfileFromLightingSettings(resolution.Settings)
+	return &resolved
 }
 
 func (d *Device) UpdateRgbProfileData(profileName string, profile rgb.Profile) uint8 {
@@ -2829,34 +2745,21 @@ func (d *Device) UpdateRgbProfileData(profileName string, profile rgb.Profile) u
 		return 0
 	}
 
-	pf := d.GetRgbProfile(profileName)
-	if pf == nil {
+	if !slices.Contains(d.RGBModes, profileName) || d.lightingEffects == nil {
 		d.mu.Unlock()
 		return 0
 	}
-
-	updated := cloneRGBProfile(profile)
-	d.rgbMutex.Lock()
-	updated.StartColor.Brightness = pf.StartColor.Brightness
-	updated.EndColor.Brightness = pf.EndColor.Brightness
-	pf.StartColor = updated.StartColor
-	pf.EndColor = updated.EndColor
-	if profileName == "cpu-temperature" || profileName == "gpu-temperature" {
-		updated.MiddleColor.Brightness = pf.MiddleColor.Brightness
-		pf.MiddleColor = updated.MiddleColor
+	settings, err := lightingSettingsFromRGBProfile(profileName, cloneRGBProfile(profile))
+	if err != nil || d.lightingEffects.Set(d.Serial, profileName, settings) != nil {
+		d.mu.Unlock()
+		return 0
 	}
-	pf.Speed = updated.Speed
-	pf.Gradients = updated.Gradients
-	d.Rgb.Profiles[profileName] = *pf
-	d.rgbMutex.Unlock()
-
-	d.saveRgbProfile()
 	reapply := d.effect == profileName
 	d.mu.Unlock()
 
 	// If we are currently running this effect, we want to restart/reapply it to pick up changes!
 	if reapply {
-		_ = d.SetEffect(profileName)
+		_ = d.setEffectContext(context.Background(), profileName, true, true, false)
 	}
 
 	return 1
@@ -2985,7 +2888,7 @@ func (d *Device) SetRGBOverride(expectedSerial string, channelId, subDeviceId in
 		return fmt.Errorf("OpenRGB RGB override speed is invalid")
 	}
 
-	effect := d.DeviceProfile.RGBProfile
+	effect := d.effect
 	clustered := d.DeviceProfile.RGBCluster
 	if !clustered && (effect == "" || !slices.Contains(d.RGBModes, effect)) {
 		d.mu.Unlock()
@@ -3018,7 +2921,7 @@ func (d *Device) SetRGBOverride(expectedSerial string, channelId, subDeviceId in
 		return fmt.Errorf("active OpenRGB device profile is not available after save")
 	}
 
-	effect = d.DeviceProfile.RGBProfile
+	effect = d.effect
 	return d.applyPersistedEffectTransitionLocked(context.Background(), effect, true, expectedSerial, false)
 }
 

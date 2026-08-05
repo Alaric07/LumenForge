@@ -2603,9 +2603,6 @@ func openRGBLightingWorkspaceSummaryFromSnapshot(snapshot openrgbimport.Lighting
 			summary.HasSpeedControl = true
 			summary.Speed = strconv.FormatFloat(snapshot.Effective.Speed, 'f', -1, 64)
 			summary.SpeedTarget = "base"
-			if snapshot.ConfiguredEffect != "gradient" && snapshot.Override != nil && snapshot.Override.Enabled {
-				summary.SpeedTarget = "override"
-			}
 		}
 	}
 	return summary
@@ -3317,7 +3314,10 @@ func setOpenRGBImportSpeed(w http.ResponseWriter, r *http.Request) {
 			(&Response{Code: http.StatusOK, Status: 0, Message: "OpenRGB device is not available"}).Send(w)
 			return
 		}
-		dev.SetSpeed(legacySpeed)
+		if err = dev.SetSpeed(legacySpeed); err != nil {
+			(&Response{Code: http.StatusOK, Status: 0, Message: "Unable to set speed"}).Send(w)
+			return
+		}
 		(&Response{Code: http.StatusOK, Status: 1, Message: "Speed set"}).Send(w)
 		return
 	}

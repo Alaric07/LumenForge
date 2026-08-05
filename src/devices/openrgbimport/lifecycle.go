@@ -674,34 +674,14 @@ func prepareImport(serial string, cfg DeviceConfig) (*preparedImport, error) {
 	}
 
 	configRoot := lifecycleConfigRoot()
-	rgbPath := filepath.Join(configRoot, "database", "rgb", serial+".json")
 	profilePath := filepath.Join(configRoot, "database", "profiles", serial+".json")
-	artifacts := make([]*artifact, 0, 2)
-
-	if data, err := os.ReadFile(rgbPath); err == nil {
-		var state rgb.RGB
-		if err = json.Unmarshal(data, &state); err != nil {
-			return nil, fmt.Errorf("decode preserved RGB file for %q: %w", serial, err)
-		}
-		if state.Profiles == nil {
-			state.Profiles = make(map[string]rgb.Profile)
-		}
-		device.Rgb = &state
-	} else if !os.IsNotExist(err) {
-		return nil, fmt.Errorf("read preserved RGB file for %q: %w", serial, err)
-	} else {
-		template := lifecycleRGBTemplate()
-		state := cloneRGBState(&template)
-		state.Device = product
-		if state.Profiles == nil {
-			state.Profiles = make(map[string]rgb.Profile)
-		}
-		device.Rgb = state
-		data, marshalErr := json.MarshalIndent(state, "", "  ")
-		if marshalErr != nil {
-			return nil, marshalErr
-		}
-		artifacts = append(artifacts, &artifact{path: rgbPath, data: data})
+	artifacts := make([]*artifact, 0, 1)
+	runtime, err := loadDeviceLightingRuntime(deviceLightingPathsForMutableRoot(configRoot))
+	if err != nil {
+		return nil, err
+	}
+	if err = device.attachLightingRuntime(runtime); err != nil {
+		return nil, err
 	}
 
 	defaultBrightness := uint8(100)
@@ -737,6 +717,9 @@ func prepareImport(serial string, cfg DeviceConfig) (*preparedImport, error) {
 		device.DeviceProfile = defaultProfile
 		device.UserProfiles["default"] = defaultProfile
 	}
+	device.DeviceProfile.RGBProfile = device.effect
+	brightness := device.brightness
+	device.DeviceProfile.BrightnessSlider = &brightness
 
 	device.createDevice()
 	device.instance.Unavailable = true
@@ -789,12 +772,6 @@ func loadPreservedProfiles(device *Device, defaultProfile *DeviceProfile) error 
 		device.UserProfiles[name] = profile
 		if profile.Active || (device.DeviceProfile == nil && name == "default") {
 			device.DeviceProfile = profile
-			if profile.BrightnessSlider != nil {
-				device.brightness = *profile.BrightnessSlider
-			}
-			if profile.RGBProfile != "" {
-				device.effect = profile.RGBProfile
-			}
 		}
 	}
 	return nil
