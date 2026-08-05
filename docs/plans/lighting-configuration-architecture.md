@@ -316,6 +316,28 @@ legacy profile colors, and target-local RGB files no longer determine
 independent Static output. The legacy OpenRGB Static mutation path and its
 obsolete template controls were retired without migration or fallback.
 
+`22f8117c` completed the resolved Device Lighting control cutover for
+independent OpenRGB-imported devices. Base/override/effective presentation was
+replaced by canonical resolved control data, the workspace was reduced to
+renderer-supported controls, and strict single-color editing plus selected
+effect Reset were added. Reset removes only the selected effect customization,
+preserves the selected effect and device Brightness, and avoids renderer
+interruption when no customization exists.
+
+`ad4b0340` corrected two issues found during manual hardware validation:
+uncustomized Static now renders its editor from the resolved shipped default,
+and the Reset control becomes visible immediately after the first successful
+effect-specific customization rather than requiring a page refresh. Brightness
+changes remain independent and do not reveal effect Reset. Focused, repeated,
+race, full-repository, JavaScript, and CodeRabbit validation passed. Manual
+testing confirmed Static color editing, animated Speed customization, Reset,
+cluster ownership, Brightness independence, and persistence across restart.
+
+The currently rendered Palette capability value remains a temporary diagnostic,
+not part of the final user-facing design. It should be removed after the
+remaining renderer-driven editors make the selected effect's applicable inputs
+self-evident.
+
 ## 11. OpenRGB imports
 
 OpenRGB importing remains separate from lighting customization. The import
@@ -480,7 +502,8 @@ Speed or another genuine renderer-consumed setting.
    desired-state sources together with the legacy OpenRGB color path. Completed
    in `af25b031`.
 7. Replace OpenRGB snapshots with resolved control data, simplify Device
-   Lighting, and add single-color editing and Reset.
+   Lighting, and add single-color editing and Reset. Completed in `22f8117c`,
+   with manual-test corrections in `ad4b0340`.
 8. Add two-color editing.
 9. Add temperature color and threshold editing.
 10. Add Gradient editing.

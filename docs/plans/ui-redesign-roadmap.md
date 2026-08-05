@@ -273,6 +273,22 @@ findings, and a fresh-state manual test confirmed shipped-default cyan output,
 canonical effect and Speed persistence for three devices, and successful
 restoration after restart.
 
+`22f8117c` replaced the intermediate base/override/effective snapshot with
+canonical resolved control data, simplified Device Lighting to genuine
+renderer-supported controls, and added strict single-color editing and selected
+effect Reset. Reset deletes only the selected device/effect customization,
+preserves the selected effect and Brightness, reapplies the hidden default, and
+treats an already-uncustomized effect as a true no-op.
+
+`ad4b0340` corrected two issues discovered during manual hardware validation.
+An uncustomized Static effect now renders its color editor from the resolved
+shipped default, and a successful first Speed customization reveals Reset
+immediately without requiring a browser refresh. Brightness changes remain
+independent and do not reveal Reset. Automated focused, repeated, race,
+full-repository, JavaScript, and CodeRabbit validation passed. Manual testing
+confirmed Static color editing, Reset, animated Speed customization, cluster
+ownership, Brightness independence, and persistence across restart.
+
 ### OpenRGB Device Lighting cutover
 
 - [x] Add the modern protected effect selector (`01b80d4a`).
@@ -288,12 +304,14 @@ restoration after restart.
 - [x] Retire heterogeneous OpenRGB Static zone colors, `lastColor`, Static RGB
   Override precedence, and the legacy Static mutation path without migration
   (`af25b031`).
-- [ ] Replace base/override/effective snapshots with resolved control data,
+- [x] Replace base/override/effective snapshots with resolved control data,
   simplify Device Lighting to renderer-supported controls, and add the
-  Static/single-color editor and Reset.
+  Static/single-color editor and Reset (`22f8117c`, corrected in `ad4b0340`).
 - [ ] Add the two-color Start/End editor.
 - [ ] Add Low/Middle/High temperature color and threshold editing.
 - [ ] Add the ordered Gradient editor.
+- [ ] Remove the temporary user-facing Palette capability readout after the
+  remaining renderer-driven editors make palette shape self-evident.
 - [ ] Delete OpenRGB RGB Override and legacy imported-device lighting paths
   after modern parity.
 
