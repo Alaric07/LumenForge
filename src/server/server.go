@@ -3167,53 +3167,6 @@ func refreshOpenRGBImportManager(w http.ResponseWriter, r *http.Request) {
 	}).Send(w)
 }
 
-func setOpenRGBImportColor(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Serial string `json:"serial"`
-		R      int    `json:"r"`
-		G      int    `json:"g"`
-		B      int    `json:"b"`
-	}
-
-	if !decodeRequestBody(w, r, &req) {
-		return
-	}
-
-	serial := req.Serial
-	if serial == "" {
-		serial = "openrgb-mobo-1"
-	}
-
-	dev, err := getOpenRGBImportDeviceBySerial(serial)
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusOK,
-			Status:  0,
-			Message: err.Error(),
-		}
-		resp.Send(w)
-		return
-	}
-
-	err = dev.SetColor([]byte{byte(req.R), byte(req.G), byte(req.B)})
-	if err != nil {
-		resp := &Response{
-			Code:    http.StatusOK,
-			Status:  0,
-			Message: err.Error(),
-		}
-		resp.Send(w)
-		return
-	}
-
-	resp := &Response{
-		Code:    http.StatusOK,
-		Status:  1,
-		Message: "Color set",
-	}
-	resp.Send(w)
-}
-
 func setOpenRGBImportBrightness(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Serial     *string `json:"serial"`
@@ -3473,7 +3426,6 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/openrgbimport/speed", http.MethodPost, setOpenRGBImportSpeed)
 	handleFunc(r, "/api/openrgbimport/effect", http.MethodPost, setOpenRGBImportEffect)
 	handleFunc(r, "/api/openrgbimport/brightness", http.MethodPost, setOpenRGBImportBrightness)
-	handleFunc(r, "/api/openrgbimport/color", http.MethodPost, setOpenRGBImportColor)
 	handleFunc(r, "/api/openrgbimport/config", http.MethodPost, setOpenRGBImportConfig)
 	handleFunc(r, "/api/temperatures/new", http.MethodPost, newTemperatureProfile)
 	handleFunc(r, "/api/speed", http.MethodPost, setDeviceSpeed)

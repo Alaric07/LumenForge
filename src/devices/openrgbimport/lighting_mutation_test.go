@@ -2,6 +2,7 @@ package openrgbimport
 
 import (
 	"LumenForge/src/config"
+	"LumenForge/src/lightingsettings"
 	"LumenForge/src/openrgb"
 	"LumenForge/src/rgb"
 	"bytes"
@@ -188,6 +189,29 @@ func newStaticOverrideTestDevice(brightness uint8) *Device {
 	return device
 }
 
+func setCanonicalStaticColor(t *testing.T, device *Device, color rgb.Color) {
+	t.Helper()
+	settings := lightingsettings.EffectSettings{
+		SchemaVersion: lightingsettings.SchemaVersion,
+		EffectID:      defaultDeviceLightingEffect,
+		SingleColor: &lightingsettings.SingleColorSettings{
+			Color: lightingsettings.Color{Red: color.Red, Green: color.Green, Blue: color.Blue},
+		},
+	}
+	if err := device.lightingEffects.Set(device.Serial, defaultDeviceLightingEffect, settings); err != nil {
+		t.Fatalf("seed canonical Static settings: %v", err)
+	}
+}
+
+func canonicalStaticFrame(t *testing.T, device *Device, brightness uint8) []byte {
+	t.Helper()
+	frame, err := device.buildStaticFrame(brightness)
+	if err != nil {
+		t.Fatalf("build canonical Static frame: %v", err)
+	}
+	return frame
+}
+
 func loadLightingDeviceProfile(profileDir string) (DeviceProfile, error) {
 	data, err := os.ReadFile(filepath.Join(profileDir, lightingDeviceTestSerial+".json"))
 	if err != nil {
@@ -367,8 +391,8 @@ func TestOpenRGBLightingEffectPersistenceAndOutputOrdering(t *testing.T) {
 		if err := device.SetEffect("static"); err != nil {
 			t.Fatalf("SetEffect: %v", err)
 		}
-		if calls.colors != 1 || calls.frames != 0 {
-			t.Fatalf("output calls = colors %d, frames %d, want 1, 0", calls.colors, calls.frames)
+		if calls.colors != 0 || calls.frames != 1 {
+			t.Fatalf("output calls = colors %d, frames %d, want 0, 1", calls.colors, calls.frames)
 		}
 		if got := device.GetEffect(); got != "static" {
 			t.Fatalf("effect = %q, want static", got)
@@ -432,8 +456,8 @@ func TestOpenRGBLightingEffectPersistenceAndOutputOrdering(t *testing.T) {
 		if err := device.SetEffect("static"); err == nil {
 			t.Fatal("SetEffect succeeded despite output failure")
 		}
-		if calls.colors != 1 || calls.frames != 0 {
-			t.Fatalf("output calls = colors %d, frames %d, want 1, 0", calls.colors, calls.frames)
+		if calls.colors != 0 || calls.frames != 1 {
+			t.Fatalf("output calls = colors %d, frames %d, want 0, 1", calls.colors, calls.frames)
 		}
 		if got := device.GetEffect(); got != "static" {
 			t.Fatalf("effect = %q, want persisted desired effect static", got)
@@ -512,11 +536,12 @@ func TestOpenRGBLightingEffectTransitionSerialization(t *testing.T) {
 		t.Fatal("static transition left an animation worker or worker channels active")
 	}
 
-	if calls.colors != 2 || calls.frames != 0 {
-		t.Fatalf("output calls = colors %d, frames %d, want 2, 0", calls.colors, calls.frames)
+	if calls.colors != 1 || calls.frames != 1 {
+		t.Fatalf("output calls = colors %d, frames %d, want 1, 1", calls.colors, calls.frames)
 	}
-	if len(calls.colorValues) != 2 || !bytes.Equal(calls.colorValues[0], []byte{0, 0, 0}) || !bytes.Equal(calls.colorValues[1], []byte{40, 60, 80}) {
-		t.Fatalf("output colors = %v, want off then scaled static", calls.colorValues)
+	if len(calls.colorValues) != 1 || !bytes.Equal(calls.colorValues[0], []byte{0, 0, 0}) ||
+		len(calls.frameValues) != 1 || !bytes.Equal(calls.frameValues[0], []byte{0, 102, 102}) {
+		t.Fatalf("output = colors %v, frames %v; want off then canonical Static", calls.colorValues, calls.frameValues)
 	}
 }
 
@@ -606,7 +631,7 @@ func TestOpenRGBLightingEffectRevalidatesAfterStop(t *testing.T) {
 	}
 }
 
-func TestOpenRGBStaticOverrideFrame(t *testing.T) {
+func TestOpenRGBCanonicalStaticFrame(t *testing.T) {
 	tests := []struct {
 		name       string
 		brightness uint8
@@ -648,8 +673,7 @@ func TestOpenRGBStaticOverrideFrame(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			device := newStaticOverrideTestDevice(test.brightness)
-			device.DeviceProfile.RGBOverride.Enabled = true
-			device.DeviceProfile.RGBOverride.RGBStartColor = test.color
+			setCanonicalStaticColor(t, device, test.color)
 			profileDir := t.TempDir()
 			device.DeviceProfile.Path = filepath.Join(profileDir, lightingDeviceTestSerial+".json")
 
@@ -658,38 +682,30 @@ func TestOpenRGBStaticOverrideFrame(t *testing.T) {
 			rgbBefore := cloneRGBState(device.Rgb)
 			lastColorBefore := append([]byte(nil), device.lastColor...)
 
-			frame, enabled := device.buildStaticOverrideFrame()
-			if !enabled {
-				t.Fatal("enabled Static override was not selected")
-			}
+			frame := canonicalStaticFrame(t, device, test.brightness)
 			if !bytes.Equal(frame, test.expected) {
-				t.Fatalf("Static override frame = %v, want %v", frame, test.expected)
+				t.Fatalf("canonical Static frame = %v, want %v", frame, test.expected)
 			}
 			if !reflect.DeepEqual(device.DeviceProfile, profileBefore) {
-				t.Fatal("building the Static override frame changed the device profile")
+				t.Fatal("building the canonical Static frame changed the device profile")
 			}
 			if !reflect.DeepEqual(device.Config, configBefore) {
-				t.Fatal("building the Static override frame changed the controller config")
+				t.Fatal("building the canonical Static frame changed the controller config")
 			}
 			if !reflect.DeepEqual(device.Rgb, rgbBefore) {
-				t.Fatal("building the Static override frame changed the RGB definition")
+				t.Fatal("building the canonical Static frame changed the RGB definition")
 			}
 			if !bytes.Equal(device.lastColor, lastColorBefore) {
-				t.Fatal("building the Static override frame changed lastColor")
+				t.Fatal("building the canonical Static frame changed lastColor")
 			}
 			entries, err := os.ReadDir(profileDir)
 			if err != nil {
 				t.Fatalf("read profile directory: %v", err)
 			}
 			if len(entries) != 0 {
-				t.Fatalf("building the Static override frame wrote %d profile files", len(entries))
+				t.Fatalf("building the canonical Static frame wrote %d profile files", len(entries))
 			}
 		})
-	}
-
-	device := newStaticOverrideTestDevice(100)
-	if frame, enabled := device.buildStaticOverrideFrame(); enabled || frame != nil {
-		t.Fatalf("disabled Static override returned frame %v, enabled %t", frame, enabled)
 	}
 }
 
@@ -730,6 +746,7 @@ func TestOpenRGBStaticOverrideBrightnessOutput(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			_, calls := installLightingDeviceTestSeams(t)
 			device := newStaticOverrideTestDevice(25)
+			setCanonicalStaticColor(t, device, test.color)
 			device.DeviceProfile.RGBOverride.Enabled = true
 			device.DeviceProfile.RGBOverride.RGBStartColor = test.color
 
@@ -770,7 +787,7 @@ func TestOpenRGBStaticOverrideBrightnessOutput(t *testing.T) {
 		})
 	}
 
-	t.Run("disabled override uses stored zones", func(t *testing.T) {
+	t.Run("disabled override remains inert", func(t *testing.T) {
 		_, calls := installLightingDeviceTestSeams(t)
 		device := newStaticOverrideTestDevice(100)
 		zoneColorsBefore := cloneDeviceProfile(device.DeviceProfile).ZoneColors
@@ -782,9 +799,9 @@ func TestOpenRGBStaticOverrideBrightnessOutput(t *testing.T) {
 		if err := device.SetBrightness(50); err != nil {
 			t.Fatalf("SetBrightness: %v", err)
 		}
-		expected := []byte{45, 15, 5, 45, 15, 5, 2, 30, 60}
+		expected := []byte{0, 127, 127, 0, 127, 127, 0, 127, 127}
 		if calls.colors != 0 || calls.frames != 1 || !bytes.Equal(calls.frameValues[0], expected) {
-			t.Fatalf("disabled override output = colors %d, frames %v, want zone frame %v", calls.colors, calls.frameValues, expected)
+			t.Fatalf("disabled override output = colors %d, frames %v, want canonical frame %v", calls.colors, calls.frameValues, expected)
 		}
 		if !reflect.DeepEqual(device.DeviceProfile.ZoneColors, zoneColorsBefore) {
 			t.Fatal("disabled override brightness change modified stored zone colors")
@@ -841,9 +858,9 @@ func TestOpenRGBStaticOverrideBrightnessOutput(t *testing.T) {
 		if err := device.SetBrightness(50); err != nil {
 			t.Fatalf("SetBrightness: %v", err)
 		}
-		expectedBase := []byte{45, 15, 5, 45, 15, 5, 2, 30, 60}
-		if calls.colors != 0 || calls.frames != 1 || !bytes.Equal(calls.frameValues[0], expectedBase) {
-			t.Fatalf("Off brightness output = colors %d, frames %v, want existing base frame %v", calls.colors, calls.frameValues, expectedBase)
+		expectedOff := []byte{0, 0, 0}
+		if calls.colors != 1 || calls.frames != 0 || !bytes.Equal(calls.colorValues[0], expectedOff) {
+			t.Fatalf("Off brightness output = colors %v, frames %v, want black %v", calls.colorValues, calls.frameValues, expectedOff)
 		}
 		if device.GetEffect() != "off" {
 			t.Fatalf("effect = %q, want off", device.GetEffect())
@@ -898,6 +915,7 @@ func TestOpenRGBStaticOverrideBlackProductionOutput(t *testing.T) {
 	device := newStaticOverrideTestDevice(100)
 	device.DeviceProfile.RGBOverride.Enabled = true
 	device.DeviceProfile.RGBOverride.RGBStartColor = rgb.Color{}
+	setCanonicalStaticColor(t, device, rgb.Color{})
 	if err := device.saveDeviceProfileChecked(); err != nil {
 		t.Fatalf("save baseline profile: %v", err)
 	}
@@ -941,8 +959,8 @@ func TestOpenRGBStaticOverrideBlackProductionOutput(t *testing.T) {
 func TestOpenRGBStaticOverrideOutputSelection(t *testing.T) {
 	_, calls := installLightingDeviceTestSeams(t)
 	device := newStaticOverrideTestDevice(100)
-	baseFrame := []byte{90, 30, 10, 90, 30, 10, 5, 60, 120}
-	overrideFrame := []byte{200, 100, 50, 200, 100, 50, 200, 100, 50}
+	setCanonicalStaticColor(t, device, rgb.Color{Red: 11, Green: 22, Blue: 33})
+	canonicalFrame := []byte{11, 22, 33, 11, 22, 33, 11, 22, 33}
 
 	zoneColorsBefore := cloneDeviceProfile(device.DeviceProfile).ZoneColors
 	configBefore := cloneDeviceConfig(device.Config)
@@ -964,7 +982,7 @@ func TestOpenRGBStaticOverrideOutputSelection(t *testing.T) {
 	if calls.colors != 0 || calls.frames != 3 {
 		t.Fatalf("output calls = colors %d, frames %d, want 0, 3", calls.colors, calls.frames)
 	}
-	wantedFrames := [][]byte{baseFrame, overrideFrame, baseFrame}
+	wantedFrames := [][]byte{canonicalFrame, canonicalFrame, canonicalFrame}
 	if !reflect.DeepEqual(calls.frameValues, wantedFrames) {
 		t.Fatalf("Static output frames = %v, want %v", calls.frameValues, wantedFrames)
 	}
@@ -986,6 +1004,7 @@ func TestOpenRGBStaticOverrideTransitionsAndResume(t *testing.T) {
 	_, calls := installLightingDeviceTestSeams(t)
 	device := newStaticOverrideTestDevice(50)
 	device.DeviceProfile.RGBOverride.Enabled = true
+	setCanonicalStaticColor(t, device, rgb.Color{Red: 200, Green: 100, Blue: 50})
 	expected := []byte{100, 50, 25, 100, 50, 25, 100, 50, 25}
 
 	if err := device.resumeDesiredState(context.Background()); err != nil {
@@ -1026,8 +1045,8 @@ func TestOpenRGBStaticOverrideClusterBoundary(t *testing.T) {
 	device.DeviceProfile.RGBOverride.Enabled = true
 	device.DeviceProfile.RGBCluster = true
 
-	if frame, enabled := device.buildStaticOverrideFrame(); !enabled || len(frame) != device.colorCount*3 {
-		t.Fatalf("Static override helper = frame length %d, enabled %t", len(frame), enabled)
+	if frame := canonicalStaticFrame(t, device, device.brightness); len(frame) != device.colorCount*3 {
+		t.Fatalf("canonical Static frame length = %d, want %d", len(frame), device.colorCount*3)
 	}
 	if err := device.resumeDesiredState(context.Background()); err != nil {
 		t.Fatalf("clustered resume: %v", err)
@@ -1118,6 +1137,7 @@ func TestOpenRGBRGBOverrideMutationAndPersistence(t *testing.T) {
 		device := newStaticOverrideTestDevice(100)
 		device.DeviceProfile.RGBOverride = nil
 		start, middle, end := testRGBOverrideColors()
+		setCanonicalStaticColor(t, device, start)
 		speed := 4.5
 		want := normalizedTestRGBOverride(true, start, middle, end, speed)
 		var observed RGBOverride
@@ -1209,11 +1229,12 @@ func TestOpenRGBRGBOverrideMutationAndPersistence(t *testing.T) {
 		})
 	}
 
-	t.Run("disable restores Static zone frame", func(t *testing.T) {
+	t.Run("disable reapplies canonical Static frame", func(t *testing.T) {
 		_, calls := installLightingDeviceTestSeams(t)
 		device := newStaticOverrideTestDevice(100)
 		device.DeviceProfile.RGBOverride.Enabled = true
-		baseFrame := device.buildZoneFrame()
+		setCanonicalStaticColor(t, device, rgb.Color{Red: 12, Green: 34, Blue: 56})
+		baseFrame := canonicalStaticFrame(t, device, device.brightness)
 		start, middle, end := testRGBOverrideColors()
 		speed := 2.0
 
@@ -1855,7 +1876,7 @@ func TestOpenRGBTemperatureMiddleColorNonTemperatureAndLegacyRegression(t *testi
 		_, calls := installLightingDeviceTestSeams(t)
 		device := newStaticOverrideTestDevice(100)
 		device.DeviceProfile.RGBOverride.Enabled = false
-		expected := device.buildZoneFrame()
+		expected := canonicalStaticFrame(t, device, device.brightness)
 
 		if err := device.SetEffect("static"); err != nil {
 			t.Fatalf("SetEffect(static): %v", err)

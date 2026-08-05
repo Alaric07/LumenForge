@@ -356,17 +356,6 @@
                                             <span class="meta-value">Grouped</span>
                                         </div>
 
-                                        <div class="settings-row">
-                                            <span class="settings-label text-ellipsis">Color</span>
-                                            <input type="color" id="mbColor" value="#63d5ff" style="width:56px;min-width:56px;flex:0 0 auto;">
-                                        </div>
-
-                                        <div class="settings-row">
-                                            <button class="system-button compact" id="mbApplyColor" type="button">
-                                                Apply
-                                            </button>
-                                        </div>
-
                                     </div>
                                 </div>
                             </div>
@@ -421,27 +410,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const deviceSerial = '{{ .Device.Serial }}';
     const slider = document.getElementById('mbBrightnessSlider');
     const sliderValue = document.getElementById('mbBrightnessSliderValue');
-    const colorInput = document.getElementById('mbColor');
-    const applyBtn = document.getElementById('mbApplyColor');
     const effectSelect = document.getElementById('mbRgbProfile');
     const speedSelect = document.getElementById('mbSpeedProfile');
-
-    async function setColor(r, g, b) {
-        try {
-            const res = await fetch('/api/openrgbimport/color', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ serial: deviceSerial, r, g, b })
-            });
-
-            if (!res.ok) {
-                alert('Color failed: ' + res.status);
-            }
-        } catch (err) {
-            console.error(err);
-            alert('Color request failed');
-        }
-    }
 
     async function setBrightness(brightness) {
         try {
@@ -552,16 +522,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
         slider.addEventListener('change', function () {
             setBrightness(this.value);
-        });
-    }
-
-    if (applyBtn) {
-        applyBtn.addEventListener('click', function () {
-            const hex = colorInput.value.replace('#', '');
-            const r = parseInt(hex.substring(0, 2), 16);
-            const g = parseInt(hex.substring(2, 4), 16);
-            const b = parseInt(hex.substring(4, 6), 16);
-            setColor(r, g, b);
         });
     }
 

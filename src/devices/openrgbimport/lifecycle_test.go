@@ -2928,9 +2928,6 @@ func TestDetachedStaleObjectCannotMutateDisabledOrReimportedState(t *testing.T) 
 		t.Fatal("detached stale object accepted a persistent or cluster mutation")
 	}
 	oldDevice.SetSpeed("fast")
-	if err = oldDevice.SetColor([]byte{1, 2, 3}); err == nil {
-		t.Fatal("detached SetColor succeeded")
-	}
 	if err = oldDevice.SetBrightness(50); err == nil {
 		t.Fatal("detached SetBrightness succeeded")
 	}

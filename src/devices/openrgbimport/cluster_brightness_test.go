@@ -1,6 +1,7 @@
 package openrgbimport
 
 import (
+	"LumenForge/src/rgb"
 	"bytes"
 	"net"
 	"testing"
@@ -69,16 +70,15 @@ func TestOpenRGBIndependentOutputAppliesLocalBrightnessOnce(t *testing.T) {
 			device := newLightingMutationDevice()
 			device.brightness = test.brightness
 			device.DeviceProfile.BrightnessSlider = &test.brightness
-
-			device.lastColor = []byte{200, 100, 50}
+			setCanonicalStaticColor(t, device, rgb.Color{Red: 200, Green: 100, Blue: 50})
 			if err := device.SetEffect("static"); err != nil {
 				t.Fatalf("SetEffect(static) at %d%%: %v", test.brightness, err)
 			}
-			if calls.colors != 1 || calls.frames != 0 {
-				t.Fatalf("output calls at %d%% = colors %d, frames %d, want 1, 0", test.brightness, calls.colors, calls.frames)
+			if calls.colors != 0 || calls.frames != 1 {
+				t.Fatalf("output calls at %d%% = colors %d, frames %d, want 0, 1", test.brightness, calls.colors, calls.frames)
 			}
-			if len(calls.colorValues) != 1 || !bytes.Equal(calls.colorValues[0], test.want) {
-				t.Fatalf("independent output at %d%% = %v, want %v", test.brightness, calls.colorValues, test.want)
+			if len(calls.frameValues) != 1 || !bytes.Equal(calls.frameValues[0], test.want) {
+				t.Fatalf("independent output at %d%% = %v, want %v", test.brightness, calls.frameValues, test.want)
 			}
 		})
 	}
@@ -109,14 +109,14 @@ func TestOpenRGBLeavingClusterRestoresStoredLocalBrightness(t *testing.T) {
 		t.Fatalf("stored local brightness after leaving cluster = device %d, profile %#v, want %d", device.brightness, device.DeviceProfile.BrightnessSlider, brightness)
 	}
 
-	device.lastColor = []byte{200, 100, 50}
+	setCanonicalStaticColor(t, device, rgb.Color{Red: 200, Green: 100, Blue: 50})
 	if err := device.SetEffect("static"); err != nil {
 		t.Fatalf("independent SetEffect(static) after leaving cluster: %v", err)
 	}
-	if calls.colors != 1 || calls.frames != 0 || len(calls.colorValues) != 1 {
-		t.Fatalf("independent output calls = colors %d, frames %d, values %v", calls.colors, calls.frames, calls.colorValues)
+	if calls.colors != 0 || calls.frames != 1 || len(calls.frameValues) != 1 {
+		t.Fatalf("independent output calls = colors %d, frames %d, values %v", calls.colors, calls.frames, calls.frameValues)
 	}
-	if want := []byte{80, 40, 20}; !bytes.Equal(calls.colorValues[0], want) {
-		t.Fatalf("independent output after leaving cluster = %v, want %v", calls.colorValues[0], want)
+	if want := []byte{80, 40, 20}; !bytes.Equal(calls.frameValues[0], want) {
+		t.Fatalf("independent output after leaving cluster = %v, want %v", calls.frameValues[0], want)
 	}
 }

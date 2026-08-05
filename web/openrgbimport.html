@@ -39,13 +39,6 @@
             <option value="fast">Fast</option>
           </select>
 
-          <!-- Color -->
-          <label class="form-label mt-3">Color</label>
-          <input type="color" id="mbColor" class="form-control form-control-color" value="#63d5ff">
-
-          <!-- Apply -->
-          <button id="mbApply" class="btn btn-primary mt-3 w-100">Apply</button>
-
         </div>
       </div>
     </div>
@@ -96,19 +89,6 @@
           </div>
         </div>
 
-        <!-- Quick colors -->
-        <div class="col-md-8">
-          <div class="card text-center">
-            <div class="card-header">Quick Colors</div>
-            <div class="card-body d-flex gap-2 justify-content-center flex-wrap">
-              <button class="btn btn-danger" onclick="setColor(255,0,0)">Red</button>
-              <button class="btn btn-success" onclick="setColor(0,255,0)">Green</button>
-              <button class="btn btn-primary" onclick="setColor(0,0,255)">Blue</button>
-              <button class="btn btn-secondary" onclick="setColor(255,255,255)">White</button>
-            </div>
-          </div>
-        </div>
-
       </div>
     </div>
 
@@ -116,14 +96,6 @@
 </div>
 
 <script>
-function setColor(r, g, b) {
-  fetch('/api/openrgbimport/color', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ r, g, b })
-  });
-}
-
 const slider = document.getElementById('mbBrightness');
 const sliderValue = document.getElementById('mbBrightnessValue');
 
@@ -131,11 +103,4 @@ slider.addEventListener('input', function () {
   sliderValue.textContent = this.value + "%";
 });
 
-document.getElementById('mbApply').addEventListener('click', function () {
-  const hex = document.getElementById('mbColor').value.replace('#', '');
-  const r = parseInt(hex.substring(0, 2), 16);
-  const g = parseInt(hex.substring(2, 4), 16);
-  const b = parseInt(hex.substring(4, 6), 16);
-  setColor(r, g, b);
-});
 </script>

@@ -894,7 +894,11 @@ func (d *Device) SaveDeviceConfig(cfg *DeviceConfig) error {
 
 	if d.controllerId >= 0 {
 		time.Sleep(hardwareBufferDrainDelay)
-		if err := sendConfigFrame(uint32(d.controllerId), d.buildZoneFrame()); err != nil {
+		frame, frameErr := d.buildStaticFrame(brightness)
+		if frameErr != nil {
+			return rollback(fmt.Errorf("resolve Static output after device configuration: %w", frameErr))
+		}
+		if err := sendConfigFrame(uint32(d.controllerId), frame); err != nil {
 			d.recordOutputFailureLocked(err)
 			return rollback(err)
 		}
@@ -1406,14 +1410,12 @@ func (d *Device) handleOutputFailure(err error) {
 	d.mu.Unlock()
 }
 
-// applyBrightness scales every LED in the frame by the device brightness (0-100).
-// It accepts any frame length that is a multiple of 3.
-func (d *Device) applyBrightness(rgbBytes []byte) []byte {
+func applyBrightnessValue(rgbBytes []byte, brightness uint8) []byte {
 	if len(rgbBytes) < 3 {
 		return []byte{0, 0, 0}
 	}
 
-	b := int(d.brightness)
+	b := int(brightness)
 	out := make([]byte, len(rgbBytes))
 	for i := 0; i+2 < len(rgbBytes); i += 3 {
 		out[i] = byte((int(rgbBytes[i]) * b) / 100)
@@ -1441,145 +1443,29 @@ func (d *Device) stopEffectLoopLocked() {
 	}
 }
 
-func (d *Device) buildZoneFrame() []byte {
-	buf := make([]byte, d.colorCount*3)
-	if d.DeviceProfile == nil {
-		return buf
+// buildStaticFrame resolves the complete canonical Static settings and fills
+// the independent device scope uniformly. Legacy profile colors and RGB
+// Override remain presentation-only compatibility data and are not consulted.
+func (d *Device) buildStaticFrame(brightness uint8) ([]byte, error) {
+	resolution, err := d.resolveLightingSettings(defaultDeviceLightingEffect)
+	if err != nil {
+		return nil, err
+	}
+	if resolution.Settings.SingleColor == nil {
+		return nil, fmt.Errorf("resolved Static settings do not contain a single color")
 	}
 
-	for zoneIndex := 0; zoneIndex < d.ZoneAmount; zoneIndex++ {
-		zone, ok := d.DeviceProfile.ZoneColors[zoneIndex]
-		if !ok || zone.Color == nil {
-			continue
-		}
-
-		color := zone.Color
-		scaled := d.applyBrightness([]byte{
-			byte(color.Red),
-			byte(color.Green),
-			byte(color.Blue),
-		})
-
-		for i, idx := range zone.ColorIndex {
-			if idx < 0 || idx >= len(buf) {
-				continue
-			}
-
-			switch i % 3 {
-			case 0:
-				buf[idx] = scaled[0]
-			case 1:
-				buf[idx] = scaled[1]
-			case 2:
-				buf[idx] = scaled[2]
-			}
-		}
-	}
-
-	return buf
-}
-
-func (d *Device) buildStaticOverrideFrame() ([]byte, bool) {
-	if d.DeviceProfile == nil || d.DeviceProfile.RGBOverride == nil || !d.DeviceProfile.RGBOverride.Enabled {
-		return nil, false
-	}
-
-	color := d.DeviceProfile.RGBOverride.RGBStartColor
-	scaled := d.applyBrightness([]byte{
-		byte(color.Red),
-		byte(color.Green),
-		byte(color.Blue),
-	})
+	color := resolution.Settings.SingleColor.Color
 	frame := make([]byte, d.colorCount*3)
 	for offset := 0; offset+2 < len(frame); offset += 3 {
-		copy(frame[offset:offset+3], scaled)
+		frame[offset] = byte(color.Red)
+		frame[offset+1] = byte(color.Green)
+		frame[offset+2] = byte(color.Blue)
 	}
-	return frame, true
-}
-
-func (d *Device) buildStaticFrame() []byte {
-	if frame, enabled := d.buildStaticOverrideFrame(); enabled {
-		return frame
+	if len(frame) == 0 {
+		return frame, nil
 	}
-	if d.Config != nil && d.ZoneAmount > 0 {
-		return d.buildZoneFrame()
-	}
-	return nil
-}
-
-func (d *Device) SetColor(rgbBytes []byte) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if d.lifecycleInactiveLocked() {
-		return d.lifecycleMutationErrorLocked()
-	}
-
-	d.resolveControllerId()
-	if d.controllerId < 0 {
-		return fmt.Errorf("controllerId not set")
-	}
-
-	if d.DeviceProfile != nil && d.DeviceProfile.RGBCluster {
-		return fmt.Errorf("device is controlled by RGB cluster")
-	}
-
-	if len(rgbBytes) < 3 {
-		return fmt.Errorf("invalid rgb value")
-	}
-	if d.lightingState == nil {
-		return fmt.Errorf("OpenRGB device lighting state is unavailable")
-	}
-	if err := d.lightingState.Set(d.Serial, DeviceLightingState{
-		SelectedEffect: defaultDeviceLightingEffect,
-		Brightness:     d.brightness,
-	}); err != nil {
-		return fmt.Errorf("save Static effect selection: %w", err)
-	}
-
-	d.lastColor = []byte{rgbBytes[0], rgbBytes[1], rgbBytes[2]}
-
-	// Static color should stop animation
-	d.stopEffectLoopLocked()
-	d.effect = "static"
-	if d.DeviceProfile != nil {
-		d.DeviceProfile.RGBProfile = "static"
-	}
-
-	if d.Config != nil && d.ZoneAmount > 0 {
-		if d.DeviceProfile != nil {
-			for zoneIndex := 0; zoneIndex < d.ZoneAmount; zoneIndex++ {
-				zoneColor, ok := d.DeviceProfile.ZoneColors[zoneIndex]
-				if !ok || zoneColor.Color == nil {
-					continue
-				}
-
-				zoneColor.Color.Red = float64(rgbBytes[0])
-				zoneColor.Color.Green = float64(rgbBytes[1])
-				zoneColor.Color.Blue = float64(rgbBytes[2])
-				zoneColor.Color.Hex = fmt.Sprintf("#%02x%02x%02x", int(rgbBytes[0]), int(rgbBytes[1]), int(rgbBytes[2]))
-				d.DeviceProfile.ZoneColors[zoneIndex] = zoneColor
-			}
-			d.saveDeviceProfile()
-		}
-
-		time.Sleep(hardwareBufferDrainDelay)
-		err := openrgb.SendFrame(uint32(d.controllerId), d.buildZoneFrame())
-		if err != nil {
-			d.recordOutputFailureLocked(err)
-		}
-		return err
-	}
-
-	if d.DeviceProfile != nil {
-		d.saveDeviceProfile()
-	}
-
-	scaled := d.applyBrightness(d.lastColor)
-	err := openrgb.SendColor(uint32(d.controllerId), d.colorCount, scaled)
-	if err != nil {
-		d.recordOutputFailureLocked(err)
-	}
-	return err
+	return applyBrightnessValue(frame, brightness), nil
 }
 
 func (d *Device) SetBrightness(brightness uint8) error {
@@ -1604,6 +1490,15 @@ func (d *Device) SetBrightness(brightness uint8) error {
 	if d.lightingState == nil {
 		return fmt.Errorf("OpenRGB device lighting state is unavailable")
 	}
+	var staticFrame []byte
+	if d.effect == defaultDeviceLightingEffect {
+		var err error
+		staticFrame, err = d.buildStaticFrame(brightness)
+		if err != nil {
+			return fmt.Errorf("resolve Static output: %w", err)
+		}
+	}
+
 	if err := d.lightingState.Set(d.Serial, DeviceLightingState{
 		SelectedEffect: d.effect,
 		Brightness:     brightness,
@@ -1622,9 +1517,7 @@ func (d *Device) SetBrightness(brightness uint8) error {
 
 	var frame []byte
 	if d.effect == "static" {
-		frame = d.buildStaticFrame()
-	} else if d.Config != nil && d.ZoneAmount > 0 {
-		frame = d.buildZoneFrame()
+		frame = staticFrame
 	}
 	if frame != nil {
 		err := sendLightingFrame(context.Background(), uint32(d.controllerId), frame)
@@ -1634,9 +1527,10 @@ func (d *Device) SetBrightness(brightness uint8) error {
 		return err
 	}
 
-	scaled := d.applyBrightness(d.lastColor)
-
-	err := sendLightingColor(context.Background(), uint32(d.controllerId), d.colorCount, scaled)
+	if d.effect != "off" {
+		return nil
+	}
+	err := sendLightingColor(context.Background(), uint32(d.controllerId), d.colorCount, []byte{0, 0, 0})
 	if err != nil {
 		d.recordOutputFailureLocked(err)
 	}
@@ -1959,25 +1853,17 @@ func (d *Device) applyPersistedEffectTransitionLocked(ctx context.Context, effec
 			d.openrgbConn = nil
 		}
 
-		frame := d.buildStaticFrame()
-		if frame != nil {
-			if err := waitForContext(ctx, hardwareBufferDrainDelay); err != nil {
-				d.mu.Unlock()
-				return err
-			}
-			controllerID := d.controllerId
-			err := sendLightingFrame(ctx, uint32(controllerID), frame)
-			if err != nil && reportFailure && ctx.Err() == nil {
-				d.recordOutputFailureLocked(err)
-			}
+		frame, err := d.buildStaticFrame(d.brightness)
+		if err != nil {
+			d.mu.Unlock()
+			return fmt.Errorf("resolve Static output: %w", err)
+		}
+		if err = waitForContext(ctx, hardwareBufferDrainDelay); err != nil {
 			d.mu.Unlock()
 			return err
 		}
-
-		scaled := d.applyBrightness(d.lastColor)
 		controllerID := d.controllerId
-		colorCount := d.colorCount
-		err := sendLightingColor(ctx, uint32(controllerID), colorCount, scaled)
+		err = sendLightingFrame(ctx, uint32(controllerID), frame)
 		if err != nil && reportFailure && ctx.Err() == nil {
 			d.recordOutputFailureLocked(err)
 		}
@@ -2110,10 +1996,6 @@ func waitForContext(ctx context.Context, delay time.Duration) error {
 	case <-timer.C:
 		return nil
 	}
-}
-
-func (d *Device) SetRed() error {
-	return d.SetColor([]byte{255, 0, 0})
 }
 
 func (d *Device) GetEffect() string {

@@ -240,6 +240,36 @@ func TestOpenRGBLightingMutationRequestValidation(t *testing.T) {
 	}
 }
 
+func TestOpenRGBLegacyStaticColorEndpointIsRetired(t *testing.T) {
+	_, _, calls := installLightingMutationTestSeams(t)
+	router := setRoutes()
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/openrgbimport/color", strings.NewReader(
+		`{"serial":"openrgb-lighting-test","r":10,"g":20,"b":30}`,
+	))
+	addLocalRequestProtection(t, router, request)
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("retired color endpoint HTTP status = %d, want %d", recorder.Code, http.StatusMethodNotAllowed)
+	}
+	if len(calls.brightness) != 0 || len(calls.effects) != 0 || len(calls.speeds) != 0 {
+		t.Fatalf("retired color endpoint reached lighting mutations: %#v", calls)
+	}
+
+	effect := requestOpenRGBLightingMutation(
+		t,
+		router,
+		http.MethodPost,
+		"/api/openrgbimport/effect",
+		`{"serial":"openrgb-lighting-test","effect":"static"}`,
+	)
+	requireLightingMutationResponse(t, effect, 1)
+	if len(calls.effects) != 1 || calls.effects[0] != "static" {
+		t.Fatalf("unrelated effect endpoint calls = %v, want [static]", calls.effects)
+	}
+}
+
 func TestOpenRGBLightingLegacySpeedLookupErrorRedaction(t *testing.T) {
 	previousLookup := lookupOpenRGBImportLegacy
 	t.Cleanup(func() { lookupOpenRGBImportLegacy = previousLookup })
