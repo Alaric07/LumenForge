@@ -321,7 +321,7 @@
 											</div>
 										{{ end }}
 
-                                        {{ if eq .PaletteKind "Single color" }}
+                                        {{ if eq .PaletteKind "static-single-color" }}
                                             <div class="lf-color-control">
                                                 <div class="lf-color-control-header">
                                                     <label class="lf-color-control-label" for="lf-lighting-color-input">Color</label>
@@ -362,8 +362,14 @@
                                             </div>
                                         {{ end }}
 
-                                        {{ if and .Customized (not .ClusterControlled) }}
-                                            <div class="lf-reset-control">
+                                        {{ if not .ClusterControlled }}
+                                            <div
+                                                class="lf-reset-control"
+                                                data-lf-reset-control
+                                                data-lf-device-serial="{{ $.Device.Serial }}"
+                                                data-lf-effect="{{ .ConfiguredEffect }}"
+                                                {{ if not .Customized }}hidden{{ end }}
+                                            >
                                                 <button
                                                     class="lf-button lf-button-secondary lf-reset-button"
                                                     type="button"

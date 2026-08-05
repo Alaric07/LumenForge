@@ -536,6 +536,15 @@
         }
     }
 
+    function revealEffectReset(browser, serial, effect) {
+        const controls = browser.document.querySelectorAll("[data-lf-reset-control]");
+        for (const control of controls) {
+            if (control.dataset.lfDeviceSerial === serial && control.dataset.lfEffect === effect) {
+                control.hidden = false;
+            }
+        }
+    }
+
     function bindSpeedSlider(browser, slider) {
         const speedHelper = browser.LumenForgeRgbSpeed;
         if (!speedHelper || typeof speedHelper.configureSlider !== "function" ||
@@ -636,6 +645,7 @@
                 confirmedSpeed = speedHelper.storedToUiForSlider(slider, mappedSpeed);
                 renderSpeed(speedHelper, slider, numberInput, confirmedSpeed);
                 updateSpeedReadouts(browser, slider.dataset.lfSpeedTarget, mappedSpeed);
+                revealEffectReset(browser, slider.dataset.lfDeviceSerial, effect);
                 setStatus("Speed saved.", true);
             } catch (_) {
                 restoreConfirmedSpeed();
@@ -817,6 +827,7 @@
         bindSpeedSlider,
         bindColorControl,
         bindResetButton,
+        revealEffectReset,
         brightnessEndpoint,
         effectEndpoint,
         colorEndpoint,

@@ -72,6 +72,16 @@ function timerFixture() {
     };
 }
 
+function resetVisibilityFixture(effect) {
+    return {
+        dataset: {
+            lfDeviceSerial: "openrgb-test-device",
+            lfEffect: effect || "circle"
+        },
+        hidden: true
+    };
+}
+
 function browserFixture(fetchImplementation, overrides) {
     const status = {textContent: ""};
     let reloads = 0;
@@ -148,6 +158,7 @@ function brightnessBrowserFixture(fetchImplementation, overrides) {
         textContent: "75%"
     };
     const status = {textContent: ""};
+    const resetControl = resetVisibilityFixture();
     let reloads = 0;
     const browser = {
         AbortController,
@@ -159,8 +170,9 @@ function brightnessBrowserFixture(fetchImplementation, overrides) {
                 assert.fail("unexpected element id " + id);
             },
             querySelectorAll: function (selector) {
-                assert.equal(selector, "[data-lf-brightness-readout]");
-                return [hero, secondReadout, unrelatedReadout];
+                if (selector === "[data-lf-brightness-readout]") return [hero, secondReadout, unrelatedReadout];
+                if (selector === "[data-lf-reset-control]") return [resetControl];
+                assert.fail("unexpected selector " + selector);
             }
         },
         fetch: fetchImplementation,
@@ -174,6 +186,7 @@ function brightnessBrowserFixture(fetchImplementation, overrides) {
         numberHandlers,
         numberInput,
         reloads: function () { return reloads; },
+        resetControl,
         secondReadout,
         status,
         unrelatedReadout
@@ -227,6 +240,7 @@ function speedBrowserFixture(fetchImplementation, overrides) {
         empty: {dataset: {lfSpeedReadout: ""}, textContent: "4"}
     };
     const status = {textContent: ""};
+    const resetControl = resetVisibilityFixture();
     const browser = {
         AbortController,
         LumenForgeRgbSpeed: rgbSpeed,
@@ -238,15 +252,16 @@ function speedBrowserFixture(fetchImplementation, overrides) {
                 assert.fail("unexpected element id " + id);
             },
             querySelectorAll: function (selector) {
-                assert.equal(selector, "[data-lf-speed-readout]");
-                return [readouts.base, readouts.override, readouts.effective, readouts.empty];
+                if (selector === "[data-lf-speed-readout]") return [readouts.base, readouts.override, readouts.effective, readouts.empty];
+                if (selector === "[data-lf-reset-control]") return [resetControl];
+                assert.fail("unexpected selector " + selector);
             }
         },
         fetch: fetchImplementation,
         setTimeout
     };
     Object.assign(browser, overrides || {});
-    return {browser, numberHandlers, numberInput, readouts, status};
+    return {browser, numberHandlers, numberInput, readouts, resetControl, status};
 }
 
 test("effect selector sends the established protected mutation contract and reloads", async function () {
@@ -428,6 +443,7 @@ test("brightness range and number inputs preview one synchronized value without 
     }, {clearTimeout: timers.clearTimeout, setTimeout: timers.setTimeout});
     const control = brightnessSliderFixture();
     lighting.bindBrightnessSlider(fixture.browser, control.slider);
+    assert.equal(fixture.resetControl.hidden, true);
     assert.deepEqual(timers.delays, [], "binding scheduled status cleanup before any mutation");
 
     control.slider.value = "73";
@@ -853,6 +869,7 @@ test("brightness mutation shares range and number state and clears success feedb
     assert.equal(fixture.secondReadout.textContent, "80%");
     assert.equal(fixture.unrelatedReadout.textContent, "75%");
     assert.equal(fixture.status.textContent, "Brightness saved.");
+    assert.equal(fixture.resetControl.hidden, true, "Brightness exposed effect Reset");
     assert.deepEqual(timers.delays, [10000, 1800]);
     assert.equal(timers.pending(1800), 1);
     timers.fireNext(1800);
@@ -1282,6 +1299,7 @@ test("Speed range previews locally and commits one mapped numeric mutation", asy
     }, {clearTimeout: timers.clearTimeout, setTimeout: timers.setTimeout});
     const control = speedSliderFixture();
     lighting.bindSpeedSlider(fixture.browser, control.slider);
+    assert.equal(fixture.resetControl.hidden, true);
 
     control.slider.value = "5";
     control.handlers.input();
@@ -1309,9 +1327,47 @@ test("Speed range previews locally and commits one mapped numeric mutation", asy
     assert.equal(fixture.readouts.effective.textContent, "6");
     assert.equal(fixture.readouts.override.textContent, "8");
     assert.equal(fixture.status.textContent, "Speed saved.");
+    assert.equal(fixture.resetControl.hidden, false, "successful first Speed customization did not reveal Reset");
     assert.deepEqual(timers.delays, [10000, 1800]);
     timers.fireNext(1800);
     assert.equal(fixture.status.textContent, "");
+});
+
+test("successful first Aurora Speed customization reveals effect Reset", async function () {
+    let requests = 0;
+    const fixture = speedBrowserFixture(async function () {
+        requests++;
+        return {ok: true, json: async function () { return {status: 1}; }};
+    });
+    fixture.resetControl.dataset.lfEffect = "aurora";
+    const control = speedSliderFixture({dataset: Object.assign({}, speedSliderFixture().slider.dataset, {
+        lfCurrentStoredSpeed: "4.1",
+        lfEffect: "aurora"
+    })});
+    lighting.bindSpeedSlider(fixture.browser, control.slider);
+
+    assert.equal(fixture.resetControl.hidden, true);
+    control.slider.value = "5";
+    control.handlers.input();
+    await control.handlers.change();
+
+    assert.equal(requests, 1);
+    assert.equal(fixture.resetControl.hidden, false);
+});
+
+test("unchanged and invalid Speed interactions do not reveal effect Reset", async function () {
+    let requests = 0;
+    const fixture = speedBrowserFixture(async function () { requests++; });
+    const control = speedSliderFixture();
+    lighting.bindSpeedSlider(fixture.browser, control.slider);
+
+    await control.handlers.change();
+    fixture.numberInput.value = "invalid";
+    fixture.numberHandlers.input();
+    await fixture.numberHandlers.blur();
+
+    assert.equal(requests, 0);
+    assert.equal(fixture.resetControl.hidden, true);
 });
 
 test("Speed override success updates only override and effective stored readouts", async function () {
@@ -1395,11 +1451,13 @@ test("Speed numeric commits deduplicate Enter, change, and blur", async function
     await fixture.numberHandlers.blur();
     assert.equal(prevented, true);
     assert.equal(requests, 1);
+    assert.equal(fixture.resetControl.hidden, true, "in-flight Speed mutation revealed Reset");
     releaseRequest();
     await mutation;
     await fixture.numberHandlers.change();
     await fixture.numberHandlers.blur();
     assert.equal(requests, 1);
+    assert.equal(fixture.resetControl.hidden, false);
 });
 
 test("Speed keyboard editing preserves raw numeric text until commit or restoration", async function () {
@@ -1753,6 +1811,7 @@ test("Speed failure and timeout restore exact confirmed state without retry", as
             assert.equal(fixture.status.textContent, "Unable to change speed. Try again.");
             assert.doesNotMatch(fixture.status.textContent, /private|network/i);
             assert.equal(fixture.readouts.base.textContent, "2");
+            assert.equal(fixture.resetControl.hidden, true, "failed Speed mutation revealed Reset");
             assert.equal(timers.pending(), 0);
         });
     }
@@ -1779,6 +1838,7 @@ test("Speed failure and timeout restore exact confirmed state without retry", as
     assert.equal(timeoutFixture.status.textContent, "Unable to change speed. Try again.");
     assert.equal(timeoutControl.slider.disabled, false);
     assert.equal(timeoutFixture.numberInput.disabled, false);
+    assert.equal(timeoutFixture.resetControl.hidden, true, "timed-out Speed mutation revealed Reset");
     await Promise.resolve();
     assert.equal(requests, 1, "Speed timeout retried automatically");
 });
@@ -1821,6 +1881,7 @@ test("Speed cluster ownership and missing helper never bind mutations", function
     assert.deepEqual(cluster.handlers, {});
     assert.equal(cluster.slider.value, "9.0", "cluster Speed did not initialize through the mapping helper");
     assert.deepEqual(cluster.readyClasses, ["lf-range-control-ready"]);
+    assert.equal(clusterFixture.resetControl.hidden, true, "cluster-owned Speed control revealed Reset");
 
     const missingFixture = speedBrowserFixture(async function () { requests++; });
     delete missingFixture.browser.LumenForgeRgbSpeed;

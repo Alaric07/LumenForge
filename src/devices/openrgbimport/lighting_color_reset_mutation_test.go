@@ -157,7 +157,8 @@ func TestResetEffectCustomization(t *testing.T) {
 		stopLightingSpeedWorker(device)
 
 		snapshot, ok := device.LightingSnapshot()
-		if !ok || snapshot.Customized || snapshot.Brightness != 75 {
+		if !ok || snapshot.Customized || snapshot.Brightness != 75 ||
+			snapshot.PaletteKind != string(rgb.LightingPaletteStaticSingle) || snapshot.SingleColorHex != "#00ffff" {
 			t.Fatalf("snapshot not reset correctly: %+v", snapshot)
 		}
 	})

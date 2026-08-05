@@ -182,6 +182,18 @@ func TestOpenRGBLightingSnapshotPaletteSemantics(t *testing.T) {
 	}
 }
 
+func TestOpenRGBLightingSnapshotUncustomizedStaticUsesResolvedDefault(t *testing.T) {
+	device := lightingTestDevice("static", []string{"static"}, nil)
+
+	snapshot, ok := device.LightingSnapshot()
+	if !ok {
+		t.Fatal("snapshot failed")
+	}
+	if snapshot.PaletteKind != string(rgb.LightingPaletteStaticSingle) || snapshot.SingleColorHex != "#00ffff" || snapshot.Customized {
+		t.Fatalf("uncustomized Static snapshot = %+v", snapshot)
+	}
+}
+
 func TestOpenRGBLightingSnapshotOverrideStates(t *testing.T) {
 	device := lightingTestDevice("static", []string{"static"}, map[string]rgb.Profile{
 		"static": {ProfileName: "Static", StartColor: lightingTestColor(9, 8, 7)},

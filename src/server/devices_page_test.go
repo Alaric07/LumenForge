@@ -294,6 +294,94 @@ func TestDevicesLightingSpeedTemplate(t *testing.T) {
 	}
 }
 
+func TestDevicesLightingColorResetTemplate(t *testing.T) {
+	if os.Getenv(devicesPageHelperEnvironment) == "color-reset" {
+		initializeDevicesPageTestProcess(t)
+		runDevicesLightingColorResetTemplateAssertions(t)
+		return
+	}
+
+	command := exec.Command(os.Args[0], "-test.run=^TestDevicesLightingColorResetTemplate$")
+	command.Env = append(os.Environ(), devicesPageHelperEnvironment+"=color-reset")
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Devices Lighting color/reset helper process failed: %v\n%s", err, output)
+	}
+}
+
+func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
+	staticSnapshot := openrgbimport.LightingSnapshot{
+		ConfiguredEffect: "static",
+		EffectSupported:  true,
+		PaletteKind:      string(rgb.LightingPaletteStaticSingle),
+		SingleColorHex:   "#00ffff",
+	}
+	uncustomizedBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(staticSnapshot))
+	for _, expected := range []string{
+		`id="lf-lighting-color-input"`,
+		`type="color"`,
+		`value="#00ffff"`,
+		`data-lf-current-color="#00ffff"`,
+		`id="lf-lighting-color-hex"`,
+		`data-lf-reset-control`,
+		`data-lf-device-serial="lighting-template-device"`,
+		`data-lf-effect="static"`,
+	} {
+		if !strings.Contains(uncustomizedBody, expected) {
+			t.Errorf("uncustomized Static template does not contain %q", expected)
+		}
+	}
+	resetStart := strings.Index(uncustomizedBody, `class="lf-reset-control"`)
+	if resetStart < 0 {
+		t.Fatal("uncustomized Static template does not render the revealable Reset container")
+	}
+	resetEnd := strings.Index(uncustomizedBody[resetStart:], ">")
+	if resetEnd < 0 || !strings.Contains(uncustomizedBody[resetStart:resetStart+resetEnd], "hidden") {
+		t.Error("uncustomized Static Reset container is not initially hidden")
+	}
+
+	staticSnapshot.Customized = true
+	customizedBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(staticSnapshot))
+	resetStart = strings.Index(customizedBody, `class="lf-reset-control"`)
+	if resetStart < 0 {
+		t.Fatal("customized Static template does not render Reset")
+	}
+	resetEnd = strings.Index(customizedBody[resetStart:], ">")
+	if resetEnd < 0 || strings.Contains(customizedBody[resetStart:resetStart+resetEnd], "hidden") {
+		t.Error("customized Static template keeps Reset hidden")
+	}
+	if !strings.Contains(customizedBody, `data-lf-reset-button`) || !strings.Contains(customizedBody, `Reset to default`) {
+		t.Error("customized Static template does not render the Reset button")
+	}
+
+	staticSnapshot.ClusterControlled = true
+	clusterBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(staticSnapshot))
+	for _, id := range []string{"lf-lighting-color-input", "lf-lighting-color-hex"} {
+		inputStart := strings.Index(clusterBody, `id="`+id+`"`)
+		if inputStart < 0 {
+			t.Errorf("cluster-owned Static color control %s is absent", id)
+			continue
+		}
+		inputEnd := strings.Index(clusterBody[inputStart:], ">")
+		if inputEnd < 0 || !strings.Contains(clusterBody[inputStart:inputStart+inputEnd], "disabled") {
+			t.Errorf("cluster-owned Static color control %s is active", id)
+		}
+	}
+	if strings.Contains(clusterBody, `data-lf-reset-control`) || strings.Contains(clusterBody, `data-lf-reset-button`) {
+		t.Error("cluster-owned Static template exposes local Reset controls")
+	}
+
+	unsupportedBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+		ConfiguredEffect: "aurora",
+		EffectSupported:  true,
+		PaletteKind:      string(rgb.LightingPaletteGenerated),
+		SingleColorHex:   "#00ffff",
+	}))
+	if strings.Contains(unsupportedBody, `data-lf-color-input`) || strings.Contains(unsupportedBody, `data-lf-color-hex`) {
+		t.Error("non-single-color effect rendered the color editor")
+	}
+}
+
 func runDevicesLightingSpeedTemplateAssertions(t *testing.T) {
 	for _, effect := range []string{"circle", "flame", "cyberpunkglitch", "rain", "aurora", "gradient"} {
 		snapshot := devicesLightingSpeedSnapshot(effect, 2)
