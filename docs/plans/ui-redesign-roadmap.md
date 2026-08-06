@@ -289,6 +289,21 @@ full-repository, JavaScript, and CodeRabbit validation passed. Manual testing
 confirmed Static color editing, Reset, animated Speed customization, cluster
 ownership, Brightness independence, and persistence across restart.
 
+`20e6d472` added the descriptor-driven two-color Start/End editor for
+independent OpenRGB-imported devices. Both resolved colors are presented from
+the canonical settings used by rendering, and changing either role persists
+one complete Start/End customization while preserving resolved Speed, selected
+effect, and device Brightness. The editor uses paired native color and exact
+hexadecimal inputs, strict bounded mutation handling, shared status feedback,
+and the existing effect Reset behavior.
+
+Uncustomized effects display shipped resolved defaults. Cluster-owned controls
+remain disabled without local Reset, while other palette kinds do not render
+the two-color editor. Focused automated tests and CodeRabbit review passed.
+Manual hardware testing confirmed independent Start and End changes, complete
+pair persistence, Reset, Speed and Brightness preservation, cluster ownership,
+and restoration across restart.
+
 ### OpenRGB Device Lighting cutover
 
 - [x] Add the modern protected effect selector (`01b80d4a`).
@@ -307,7 +322,7 @@ ownership, Brightness independence, and persistence across restart.
 - [x] Replace base/override/effective snapshots with resolved control data,
   simplify Device Lighting to renderer-supported controls, and add the
   Static/single-color editor and Reset (`22f8117c`, corrected in `ad4b0340`).
-- [ ] Add the two-color Start/End editor.
+- [x] Add the two-color Start/End editor (`20e6d472`).
 - [ ] Add Low/Middle/High temperature color and threshold editing.
 - [ ] Add the ordered Gradient editor.
 - [ ] Remove the temporary user-facing Palette capability readout after the
