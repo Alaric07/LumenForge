@@ -95,6 +95,9 @@ var (
 	setOpenRGBImportColorValue = func(device *openrgbimport.Device, serial, effect string, color lightingsettings.Color) error {
 		return device.SetEffectColor(serial, effect, color)
 	}
+	setOpenRGBImportTwoColorValue = func(device *openrgbimport.Device, serial, effect string, start, end lightingsettings.Color) error {
+		return device.SetEffectTwoColor(serial, effect, start, end)
+	}
 	resetOpenRGBImportCustomizationValue = func(device *openrgbimport.Device, serial, effect string) error {
 		return device.ResetEffectCustomization(serial, effect)
 	}
@@ -2372,6 +2375,8 @@ type openRGBLightingWorkspaceSummary struct {
 	ClusterControlled       bool
 	PaletteKind             string
 	SingleColorHex          string
+	TwoColorStartHex        string
+	TwoColorEndHex          string
 	Customized              bool
 }
 
@@ -2450,6 +2455,8 @@ func openRGBLightingWorkspaceSummaryFromSnapshot(snapshot openrgbimport.Lighting
 		SupportedEffects:  make([]openRGBLightingEffectSummary, len(snapshot.SupportedEffects)),
 		PaletteKind:       snapshot.PaletteKind,
 		SingleColorHex:    snapshot.SingleColorHex,
+		TwoColorStartHex:  snapshot.TwoColorStartHex,
+		TwoColorEndHex:    snapshot.TwoColorEndHex,
 		Customized:        snapshot.Customized,
 	}
 	if snapshot.HasSpeed {
@@ -3108,6 +3115,46 @@ func setOpenRGBImportSingleColor(w http.ResponseWriter, r *http.Request) {
 	(&Response{Code: http.StatusOK, Status: 1, Message: "Applied successfully"}).Send(w)
 }
 
+func setOpenRGBImportTwoColor(w http.ResponseWriter, r *http.Request) {
+	request := struct {
+		Serial string `json:"serial"`
+		Effect string `json:"effect"`
+		Start  string `json:"start"`
+		End    string `json:"end"`
+	}{}
+	if !decodeOpenRGBImportRequest(w, r, &request) {
+		return
+	}
+	if request.Serial == "" || request.Effect == "" || request.Start == "" || request.End == "" {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Missing required properties"}).Send(w)
+		return
+	}
+	start, err := parseHexColor(request.Start)
+	if err != nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Invalid color format"}).Send(w)
+		return
+	}
+	end, err := parseHexColor(request.End)
+	if err != nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Invalid color format"}).Send(w)
+		return
+	}
+	device, err := getOpenRGBImportLightingDeviceBySerial(request.Serial)
+	if err != nil || device == nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "OpenRGB import is unavailable"}).Send(w)
+		return
+	}
+	if !device.SupportsEffect(request.Effect) {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Unsupported effect"}).Send(w)
+		return
+	}
+	if err := setOpenRGBImportTwoColorValue(device, request.Serial, request.Effect, start, end); err != nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Failed to set device colors"}).Send(w)
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Applied successfully"}).Send(w)
+}
+
 func resetOpenRGBImportEffectCustomization(w http.ResponseWriter, r *http.Request) {
 	request := struct {
 		Serial string `json:"serial"`
@@ -3360,6 +3407,7 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/openrgbimport/refresh", http.MethodPost, refreshOpenRGBImportManager)
 	handleFunc(r, "/api/openrgbimport/speed", http.MethodPost, setOpenRGBImportSpeed)
 	handleFunc(r, "/api/openrgbimport/single-color", http.MethodPost, setOpenRGBImportSingleColor)
+	handleFunc(r, "/api/openrgbimport/two-color", http.MethodPost, setOpenRGBImportTwoColor)
 	handleFunc(r, "/api/openrgbimport/effect-reset", http.MethodPost, resetOpenRGBImportEffectCustomization)
 	handleFunc(r, "/api/openrgbimport/effect", http.MethodPost, setOpenRGBImportEffect)
 	handleFunc(r, "/api/openrgbimport/brightness", http.MethodPost, setOpenRGBImportBrightness)

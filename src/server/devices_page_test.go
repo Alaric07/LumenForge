@@ -61,18 +61,21 @@ func TestDevicesLightingPresentationModel(t *testing.T) {
 				Label: "Wave <Label> & More",
 			},
 		},
-		HasSpeed:       true,
-		Speed:          0.5,
-		PaletteKind:    "Two color",
-		SingleColorHex: "#ff0000",
-		Customized:     true,
+		HasSpeed:         true,
+		Speed:            0.5,
+		PaletteKind:      "Two color",
+		SingleColorHex:   "#ff0000",
+		TwoColorStartHex: "#112233",
+		TwoColorEndHex:   "#aabbcc",
+		Customized:       true,
 	}
 
 	summary := openRGBLightingWorkspaceSummaryFromSnapshot(source)
 	if summary.ConfiguredEffect != "wave" || summary.ConfiguredEffectLabel != "Wave <Label> & More" ||
 		summary.ConfiguredEffectIconURL != "/static/img/icons/rgb/wave.svg" ||
 		!summary.EffectSupported || !summary.HasBrightness || summary.Brightness != 0 || !summary.ClusterControlled ||
-		!summary.HasSpeedControl || summary.Speed != "0.5" || summary.PaletteKind != "Two color" || summary.SingleColorHex != "#ff0000" || !summary.Customized {
+		!summary.HasSpeedControl || summary.Speed != "0.5" || summary.PaletteKind != "Two color" || summary.SingleColorHex != "#ff0000" ||
+		summary.TwoColorStartHex != "#112233" || summary.TwoColorEndHex != "#aabbcc" || !summary.Customized {
 		t.Fatalf("configured Lighting presentation = %#v", summary)
 	}
 	if len(summary.SupportedEffects) != 2 ||
@@ -379,6 +382,106 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 	}))
 	if strings.Contains(unsupportedBody, `data-lf-color-input`) || strings.Contains(unsupportedBody, `data-lf-color-hex`) {
 		t.Error("non-single-color effect rendered the color editor")
+	}
+
+	twoColorSnapshot := openrgbimport.LightingSnapshot{
+		ConfiguredEffect: "wave",
+		EffectSupported:  true,
+		HasSpeed:         true,
+		Speed:            5,
+		PaletteKind:      string(rgb.LightingPaletteTwoColor),
+		TwoColorStartHex: "#418fe8",
+		TwoColorEndHex:   "#828282",
+	}
+	twoColorBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(twoColorSnapshot))
+	for _, expected := range []string{
+		`data-lf-two-color-control`,
+		`data-lf-current-start="#418fe8"`,
+		`data-lf-current-end="#828282"`,
+		`for="lf-lighting-start-color-input">Start</label>`,
+		`id="lf-lighting-start-color-input"`,
+		`id="lf-lighting-start-color-hex"`,
+		`for="lf-lighting-end-color-input">End</label>`,
+		`id="lf-lighting-end-color-input"`,
+		`id="lf-lighting-end-color-hex"`,
+		`id="lf-lighting-two-color-status" aria-live="polite"`,
+		`data-lf-speed-control`,
+	} {
+		if !strings.Contains(twoColorBody, expected) {
+			t.Errorf("uncustomized two-color template does not contain %q", expected)
+		}
+	}
+	for _, id := range []string{
+		"lf-lighting-start-color-input",
+		"lf-lighting-start-color-hex",
+		"lf-lighting-end-color-input",
+		"lf-lighting-end-color-hex",
+		"lf-lighting-two-color-status",
+	} {
+		if count := strings.Count(twoColorBody, ` id="`+id+`"`); count != 1 {
+			t.Errorf("two-color template ID %q count = %d, want 1", id, count)
+		}
+	}
+	resetStart = strings.Index(twoColorBody, `class="lf-reset-control"`)
+	if resetStart < 0 {
+		t.Fatal("uncustomized two-color Reset container is absent")
+	}
+	resetEnd = strings.Index(twoColorBody[resetStart:], ">")
+	if resetEnd < 0 || !strings.Contains(twoColorBody[resetStart:resetStart+resetEnd], "hidden") {
+		t.Error("uncustomized two-color Reset container is not hidden")
+	}
+
+	twoColorSnapshot.Customized = true
+	customizedTwoColorBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(twoColorSnapshot))
+	resetStart = strings.Index(customizedTwoColorBody, `class="lf-reset-control"`)
+	if resetStart < 0 {
+		t.Fatal("customized two-color Reset container is absent")
+	}
+	resetEnd = strings.Index(customizedTwoColorBody[resetStart:], ">")
+	if resetEnd < 0 || strings.Contains(customizedTwoColorBody[resetStart:resetStart+resetEnd], "hidden") {
+		t.Error("customized two-color Reset is not visible")
+	}
+
+	twoColorSnapshot.ClusterControlled = true
+	clusterTwoColorBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(twoColorSnapshot))
+	for _, id := range []string{
+		"lf-lighting-start-color-input",
+		"lf-lighting-start-color-hex",
+		"lf-lighting-end-color-input",
+		"lf-lighting-end-color-hex",
+	} {
+		inputStart := strings.Index(clusterTwoColorBody, ` id="`+id+`"`)
+		if inputStart < 0 {
+			t.Errorf("cluster-owned two-color control %s is absent", id)
+			continue
+		}
+		inputEnd := strings.Index(clusterTwoColorBody[inputStart:], ">")
+		if inputEnd < 0 || !strings.Contains(clusterTwoColorBody[inputStart:inputStart+inputEnd], "disabled") {
+			t.Errorf("cluster-owned two-color control %s is not disabled", id)
+		}
+	}
+	if strings.Contains(clusterTwoColorBody, `data-lf-reset-control`) {
+		t.Error("cluster-owned two-color template exposes local Reset")
+	}
+
+	for _, palette := range []rgb.LightingPaletteKind{
+		rgb.LightingPaletteStaticSingle,
+		rgb.LightingPaletteGenerated,
+		rgb.LightingPaletteTemperatureThree,
+		rgb.LightingPaletteGradient,
+		rgb.LightingPaletteNone,
+		"unsupported",
+	} {
+		body := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+			ConfiguredEffect: "other",
+			EffectSupported:  true,
+			PaletteKind:      string(palette),
+			TwoColorStartHex: "#112233",
+			TwoColorEndHex:   "#445566",
+		}))
+		if strings.Contains(body, `data-lf-two-color-control`) {
+			t.Errorf("palette %q rendered the two-color editor", palette)
+		}
 	}
 }
 

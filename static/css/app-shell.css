@@ -1342,6 +1342,16 @@
     margin-bottom: 12px;
 }
 
+.lf-app-shell .lf-two-color-control-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+    gap: 20px;
+}
+
+.lf-app-shell .lf-two-color-control-field {
+    min-width: 0;
+}
+
 .lf-app-shell .lf-color-control-label {
     display: block;
     color: var(--lf-text-primary);

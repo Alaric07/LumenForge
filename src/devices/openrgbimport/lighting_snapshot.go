@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 
+	"LumenForge/src/lightingsettings"
 	"LumenForge/src/rgb"
 )
 
@@ -28,7 +29,13 @@ type LightingSnapshot struct {
 	ClusterControlled bool
 	PaletteKind       string
 	SingleColorHex    string
+	TwoColorStartHex  string
+	TwoColorEndHex    string
 	Customized        bool
+}
+
+func lightingColorHex(color lightingsettings.Color) string {
+	return fmt.Sprintf("#%02x%02x%02x", uint8(color.Red), uint8(color.Green), uint8(color.Blue))
 }
 
 // LightingSnapshot returns a complete race-safe value snapshot. Selected
@@ -84,11 +91,11 @@ func (d *Device) LightingSnapshot() (LightingSnapshot, bool) {
 		snapshot.Speed = *resolution.Settings.Speed
 	}
 	if descriptor.PaletteKind == rgb.LightingPaletteStaticSingle && resolution.Settings.SingleColor != nil {
-		snapshot.SingleColorHex = fmt.Sprintf("#%02x%02x%02x",
-			uint8(resolution.Settings.SingleColor.Color.Red),
-			uint8(resolution.Settings.SingleColor.Color.Green),
-			uint8(resolution.Settings.SingleColor.Color.Blue),
-		)
+		snapshot.SingleColorHex = lightingColorHex(resolution.Settings.SingleColor.Color)
+	}
+	if descriptor.PaletteKind == rgb.LightingPaletteTwoColor && resolution.Settings.TwoColor != nil {
+		snapshot.TwoColorStartHex = lightingColorHex(resolution.Settings.TwoColor.Start)
+		snapshot.TwoColorEndHex = lightingColorHex(resolution.Settings.TwoColor.End)
 	}
 
 	return snapshot, true

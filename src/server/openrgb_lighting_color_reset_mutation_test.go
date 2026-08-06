@@ -144,6 +144,101 @@ func TestOpenRGBLightingColorMutationRequestValidation(t *testing.T) {
 	})
 }
 
+func TestOpenRGBLightingTwoColorMutationRequestValidation(t *testing.T) {
+	device, _, calls := installLightingMutationTestSeams(t)
+	device.RGBModes = append(device.RGBModes, "wave")
+	router := setRoutes()
+
+	tests := []struct {
+		name      string
+		body      string
+		wantStart *lightingsettings.Color
+		wantEnd   *lightingsettings.Color
+	}{
+		{
+			name:      "valid lowercase hex",
+			body:      `{"serial":"openrgb-lighting-test","effect":"wave","start":"#112233","end":"#aabbcc"}`,
+			wantStart: &lightingsettings.Color{Red: 17, Green: 34, Blue: 51},
+			wantEnd:   &lightingsettings.Color{Red: 170, Green: 187, Blue: 204},
+		},
+		{
+			name:      "valid uppercase hex",
+			body:      `{"serial":"openrgb-lighting-test","effect":"wave","start":"#A1B2C3","end":"#D4E5F6"}`,
+			wantStart: &lightingsettings.Color{Red: 161, Green: 178, Blue: 195},
+			wantEnd:   &lightingsettings.Color{Red: 212, Green: 229, Blue: 246},
+		},
+		{name: "malformed Start", body: `{"serial":"openrgb-lighting-test","effect":"wave","start":"112233","end":"#aabbcc"}`},
+		{name: "malformed End", body: `{"serial":"openrgb-lighting-test","effect":"wave","start":"#112233","end":"#aabbcx"}`},
+		{name: "missing serial", body: `{"effect":"wave","start":"#112233","end":"#aabbcc"}`},
+		{name: "missing effect", body: `{"serial":"openrgb-lighting-test","start":"#112233","end":"#aabbcc"}`},
+		{name: "missing Start", body: `{"serial":"openrgb-lighting-test","effect":"wave","end":"#aabbcc"}`},
+		{name: "missing End", body: `{"serial":"openrgb-lighting-test","effect":"wave","start":"#112233"}`},
+		{name: "unknown field", body: `{"serial":"openrgb-lighting-test","effect":"wave","start":"#112233","end":"#aabbcc","extra":true}`},
+		{name: "trailing JSON", body: `{"serial":"openrgb-lighting-test","effect":"wave","start":"#112233","end":"#aabbcc"}{}`},
+		{name: "oversized", body: strings.Repeat(" ", openRGBImportRequestLimit+1) + `{"serial":"openrgb-lighting-test","effect":"wave","start":"#112233","end":"#aabbcc"}`},
+		{name: "unsupported effect", body: `{"serial":"openrgb-lighting-test","effect":"unsupported","start":"#112233","end":"#aabbcc"}`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			calls.twoColors = nil
+			recorder := requestOpenRGBLightingMutation(t, router, http.MethodPost, "/api/openrgbimport/two-color", test.body)
+			if test.wantStart == nil || test.wantEnd == nil {
+				requireLightingMutationResponse(t, recorder, 0)
+				if len(calls.twoColors) != 0 {
+					t.Fatalf("two-color mutation calls = %#v, want none", calls.twoColors)
+				}
+				return
+			}
+			response := requireLightingMutationResponse(t, recorder, 1)
+			if response.Message != "Applied successfully" {
+				t.Fatalf("success message = %q", response.Message)
+			}
+			want := lightingTwoColorMutationCall{
+				serial: lightingMutationTestSerial,
+				effect: "wave",
+				start:  *test.wantStart,
+				end:    *test.wantEnd,
+			}
+			if len(calls.twoColors) != 1 || calls.twoColors[0] != want {
+				t.Fatalf("two-color mutation calls = %#v, want [%#v]", calls.twoColors, want)
+			}
+		})
+	}
+
+	t.Run("unavailable device", func(t *testing.T) {
+		previousLookup := lookupOpenRGBImportForLighting
+		lookupOpenRGBImportForLighting = func(string) (*common.Device, *openrgbimport.Device, bool) {
+			return nil, nil, false
+		}
+		t.Cleanup(func() { lookupOpenRGBImportForLighting = previousLookup })
+		calls.twoColors = nil
+		recorder := requestOpenRGBLightingMutation(t, router, http.MethodPost, "/api/openrgbimport/two-color", `{"serial":"openrgb-missing","effect":"wave","start":"#112233","end":"#aabbcc"}`)
+		response := requireLightingMutationResponse(t, recorder, 0)
+		if response.Message != "OpenRGB import is unavailable" || len(calls.twoColors) != 0 {
+			t.Fatalf("unavailable response = %#v, calls %#v", response, calls.twoColors)
+		}
+	})
+
+	for _, internalError := range []string{
+		"device is controlled by RGB cluster",
+		"OpenRGB effect selection is stale",
+		"OpenRGB import is detached",
+	} {
+		t.Run("generic mutation rejection "+internalError, func(t *testing.T) {
+			calls.twoColors = nil
+			calls.setError = errors.New(internalError)
+			recorder := requestOpenRGBLightingMutation(t, router, http.MethodPost, "/api/openrgbimport/two-color", `{"serial":"openrgb-lighting-test","effect":"wave","start":"#112233","end":"#aabbcc"}`)
+			response := requireLightingMutationResponse(t, recorder, 0)
+			if response.Message != "Failed to set device colors" || strings.Contains(recorder.Body.String(), internalError) {
+				t.Fatalf("mutation rejection response = %s", recorder.Body.String())
+			}
+			if len(calls.twoColors) != 1 {
+				t.Fatalf("two-color mutation calls = %#v, want one", calls.twoColors)
+			}
+		})
+	}
+}
+
 func TestOpenRGBLightingResetMutationRequestValidation(t *testing.T) {
 	_, _, calls := installLightingMutationTestSeams(t)
 	router := setRoutes()

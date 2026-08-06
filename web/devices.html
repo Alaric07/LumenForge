@@ -362,6 +362,82 @@
                                             </div>
                                         {{ end }}
 
+                                        {{ if eq .PaletteKind "two-color" }}
+                                            <div
+                                                class="lf-color-control lf-two-color-control"
+                                                data-lf-two-color-control
+                                                data-lf-device-serial="{{ $.Device.Serial }}"
+                                                data-lf-effect="{{ .ConfiguredEffect }}"
+                                                data-lf-cluster-controlled="{{ .ClusterControlled }}"
+                                                data-lf-current-start="{{ .TwoColorStartHex }}"
+                                                data-lf-current-end="{{ .TwoColorEndHex }}"
+                                                data-lf-start-color-id="lf-lighting-start-color-input"
+                                                data-lf-start-hex-id="lf-lighting-start-color-hex"
+                                                data-lf-end-color-id="lf-lighting-end-color-input"
+                                                data-lf-end-hex-id="lf-lighting-end-color-hex"
+                                                data-lf-status-id="lf-lighting-two-color-status"
+                                            >
+                                                <div class="lf-two-color-control-fields">
+                                                    <div class="lf-two-color-control-field">
+                                                        <div class="lf-color-control-header">
+                                                            <label class="lf-color-control-label" for="lf-lighting-start-color-input">Start</label>
+                                                        </div>
+                                                        <div class="lf-color-control-inputs">
+                                                            <input
+                                                                class="lf-color-control-input"
+                                                                id="lf-lighting-start-color-input"
+                                                                type="color"
+                                                                value="{{ .TwoColorStartHex }}"
+                                                                aria-label="Start color"
+                                                                aria-describedby="lf-lighting-two-color-status{{ if .ClusterControlled }} lf-lighting-two-color-cluster-explanation{{ end }}"
+                                                                {{ if .ClusterControlled }}disabled{{ end }}
+                                                            >
+                                                            <input
+                                                                class="lf-color-control-hex"
+                                                                id="lf-lighting-start-color-hex"
+                                                                type="text"
+                                                                value="{{ .TwoColorStartHex }}"
+                                                                pattern="#[0-9a-fA-F]{6}"
+                                                                maxlength="7"
+                                                                aria-label="Start color hex code"
+                                                                {{ if .ClusterControlled }}disabled{{ end }}
+                                                            >
+                                                        </div>
+                                                    </div>
+                                                    <div class="lf-two-color-control-field">
+                                                        <div class="lf-color-control-header">
+                                                            <label class="lf-color-control-label" for="lf-lighting-end-color-input">End</label>
+                                                        </div>
+                                                        <div class="lf-color-control-inputs">
+                                                            <input
+                                                                class="lf-color-control-input"
+                                                                id="lf-lighting-end-color-input"
+                                                                type="color"
+                                                                value="{{ .TwoColorEndHex }}"
+                                                                aria-label="End color"
+                                                                aria-describedby="lf-lighting-two-color-status{{ if .ClusterControlled }} lf-lighting-two-color-cluster-explanation{{ end }}"
+                                                                {{ if .ClusterControlled }}disabled{{ end }}
+                                                            >
+                                                            <input
+                                                                class="lf-color-control-hex"
+                                                                id="lf-lighting-end-color-hex"
+                                                                type="text"
+                                                                value="{{ .TwoColorEndHex }}"
+                                                                pattern="#[0-9a-fA-F]{6}"
+                                                                maxlength="7"
+                                                                aria-label="End color hex code"
+                                                                {{ if .ClusterControlled }}disabled{{ end }}
+                                                            >
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {{ if .ClusterControlled }}
+                                                    <p class="lf-color-control-restriction" id="lf-lighting-two-color-cluster-explanation">RGB Cluster currently owns this device's lighting output. Change cluster-wide lighting from the <a href="/rgbCluster">RGB Cluster workspace</a>.</p>
+                                                {{ end }}
+                                                <p class="lf-color-control-status" id="lf-lighting-two-color-status" aria-live="polite"></p>
+                                            </div>
+                                        {{ end }}
+
                                         {{ if not .ClusterControlled }}
                                             <div
                                                 class="lf-reset-control"

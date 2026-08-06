@@ -1164,6 +1164,7 @@ test("multiple brightness controls keep transient success timers isolated", asyn
         }
         if (selector === "[data-lf-speed-slider]") return [];
         if (selector === "[data-lf-color-input]") return [];
+        if (selector === "[data-lf-two-color-control]") return [];
         if (selector === "[data-lf-reset-button]") return [];
         assert.equal(selector, "[data-lf-brightness-readout]");
         return [];
@@ -1965,7 +1966,7 @@ test("Lighting initialization tolerates pages without interactive controls", fun
 
     lighting.init(browser);
 
-    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-reset-button]"]);
+    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-two-color-control]", "[data-lf-reset-button]"]);
 });
 
 test("Lighting initialization supports isolated and combined interactive controls", function () {
@@ -2101,6 +2102,213 @@ function colorBrowserFixture(fetchImplementation, overrides) {
     Object.assign(browser, overrides || {});
     return {browser, colorInput, colorHandlers, hexInput, hexHandlers, resetButton, resetHandlers, status, getReloads: () => reloads};
 }
+
+function twoColorBrowserFixture(fetchImplementation, overrides) {
+    function input(value) {
+        const handlers = {};
+        return {
+            control: {
+                disabled: false,
+                value: value,
+                addEventListener: function(event, handler) { handlers[event] = handler; }
+            },
+            handlers
+        };
+    }
+
+    const startColor = input("#112233");
+    const startHex = input("#112233");
+    const endColor = input("#aabbcc");
+    const endHex = input("#aabbcc");
+    const status = {textContent: ""};
+    const container = {
+        dataset: {
+            lfClusterControlled: "false",
+            lfCurrentStart: "#112233",
+            lfCurrentEnd: "#aabbcc",
+            lfDeviceSerial: "test-device",
+            lfEffect: "wave",
+            lfStartColorId: "start-color",
+            lfStartHexId: "start-hex",
+            lfEndColorId: "end-color",
+            lfEndHexId: "end-hex",
+            lfStatusId: "two-color-status"
+        }
+    };
+    const elements = {
+        "start-color": startColor.control,
+        "start-hex": startHex.control,
+        "end-color": endColor.control,
+        "end-hex": endHex.control,
+        "two-color-status": status
+    };
+    let reloads = 0;
+    const browser = {
+        AbortController,
+        clearTimeout,
+        document: {getElementById: function(id) { return elements[id] || null; }},
+        fetch: fetchImplementation,
+        location: {reload: function() { reloads++; }},
+        setTimeout
+    };
+    Object.assign(browser, overrides || {});
+    return {
+        browser,
+        container,
+        endColor,
+        endHex,
+        reloads: function() { return reloads; },
+        startColor,
+        startHex,
+        status
+    };
+}
+
+test("bindTwoColorControl commits normalized complete Start and End pairs", async function(t) {
+    for (const role of ["Start", "End"]) {
+        await t.test(role, async function() {
+            let request;
+            const timers = timerFixture();
+            const fixture = twoColorBrowserFixture(async function(url, options) {
+                request = {url, options};
+                return {ok: true, json: async function() { return {status: 1}; }};
+            }, {clearTimeout: timers.clearTimeout, setTimeout: timers.setTimeout});
+            const commit = lighting.bindTwoColorControl(fixture.browser, fixture.container);
+
+            if (role === "Start") {
+                fixture.startHex.control.value = "#DDEEFF";
+                fixture.startHex.handlers.input();
+                assert.equal(fixture.startColor.control.value, "#ddeeff");
+            } else {
+                fixture.endColor.control.value = "#445566";
+                fixture.endColor.handlers.input();
+                assert.equal(fixture.endHex.control.value, "#445566");
+            }
+
+            const promise = commit();
+            for (const control of [fixture.startColor.control, fixture.startHex.control, fixture.endColor.control, fixture.endHex.control]) {
+                assert.equal(control.disabled, true);
+            }
+            assert.equal(fixture.status.textContent, "Saving colors…");
+            await promise;
+
+            assert.equal(request.url, "/api/openrgbimport/two-color");
+            assert.equal(request.options.method, "POST");
+            assert.ok(request.options.signal instanceof AbortSignal);
+            assert.deepEqual(JSON.parse(request.options.body), role === "Start" ? {
+                serial: "test-device", effect: "wave", start: "#ddeeff", end: "#aabbcc"
+            } : {
+                serial: "test-device", effect: "wave", start: "#112233", end: "#445566"
+            });
+            assert.equal(fixture.status.textContent, "Colors saved.");
+            assert.equal(fixture.reloads(), 1);
+            assert.equal(timers.pending(10000), 0);
+        });
+    }
+});
+
+test("bindTwoColorControl rejects unchanged invalid incomplete and cluster-owned interactions", async function() {
+    let requests = 0;
+    const fixture = twoColorBrowserFixture(async function() {
+        requests++;
+        return {ok: true, json: async function() { return {status: 1}; }};
+    });
+    const commit = lighting.bindTwoColorControl(fixture.browser, fixture.container);
+
+    await commit();
+    fixture.startHex.control.value = "#123";
+    await commit();
+    fixture.endHex.control.value = "invalid";
+    await commit();
+
+    assert.equal(requests, 0);
+    assert.equal(fixture.startHex.control.value, "#112233");
+    assert.equal(fixture.endHex.control.value, "#aabbcc");
+
+    fixture.container.dataset.lfClusterControlled = "true";
+    assert.equal(lighting.bindTwoColorControl(fixture.browser, fixture.container), null);
+    assert.equal(requests, 0);
+});
+
+test("bindTwoColorControl deduplicates Enter change and concurrent commits", async function() {
+    let requests = 0;
+    let resolveRequest;
+    const fixture = twoColorBrowserFixture(function() {
+        requests++;
+        return new Promise(function(resolve) { resolveRequest = resolve; });
+    });
+    lighting.bindTwoColorControl(fixture.browser, fixture.container);
+    fixture.startHex.control.value = "#334455";
+    fixture.startHex.handlers.input();
+    fixture.startHex.handlers.keydown({key: "Enter", preventDefault: function() {}});
+    fixture.startHex.handlers.change();
+    fixture.endHex.handlers.change();
+
+    assert.equal(requests, 1);
+    resolveRequest({ok: true, json: async function() { return {status: 1}; }});
+    await new Promise(function(resolve) { setImmediate(resolve); });
+    assert.equal(requests, 1);
+    assert.equal(fixture.reloads(), 1);
+});
+
+test("bindTwoColorControl restores both confirmed colors after request failures", async function(t) {
+    const failures = [
+        async function() { return {ok: false, json: async function() { return {status: 1}; }}; },
+        async function() { return {ok: true, json: async function() { return {status: 0}; }}; },
+        async function() { throw new Error("offline detail"); }
+    ];
+    for (const [index, failure] of failures.entries()) {
+        await t.test(String(index), async function() {
+            const fixture = twoColorBrowserFixture(failure);
+            const commit = lighting.bindTwoColorControl(fixture.browser, fixture.container);
+            fixture.startHex.control.value = "#010203";
+            fixture.endHex.control.value = "#040506";
+            await commit();
+
+            assert.equal(fixture.startColor.control.value, "#112233");
+            assert.equal(fixture.startHex.control.value, "#112233");
+            assert.equal(fixture.endColor.control.value, "#aabbcc");
+            assert.equal(fixture.endHex.control.value, "#aabbcc");
+            for (const control of [fixture.startColor.control, fixture.startHex.control, fixture.endColor.control, fixture.endHex.control]) {
+                assert.equal(control.disabled, false);
+            }
+            assert.equal(fixture.status.textContent, "Unable to change colors. Try again.");
+            assert.equal(fixture.reloads(), 0);
+        });
+    }
+});
+
+test("bindTwoColorControl aborts a stalled request and restores both colors", async function() {
+    const timers = timerFixture();
+    let requests = 0;
+    let signal;
+    const fixture = twoColorBrowserFixture(function(_, options) {
+        requests++;
+        signal = options.signal;
+        return new Promise(function(_, reject) {
+            signal.addEventListener("abort", function() {
+                const error = new Error("internal timeout detail");
+                error.name = "AbortError";
+                reject(error);
+            }, {once: true});
+        });
+    }, {clearTimeout: timers.clearTimeout, setTimeout: timers.setTimeout});
+    const commit = lighting.bindTwoColorControl(fixture.browser, fixture.container);
+    fixture.endHex.control.value = "#010203";
+    const pending = commit();
+
+    assert.equal(requests, 1);
+    assert.equal(signal.aborted, false);
+    timers.fireNext(10000);
+    await pending;
+
+    assert.equal(signal.aborted, true);
+    assert.equal(requests, 1);
+    assert.equal(fixture.startHex.control.value, "#112233");
+    assert.equal(fixture.endHex.control.value, "#aabbcc");
+    assert.equal(fixture.status.textContent, "Unable to change colors. Try again.");
+    assert.equal(fixture.reloads(), 0);
+});
 
 test("bindColorControl normalizes and commits a valid color and reloads on success", async function() {
     let requested = false;

@@ -31,6 +31,10 @@
     const colorTimeoutMilliseconds = 10000;
     const colorSuccessMilliseconds = 1800;
     const colorFailureMessage = "Unable to change color. Try again.";
+    const twoColorEndpoint = "/api/openrgbimport/two-color";
+    const twoColorTimeoutMilliseconds = 10000;
+    const twoColorSuccessMilliseconds = 1800;
+    const twoColorFailureMessage = "Unable to change colors. Try again.";
     const resetEndpoint = "/api/openrgbimport/effect-reset";
     const resetTimeoutMilliseconds = 10000;
     const resetSuccessMilliseconds = 3000;
@@ -332,6 +336,29 @@
             const result = await response.json();
             if (!result || result.status !== 1) {
                 throw new Error("color mutation was rejected");
+            }
+        } finally {
+            browser.clearTimeout(timeout);
+        }
+    }
+
+    async function submitTwoColor(browser, serial, effect, start, end) {
+        const controller = new browser.AbortController();
+        const timeout = browser.setTimeout(function () {
+            controller.abort();
+        }, twoColorTimeoutMilliseconds);
+        try {
+            const response = await browser.fetch(twoColorEndpoint, {
+                method: "POST",
+                body: JSON.stringify({serial: serial, effect: effect, start: start, end: end}),
+                signal: controller.signal
+            });
+            if (!response.ok) {
+                throw new Error("two-color request failed");
+            }
+            const result = await response.json();
+            if (!result || result.status !== 1) {
+                throw new Error("two-color mutation was rejected");
             }
         } finally {
             browser.clearTimeout(timeout);
@@ -770,6 +797,103 @@
         return commit;
     }
 
+    function bindTwoColorControl(browser, container) {
+        if (container.dataset.lfClusterControlled === "true") return null;
+
+        const startColor = browser.document.getElementById(container.dataset.lfStartColorId);
+        const startHex = browser.document.getElementById(container.dataset.lfStartHexId);
+        const endColor = browser.document.getElementById(container.dataset.lfEndColorId);
+        const endHex = browser.document.getElementById(container.dataset.lfEndHexId);
+        const status = browser.document.getElementById(container.dataset.lfStatusId);
+        const controls = [startColor, startHex, endColor, endHex];
+        if (controls.some(function (control) { return !control; })) return null;
+
+        function normalize(value) {
+            return /^#[0-9a-fA-F]{6}$/.test(value) ? value.toLowerCase() : null;
+        }
+
+        let confirmedStart = normalize(container.dataset.lfCurrentStart || "");
+        let confirmedEnd = normalize(container.dataset.lfCurrentEnd || "");
+        if (confirmedStart === null || confirmedEnd === null) return null;
+
+        let requestInFlight = false;
+        const setStatus = createStatusController(browser, status, twoColorSuccessMilliseconds);
+
+        function render(start, end) {
+            startColor.value = start;
+            startHex.value = start;
+            endColor.value = end;
+            endHex.value = end;
+        }
+
+        function restoreConfirmed() {
+            render(confirmedStart, confirmedEnd);
+        }
+
+        function preview(colorInput, hexInput, value) {
+            const normalized = normalize(value);
+            if (normalized !== null) {
+                colorInput.value = normalized;
+                hexInput.value = normalized;
+            }
+        }
+
+        async function commit() {
+            if (requestInFlight) return;
+            const start = normalize(startHex.value);
+            const end = normalize(endHex.value);
+            if (start === null || end === null) {
+                restoreConfirmed();
+                return;
+            }
+            if (start === confirmedStart && end === confirmedEnd) {
+                restoreConfirmed();
+                return;
+            }
+
+            requestInFlight = true;
+            for (const control of controls) control.disabled = true;
+            setStatus("Saving colors…", false);
+            try {
+                await submitTwoColor(browser, container.dataset.lfDeviceSerial, container.dataset.lfEffect, start, end);
+                confirmedStart = start;
+                confirmedEnd = end;
+                container.dataset.lfCurrentStart = start;
+                container.dataset.lfCurrentEnd = end;
+                render(start, end);
+                setStatus("Colors saved.", true);
+                browser.location.reload();
+            } catch (_) {
+                restoreConfirmed();
+                setStatus(twoColorFailureMessage, false);
+                for (const control of controls) control.disabled = false;
+                requestInFlight = false;
+            }
+        }
+
+        startColor.addEventListener("input", function () { preview(startColor, startHex, startColor.value); });
+        startColor.addEventListener("change", commit);
+        startHex.addEventListener("input", function () { preview(startColor, startHex, startHex.value); });
+        startHex.addEventListener("change", commit);
+        startHex.addEventListener("keydown", function (event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                commit();
+            }
+        });
+        endColor.addEventListener("input", function () { preview(endColor, endHex, endColor.value); });
+        endColor.addEventListener("change", commit);
+        endHex.addEventListener("input", function () { preview(endColor, endHex, endHex.value); });
+        endHex.addEventListener("change", commit);
+        endHex.addEventListener("keydown", function (event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                commit();
+            }
+        });
+        return commit;
+    }
+
     function bindResetButton(browser, button) {
         const clusterControlled = button.dataset.lfClusterControlled === "true";
         if (clusterControlled) return null;
@@ -815,6 +939,10 @@
         for (const input of colorInputs) {
             bindColorControl(browser, input);
         }
+        const twoColorControls = browser.document.querySelectorAll("[data-lf-two-color-control]");
+        for (const control of twoColorControls) {
+            bindTwoColorControl(browser, control);
+        }
         const resetButtons = browser.document.querySelectorAll("[data-lf-reset-button]");
         for (const button of resetButtons) {
             bindResetButton(browser, button);
@@ -826,17 +954,20 @@
         bindEffectSelector,
         bindSpeedSlider,
         bindColorControl,
+        bindTwoColorControl,
         bindResetButton,
         revealEffectReset,
         brightnessEndpoint,
         effectEndpoint,
         colorEndpoint,
+        twoColorEndpoint,
         resetEndpoint,
         init,
         submitBrightness,
         submitEffect,
         submitSpeed,
         submitColor,
+        submitTwoColor,
         submitReset,
         speedEndpoint
     };

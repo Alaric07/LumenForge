@@ -20,6 +20,7 @@ type lightingMutationCalls struct {
 	effects    []string
 	speeds     []lightingSpeedMutationCall
 	colors     []lightingColorMutationCall
+	twoColors  []lightingTwoColorMutationCall
 	resets     []lightingResetMutationCall
 	setError   error
 }
@@ -36,6 +37,13 @@ type lightingColorMutationCall struct {
 	color  lightingsettings.Color
 }
 
+type lightingTwoColorMutationCall struct {
+	serial string
+	effect string
+	start  lightingsettings.Color
+	end    lightingsettings.Color
+}
+
 type lightingResetMutationCall struct {
 	serial string
 	effect string
@@ -49,6 +57,7 @@ func installLightingMutationTestSeams(t *testing.T) (*openrgbimport.Device, *com
 	previousEffect := setOpenRGBImportEffectValue
 	previousSpeed := setOpenRGBImportSpeedValue
 	previousColor := setOpenRGBImportColorValue
+	previousTwoColor := setOpenRGBImportTwoColorValue
 	previousReset := resetOpenRGBImportCustomizationValue
 	t.Cleanup(func() {
 		lookupOpenRGBImportForLighting = previousLookup
@@ -56,6 +65,7 @@ func installLightingMutationTestSeams(t *testing.T) (*openrgbimport.Device, *com
 		setOpenRGBImportEffectValue = previousEffect
 		setOpenRGBImportSpeedValue = previousSpeed
 		setOpenRGBImportColorValue = previousColor
+		setOpenRGBImportTwoColorValue = previousTwoColor
 		resetOpenRGBImportCustomizationValue = previousReset
 	})
 
@@ -86,6 +96,10 @@ func installLightingMutationTestSeams(t *testing.T) (*openrgbimport.Device, *com
 	}
 	setOpenRGBImportColorValue = func(_ *openrgbimport.Device, serial, effect string, color lightingsettings.Color) error {
 		calls.colors = append(calls.colors, lightingColorMutationCall{serial: serial, effect: effect, color: color})
+		return calls.setError
+	}
+	setOpenRGBImportTwoColorValue = func(_ *openrgbimport.Device, serial, effect string, start, end lightingsettings.Color) error {
+		calls.twoColors = append(calls.twoColors, lightingTwoColorMutationCall{serial: serial, effect: effect, start: start, end: end})
 		return calls.setError
 	}
 	resetOpenRGBImportCustomizationValue = func(_ *openrgbimport.Device, serial, effect string) error {
@@ -601,6 +615,7 @@ func TestOpenRGBLightingMutationSecurityCompatibility(t *testing.T) {
 		{name: "brightness", path: "/api/openrgbimport/brightness", body: `{"serial":"openrgb-lighting-test","brightness":50}`},
 		{name: "effect", path: "/api/openrgbimport/effect", body: `{"serial":"openrgb-lighting-test","effect":"static"}`},
 		{name: "speed", path: "/api/openrgbimport/speed", body: `{"serial":"openrgb-lighting-test","effect":"rainbow","speed":4}`},
+		{name: "two color", path: "/api/openrgbimport/two-color", body: `{"serial":"openrgb-lighting-test","effect":"wave","start":"#112233","end":"#aabbcc"}`},
 	}
 	for _, route := range routes {
 		t.Run(route.name, func(t *testing.T) {

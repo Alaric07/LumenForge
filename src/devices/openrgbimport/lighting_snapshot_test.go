@@ -1,6 +1,7 @@
 package openrgbimport
 
 import (
+	"LumenForge/src/lightingsettings"
 	"LumenForge/src/rgb"
 	"reflect"
 	"sync"
@@ -91,7 +92,8 @@ func TestOpenRGBLightingSnapshotConfiguredState(t *testing.T) {
 	if !reflect.DeepEqual(snapshot.SupportedEffects, wantOptions) {
 		t.Fatalf("supported effects = %#v, want %#v", snapshot.SupportedEffects, wantOptions)
 	}
-	if !snapshot.HasSpeed || snapshot.Speed != 3 || snapshot.PaletteKind != "two-color" || !snapshot.Customized {
+	if !snapshot.HasSpeed || snapshot.Speed != 3 || snapshot.PaletteKind != "two-color" ||
+		snapshot.TwoColorStartHex != "#0a141e" || snapshot.TwoColorEndHex != "#46505a" || !snapshot.Customized {
 		t.Fatalf("base properties = %+v", snapshot)
 	}
 }
@@ -127,11 +129,13 @@ func TestOpenRGBLightingSnapshotPaletteSemantics(t *testing.T) {
 		effect  string
 		palette string
 		hex     string
+		start   string
+		end     string
 		speed   bool
 	}{
 		{name: "Static/single-color", effect: "static", palette: "static-single-color", hex: "#0b0c0d"},
 		{name: "Off", effect: "off", palette: "none"},
-		{name: "two-color", effect: "wave", palette: "two-color", speed: true},
+		{name: "two-color", effect: "wave", palette: "two-color", start: "#0b0c0d", end: "#1f2021", speed: true},
 		{name: "CPU temperature", effect: "cpu-temperature", palette: "temperature-three-color"},
 		{name: "GPU temperature", effect: "gpu-temperature", palette: "temperature-three-color"},
 		{name: "generated palette", effect: "rainbow", palette: "generated-palette", speed: true},
@@ -175,6 +179,9 @@ func TestOpenRGBLightingSnapshotPaletteSemantics(t *testing.T) {
 			if snapshot.SingleColorHex != tt.hex {
 				t.Errorf("SingleColorHex = %q, want %q", snapshot.SingleColorHex, tt.hex)
 			}
+			if snapshot.TwoColorStartHex != tt.start || snapshot.TwoColorEndHex != tt.end {
+				t.Errorf("two-color hex values = %q/%q, want %q/%q", snapshot.TwoColorStartHex, snapshot.TwoColorEndHex, tt.start, tt.end)
+			}
 			if !snapshot.Customized {
 				t.Error("snapshot.Customized is false")
 			}
@@ -191,6 +198,37 @@ func TestOpenRGBLightingSnapshotUncustomizedStaticUsesResolvedDefault(t *testing
 	}
 	if snapshot.PaletteKind != string(rgb.LightingPaletteStaticSingle) || snapshot.SingleColorHex != "#00ffff" || snapshot.Customized {
 		t.Fatalf("uncustomized Static snapshot = %+v", snapshot)
+	}
+}
+
+func TestOpenRGBLightingSnapshotTwoColorResolvedState(t *testing.T) {
+	device := lightingTestDevice("wave", []string{"wave"}, nil)
+
+	snapshot, ok := device.LightingSnapshot()
+	if !ok || snapshot.Customized || !snapshot.HasSpeed || snapshot.Speed != 5 ||
+		snapshot.TwoColorStartHex != "#418fe8" || snapshot.TwoColorEndHex != "#828282" {
+		t.Fatalf("uncustomized Wave snapshot = %+v, %t", snapshot, ok)
+	}
+
+	custom := device.lightingResolver
+	resolution, err := custom.Resolve(lightingsettings.IndependentDevice(device.Serial), "wave")
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := resolution.Settings.Clone()
+	settings.TwoColor = &lightingsettings.TwoColorSettings{
+		Start: lightingsettings.Color{Red: 1, Green: 2, Blue: 3},
+		End:   lightingsettings.Color{Red: 4, Green: 5, Blue: 6},
+	}
+	if err = device.lightingEffects.Set(device.Serial, "wave", settings); err != nil {
+		t.Fatal(err)
+	}
+	device.DeviceProfile.RGBCluster = true
+
+	snapshot, ok = device.LightingSnapshot()
+	if !ok || !snapshot.Customized || !snapshot.ClusterControlled || snapshot.Speed != 5 ||
+		snapshot.TwoColorStartHex != "#010203" || snapshot.TwoColorEndHex != "#040506" {
+		t.Fatalf("customized cluster-owned Wave snapshot = %+v, %t", snapshot, ok)
 	}
 }
 
