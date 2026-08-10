@@ -319,6 +319,25 @@ do not render the editor. Automated tests and CodeRabbit review passed. Manual
 hardware testing confirmed editing, ordering validation, persistence, Reset,
 Brightness preservation, cluster ownership, and restoration across restart.
 
+`ed9d5016` added descriptor-driven ordered Gradient editing for independent
+OpenRGB-imported devices. The workspace presents complete resolved stops with
+native and exact hexadecimal color inputs, normalized Position, relative
+Intensity, Add and Remove controls, and an explicit complete Save operation.
+Draft changes remain local until Save; valid saves stable-sort by Position while
+preserving equal-position order and persist one complete Gradient customization
+without changing the selected effect, resolved Speed, or device Brightness.
+
+The backend requires complete already ordered Gradient data and does not sort
+caller payloads. Cluster-owned controls remain disabled without local Reset,
+while non-Gradient palette kinds do not render the editor. Hardware validation
+found that the historical shipped positions 0, 0.33, 0.66, and 1 produced an
+abrupt circular seam because the final and first colors occupied the same cycle
+boundary. The shipped default was corrected to positions 0, 0.25, 0.5, and
+0.75, all at relative intensity 1, which preserves the existing renderer's
+smooth circular last-to-first interpolation. Automated focused, repeated, race,
+full-repository, JavaScript, build, and CodeRabbit validation passed, and manual
+hardware testing confirmed smooth looping and Gradient editing behavior.
+
 ### OpenRGB Device Lighting cutover
 
 - [x] Add the modern protected effect selector (`01b80d4a`).
@@ -339,7 +358,7 @@ Brightness preservation, cluster ownership, and restoration across restart.
   Static/single-color editor and Reset (`22f8117c`, corrected in `ad4b0340`).
 - [x] Add the two-color Start/End editor (`20e6d472`).
 - [x] Add Low/Middle/High temperature color and threshold editing (`33ea040c`).
-- [ ] Add the ordered Gradient editor.
+- [x] Add the ordered Gradient editor (`ed9d5016`).
 - [ ] Remove the temporary user-facing Palette capability readout after the
   remaining renderer-driven editors make palette shape self-evident.
 - [ ] Delete OpenRGB RGB Override and legacy imported-device lighting paths

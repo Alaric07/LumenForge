@@ -204,8 +204,10 @@ Gradient shows:
 - Speed when supported.
 
 The completed renderer contract keeps stop intensity relative and separate
-from owning-scope Brightness. The future editor exposes those distinct values;
-it is not implemented by the renderer milestone.
+from owning-scope Brightness. `ed9d5016` added the descriptor-driven ordered
+Gradient editor for independent OpenRGB-imported devices. The editor exposes
+each resolved stop's color, normalized position, and relative intensity together
+with Speed when supported, while owning device Brightness remains separate.
 
 ### Fixed and generated-palette effects
 
@@ -368,6 +370,30 @@ the distinct CPU and GPU shipped thresholds, independent color and threshold
 changes, complete persistence across restart, ordering rejection, Reset,
 Brightness preservation, cluster ownership, and exclusion from non-temperature
 palette editors.
+
+`ed9d5016` added complete ordered Gradient editing for independent
+OpenRGB-imported devices whose canonical descriptor uses the Gradient palette.
+Presentation resolves the complete ordered stop set from the same canonical
+settings used by rendering. The editor maintains one local draft containing
+each stop's color, normalized position, and relative intensity, with Add and
+Remove operations remaining local until one explicit complete save.
+
+Saving validates the complete draft, stable-sorts by position while preserving
+the relative order of equal-position stops, and persists one complete Gradient
+customization while preserving resolved Speed, the selected effect, and device
+Brightness. The server and device mutation layers require already ordered
+canonical input and do not silently sort it. Existing selected-effect Reset
+restores the complete shipped Gradient definition, while cluster-owned controls
+remain visible but disabled without local Reset.
+
+Manual hardware validation also exposed a seam in the historical shipped
+Gradient positions: different colors at positions 0 and 1 left no interpolation
+interval across the circular cycle boundary. The shipped four-stop default was
+therefore corrected to evenly spaced positions 0, 0.25, 0.5, and 0.75, all at
+relative intensity 1. The existing renderer's circular last-to-first
+interpolation then produced a smooth final-to-first transition without renderer
+changes. Focused, repeated, race, full-repository, JavaScript, build, and
+CodeRabbit validation passed.
 
 The currently rendered Palette capability value remains a temporary diagnostic,
 not part of the final user-facing design. It should be removed after the
@@ -542,7 +568,7 @@ Speed or another genuine renderer-consumed setting.
    with manual-test corrections in `ad4b0340`.
 8. Add two-color editing. Completed in `20e6d472`.
 9. Add temperature color and threshold editing. Completed in `33ea040c`.
-10. Add Gradient editing.
+10. Add Gradient editing. Completed in `ed9d5016`.
 11. Cut RGB Cluster persistence and rendering to the resolver while preserving
     membership and device order separately.
 12. Modernize RGB Cluster with the shared descriptor-driven controls.
