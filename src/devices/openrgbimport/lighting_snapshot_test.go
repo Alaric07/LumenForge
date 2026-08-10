@@ -285,6 +285,59 @@ func TestOpenRGBLightingSnapshotTemperatureResolvedState(t *testing.T) {
 	}
 }
 
+func TestOpenRGBLightingSnapshotGradientResolvedState(t *testing.T) {
+	device := lightingTestDevice("gradient", []string{"gradient"}, nil)
+	snapshot, ok := device.LightingSnapshot()
+	wantDefaults := []LightingGradientStopSnapshot{
+		{Position: 0, ColorHex: "#ff0000", Intensity: 1},
+		{Position: 0.25, ColorHex: "#00ff00", Intensity: 1},
+		{Position: 0.5, ColorHex: "#0000ff", Intensity: 1},
+		{Position: 0.75, ColorHex: "#ffff00", Intensity: 1},
+	}
+	if !ok || snapshot.Customized || !snapshot.HasGradient || !snapshot.HasSpeed || snapshot.Speed != 10 ||
+		!reflect.DeepEqual(snapshot.GradientStops, wantDefaults) {
+		t.Fatalf("uncustomized Gradient snapshot = %#v, %t", snapshot, ok)
+	}
+
+	resolution, err := device.resolveLightingSettings("gradient")
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := resolution.Settings.Clone()
+	settings.Gradient = &lightingsettings.GradientSettings{Stops: []lightingsettings.GradientStop{
+		{Position: 0.25, Color: lightingsettings.Color{Red: 1, Green: 2, Blue: 3}, Intensity: 0.4},
+		{Position: 0.25, Color: lightingsettings.Color{Red: 4, Green: 5, Blue: 6}, Intensity: 0.5},
+		{Position: 0.9, Color: lightingsettings.Color{Red: 7, Green: 8, Blue: 9}, Intensity: 0.6},
+	}}
+	if err = device.lightingEffects.Set(device.Serial, "gradient", settings); err != nil {
+		t.Fatal(err)
+	}
+	device.DeviceProfile.RGBCluster = true
+	snapshot, ok = device.LightingSnapshot()
+	wantCustom := []LightingGradientStopSnapshot{
+		{Position: 0.25, ColorHex: "#010203", Intensity: 0.4},
+		{Position: 0.25, ColorHex: "#040506", Intensity: 0.5},
+		{Position: 0.9, ColorHex: "#070809", Intensity: 0.6},
+	}
+	if !ok || !snapshot.Customized || !snapshot.ClusterControlled || snapshot.Speed != 10 ||
+		!reflect.DeepEqual(snapshot.GradientStops, wantCustom) {
+		t.Fatalf("customized cluster Gradient snapshot = %#v, %t", snapshot, ok)
+	}
+
+	settings.Gradient.Stops[0].Color.Red = 200
+	if snapshot.GradientStops[0].ColorHex != "#010203" {
+		t.Fatal("Gradient snapshot retained mutable settings data")
+	}
+
+	for _, effect := range []string{"static", "wave", "cpu-temperature", "rainbow", "off"} {
+		other := lightingTestDevice(effect, []string{effect}, nil)
+		otherSnapshot, available := other.LightingSnapshot()
+		if !available || otherSnapshot.HasGradient || otherSnapshot.GradientStops != nil {
+			t.Errorf("%s fabricated Gradient state: %#v, %t", effect, otherSnapshot, available)
+		}
+	}
+}
+
 func TestOpenRGBLightingSnapshotOverrideStates(t *testing.T) {
 	device := lightingTestDevice("static", []string{"static"}, map[string]rgb.Profile{
 		"static": {ProfileName: "Static", StartColor: lightingTestColor(9, 8, 7)},

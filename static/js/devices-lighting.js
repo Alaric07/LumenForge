@@ -40,6 +40,12 @@
     const temperatureSuccessMilliseconds = 1800;
     const temperatureFailureMessage = "Unable to change temperature colors. Try again.";
     const temperatureOrderMessage = "Thresholds must satisfy Low < Middle < High.";
+    const gradientEndpoint = "/api/openrgbimport/gradient";
+    const gradientTimeoutMilliseconds = 10000;
+    const gradientSuccessMilliseconds = 1800;
+    const gradientFailureMessage = "Unable to change Gradient. Try again.";
+    const gradientCompleteMessage = "Every Gradient stop needs a valid color, position, and intensity.";
+    const gradientRangeMessage = "Gradient positions and intensities must be between 0 and 1.";
     const resetEndpoint = "/api/openrgbimport/effect-reset";
     const resetTimeoutMilliseconds = 10000;
     const resetSuccessMilliseconds = 3000;
@@ -387,6 +393,29 @@
             const result = await response.json();
             if (!result || result.status !== 1) {
                 throw new Error("temperature mutation was rejected");
+            }
+        } finally {
+            browser.clearTimeout(timeout);
+        }
+    }
+
+    async function submitGradient(browser, serial, effect, stops) {
+        const controller = new browser.AbortController();
+        const timeout = browser.setTimeout(function () {
+            controller.abort();
+        }, gradientTimeoutMilliseconds);
+        try {
+            const response = await browser.fetch(gradientEndpoint, {
+                method: "POST",
+                body: JSON.stringify({serial: serial, effect: effect, stops: stops}),
+                signal: controller.signal
+            });
+            if (!response.ok) {
+                throw new Error("Gradient request failed");
+            }
+            const result = await response.json();
+            if (!result || result.status !== 1) {
+                throw new Error("Gradient mutation was rejected");
             }
         } finally {
             browser.clearTimeout(timeout);
@@ -1058,6 +1087,315 @@
         return commit;
     }
 
+    function bindGradientControl(browser, container) {
+        if (container.dataset.lfClusterControlled === "true") return null;
+
+        const rows = browser.document.getElementById(container.dataset.lfRowsId);
+        const addButton = browser.document.getElementById(container.dataset.lfAddId);
+        const saveButton = browser.document.getElementById(container.dataset.lfSaveId);
+        const status = browser.document.getElementById(container.dataset.lfStatusId);
+        if (!rows || !addButton || !saveButton || !status) return null;
+
+        const setStatus = createStatusController(browser, status, gradientSuccessMilliseconds);
+        let requestInFlight = false;
+        let confirmed = null;
+
+        function normalizeColor(value) {
+            return /^#[0-9a-fA-F]{6}$/.test(value) ? value.toLowerCase() : null;
+        }
+
+        function controls() {
+            return Array.from(container.querySelectorAll("input, button"));
+        }
+
+        function stopRows() {
+            return Array.from(rows.querySelectorAll("[data-lf-gradient-stop]"));
+        }
+
+        function readDraft() {
+            const currentRows = stopRows();
+            if (currentRows.length < 2) return {error: "minimum"};
+            const stops = [];
+            for (const row of currentRows) {
+                const color = normalizeColor(row.querySelector("[data-lf-gradient-hex]").value);
+                const positionText = String(row.querySelector("[data-lf-gradient-position]").value).trim();
+                const intensityText = String(row.querySelector("[data-lf-gradient-intensity]").value).trim();
+                const position = positionText === "" ? NaN : Number(positionText);
+                const intensity = intensityText === "" ? NaN : Number(intensityText);
+                if (color === null || !Number.isFinite(position) || !Number.isFinite(intensity)) {
+                    return {error: "complete"};
+                }
+                if (position < 0 || position > 1 || intensity < 0 || intensity > 1) {
+                    return {error: "range"};
+                }
+                stops.push({position: position, color: color, intensity: intensity});
+            }
+            return {stops: stops};
+        }
+
+        function normalized(stops) {
+            return stops.map(function (stop, index) {
+                return {index: index, position: stop.position, color: stop.color, intensity: stop.intensity};
+            }).sort(function (left, right) {
+                return left.position - right.position || left.index - right.index;
+            }).map(function (stop) {
+                return {position: stop.position, color: stop.color, intensity: stop.intensity};
+            });
+        }
+
+        function equal(left, right) {
+            return left.length === right.length && left.every(function (stop, index) {
+                const other = right[index];
+                return stop.position === other.position && stop.color === other.color && stop.intensity === other.intensity;
+            });
+        }
+
+        function updateButtons() {
+            const draft = readDraft();
+            const currentRows = stopRows();
+            for (const row of currentRows) {
+                row.querySelector("[data-lf-gradient-remove]").disabled = requestInFlight || currentRows.length <= 2;
+            }
+            addButton.disabled = requestInFlight || currentRows.length >= 1024;
+            saveButton.disabled = requestInFlight || !draft.stops || equal(normalized(draft.stops), confirmed);
+        }
+
+        function disableEditor(message) {
+            for (const control of controls()) control.disabled = true;
+            setStatus(message, false);
+        }
+
+        function setSaving(saving) {
+            requestInFlight = saving;
+            for (const control of controls()) control.disabled = saving;
+            if (!saving) updateButtons();
+        }
+
+        function label(labelText, input) {
+            const wrapper = browser.document.createElement("label");
+            wrapper.className = "lf-gradient-field-label";
+            wrapper.textContent = labelText;
+            wrapper.appendChild(input);
+            return wrapper;
+        }
+
+        function createInput(type, className, value, name, number) {
+            const input = browser.document.createElement("input");
+            input.type = type;
+            input.className = className;
+            input.value = String(value);
+            input.id = "lf-lighting-gradient-" + name + "-" + number;
+            input.setAttribute("aria-describedby", container.dataset.lfStatusId);
+            return input;
+        }
+
+        function render(stops) {
+            rows.replaceChildren();
+            stops.forEach(function (stop, index) {
+                const number = index + 1;
+                const row = browser.document.createElement("div");
+                row.className = "lf-gradient-stop";
+                row.dataset.lfGradientStop = "";
+                const heading = browser.document.createElement("h4");
+                heading.dataset.lfGradientStopNumber = "";
+                heading.textContent = "Stop " + number;
+                row.appendChild(heading);
+
+                const fields = browser.document.createElement("div");
+                fields.className = "lf-gradient-stop-fields";
+                const color = createInput("color", "lf-color-control-input", stop.color, "color", number);
+                color.dataset.lfGradientColor = "";
+                color.setAttribute("aria-label", "Stop " + number + " color");
+                const hex = createInput("text", "lf-color-control-hex", stop.color, "hex", number);
+                hex.dataset.lfGradientHex = "";
+                hex.pattern = "#[0-9a-fA-F]{6}";
+                hex.maxLength = 7;
+                hex.setAttribute("aria-label", "Stop " + number + " color hex code");
+                const colorFields = browser.document.createElement("span");
+                colorFields.className = "lf-gradient-color-fields";
+                colorFields.append(color, hex);
+                const colorLabel = browser.document.createElement("label");
+                colorLabel.className = "lf-gradient-field-label";
+                colorLabel.textContent = "Color";
+                colorLabel.appendChild(colorFields);
+                fields.appendChild(colorLabel);
+
+                const position = createInput("number", "lf-gradient-number-input", stop.position, "position", number);
+                position.dataset.lfGradientPosition = "";
+                position.min = "0";
+                position.max = "1";
+                position.step = "any";
+                position.setAttribute("aria-label", "Stop " + number + " position from 0 start to 1 end");
+                fields.appendChild(label("Position", position));
+
+                const intensity = createInput("number", "lf-gradient-number-input", stop.intensity, "intensity", number);
+                intensity.dataset.lfGradientIntensity = "";
+                intensity.min = "0";
+                intensity.max = "1";
+                intensity.step = "any";
+                intensity.setAttribute("aria-label", "Stop " + number + " relative intensity from 0 to 1");
+                fields.appendChild(label("Relative intensity", intensity));
+
+                const remove = browser.document.createElement("button");
+                remove.type = "button";
+                remove.className = "lf-button lf-button-secondary lf-gradient-remove";
+                remove.dataset.lfGradientRemove = "";
+                remove.textContent = "Remove";
+                remove.setAttribute("aria-label", "Remove stop " + number);
+                remove.addEventListener("click", function () {
+                    if (requestInFlight || stopRows().length <= 2) return;
+                    const draft = readDraft();
+                    if (!draft.stops) return;
+                    draft.stops.splice(index, 1);
+                    render(draft.stops);
+                });
+                fields.appendChild(remove);
+                row.appendChild(fields);
+                rows.appendChild(row);
+
+                color.addEventListener("input", function () {
+                    const value = normalizeColor(color.value);
+                    if (value !== null) hex.value = value;
+                    updateButtons();
+                });
+                hex.addEventListener("input", function () {
+                    const value = normalizeColor(hex.value);
+                    if (value !== null) {
+                        hex.value = value;
+                        color.value = value;
+                    }
+                    updateButtons();
+                });
+                for (const input of [position, intensity]) input.addEventListener("input", updateButtons);
+                for (const input of [hex, position, intensity]) {
+                    input.addEventListener("keydown", function (event) {
+                        if (event.key === "Enter") {
+                            event.preventDefault();
+                            save();
+                        }
+                    });
+                }
+            });
+            updateButtons();
+        }
+
+        function addStop() {
+            if (requestInFlight) return;
+            const draft = readDraft();
+            if (draft.error === "complete") {
+                setStatus(gradientCompleteMessage, false);
+                return;
+            }
+            if (draft.error === "range") {
+                setStatus(gradientRangeMessage, false);
+                return;
+            }
+            if (!draft.stops || draft.stops.length >= 1024) return;
+            const ordered = normalized(draft.stops);
+            let gapIndex = 0;
+            let largestGap = -1;
+            for (let index = 0; index < ordered.length - 1; index++) {
+                const gap = ordered[index + 1].position - ordered[index].position;
+                if (gap > largestGap) {
+                    largestGap = gap;
+                    gapIndex = index;
+                }
+            }
+            const left = ordered[gapIndex];
+            const right = ordered[gapIndex + 1];
+            ordered.splice(gapIndex + 1, 0, {
+                position: (left.position + right.position) / 2,
+                color: left.color,
+                intensity: left.intensity
+            });
+            render(ordered);
+        }
+
+        async function save() {
+            if (requestInFlight) return;
+            const draft = readDraft();
+            if (draft.error === "minimum") {
+                setStatus("Gradient requires at least two stops.", false);
+                return;
+            }
+            if (draft.error === "complete") {
+                setStatus(gradientCompleteMessage, false);
+                return;
+            }
+            if (draft.error === "range") {
+                setStatus(gradientRangeMessage, false);
+                return;
+            }
+            const ordered = normalized(draft.stops);
+            if (equal(ordered, confirmed)) {
+                render(confirmed);
+                return;
+            }
+            setSaving(true);
+            setStatus("Saving Gradient…", false);
+            try {
+                await submitGradient(browser, container.dataset.lfDeviceSerial, container.dataset.lfEffect, ordered);
+                confirmed = normalized(ordered);
+                setStatus("Gradient saved.", true);
+                browser.location.reload();
+            } catch (_) {
+                setSaving(false);
+                setStatus(gradientFailureMessage, false);
+            }
+        }
+
+        const initial = readDraft();
+        if (!initial.stops || !equal(initial.stops, normalized(initial.stops))) {
+            disableEditor("Unable to load Gradient settings.");
+            return null;
+        }
+        confirmed = normalized(initial.stops);
+        for (const row of stopRows()) {
+            const color = row.querySelector("[data-lf-gradient-color]");
+            const hex = row.querySelector("[data-lf-gradient-hex]");
+            color.addEventListener("input", function () {
+                const value = normalizeColor(color.value);
+                if (value !== null) hex.value = value;
+                updateButtons();
+            });
+            hex.addEventListener("input", function () {
+                const value = normalizeColor(hex.value);
+                if (value !== null) {
+                    hex.value = value;
+                    color.value = value;
+                }
+                updateButtons();
+            });
+            for (const input of [row.querySelector("[data-lf-gradient-position]"), row.querySelector("[data-lf-gradient-intensity]")]) {
+                input.addEventListener("input", updateButtons);
+                input.addEventListener("keydown", function (event) {
+                    if (event.key === "Enter") {
+                        event.preventDefault();
+                        save();
+                    }
+                });
+            }
+            row.querySelector("[data-lf-gradient-hex]").addEventListener("keydown", function (event) {
+                if (event.key === "Enter") {
+                    event.preventDefault();
+                    save();
+                }
+            });
+            row.querySelector("[data-lf-gradient-remove]").addEventListener("click", function () {
+                if (requestInFlight || stopRows().length <= 2) return;
+                const draft = readDraft();
+                const index = stopRows().indexOf(row);
+                if (!draft.stops || index < 0) return;
+                draft.stops.splice(index, 1);
+                render(draft.stops);
+            });
+        }
+        addButton.addEventListener("click", addStop);
+        saveButton.addEventListener("click", save);
+        updateButtons();
+        return {addStop: addStop, save: save};
+    }
+
     function bindResetButton(browser, button) {
         const clusterControlled = button.dataset.lfClusterControlled === "true";
         if (clusterControlled) return null;
@@ -1111,6 +1449,10 @@
         for (const control of temperatureControls) {
             bindTemperatureControl(browser, control);
         }
+        const gradientControls = browser.document.querySelectorAll("[data-lf-gradient-control]");
+        for (const control of gradientControls) {
+            bindGradientControl(browser, control);
+        }
         const resetButtons = browser.document.querySelectorAll("[data-lf-reset-button]");
         for (const button of resetButtons) {
             bindResetButton(browser, button);
@@ -1124,6 +1466,7 @@
         bindColorControl,
         bindTwoColorControl,
         bindTemperatureControl,
+        bindGradientControl,
         bindResetButton,
         revealEffectReset,
         brightnessEndpoint,
@@ -1131,6 +1474,7 @@
         colorEndpoint,
         twoColorEndpoint,
         temperatureEndpoint,
+        gradientEndpoint,
         resetEndpoint,
         init,
         submitBrightness,
@@ -1139,6 +1483,7 @@
         submitColor,
         submitTwoColor,
         submitTemperature,
+        submitGradient,
         submitReset,
         speedEndpoint
     };

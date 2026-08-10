@@ -101,6 +101,9 @@ var (
 	setOpenRGBImportTemperatureValue = func(device *openrgbimport.Device, serial, effect string, low, middle, high lightingsettings.TemperaturePoint) error {
 		return device.SetEffectTemperature(serial, effect, low, middle, high)
 	}
+	setOpenRGBImportGradientValue = func(device *openrgbimport.Device, serial, effect string, stops []lightingsettings.GradientStop) error {
+		return device.SetEffectGradient(serial, effect, stops)
+	}
 	resetOpenRGBImportCustomizationValue = func(device *openrgbimport.Device, serial, effect string) error {
 		return device.ResetEffectCustomization(serial, effect)
 	}
@@ -108,8 +111,9 @@ var (
 )
 
 const (
-	openRGBImportRequestLimit = 64 << 10
-	openRGBImportBatchLimit   = 64
+	openRGBImportRequestLimit      = 64 << 10
+	openRGBImportBatchLimit        = 64
+	openRGBImportGradientStopLimit = 1024
 )
 
 func openRGBImportRegistryHooks() openrgbimport.RegistryHooks {
@@ -2385,6 +2389,8 @@ type openRGBLightingWorkspaceSummary struct {
 	TemperatureMiddle       openRGBLightingTemperaturePointSummary
 	TemperatureHigh         openRGBLightingTemperaturePointSummary
 	TemperaturePoints       []openRGBLightingTemperaturePointSummary
+	HasGradient             bool
+	GradientStops           []openRGBLightingGradientStopSummary
 	Customized              bool
 }
 
@@ -2393,6 +2399,13 @@ type openRGBLightingTemperaturePointSummary struct {
 	Label    string
 	ColorHex string
 	Celsius  string
+}
+
+type openRGBLightingGradientStopSummary struct {
+	Number    int
+	Position  string
+	ColorHex  string
+	Intensity string
 }
 
 func openRGBWorkspaceDisplayIdentifierLabel(label string) string {
@@ -2473,6 +2486,7 @@ func openRGBLightingWorkspaceSummaryFromSnapshot(snapshot openrgbimport.Lighting
 		TwoColorStartHex:  snapshot.TwoColorStartHex,
 		TwoColorEndHex:    snapshot.TwoColorEndHex,
 		HasTemperature:    snapshot.HasTemperature,
+		HasGradient:       snapshot.HasGradient,
 		Customized:        snapshot.Customized,
 	}
 	if summary.HasTemperature {
@@ -2490,6 +2504,15 @@ func openRGBLightingWorkspaceSummaryFromSnapshot(snapshot openrgbimport.Lighting
 		}
 		summary.TemperaturePoints = []openRGBLightingTemperaturePointSummary{
 			summary.TemperatureLow, summary.TemperatureMiddle, summary.TemperatureHigh,
+		}
+	}
+	if summary.HasGradient {
+		summary.GradientStops = make([]openRGBLightingGradientStopSummary, len(snapshot.GradientStops))
+		for index, stop := range snapshot.GradientStops {
+			summary.GradientStops[index] = openRGBLightingGradientStopSummary{
+				Number: index + 1, Position: strconv.FormatFloat(stop.Position, 'f', -1, 64),
+				ColorHex: stop.ColorHex, Intensity: strconv.FormatFloat(stop.Intensity, 'f', -1, 64),
+			}
 		}
 	}
 	if snapshot.HasSpeed {
@@ -3242,6 +3265,66 @@ func setOpenRGBImportTemperature(w http.ResponseWriter, r *http.Request) {
 	(&Response{Code: http.StatusOK, Status: 1, Message: "Applied successfully"}).Send(w)
 }
 
+type openRGBImportGradientStopRequest struct {
+	Position  *float64 `json:"position"`
+	Color     *string  `json:"color"`
+	Intensity *float64 `json:"intensity"`
+}
+
+func setOpenRGBImportGradient(w http.ResponseWriter, r *http.Request) {
+	request := struct {
+		Serial string                              `json:"serial"`
+		Effect string                              `json:"effect"`
+		Stops  *[]openRGBImportGradientStopRequest `json:"stops"`
+	}{}
+	if !decodeOpenRGBImportRequest(w, r, &request) {
+		return
+	}
+	if request.Serial == "" || request.Effect == "" || request.Stops == nil ||
+		len(*request.Stops) < 2 || len(*request.Stops) > openRGBImportGradientStopLimit {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Invalid Gradient request"}).Send(w)
+		return
+	}
+
+	stops := make([]lightingsettings.GradientStop, len(*request.Stops))
+	previousPosition := -1.0
+	for index, input := range *request.Stops {
+		if input.Position == nil || input.Color == nil || input.Intensity == nil {
+			(&Response{Code: http.StatusOK, Status: 0, Message: "Invalid Gradient request"}).Send(w)
+			return
+		}
+		position, intensity := *input.Position, *input.Intensity
+		if math.IsNaN(position) || math.IsInf(position, 0) || position < 0 || position > 1 ||
+			math.IsNaN(intensity) || math.IsInf(intensity, 0) || intensity < 0 || intensity > 1 ||
+			position < previousPosition {
+			(&Response{Code: http.StatusOK, Status: 0, Message: "Invalid Gradient request"}).Send(w)
+			return
+		}
+		color, err := parseHexColor(*input.Color)
+		if err != nil {
+			(&Response{Code: http.StatusOK, Status: 0, Message: "Invalid color format"}).Send(w)
+			return
+		}
+		stops[index] = lightingsettings.GradientStop{Position: position, Color: color, Intensity: intensity}
+		previousPosition = position
+	}
+
+	device, err := getOpenRGBImportLightingDeviceBySerial(request.Serial)
+	if err != nil || device == nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "OpenRGB import is unavailable"}).Send(w)
+		return
+	}
+	if !device.SupportsEffect(request.Effect) {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Unsupported effect"}).Send(w)
+		return
+	}
+	if err := setOpenRGBImportGradientValue(device, request.Serial, request.Effect, stops); err != nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Failed to set Gradient"}).Send(w)
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Applied successfully"}).Send(w)
+}
+
 func resetOpenRGBImportEffectCustomization(w http.ResponseWriter, r *http.Request) {
 	request := struct {
 		Serial string `json:"serial"`
@@ -3496,6 +3579,7 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/openrgbimport/single-color", http.MethodPost, setOpenRGBImportSingleColor)
 	handleFunc(r, "/api/openrgbimport/two-color", http.MethodPost, setOpenRGBImportTwoColor)
 	handleFunc(r, "/api/openrgbimport/temperature", http.MethodPost, setOpenRGBImportTemperature)
+	handleFunc(r, "/api/openrgbimport/gradient", http.MethodPost, setOpenRGBImportGradient)
 	handleFunc(r, "/api/openrgbimport/effect-reset", http.MethodPost, resetOpenRGBImportEffectCustomization)
 	handleFunc(r, "/api/openrgbimport/effect", http.MethodPost, setOpenRGBImportEffect)
 	handleFunc(r, "/api/openrgbimport/brightness", http.MethodPost, setOpenRGBImportBrightness)

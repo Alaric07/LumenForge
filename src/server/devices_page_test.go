@@ -71,7 +71,12 @@ func TestDevicesLightingPresentationModel(t *testing.T) {
 		TemperatureLow:    openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#010203", Celsius: 20.5},
 		TemperatureMiddle: openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#040506", Celsius: 50.25},
 		TemperatureHigh:   openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#070809", Celsius: 80.75},
-		Customized:        true,
+		HasGradient:       true,
+		GradientStops: []openrgbimport.LightingGradientStopSnapshot{
+			{Position: 0, ColorHex: "#112233", Intensity: 0},
+			{Position: 1, ColorHex: "#aabbcc", Intensity: 1},
+		},
+		Customized: true,
 	}
 
 	summary := openRGBLightingWorkspaceSummaryFromSnapshot(source)
@@ -87,6 +92,11 @@ func TestDevicesLightingPresentationModel(t *testing.T) {
 		summary.TemperaturePoints[1] != (openRGBLightingTemperaturePointSummary{Role: "middle", Label: "Middle", ColorHex: "#040506", Celsius: "50.25"}) ||
 		summary.TemperaturePoints[2] != (openRGBLightingTemperaturePointSummary{Role: "high", Label: "High", ColorHex: "#070809", Celsius: "80.75"}) {
 		t.Fatalf("temperature presentation = %#v", summary.TemperaturePoints)
+	}
+	if !summary.HasGradient || len(summary.GradientStops) != 2 ||
+		summary.GradientStops[0] != (openRGBLightingGradientStopSummary{Number: 1, Position: "0", ColorHex: "#112233", Intensity: "0"}) ||
+		summary.GradientStops[1] != (openRGBLightingGradientStopSummary{Number: 2, Position: "1", ColorHex: "#aabbcc", Intensity: "1"}) {
+		t.Fatalf("Gradient presentation = %#v", summary.GradientStops)
 	}
 	if len(summary.SupportedEffects) != 2 ||
 		summary.SupportedEffects[0].ID != "future-effect" || summary.SupportedEffects[0].Label != "Future Effect" || summary.SupportedEffects[0].Selected ||
@@ -539,6 +549,83 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 	clusterTemperatureBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(clusterTemperature))
 	if strings.Count(clusterTemperatureBody, " disabled") < 9 || strings.Contains(clusterTemperatureBody, `data-lf-reset-control`) {
 		t.Error("cluster-owned temperature editor is active or exposes Reset")
+	}
+
+	gradientSnapshot := openrgbimport.LightingSnapshot{
+		ConfiguredEffect: "gradient", EffectSupported: true, HasBrightness: true, Brightness: 60,
+		HasSpeed: true, Speed: 10, PaletteKind: string(rgb.LightingPaletteGradient), HasGradient: true,
+		GradientStops: []openrgbimport.LightingGradientStopSnapshot{
+			{Position: 0, ColorHex: "#ff0000", Intensity: 1},
+			{Position: 0.25, ColorHex: "#00ff00", Intensity: 1},
+			{Position: 0.5, ColorHex: "#0000ff", Intensity: 1},
+			{Position: 0.75, ColorHex: "#ffff00", Intensity: 1},
+		},
+	}
+	gradientBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(gradientSnapshot))
+	for _, expected := range []string{
+		`data-lf-gradient-control`, `id="lf-lighting-gradient-stops"`, `Gradient stops`, `Add stop`, `Save Gradient`,
+		`Position uses 0 for the start and 1 for the end`, `Intensity is relative to device Brightness`,
+		`data-lf-speed-control`, `data-lf-brightness-slider`, `Palette`,
+		`value="#ff0000"`, `value="#00ff00"`, `value="#0000ff"`, `value="#ffff00"`,
+		`value="0.25"`, `value="0.5"`, `value="0.75"`, `data-lf-gradient-remove`,
+	} {
+		if !strings.Contains(gradientBody, expected) {
+			t.Errorf("Gradient template does not contain %q", expected)
+		}
+	}
+	for number := 1; number <= 4; number++ {
+		for _, field := range []string{"color", "hex", "position", "intensity"} {
+			id := fmt.Sprintf("lf-lighting-gradient-%s-%d", field, number)
+			if count := strings.Count(gradientBody, ` id="`+id+`"`); count != 1 {
+				t.Errorf("Gradient input ID %q count = %d, want 1", id, count)
+			}
+		}
+		if !strings.Contains(gradientBody, fmt.Sprintf(`aria-label="Remove stop %d"`, number)) {
+			t.Errorf("Gradient stop %d Remove label is absent", number)
+		}
+	}
+	gradientResetStart := strings.Index(gradientBody, `class="lf-reset-control"`)
+	if gradientResetStart < 0 {
+		t.Error("uncustomized Gradient Reset is not hidden")
+	} else if gradientResetEnd := strings.Index(gradientBody[gradientResetStart:], ">"); gradientResetEnd < 0 ||
+		!strings.Contains(gradientBody[gradientResetStart:gradientResetStart+gradientResetEnd], "hidden") {
+		t.Error("uncustomized Gradient Reset is not hidden")
+	}
+	gradientSnapshot.Customized = true
+	customGradientBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(gradientSnapshot))
+	gradientResetStart = strings.Index(customGradientBody, `class="lf-reset-control"`)
+	if gradientResetStart < 0 {
+		t.Error("customized Gradient Reset is not visible")
+	} else if gradientResetEnd := strings.Index(customGradientBody[gradientResetStart:], ">"); gradientResetEnd < 0 ||
+		strings.Contains(customGradientBody[gradientResetStart:gradientResetStart+gradientResetEnd], "hidden") {
+		t.Error("customized Gradient Reset is not visible")
+	}
+
+	twoStopGradient := gradientSnapshot
+	twoStopGradient.GradientStops = gradientSnapshot.GradientStops[:2]
+	twoStopBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(twoStopGradient))
+	for _, remove := range strings.Split(twoStopBody, `data-lf-gradient-remove`)[1:] {
+		if end := strings.Index(remove, ">"); end < 0 || !strings.Contains(remove[:end], "disabled") {
+			t.Error("two-stop Gradient Remove is enabled")
+		}
+	}
+
+	gradientSnapshot.ClusterControlled = true
+	clusterGradientBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(gradientSnapshot))
+	if strings.Count(clusterGradientBody, " disabled") < 19 || strings.Contains(clusterGradientBody, `data-lf-reset-control`) {
+		t.Error("cluster-owned Gradient controls are active or expose Reset")
+	}
+	for _, palette := range []rgb.LightingPaletteKind{
+		rgb.LightingPaletteStaticSingle, rgb.LightingPaletteTwoColor, rgb.LightingPaletteTemperatureThree,
+		rgb.LightingPaletteGenerated, rgb.LightingPaletteNone,
+	} {
+		body := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+			ConfiguredEffect: "other", EffectSupported: true, PaletteKind: string(palette), HasGradient: true,
+			GradientStops: gradientSnapshot.GradientStops,
+		}))
+		if strings.Contains(body, `data-lf-gradient-control`) {
+			t.Errorf("palette %q rendered Gradient controls", palette)
+		}
 	}
 
 	for _, palette := range []rgb.LightingPaletteKind{

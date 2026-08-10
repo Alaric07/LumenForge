@@ -163,7 +163,7 @@
           "green": 255,
           "blue": 0,
           "brightness": 1,
-          "position": 0.33,
+          "position": 0.25,
           "Hex": ""
         },
         "2": {
@@ -171,7 +171,7 @@
           "green": 0,
           "blue": 255,
           "brightness": 1,
-          "position": 0.66,
+          "position": 0.5,
           "Hex": ""
         },
         "3": {
@@ -179,7 +179,7 @@
           "green": 255,
           "blue": 0,
           "brightness": 1,
-          "position": 1,
+          "position": 0.75,
           "Hex": ""
         }
       },

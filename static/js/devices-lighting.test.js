@@ -1166,6 +1166,7 @@ test("multiple brightness controls keep transient success timers isolated", asyn
         if (selector === "[data-lf-color-input]") return [];
         if (selector === "[data-lf-two-color-control]") return [];
         if (selector === "[data-lf-temperature-control]") return [];
+        if (selector === "[data-lf-gradient-control]") return [];
         if (selector === "[data-lf-reset-button]") return [];
         assert.equal(selector, "[data-lf-brightness-readout]");
         return [];
@@ -1967,7 +1968,7 @@ test("Lighting initialization tolerates pages without interactive controls", fun
 
     lighting.init(browser);
 
-    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-two-color-control]", "[data-lf-temperature-control]", "[data-lf-reset-button]"]);
+    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-two-color-control]", "[data-lf-temperature-control]", "[data-lf-gradient-control]", "[data-lf-reset-button]"]);
 });
 
 test("Lighting initialization supports isolated and combined interactive controls", function () {
@@ -2663,4 +2664,293 @@ test("bindResetButton aborts a stalled request and restores control", async func
     assert.ok(aborted);
     assert.ok(!resetButton.disabled);
     assert.equal(status.textContent, "Unable to reset effect. Try again.");
+});
+
+function gradientBrowserFixture(fetchImplementation, overrides, initialStops) {
+    function matches(element, selector) {
+        if (selector === "input, button") return element.tagName === "input" || element.tagName === "button";
+        const match = /^\[data-lf-([a-z-]+)\]$/.exec(selector);
+        if (!match) return false;
+        const key = "lf" + match[1].split("-").map(function(part) { return part[0].toUpperCase() + part.slice(1); }).join("");
+        return Object.prototype.hasOwnProperty.call(element.dataset, key);
+    }
+    function element(tagName) {
+        const handlers = {};
+        const value = {
+            tagName,
+            children: [],
+            className: "",
+            dataset: {},
+            disabled: false,
+            handlers,
+            textContent: "",
+            value: "",
+            addEventListener: function(event, handler) { handlers[event] = handler; },
+            appendChild: function(child) { this.children.push(child); return child; },
+            append: function(...children) { this.children.push(...children); },
+            replaceChildren: function(...children) { this.children = children; },
+            setAttribute: function(name, attributeValue) { this[name] = String(attributeValue); },
+            querySelectorAll: function(selector) {
+                const found = [];
+                function visit(parent) {
+                    for (const child of parent.children) {
+                        if (matches(child, selector)) found.push(child);
+                        visit(child);
+                    }
+                }
+                visit(this);
+                return found;
+            },
+            querySelector: function(selector) { return this.querySelectorAll(selector)[0] || null; }
+        };
+        return value;
+    }
+    function input(type, value, dataKey) {
+        const control = element("input");
+        control.type = type;
+        control.value = String(value);
+        control.dataset[dataKey] = "";
+        return control;
+    }
+    function makeRow(stop, number) {
+        const row = element("div");
+        row.dataset.lfGradientStop = "";
+        const heading = element("h4");
+        heading.dataset.lfGradientStopNumber = "";
+        heading.textContent = "Stop " + number;
+        const color = input("color", stop.color, "lfGradientColor");
+        const hex = input("text", stop.color, "lfGradientHex");
+        const position = input("number", stop.position, "lfGradientPosition");
+        const intensity = input("number", stop.intensity, "lfGradientIntensity");
+        const remove = element("button");
+        remove.dataset.lfGradientRemove = "";
+        row.append(heading, color, hex, position, intensity, remove);
+        return row;
+    }
+
+    const stops = initialStops || [
+        {position: 0, color: "#ff0000", intensity: 1},
+        {position: 0.33, color: "#00ff00", intensity: 1},
+        {position: 0.66, color: "#0000ff", intensity: 1},
+        {position: 1, color: "#ffff00", intensity: 1}
+    ];
+    const container = element("section");
+    container.dataset = {
+        lfClusterControlled: "false", lfDeviceSerial: "gradient-device", lfEffect: "gradient",
+        lfRowsId: "gradient-rows", lfAddId: "gradient-add", lfSaveId: "gradient-save", lfStatusId: "gradient-status"
+    };
+    const rows = element("div");
+    rows.id = "gradient-rows";
+    rows.children = stops.map(makeRow);
+    const add = element("button");
+    add.id = "gradient-add";
+    const save = element("button");
+    save.id = "gradient-save";
+    save.disabled = true;
+    const status = element("p");
+    status.id = "gradient-status";
+    container.append(rows, add, save, status);
+    const byID = {"gradient-rows": rows, "gradient-add": add, "gradient-save": save, "gradient-status": status};
+    let reloads = 0;
+    const browser = {
+        AbortController,
+        clearTimeout,
+        document: {
+            createElement: element,
+            getElementById: function(id) { return byID[id] || null; }
+        },
+        fetch: fetchImplementation,
+        location: {reload: function() { reloads++; }},
+        setTimeout
+    };
+    Object.assign(browser, overrides || {});
+    return {
+        add, browser, container, rows, save, status,
+        reloads: function() { return reloads; },
+        stopRows: function() { return rows.querySelectorAll("[data-lf-gradient-stop]"); }
+    };
+}
+
+test("bindGradientControl initializes a complete draft and saves a stable ordered payload", async function() {
+    let request;
+    const fixture = gradientBrowserFixture(async function(url, options) {
+        request = {url, options};
+        return {ok: true, json: async function() { return {status: 1}; }};
+    });
+    const controller = lighting.bindGradientControl(fixture.browser, fixture.container);
+    assert.ok(controller);
+    assert.equal(fixture.stopRows().length, 4);
+    assert.equal(fixture.save.disabled, true);
+
+    const first = fixture.stopRows()[0];
+    const second = fixture.stopRows()[1];
+    const third = fixture.stopRows()[2];
+    const firstColor = first.querySelector("[data-lf-gradient-color]");
+    const firstHex = first.querySelector("[data-lf-gradient-hex]");
+    firstColor.value = "#112233";
+    firstColor.handlers.input();
+    assert.equal(firstHex.value, "#112233");
+    firstHex.value = "#AABBCC";
+    firstHex.handlers.input();
+    assert.equal(firstColor.value, "#aabbcc");
+    assert.equal(second.querySelector("[data-lf-gradient-hex]").value, "#00ff00");
+
+    second.querySelector("[data-lf-gradient-position]").value = "0.5";
+    second.querySelector("[data-lf-gradient-position]").handlers.input();
+    third.querySelector("[data-lf-gradient-position]").value = "0.5";
+    third.querySelector("[data-lf-gradient-position]").handlers.input();
+    first.querySelector("[data-lf-gradient-intensity]").value = "0";
+    first.querySelector("[data-lf-gradient-intensity]").handlers.input();
+    assert.equal(request, undefined);
+    assert.equal(fixture.save.disabled, false);
+
+    const pending = controller.save();
+    assert.equal(fixture.status.textContent, "Saving Gradient…");
+    for (const control of fixture.container.querySelectorAll("input, button")) assert.equal(control.disabled, true);
+    await pending;
+    const body = JSON.parse(request.options.body);
+    assert.equal(request.url, "/api/openrgbimport/gradient");
+    assert.ok(request.options.signal instanceof AbortSignal);
+    assert.equal(body.stops[0].color, "#aabbcc");
+    assert.equal(body.stops[0].position, 0);
+    assert.equal(body.stops[0].intensity, 0);
+    assert.equal(body.stops[1].color, "#00ff00");
+    assert.equal(body.stops[2].color, "#0000ff");
+    assert.equal(body.stops[1].position, 0.5);
+    assert.equal(body.stops[2].position, 0.5);
+    assert.equal(fixture.status.textContent, "Gradient saved.");
+    assert.equal(fixture.reloads(), 1);
+});
+
+test("bindGradientControl Add and Remove remain local and preserve minimum and maximum sizes", function() {
+    let requests = 0;
+    const fixture = gradientBrowserFixture(async function() { requests++; return {ok: true, json: async function() { return {status: 1}; }}; });
+    const controller = lighting.bindGradientControl(fixture.browser, fixture.container);
+    controller.addStop();
+    assert.equal(requests, 0);
+    assert.equal(fixture.stopRows().length, 5);
+    const inserted = fixture.stopRows()[3];
+    assert.equal(inserted.querySelector("[data-lf-gradient-position]").value, "0.8300000000000001");
+    assert.equal(inserted.querySelector("[data-lf-gradient-hex]").value, "#0000ff");
+    inserted.querySelector("[data-lf-gradient-remove]").handlers.click();
+    assert.equal(fixture.stopRows().length, 4);
+    assert.equal(requests, 0);
+
+    const minimum = gradientBrowserFixture(async function() {}, null, [
+        {position: 0, color: "#000000", intensity: 1}, {position: 1, color: "#ffffff", intensity: 1}
+    ]);
+    lighting.bindGradientControl(minimum.browser, minimum.container);
+    for (const row of minimum.stopRows()) assert.equal(row.querySelector("[data-lf-gradient-remove]").disabled, true);
+
+    const maximumStops = Array.from({length: 1024}, function(_, index) {
+        return {position: index / 1023, color: "#000000", intensity: 1};
+    });
+    const maximum = gradientBrowserFixture(async function() {}, null, maximumStops);
+    lighting.bindGradientControl(maximum.browser, maximum.container);
+    assert.equal(maximum.add.disabled, true);
+});
+
+test("bindGradientControl Add reports invalid drafts without requests or mutation", async function(t) {
+    const cases = [
+        {name: "incomplete", field: "position", value: "", message: "Every Gradient stop needs a valid color, position, and intensity."},
+        {name: "out of range", field: "intensity", value: "1.1", message: "Gradient positions and intensities must be between 0 and 1."}
+    ];
+    for (const testCase of cases) {
+        await t.test(testCase.name, function() {
+            let requests = 0;
+            const fixture = gradientBrowserFixture(async function() { requests++; });
+            const controller = lighting.bindGradientControl(fixture.browser, fixture.container);
+            const initialCount = fixture.stopRows().length;
+            fixture.stopRows()[0].querySelector("[data-lf-gradient-" + testCase.field + "]").value = testCase.value;
+            controller.addStop();
+            assert.equal(requests, 0);
+            assert.equal(fixture.stopRows().length, initialCount);
+            assert.equal(fixture.status.textContent, testCase.message);
+        });
+    }
+});
+
+test("bindGradientControl validates malformed drafts without requests", async function(t) {
+    const cases = [
+        {name: "malformed color", field: "hex", value: "red", message: "Every Gradient stop needs a valid color, position, and intensity."},
+        {name: "blank Position", field: "position", value: "", message: "Every Gradient stop needs a valid color, position, and intensity."},
+        {name: "blank Intensity", field: "intensity", value: "", message: "Every Gradient stop needs a valid color, position, and intensity."},
+        {name: "Position below range", field: "position", value: "-0.1", message: "Gradient positions and intensities must be between 0 and 1."},
+        {name: "Intensity above range", field: "intensity", value: "1.1", message: "Gradient positions and intensities must be between 0 and 1."}
+    ];
+    for (const testCase of cases) {
+        await t.test(testCase.name, async function() {
+            let requests = 0;
+            const fixture = gradientBrowserFixture(async function() { requests++; });
+            const controller = lighting.bindGradientControl(fixture.browser, fixture.container);
+            fixture.stopRows()[0].querySelector("[data-lf-gradient-" + testCase.field + "]").value = testCase.value;
+            await controller.save();
+            assert.equal(requests, 0);
+            assert.equal(fixture.status.textContent, testCase.message);
+        });
+    }
+});
+
+test("bindGradientControl keeps a coherent retryable draft after failures and timeout", async function(t) {
+    const failures = [
+        async function() { return {ok: false, json: async function() { return {status: 1}; }}; },
+        async function() { return {ok: true, json: async function() { return {status: 0}; }}; },
+        async function() { throw new Error("offline"); }
+    ];
+    for (const failure of failures) {
+        await t.test("failure", async function() {
+            const fixture = gradientBrowserFixture(failure);
+            const controller = lighting.bindGradientControl(fixture.browser, fixture.container);
+            const position = fixture.stopRows()[1].querySelector("[data-lf-gradient-position]");
+            position.value = "0.4";
+            await controller.save();
+            assert.equal(position.value, "0.4");
+            assert.equal(fixture.status.textContent, "Unable to change Gradient. Try again.");
+            assert.equal(fixture.save.disabled, false);
+            assert.equal(fixture.reloads(), 0);
+        });
+    }
+
+    await t.test("timeout and in-flight deduplication", async function() {
+        const timers = timerFixture();
+        let requests = 0;
+        let signal;
+        const fixture = gradientBrowserFixture(function(_, options) {
+            requests++;
+            signal = options.signal;
+            return new Promise(function(_, reject) {
+                signal.addEventListener("abort", function() { reject(new Error("timeout")); }, {once: true});
+            });
+        }, {clearTimeout: timers.clearTimeout, setTimeout: timers.setTimeout});
+        const controller = lighting.bindGradientControl(fixture.browser, fixture.container);
+        const position = fixture.stopRows()[1].querySelector("[data-lf-gradient-position]");
+        position.value = "0.4";
+        const pending = controller.save();
+        controller.save();
+        fixture.save.handlers.click();
+        assert.equal(requests, 1);
+        timers.fireNext(10000);
+        await pending;
+        assert.equal(signal.aborted, true);
+        assert.equal(position.value, "0.4");
+        assert.equal(fixture.save.disabled, false);
+        assert.equal(fixture.status.textContent, "Unable to change Gradient. Try again.");
+    });
+});
+
+test("bindGradientControl disables malformed initial state and ignores cluster-owned or absent editors", function() {
+    const malformed = gradientBrowserFixture(async function() {}, null, [
+        {position: 0.8, color: "#000000", intensity: 1}, {position: 0.2, color: "#ffffff", intensity: 1}
+    ]);
+    assert.equal(lighting.bindGradientControl(malformed.browser, malformed.container), null);
+    assert.equal(malformed.status.textContent, "Unable to load Gradient settings.");
+    for (const control of malformed.container.querySelectorAll("input, button")) assert.equal(control.disabled, true);
+
+    const cluster = gradientBrowserFixture(async function() {});
+    cluster.container.dataset.lfClusterControlled = "true";
+    assert.equal(lighting.bindGradientControl(cluster.browser, cluster.container), null);
+
+    const selectors = [];
+    lighting.init({document: {querySelectorAll: function(selector) { selectors.push(selector); return []; }}});
+    assert.ok(selectors.includes("[data-lf-gradient-control]"));
 });

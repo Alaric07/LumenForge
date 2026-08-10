@@ -478,6 +478,60 @@
                                             </div>
                                         {{ end }}
 
+                                        {{ if and (eq .PaletteKind "gradient") .HasGradient }}
+                                            <section
+                                                class="lf-color-control lf-gradient-control"
+                                                data-lf-gradient-control
+                                                data-lf-device-serial="{{ $.Device.Serial }}"
+                                                data-lf-effect="{{ .ConfiguredEffect }}"
+                                                data-lf-cluster-controlled="{{ .ClusterControlled }}"
+                                                data-lf-rows-id="lf-lighting-gradient-stops"
+                                                data-lf-add-id="lf-lighting-gradient-add"
+                                                data-lf-save-id="lf-lighting-gradient-save"
+                                                data-lf-status-id="lf-lighting-gradient-status"
+                                                aria-labelledby="lf-lighting-gradient-heading"
+                                            >
+                                                <div class="lf-gradient-control-header">
+                                                    <div>
+                                                        <h3 id="lf-lighting-gradient-heading">Gradient stops</h3>
+                                                        <p>Position uses 0 for the start and 1 for the end. Intensity is relative to device Brightness.</p>
+                                                    </div>
+                                                    <button class="lf-button lf-button-secondary" id="lf-lighting-gradient-add" type="button" data-lf-gradient-add {{ if or .ClusterControlled (ge (len .GradientStops) 1024) }}disabled{{ end }}>Add stop</button>
+                                                </div>
+                                                <div class="lf-gradient-stop-list" id="lf-lighting-gradient-stops">
+                                                    {{ $clusterControlled := .ClusterControlled }}
+                                                    {{ $minimumStops := eq (len .GradientStops) 2 }}
+                                                    {{ range $stop := .GradientStops }}
+                                                        <div class="lf-gradient-stop" data-lf-gradient-stop>
+                                                            <h4 data-lf-gradient-stop-number>Stop {{ $stop.Number }}</h4>
+                                                            <div class="lf-gradient-stop-fields">
+                                                                <label class="lf-gradient-field-label" for="lf-lighting-gradient-color-{{ $stop.Number }}">Color
+                                                                    <span class="lf-gradient-color-fields">
+                                                                        <input class="lf-color-control-input" id="lf-lighting-gradient-color-{{ $stop.Number }}" type="color" value="{{ $stop.ColorHex }}" data-lf-gradient-color aria-label="Stop {{ $stop.Number }} color" aria-describedby="lf-lighting-gradient-status" {{ if $clusterControlled }}disabled{{ end }}>
+                                                                        <input class="lf-color-control-hex" id="lf-lighting-gradient-hex-{{ $stop.Number }}" type="text" value="{{ $stop.ColorHex }}" pattern="#[0-9a-fA-F]{6}" maxlength="7" data-lf-gradient-hex aria-label="Stop {{ $stop.Number }} color hex code" aria-describedby="lf-lighting-gradient-status" {{ if $clusterControlled }}disabled{{ end }}>
+                                                                    </span>
+                                                                </label>
+                                                                <label class="lf-gradient-field-label" for="lf-lighting-gradient-position-{{ $stop.Number }}">Position
+                                                                    <input class="lf-gradient-number-input" id="lf-lighting-gradient-position-{{ $stop.Number }}" type="number" min="0" max="1" step="any" value="{{ $stop.Position }}" data-lf-gradient-position aria-label="Stop {{ $stop.Number }} position from 0 start to 1 end" aria-describedby="lf-lighting-gradient-status" {{ if $clusterControlled }}disabled{{ end }}>
+                                                                </label>
+                                                                <label class="lf-gradient-field-label" for="lf-lighting-gradient-intensity-{{ $stop.Number }}">Relative intensity
+                                                                    <input class="lf-gradient-number-input" id="lf-lighting-gradient-intensity-{{ $stop.Number }}" type="number" min="0" max="1" step="any" value="{{ $stop.Intensity }}" data-lf-gradient-intensity aria-label="Stop {{ $stop.Number }} relative intensity from 0 to 1" aria-describedby="lf-lighting-gradient-status" {{ if $clusterControlled }}disabled{{ end }}>
+                                                                </label>
+                                                                <button class="lf-button lf-button-secondary lf-gradient-remove" type="button" data-lf-gradient-remove aria-label="Remove stop {{ $stop.Number }}" {{ if or $clusterControlled $minimumStops }}disabled{{ end }}>Remove</button>
+                                                            </div>
+                                                        </div>
+                                                    {{ end }}
+                                                </div>
+                                                <div class="lf-gradient-actions">
+                                                    <button class="lf-button lf-button-primary" id="lf-lighting-gradient-save" type="button" data-lf-gradient-save disabled>Save Gradient</button>
+                                                </div>
+                                                {{ if .ClusterControlled }}
+                                                    <p class="lf-color-control-restriction">RGB Cluster currently owns this device's lighting output. Change cluster-wide lighting from the <a href="/rgbCluster">RGB Cluster workspace</a>.</p>
+                                                {{ end }}
+                                                <p class="lf-color-control-status" id="lf-lighting-gradient-status" aria-live="polite"></p>
+                                            </section>
+                                        {{ end }}
+
                                         {{ if not .ClusterControlled }}
                                             <div
                                                 class="lf-reset-control"

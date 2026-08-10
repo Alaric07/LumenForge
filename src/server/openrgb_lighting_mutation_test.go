@@ -22,6 +22,7 @@ type lightingMutationCalls struct {
 	colors       []lightingColorMutationCall
 	twoColors    []lightingTwoColorMutationCall
 	temperatures []lightingTemperatureMutationCall
+	gradients    []lightingGradientMutationCall
 	resets       []lightingResetMutationCall
 	setError     error
 }
@@ -58,6 +59,12 @@ type lightingTemperatureMutationCall struct {
 	high   lightingsettings.TemperaturePoint
 }
 
+type lightingGradientMutationCall struct {
+	serial string
+	effect string
+	stops  []lightingsettings.GradientStop
+}
+
 func installLightingMutationTestSeams(t *testing.T) (*openrgbimport.Device, *common.Device, *lightingMutationCalls) {
 	t.Helper()
 
@@ -68,6 +75,7 @@ func installLightingMutationTestSeams(t *testing.T) (*openrgbimport.Device, *com
 	previousColor := setOpenRGBImportColorValue
 	previousTwoColor := setOpenRGBImportTwoColorValue
 	previousTemperature := setOpenRGBImportTemperatureValue
+	previousGradient := setOpenRGBImportGradientValue
 	previousReset := resetOpenRGBImportCustomizationValue
 	t.Cleanup(func() {
 		lookupOpenRGBImportForLighting = previousLookup
@@ -77,13 +85,14 @@ func installLightingMutationTestSeams(t *testing.T) (*openrgbimport.Device, *com
 		setOpenRGBImportColorValue = previousColor
 		setOpenRGBImportTwoColorValue = previousTwoColor
 		setOpenRGBImportTemperatureValue = previousTemperature
+		setOpenRGBImportGradientValue = previousGradient
 		resetOpenRGBImportCustomizationValue = previousReset
 	})
 
 	device := &openrgbimport.Device{
 		Serial:    lightingMutationTestSerial,
 		IsOpenRGB: true,
-		RGBModes:  []string{"static", "off", "rainbow", "cpu-temperature", "gpu-temperature"},
+		RGBModes:  []string{"static", "off", "rainbow", "cpu-temperature", "gpu-temperature", "gradient"},
 	}
 	wrapper := &common.Device{Serial: lightingMutationTestSerial, Instance: device}
 	calls := &lightingMutationCalls{}
@@ -115,6 +124,12 @@ func installLightingMutationTestSeams(t *testing.T) (*openrgbimport.Device, *com
 	}
 	setOpenRGBImportTemperatureValue = func(_ *openrgbimport.Device, serial, effect string, low, middle, high lightingsettings.TemperaturePoint) error {
 		calls.temperatures = append(calls.temperatures, lightingTemperatureMutationCall{serial: serial, effect: effect, low: low, middle: middle, high: high})
+		return calls.setError
+	}
+	setOpenRGBImportGradientValue = func(_ *openrgbimport.Device, serial, effect string, stops []lightingsettings.GradientStop) error {
+		calls.gradients = append(calls.gradients, lightingGradientMutationCall{
+			serial: serial, effect: effect, stops: append([]lightingsettings.GradientStop(nil), stops...),
+		})
 		return calls.setError
 	}
 	resetOpenRGBImportCustomizationValue = func(_ *openrgbimport.Device, serial, effect string) error {

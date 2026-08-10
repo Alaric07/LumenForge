@@ -22,6 +22,14 @@ type LightingTemperaturePointSnapshot struct {
 	Celsius  float64
 }
 
+// LightingGradientStopSnapshot is a presentation-safe copy of one canonical
+// ordered Gradient stop.
+type LightingGradientStopSnapshot struct {
+	Position  float64
+	ColorHex  string
+	Intensity float64
+}
+
 // LightingSnapshot is an immutable presentation/configuration view of an
 // imported controller's lighting state. It does not confirm live hardware
 // output.
@@ -42,6 +50,8 @@ type LightingSnapshot struct {
 	TemperatureLow    LightingTemperaturePointSnapshot
 	TemperatureMiddle LightingTemperaturePointSnapshot
 	TemperatureHigh   LightingTemperaturePointSnapshot
+	HasGradient       bool
+	GradientStops     []LightingGradientStopSnapshot
 	Customized        bool
 }
 
@@ -121,6 +131,15 @@ func (d *Device) LightingSnapshot() (LightingSnapshot, bool) {
 		}
 		snapshot.TemperatureHigh = LightingTemperaturePointSnapshot{
 			ColorHex: lightingColorHex(temperature.High.Color), Celsius: temperature.High.Celsius,
+		}
+	}
+	if descriptor.PaletteKind == rgb.LightingPaletteGradient && resolution.Settings.Gradient != nil {
+		snapshot.HasGradient = true
+		snapshot.GradientStops = make([]LightingGradientStopSnapshot, len(resolution.Settings.Gradient.Stops))
+		for index, stop := range resolution.Settings.Gradient.Stops {
+			snapshot.GradientStops[index] = LightingGradientStopSnapshot{
+				Position: stop.Position, ColorHex: lightingColorHex(stop.Color), Intensity: stop.Intensity,
+			}
 		}
 	}
 

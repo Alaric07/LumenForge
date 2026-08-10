@@ -372,7 +372,7 @@ func TestGradientProgressPreservesSpeedContract(t *testing.T) {
 	}
 }
 
-func TestShippedGradientProfileAndMaximumBrightnessOutputRemainUnchanged(t *testing.T) {
+func TestShippedGradientProfileAndMaximumBrightnessOutput(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("..", "..", "database", "rgb.json"))
 	if err != nil {
 		t.Fatalf("read shipped RGB profiles: %v", err)
@@ -387,9 +387,9 @@ func TestShippedGradientProfileAndMaximumBrightnessOutputRemainUnchanged(t *test
 	}
 	wantStops := map[int]Color{
 		0: {Red: 255, Brightness: 1, Position: 0},
-		1: {Green: 255, Brightness: 1, Position: 0.33},
-		2: {Blue: 255, Brightness: 1, Position: 0.66},
-		3: {Red: 255, Green: 255, Brightness: 1, Position: 1},
+		1: {Green: 255, Brightness: 1, Position: 0.25},
+		2: {Blue: 255, Brightness: 1, Position: 0.5},
+		3: {Red: 255, Green: 255, Brightness: 1, Position: 0.75},
 	}
 	if profile.Speed != 10 || profile.Brightness != 1 || !reflect.DeepEqual(profile.Gradients, wantStops) {
 		t.Fatalf("shipped Gradient profile = %#v", profile)
@@ -398,10 +398,14 @@ func TestShippedGradientProfileAndMaximumBrightnessOutputRemainUnchanged(t *test
 
 	first, ok := gradientColorAtProgress(profile.Gradients, 0, 1)
 	assertGradientColor(t, first, ok, Color{Red: 255})
-	midpoint, ok := gradientColorAtProgress(profile.Gradients, 0.165, 1)
-	assertGradientColor(t, midpoint, ok, Color{Red: 127, Green: 127})
-	last, ok := gradientColorAtProgress(profile.Gradients, 1, 1)
+	firstMidpoint, ok := gradientColorAtProgress(profile.Gradients, 0.125, 1)
+	assertGradientColor(t, firstMidpoint, ok, Color{Red: 127, Green: 127})
+	last, ok := gradientColorAtProgress(profile.Gradients, 0.75, 1)
 	assertGradientColor(t, last, ok, Color{Red: 255, Green: 255})
+	wrapMidpoint, ok := gradientColorAtProgress(profile.Gradients, 0.875, 1)
+	assertGradientColor(t, wrapMidpoint, ok, Color{Red: 255, Green: 127})
+	wrapped, ok := gradientColorAtProgress(profile.Gradients, 1, 1)
+	assertGradientColor(t, wrapped, ok, Color{Red: 255})
 
 	if !reflect.DeepEqual(profile.Gradients, original) {
 		t.Fatalf("shipped Gradient profile copy mutated:\n got: %#v\nwant: %#v", profile.Gradients, original)

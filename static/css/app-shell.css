@@ -1397,6 +1397,109 @@
     cursor: not-allowed;
 }
 
+.lf-app-shell .lf-gradient-control-header,
+.lf-app-shell .lf-gradient-actions {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.lf-app-shell .lf-gradient-control-header h3,
+.lf-app-shell .lf-gradient-stop h4 {
+    margin: 0;
+    color: var(--lf-text-primary);
+}
+
+.lf-app-shell .lf-gradient-control-header p {
+    margin: 6px 0 0;
+    color: var(--lf-text-secondary);
+    font-size: 13px;
+}
+
+.lf-app-shell .lf-gradient-stop-list {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.lf-app-shell .lf-gradient-stop {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--lf-border-subtle);
+    border-radius: 9px;
+    background: var(--lf-surface-subdued);
+}
+
+.lf-app-shell .lf-gradient-stop h4 {
+    font-size: 14px;
+}
+
+.lf-app-shell .lf-gradient-stop-fields {
+    display: grid;
+    grid-template-columns: minmax(180px, 1.4fr) repeat(2, minmax(120px, 0.8fr)) auto;
+    align-items: end;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.lf-app-shell .lf-gradient-field-label {
+    display: grid;
+    min-width: 0;
+    gap: 7px;
+    color: var(--lf-text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.lf-app-shell .lf-gradient-color-fields {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.lf-app-shell .lf-gradient-number-input {
+    min-width: 0;
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--lf-border-emphasized);
+    border-radius: 8px;
+    color: var(--lf-text-primary);
+    background: var(--lf-surface-subdued);
+    font: inherit;
+}
+
+.lf-app-shell .lf-gradient-number-input:focus-visible {
+    outline: 3px solid var(--lf-focus-ring);
+    outline-offset: 1px;
+}
+
+.lf-app-shell .lf-gradient-number-input:disabled {
+    color: var(--lf-text-muted);
+    cursor: not-allowed;
+}
+
+.lf-app-shell .lf-gradient-actions {
+    justify-content: flex-end;
+    margin-top: 16px;
+}
+
+@media (max-width: 1180px) {
+    .lf-app-shell .lf-gradient-stop-fields {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
+    .lf-app-shell .lf-gradient-control-header {
+        flex-direction: column;
+    }
+
+    .lf-app-shell .lf-gradient-stop-fields {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 .lf-app-shell .lf-color-control-label {
     display: block;
     color: var(--lf-text-primary);
