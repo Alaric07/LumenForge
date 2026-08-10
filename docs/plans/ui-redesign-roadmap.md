@@ -338,6 +338,13 @@ smooth circular last-to-first interpolation. Automated focused, repeated, race,
 full-repository, JavaScript, build, and CodeRabbit validation passed, and manual
 hardware testing confirmed smooth looping and Gradient editing behavior.
 
+`5a58140f` removed the temporary user-facing Palette capability readout from
+Device Lighting now that each renderer-driven palette shape has its own
+applicable controls. The obsolete Palette metric, configuration-rail capability
+fact, and dedicated metric styling were removed while internal `PaletteKind`
+control gating remains intact. Focused server tests, the full repository test
+suite, and CodeRabbit review passed.
+
 ### OpenRGB Device Lighting cutover
 
 - [x] Add the modern protected effect selector (`01b80d4a`).
@@ -359,8 +366,8 @@ hardware testing confirmed smooth looping and Gradient editing behavior.
 - [x] Add the two-color Start/End editor (`20e6d472`).
 - [x] Add Low/Middle/High temperature color and threshold editing (`33ea040c`).
 - [x] Add the ordered Gradient editor (`ed9d5016`).
-- [ ] Remove the temporary user-facing Palette capability readout after the
-  remaining renderer-driven editors make palette shape self-evident.
+- [x] Remove the temporary user-facing Palette capability readout after the
+  renderer-driven editors make palette shape self-evident (`5a58140f`).
 - [ ] Delete OpenRGB RGB Override and legacy imported-device lighting paths
   after modern parity.
 

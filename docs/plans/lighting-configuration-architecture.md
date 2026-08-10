@@ -395,10 +395,11 @@ interpolation then produced a smooth final-to-first transition without renderer
 changes. Focused, repeated, race, full-repository, JavaScript, build, and
 CodeRabbit validation passed.
 
-The currently rendered Palette capability value remains a temporary diagnostic,
-not part of the final user-facing design. It should be removed after the
-remaining renderer-driven editors make the selected effect's applicable inputs
-self-evident.
+`5a58140f` removed the temporary user-facing Palette capability readout after
+the renderer-driven Static, two-color, Temperature, and Gradient editors made
+the selected effect's applicable inputs self-evident. `PaletteKind` remains an
+internal presentation discriminator for selecting the correct control surface;
+it is no longer exposed as a user-facing capability value.
 
 ## 11. OpenRGB imports
 
@@ -568,7 +569,8 @@ Speed or another genuine renderer-consumed setting.
    with manual-test corrections in `ad4b0340`.
 8. Add two-color editing. Completed in `20e6d472`.
 9. Add temperature color and threshold editing. Completed in `33ea040c`.
-10. Add Gradient editing. Completed in `ed9d5016`.
+10. Add Gradient editing. Completed in `ed9d5016`. Remove the temporary
+    user-facing Palette diagnostic after editor parity. Completed in `5a58140f`.
 11. Cut RGB Cluster persistence and rendering to the resolver while preserving
     membership and device order separately.
 12. Modernize RGB Cluster with the shared descriptor-driven controls.
