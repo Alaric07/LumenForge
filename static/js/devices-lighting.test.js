@@ -1165,6 +1165,7 @@ test("multiple brightness controls keep transient success timers isolated", asyn
         if (selector === "[data-lf-speed-slider]") return [];
         if (selector === "[data-lf-color-input]") return [];
         if (selector === "[data-lf-two-color-control]") return [];
+        if (selector === "[data-lf-temperature-control]") return [];
         if (selector === "[data-lf-reset-button]") return [];
         assert.equal(selector, "[data-lf-brightness-readout]");
         return [];
@@ -1966,7 +1967,7 @@ test("Lighting initialization tolerates pages without interactive controls", fun
 
     lighting.init(browser);
 
-    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-two-color-control]", "[data-lf-reset-button]"]);
+    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-two-color-control]", "[data-lf-temperature-control]", "[data-lf-reset-button]"]);
 });
 
 test("Lighting initialization supports isolated and combined interactive controls", function () {
@@ -2308,6 +2309,217 @@ test("bindTwoColorControl aborts a stalled request and restores both colors", as
     assert.equal(fixture.endHex.control.value, "#aabbcc");
     assert.equal(fixture.status.textContent, "Unable to change colors. Try again.");
     assert.equal(fixture.reloads(), 0);
+});
+
+function temperatureBrowserFixture(fetchImplementation, overrides) {
+    function input(value) {
+        const handlers = {};
+        return {
+            disabled: false,
+            value: value,
+            handlers,
+            addEventListener: function(event, handler) { handlers[event] = handler; }
+        };
+    }
+    const elements = {"temperature-status": {textContent: ""}};
+    const points = {
+        low: {color: input("#00ff00"), hex: input("#00ff00"), celsius: input("20")},
+        middle: {color: input("#ffff00"), hex: input("#ffff00"), celsius: input("50")},
+        high: {color: input("#ff0000"), hex: input("#ff0000"), celsius: input("95")}
+    };
+    const dataset = {
+        lfClusterControlled: "false", lfDeviceSerial: "test-device", lfEffect: "cpu-temperature",
+        lfStatusId: "temperature-status"
+    };
+    for (const role of ["low", "middle", "high"]) {
+        const title = role[0].toUpperCase() + role.slice(1);
+        for (const field of ["color", "hex", "celsius"]) {
+            const id = role + "-" + field;
+            dataset["lf" + title + field[0].toUpperCase() + field.slice(1) + "Id"] = id;
+            elements[id] = points[role][field];
+        }
+    }
+    let reloads = 0;
+    const browser = {
+        AbortController,
+        clearTimeout,
+        document: {getElementById: function(id) { return elements[id] || null; }},
+        fetch: fetchImplementation,
+        location: {reload: function() { reloads++; }},
+        setTimeout
+    };
+    Object.assign(browser, overrides || {});
+    return {browser, container: {dataset}, points, status: elements["temperature-status"], reloads: function() { return reloads; }};
+}
+
+test("bindTemperatureControl commits each semantic point as one complete normalized payload", async function(t) {
+    const edits = [
+        {role: "low", field: "hex", value: "#A1B2C3"},
+        {role: "middle", field: "color", value: "#D4E5F6"},
+        {role: "high", field: "hex", value: "#010203"},
+        {role: "low", field: "celsius", value: "20.5"},
+        {role: "middle", field: "celsius", value: "50.25"},
+        {role: "high", field: "celsius", value: "95.75"}
+    ];
+    for (const edit of edits) {
+        await t.test(edit.role + " " + edit.field, async function() {
+            let request;
+            const timers = timerFixture();
+            const fixture = temperatureBrowserFixture(async function(url, options) {
+                request = {url, options};
+                return {ok: true, json: async function() { return {status: 1}; }};
+            }, {clearTimeout: timers.clearTimeout, setTimeout: timers.setTimeout});
+            const commit = lighting.bindTemperatureControl(fixture.browser, fixture.container);
+            const control = fixture.points[edit.role][edit.field];
+            control.value = edit.value;
+            if (control.handlers.input) control.handlers.input();
+            const pending = commit();
+            for (const point of Object.values(fixture.points)) {
+                for (const input of Object.values(point)) assert.equal(input.disabled, true);
+            }
+            assert.equal(fixture.status.textContent, "Saving temperature colors…");
+            await pending;
+            const body = JSON.parse(request.options.body);
+            assert.equal(request.url, "/api/openrgbimport/temperature");
+            assert.ok(request.options.signal instanceof AbortSignal);
+            assert.deepEqual(Object.keys(body), ["serial", "effect", "low", "middle", "high"]);
+            if (edit.field === "celsius") assert.equal(body[edit.role].celsius, Number(edit.value));
+            else assert.equal(body[edit.role].color, edit.value.toLowerCase());
+            assert.equal(fixture.status.textContent, "Temperature colors saved.");
+            assert.equal(fixture.reloads(), 1);
+            assert.equal(timers.pending(10000), 0);
+        });
+    }
+});
+
+test("bindTemperatureControl rejects incomplete unchanged and unordered state locally", async function() {
+    let requests = 0;
+    const fixture = temperatureBrowserFixture(async function() {
+        requests++;
+        return {ok: true, json: async function() { return {status: 1}; }};
+    });
+    const commit = lighting.bindTemperatureControl(fixture.browser, fixture.container);
+    await commit();
+    fixture.points.low.hex.value = "invalid";
+    await commit();
+    fixture.points.middle.celsius.value = "";
+    await commit();
+    fixture.points.low.celsius.value = "50";
+    await commit();
+    assert.equal(requests, 0);
+    assert.equal(fixture.points.low.celsius.value, "20");
+    assert.equal(fixture.status.textContent, "Thresholds must satisfy Low < Middle < High.");
+
+    fixture.container.dataset.lfClusterControlled = "true";
+    assert.equal(lighting.bindTemperatureControl(fixture.browser, fixture.container), null);
+});
+
+test("bindTemperatureControl disables malformed or unordered server-rendered temperature state", function() {
+    const cases = [
+        {
+            name: "malformed",
+            prepare: function(fixture) {
+                fixture.points.low.hex.value = "invalid";
+            },
+            message: "Unable to load temperature settings."
+        },
+        {
+            name: "unordered",
+            prepare: function(fixture) {
+                fixture.points.low.celsius.value = "50";
+            },
+            message: "Thresholds must satisfy Low < Middle < High."
+        }
+    ];
+
+    for (const testCase of cases) {
+        const fixture = temperatureBrowserFixture(async function() {
+            throw new Error("invalid rendered state must not make a request");
+        });
+
+        testCase.prepare(fixture);
+
+        assert.equal(lighting.bindTemperatureControl(fixture.browser, fixture.container), null);
+
+        const controls = [
+            fixture.points.low.color,
+            fixture.points.low.hex,
+            fixture.points.low.celsius,
+            fixture.points.middle.color,
+            fixture.points.middle.hex,
+            fixture.points.middle.celsius,
+            fixture.points.high.color,
+            fixture.points.high.hex,
+            fixture.points.high.celsius
+        ];
+
+        for (const control of controls) {
+            assert.equal(control.disabled, true, testCase.name + " control was left enabled");
+        }
+        assert.equal(fixture.status.textContent, testCase.message);
+    }
+});
+
+test("bindTemperatureControl deduplicates Enter change and concurrent commits", async function() {
+    let requests = 0;
+    let resolveRequest;
+    const fixture = temperatureBrowserFixture(function() {
+        requests++;
+        return new Promise(function(resolve) { resolveRequest = resolve; });
+    });
+    lighting.bindTemperatureControl(fixture.browser, fixture.container);
+    fixture.points.middle.celsius.value = "55";
+    fixture.points.middle.celsius.handlers.keydown({key: "Enter", preventDefault: function() {}});
+    fixture.points.middle.celsius.handlers.change();
+    fixture.points.high.hex.handlers.change();
+    assert.equal(requests, 1);
+    resolveRequest({ok: true, json: async function() { return {status: 1}; }});
+    await new Promise(function(resolve) { setImmediate(resolve); });
+    assert.equal(requests, 1);
+    assert.equal(fixture.reloads(), 1);
+});
+
+test("bindTemperatureControl restores all confirmed values after failures and timeout", async function(t) {
+    const failures = [
+        async function() { return {ok: false, json: async function() { return {status: 1}; }}; },
+        async function() { return {ok: true, json: async function() { return {status: 0}; }}; },
+        async function() { throw new Error("offline"); }
+    ];
+    for (const failure of failures) {
+        await t.test("failure", async function() {
+            const fixture = temperatureBrowserFixture(failure);
+            const commit = lighting.bindTemperatureControl(fixture.browser, fixture.container);
+            fixture.points.low.hex.value = "#010203";
+            fixture.points.middle.celsius.value = "55";
+            await commit();
+            assert.equal(fixture.points.low.hex.value, "#00ff00");
+            assert.equal(fixture.points.middle.celsius.value, "50");
+            assert.equal(fixture.status.textContent, "Unable to change temperature colors. Try again.");
+            for (const point of Object.values(fixture.points)) {
+                for (const input of Object.values(point)) assert.equal(input.disabled, false);
+            }
+            assert.equal(fixture.reloads(), 0);
+        });
+    }
+
+    await t.test("timeout", async function() {
+        const timers = timerFixture();
+        let signal;
+        const fixture = temperatureBrowserFixture(function(_, options) {
+            signal = options.signal;
+            return new Promise(function(_, reject) {
+                signal.addEventListener("abort", function() { reject(new Error("timeout")); }, {once: true});
+            });
+        }, {clearTimeout: timers.clearTimeout, setTimeout: timers.setTimeout});
+        const commit = lighting.bindTemperatureControl(fixture.browser, fixture.container);
+        fixture.points.high.celsius.value = "96";
+        const pending = commit();
+        timers.fireNext(10000);
+        await pending;
+        assert.equal(signal.aborted, true);
+        assert.equal(fixture.points.high.celsius.value, "95");
+        assert.equal(fixture.status.textContent, "Unable to change temperature colors. Try again.");
+    });
 });
 
 test("bindColorControl normalizes and commits a valid color and reloads on success", async function() {

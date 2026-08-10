@@ -35,6 +35,11 @@
     const twoColorTimeoutMilliseconds = 10000;
     const twoColorSuccessMilliseconds = 1800;
     const twoColorFailureMessage = "Unable to change colors. Try again.";
+    const temperatureEndpoint = "/api/openrgbimport/temperature";
+    const temperatureTimeoutMilliseconds = 10000;
+    const temperatureSuccessMilliseconds = 1800;
+    const temperatureFailureMessage = "Unable to change temperature colors. Try again.";
+    const temperatureOrderMessage = "Thresholds must satisfy Low < Middle < High.";
     const resetEndpoint = "/api/openrgbimport/effect-reset";
     const resetTimeoutMilliseconds = 10000;
     const resetSuccessMilliseconds = 3000;
@@ -359,6 +364,29 @@
             const result = await response.json();
             if (!result || result.status !== 1) {
                 throw new Error("two-color mutation was rejected");
+            }
+        } finally {
+            browser.clearTimeout(timeout);
+        }
+    }
+
+    async function submitTemperature(browser, serial, effect, low, middle, high) {
+        const controller = new browser.AbortController();
+        const timeout = browser.setTimeout(function () {
+            controller.abort();
+        }, temperatureTimeoutMilliseconds);
+        try {
+            const response = await browser.fetch(temperatureEndpoint, {
+                method: "POST",
+                body: JSON.stringify({serial: serial, effect: effect, low: low, middle: middle, high: high}),
+                signal: controller.signal
+            });
+            if (!response.ok) {
+                throw new Error("temperature request failed");
+            }
+            const result = await response.json();
+            if (!result || result.status !== 1) {
+                throw new Error("temperature mutation was rejected");
             }
         } finally {
             browser.clearTimeout(timeout);
@@ -894,6 +922,142 @@
         return commit;
     }
 
+    function bindTemperatureControl(browser, container) {
+        if (container.dataset.lfClusterControlled === "true") return null;
+
+        const roles = ["Low", "Middle", "High"];
+        const points = roles.map(function (role) {
+            const key = role.toLowerCase();
+            return {
+                color: browser.document.getElementById(container.dataset["lf" + role + "ColorId"]),
+                hex: browser.document.getElementById(container.dataset["lf" + role + "HexId"]),
+                celsius: browser.document.getElementById(container.dataset["lf" + role + "CelsiusId"]),
+                key: key
+            };
+        });
+        const controls = points.flatMap(function (point) { return [point.color, point.hex, point.celsius]; });
+        const status = browser.document.getElementById(container.dataset.lfStatusId);
+        if (controls.some(function (control) { return !control; })) return null;
+
+        function normalizeColor(value) {
+            return /^#[0-9a-fA-F]{6}$/.test(value) ? value.toLowerCase() : null;
+        }
+
+        function readState() {
+            const state = {};
+            for (const point of points) {
+                const color = normalizeColor(point.hex.value);
+                const rawCelsius = String(point.celsius.value).trim();
+                const celsius = rawCelsius === "" ? NaN : Number(rawCelsius);
+                if (color === null || !Number.isFinite(celsius)) return null;
+                state[point.key] = {color: color, celsius: celsius};
+            }
+            return state;
+        }
+
+        function cloneState(state) {
+            return {
+                low: {color: state.low.color, celsius: state.low.celsius},
+                middle: {color: state.middle.color, celsius: state.middle.celsius},
+                high: {color: state.high.color, celsius: state.high.celsius}
+            };
+        }
+
+        function render(state) {
+            for (const point of points) {
+                point.color.value = state[point.key].color;
+                point.hex.value = state[point.key].color;
+                point.celsius.value = String(state[point.key].celsius);
+            }
+        }
+
+        let confirmed = readState();
+        if (confirmed === null) {
+            for (const control of controls) control.disabled = true;
+            if (status) status.textContent = "Unable to load temperature settings.";
+            return null;
+        }
+        if (!(confirmed.low.celsius < confirmed.middle.celsius && confirmed.middle.celsius < confirmed.high.celsius)) {
+            for (const control of controls) control.disabled = true;
+            if (status) status.textContent = temperatureOrderMessage;
+            return null;
+        }
+        confirmed = cloneState(confirmed);
+        let requestInFlight = false;
+        const setStatus = createStatusController(browser, status, temperatureSuccessMilliseconds);
+
+        function restoreConfirmed() {
+            render(confirmed);
+        }
+
+        function equal(left, right) {
+            return roles.every(function (role) {
+                const key = role.toLowerCase();
+                return left[key].color === right[key].color && left[key].celsius === right[key].celsius;
+            });
+        }
+
+        async function commit() {
+            if (requestInFlight) return;
+            const next = readState();
+            if (next === null) {
+                restoreConfirmed();
+                return;
+            }
+            if (!(next.low.celsius < next.middle.celsius && next.middle.celsius < next.high.celsius)) {
+                restoreConfirmed();
+                setStatus(temperatureOrderMessage, false);
+                return;
+            }
+            if (equal(next, confirmed)) {
+                restoreConfirmed();
+                return;
+            }
+
+            requestInFlight = true;
+            for (const control of controls) control.disabled = true;
+            setStatus("Saving temperature colors…", false);
+            try {
+                await submitTemperature(browser, container.dataset.lfDeviceSerial, container.dataset.lfEffect, next.low, next.middle, next.high);
+                confirmed = cloneState(next);
+                render(confirmed);
+                setStatus("Temperature colors saved.", true);
+                browser.location.reload();
+            } catch (_) {
+                restoreConfirmed();
+                setStatus(temperatureFailureMessage, false);
+                for (const control of controls) control.disabled = false;
+                requestInFlight = false;
+            }
+        }
+
+        for (const point of points) {
+            point.color.addEventListener("input", function () {
+                const color = normalizeColor(point.color.value);
+                if (color !== null) point.hex.value = color;
+            });
+            point.color.addEventListener("change", commit);
+            point.hex.addEventListener("input", function () {
+                const color = normalizeColor(point.hex.value);
+                if (color !== null) {
+                    point.color.value = color;
+                    point.hex.value = color;
+                }
+            });
+            point.hex.addEventListener("change", commit);
+            point.celsius.addEventListener("change", commit);
+            for (const input of [point.hex, point.celsius]) {
+                input.addEventListener("keydown", function (event) {
+                    if (event.key === "Enter") {
+                        event.preventDefault();
+                        commit();
+                    }
+                });
+            }
+        }
+        return commit;
+    }
+
     function bindResetButton(browser, button) {
         const clusterControlled = button.dataset.lfClusterControlled === "true";
         if (clusterControlled) return null;
@@ -943,6 +1107,10 @@
         for (const control of twoColorControls) {
             bindTwoColorControl(browser, control);
         }
+        const temperatureControls = browser.document.querySelectorAll("[data-lf-temperature-control]");
+        for (const control of temperatureControls) {
+            bindTemperatureControl(browser, control);
+        }
         const resetButtons = browser.document.querySelectorAll("[data-lf-reset-button]");
         for (const button of resetButtons) {
             bindResetButton(browser, button);
@@ -955,12 +1123,14 @@
         bindSpeedSlider,
         bindColorControl,
         bindTwoColorControl,
+        bindTemperatureControl,
         bindResetButton,
         revealEffectReset,
         brightnessEndpoint,
         effectEndpoint,
         colorEndpoint,
         twoColorEndpoint,
+        temperatureEndpoint,
         resetEndpoint,
         init,
         submitBrightness,
@@ -968,6 +1138,7 @@
         submitSpeed,
         submitColor,
         submitTwoColor,
+        submitTemperature,
         submitReset,
         speedEndpoint
     };

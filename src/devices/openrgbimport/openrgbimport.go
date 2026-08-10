@@ -1701,6 +1701,50 @@ func (d *Device) SetEffectTwoColor(expectedSerial, effect string, start, end lig
 	return d.applyPersistedEffectTransitionLocked(context.Background(), effect, true, expectedSerial, true)
 }
 
+// SetEffectTemperature persists and reapplies the current imported-device
+// software effect's complete semantic Low, Middle, and High temperature points.
+func (d *Device) SetEffectTemperature(expectedSerial, effect string, low, middle, high lightingsettings.TemperaturePoint) error {
+	if d == nil {
+		return fmt.Errorf("OpenRGB import is not available")
+	}
+
+	d.effectTransitionMu.Lock()
+	defer d.effectTransitionMu.Unlock()
+
+	if err := d.acquireEffectMutationLock(expectedSerial, effect); err != nil {
+		return err
+	}
+	descriptor, known := rgb.SoftwareEffectDescriptorByID(effect)
+	if !known || !descriptor.Scope.Includes(rgb.EffectScopeDevice) ||
+		descriptor.PaletteKind != rgb.LightingPaletteTemperatureThree ||
+		descriptor.TemperaturePoints != rgb.SoftwareEffectTemperaturePointsLowMiddleHigh {
+		d.mu.Unlock()
+		return fmt.Errorf("OpenRGB effect does not support temperature customization")
+	}
+
+	resolution, err := d.resolveLightingSettings(effect)
+	if err != nil {
+		d.mu.Unlock()
+		return fmt.Errorf("resolve OpenRGB effect settings: %w", err)
+	}
+	settings := resolution.Settings.Clone()
+	settings.Temperature = &lightingsettings.TemperatureSettings{Low: low, Middle: middle, High: high}
+	if err = lightingsettings.Validate(settings); err != nil {
+		d.mu.Unlock()
+		return fmt.Errorf("validate OpenRGB effect temperature: %w", err)
+	}
+	if d.lightingEffects == nil {
+		d.mu.Unlock()
+		return fmt.Errorf("OpenRGB effect customization store is unavailable")
+	}
+	if err = d.lightingEffects.Set(d.Serial, effect, settings); err != nil {
+		d.mu.Unlock()
+		return fmt.Errorf("save OpenRGB effect temperature: %w", err)
+	}
+
+	return d.applyPersistedEffectTransitionLocked(context.Background(), effect, true, expectedSerial, true)
+}
+
 // ResetEffectCustomization removes the selected effect's local customization and,
 // when one existed, restarts the renderer with the resolved hidden default.
 func (d *Device) ResetEffectCustomization(expectedSerial, effect string) error {

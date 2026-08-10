@@ -15,6 +15,13 @@ type LightingEffectOption struct {
 	Label string
 }
 
+// LightingTemperaturePointSnapshot is a presentation-safe copy of one
+// canonical semantic temperature point.
+type LightingTemperaturePointSnapshot struct {
+	ColorHex string
+	Celsius  float64
+}
+
 // LightingSnapshot is an immutable presentation/configuration view of an
 // imported controller's lighting state. It does not confirm live hardware
 // output.
@@ -31,6 +38,10 @@ type LightingSnapshot struct {
 	SingleColorHex    string
 	TwoColorStartHex  string
 	TwoColorEndHex    string
+	HasTemperature    bool
+	TemperatureLow    LightingTemperaturePointSnapshot
+	TemperatureMiddle LightingTemperaturePointSnapshot
+	TemperatureHigh   LightingTemperaturePointSnapshot
 	Customized        bool
 }
 
@@ -96,6 +107,21 @@ func (d *Device) LightingSnapshot() (LightingSnapshot, bool) {
 	if descriptor.PaletteKind == rgb.LightingPaletteTwoColor && resolution.Settings.TwoColor != nil {
 		snapshot.TwoColorStartHex = lightingColorHex(resolution.Settings.TwoColor.Start)
 		snapshot.TwoColorEndHex = lightingColorHex(resolution.Settings.TwoColor.End)
+	}
+	if descriptor.PaletteKind == rgb.LightingPaletteTemperatureThree &&
+		descriptor.TemperaturePoints == rgb.SoftwareEffectTemperaturePointsLowMiddleHigh &&
+		resolution.Settings.Temperature != nil {
+		temperature := resolution.Settings.Temperature
+		snapshot.HasTemperature = true
+		snapshot.TemperatureLow = LightingTemperaturePointSnapshot{
+			ColorHex: lightingColorHex(temperature.Low.Color), Celsius: temperature.Low.Celsius,
+		}
+		snapshot.TemperatureMiddle = LightingTemperaturePointSnapshot{
+			ColorHex: lightingColorHex(temperature.Middle.Color), Celsius: temperature.Middle.Celsius,
+		}
+		snapshot.TemperatureHigh = LightingTemperaturePointSnapshot{
+			ColorHex: lightingColorHex(temperature.High.Color), Celsius: temperature.High.Celsius,
+		}
 	}
 
 	return snapshot, true

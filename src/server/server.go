@@ -98,6 +98,9 @@ var (
 	setOpenRGBImportTwoColorValue = func(device *openrgbimport.Device, serial, effect string, start, end lightingsettings.Color) error {
 		return device.SetEffectTwoColor(serial, effect, start, end)
 	}
+	setOpenRGBImportTemperatureValue = func(device *openrgbimport.Device, serial, effect string, low, middle, high lightingsettings.TemperaturePoint) error {
+		return device.SetEffectTemperature(serial, effect, low, middle, high)
+	}
 	resetOpenRGBImportCustomizationValue = func(device *openrgbimport.Device, serial, effect string) error {
 		return device.ResetEffectCustomization(serial, effect)
 	}
@@ -2377,7 +2380,19 @@ type openRGBLightingWorkspaceSummary struct {
 	SingleColorHex          string
 	TwoColorStartHex        string
 	TwoColorEndHex          string
+	HasTemperature          bool
+	TemperatureLow          openRGBLightingTemperaturePointSummary
+	TemperatureMiddle       openRGBLightingTemperaturePointSummary
+	TemperatureHigh         openRGBLightingTemperaturePointSummary
+	TemperaturePoints       []openRGBLightingTemperaturePointSummary
 	Customized              bool
+}
+
+type openRGBLightingTemperaturePointSummary struct {
+	Role     string
+	Label    string
+	ColorHex string
+	Celsius  string
 }
 
 func openRGBWorkspaceDisplayIdentifierLabel(label string) string {
@@ -2457,7 +2472,25 @@ func openRGBLightingWorkspaceSummaryFromSnapshot(snapshot openrgbimport.Lighting
 		SingleColorHex:    snapshot.SingleColorHex,
 		TwoColorStartHex:  snapshot.TwoColorStartHex,
 		TwoColorEndHex:    snapshot.TwoColorEndHex,
+		HasTemperature:    snapshot.HasTemperature,
 		Customized:        snapshot.Customized,
+	}
+	if summary.HasTemperature {
+		summary.TemperatureLow = openRGBLightingTemperaturePointSummary{
+			Role: "low", Label: "Low", ColorHex: snapshot.TemperatureLow.ColorHex,
+			Celsius: strconv.FormatFloat(snapshot.TemperatureLow.Celsius, 'f', -1, 64),
+		}
+		summary.TemperatureMiddle = openRGBLightingTemperaturePointSummary{
+			Role: "middle", Label: "Middle", ColorHex: snapshot.TemperatureMiddle.ColorHex,
+			Celsius: strconv.FormatFloat(snapshot.TemperatureMiddle.Celsius, 'f', -1, 64),
+		}
+		summary.TemperatureHigh = openRGBLightingTemperaturePointSummary{
+			Role: "high", Label: "High", ColorHex: snapshot.TemperatureHigh.ColorHex,
+			Celsius: strconv.FormatFloat(snapshot.TemperatureHigh.Celsius, 'f', -1, 64),
+		}
+		summary.TemperaturePoints = []openRGBLightingTemperaturePointSummary{
+			summary.TemperatureLow, summary.TemperatureMiddle, summary.TemperatureHigh,
+		}
 	}
 	if snapshot.HasSpeed {
 		summary.HasSpeedControl = true
@@ -3155,6 +3188,60 @@ func setOpenRGBImportTwoColor(w http.ResponseWriter, r *http.Request) {
 	(&Response{Code: http.StatusOK, Status: 1, Message: "Applied successfully"}).Send(w)
 }
 
+type openRGBImportTemperaturePointRequest struct {
+	Color   *string  `json:"color"`
+	Celsius *float64 `json:"celsius"`
+}
+
+func setOpenRGBImportTemperature(w http.ResponseWriter, r *http.Request) {
+	request := struct {
+		Serial string                                `json:"serial"`
+		Effect string                                `json:"effect"`
+		Low    *openRGBImportTemperaturePointRequest `json:"low"`
+		Middle *openRGBImportTemperaturePointRequest `json:"middle"`
+		High   *openRGBImportTemperaturePointRequest `json:"high"`
+	}{}
+	if !decodeOpenRGBImportRequest(w, r, &request) {
+		return
+	}
+	if request.Serial == "" || request.Effect == "" || request.Low == nil || request.Middle == nil || request.High == nil ||
+		request.Low.Color == nil || request.Low.Celsius == nil || request.Middle.Color == nil || request.Middle.Celsius == nil ||
+		request.High.Color == nil || request.High.Celsius == nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Missing required properties"}).Send(w)
+		return
+	}
+	lowColor, lowErr := parseHexColor(*request.Low.Color)
+	middleColor, middleErr := parseHexColor(*request.Middle.Color)
+	highColor, highErr := parseHexColor(*request.High.Color)
+	if lowErr != nil || middleErr != nil || highErr != nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Invalid color format"}).Send(w)
+		return
+	}
+	lowCelsius, middleCelsius, highCelsius := *request.Low.Celsius, *request.Middle.Celsius, *request.High.Celsius
+	if math.IsNaN(lowCelsius) || math.IsInf(lowCelsius, 0) || math.IsNaN(middleCelsius) || math.IsInf(middleCelsius, 0) ||
+		math.IsNaN(highCelsius) || math.IsInf(highCelsius, 0) || !(lowCelsius < middleCelsius && middleCelsius < highCelsius) {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Invalid temperature request"}).Send(w)
+		return
+	}
+	device, err := getOpenRGBImportLightingDeviceBySerial(request.Serial)
+	if err != nil || device == nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "OpenRGB import is unavailable"}).Send(w)
+		return
+	}
+	if !device.SupportsEffect(request.Effect) {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Unsupported effect"}).Send(w)
+		return
+	}
+	low := lightingsettings.TemperaturePoint{Color: lowColor, Celsius: lowCelsius}
+	middle := lightingsettings.TemperaturePoint{Color: middleColor, Celsius: middleCelsius}
+	high := lightingsettings.TemperaturePoint{Color: highColor, Celsius: highCelsius}
+	if err := setOpenRGBImportTemperatureValue(device, request.Serial, request.Effect, low, middle, high); err != nil {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Failed to set temperature colors"}).Send(w)
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Applied successfully"}).Send(w)
+}
+
 func resetOpenRGBImportEffectCustomization(w http.ResponseWriter, r *http.Request) {
 	request := struct {
 		Serial string `json:"serial"`
@@ -3408,6 +3495,7 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/openrgbimport/speed", http.MethodPost, setOpenRGBImportSpeed)
 	handleFunc(r, "/api/openrgbimport/single-color", http.MethodPost, setOpenRGBImportSingleColor)
 	handleFunc(r, "/api/openrgbimport/two-color", http.MethodPost, setOpenRGBImportTwoColor)
+	handleFunc(r, "/api/openrgbimport/temperature", http.MethodPost, setOpenRGBImportTemperature)
 	handleFunc(r, "/api/openrgbimport/effect-reset", http.MethodPost, resetOpenRGBImportEffectCustomization)
 	handleFunc(r, "/api/openrgbimport/effect", http.MethodPost, setOpenRGBImportEffect)
 	handleFunc(r, "/api/openrgbimport/brightness", http.MethodPost, setOpenRGBImportBrightness)

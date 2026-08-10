@@ -16,13 +16,14 @@ import (
 const lightingMutationTestSerial = "openrgb-lighting-test"
 
 type lightingMutationCalls struct {
-	brightness []uint8
-	effects    []string
-	speeds     []lightingSpeedMutationCall
-	colors     []lightingColorMutationCall
-	twoColors  []lightingTwoColorMutationCall
-	resets     []lightingResetMutationCall
-	setError   error
+	brightness   []uint8
+	effects      []string
+	speeds       []lightingSpeedMutationCall
+	colors       []lightingColorMutationCall
+	twoColors    []lightingTwoColorMutationCall
+	temperatures []lightingTemperatureMutationCall
+	resets       []lightingResetMutationCall
+	setError     error
 }
 
 type lightingSpeedMutationCall struct {
@@ -49,6 +50,14 @@ type lightingResetMutationCall struct {
 	effect string
 }
 
+type lightingTemperatureMutationCall struct {
+	serial string
+	effect string
+	low    lightingsettings.TemperaturePoint
+	middle lightingsettings.TemperaturePoint
+	high   lightingsettings.TemperaturePoint
+}
+
 func installLightingMutationTestSeams(t *testing.T) (*openrgbimport.Device, *common.Device, *lightingMutationCalls) {
 	t.Helper()
 
@@ -58,6 +67,7 @@ func installLightingMutationTestSeams(t *testing.T) (*openrgbimport.Device, *com
 	previousSpeed := setOpenRGBImportSpeedValue
 	previousColor := setOpenRGBImportColorValue
 	previousTwoColor := setOpenRGBImportTwoColorValue
+	previousTemperature := setOpenRGBImportTemperatureValue
 	previousReset := resetOpenRGBImportCustomizationValue
 	t.Cleanup(func() {
 		lookupOpenRGBImportForLighting = previousLookup
@@ -66,13 +76,14 @@ func installLightingMutationTestSeams(t *testing.T) (*openrgbimport.Device, *com
 		setOpenRGBImportSpeedValue = previousSpeed
 		setOpenRGBImportColorValue = previousColor
 		setOpenRGBImportTwoColorValue = previousTwoColor
+		setOpenRGBImportTemperatureValue = previousTemperature
 		resetOpenRGBImportCustomizationValue = previousReset
 	})
 
 	device := &openrgbimport.Device{
 		Serial:    lightingMutationTestSerial,
 		IsOpenRGB: true,
-		RGBModes:  []string{"static", "off", "rainbow"},
+		RGBModes:  []string{"static", "off", "rainbow", "cpu-temperature", "gpu-temperature"},
 	}
 	wrapper := &common.Device{Serial: lightingMutationTestSerial, Instance: device}
 	calls := &lightingMutationCalls{}
@@ -100,6 +111,10 @@ func installLightingMutationTestSeams(t *testing.T) (*openrgbimport.Device, *com
 	}
 	setOpenRGBImportTwoColorValue = func(_ *openrgbimport.Device, serial, effect string, start, end lightingsettings.Color) error {
 		calls.twoColors = append(calls.twoColors, lightingTwoColorMutationCall{serial: serial, effect: effect, start: start, end: end})
+		return calls.setError
+	}
+	setOpenRGBImportTemperatureValue = func(_ *openrgbimport.Device, serial, effect string, low, middle, high lightingsettings.TemperaturePoint) error {
+		calls.temperatures = append(calls.temperatures, lightingTemperatureMutationCall{serial: serial, effect: effect, low: low, middle: middle, high: high})
 		return calls.setError
 	}
 	resetOpenRGBImportCustomizationValue = func(_ *openrgbimport.Device, serial, effect string) error {

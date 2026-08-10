@@ -61,13 +61,17 @@ func TestDevicesLightingPresentationModel(t *testing.T) {
 				Label: "Wave <Label> & More",
 			},
 		},
-		HasSpeed:         true,
-		Speed:            0.5,
-		PaletteKind:      "Two color",
-		SingleColorHex:   "#ff0000",
-		TwoColorStartHex: "#112233",
-		TwoColorEndHex:   "#aabbcc",
-		Customized:       true,
+		HasSpeed:          true,
+		Speed:             0.5,
+		PaletteKind:       "Two color",
+		SingleColorHex:    "#ff0000",
+		TwoColorStartHex:  "#112233",
+		TwoColorEndHex:    "#aabbcc",
+		HasTemperature:    true,
+		TemperatureLow:    openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#010203", Celsius: 20.5},
+		TemperatureMiddle: openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#040506", Celsius: 50.25},
+		TemperatureHigh:   openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#070809", Celsius: 80.75},
+		Customized:        true,
 	}
 
 	summary := openRGBLightingWorkspaceSummaryFromSnapshot(source)
@@ -77,6 +81,12 @@ func TestDevicesLightingPresentationModel(t *testing.T) {
 		!summary.HasSpeedControl || summary.Speed != "0.5" || summary.PaletteKind != "Two color" || summary.SingleColorHex != "#ff0000" ||
 		summary.TwoColorStartHex != "#112233" || summary.TwoColorEndHex != "#aabbcc" || !summary.Customized {
 		t.Fatalf("configured Lighting presentation = %#v", summary)
+	}
+	if !summary.HasTemperature || len(summary.TemperaturePoints) != 3 ||
+		summary.TemperaturePoints[0] != (openRGBLightingTemperaturePointSummary{Role: "low", Label: "Low", ColorHex: "#010203", Celsius: "20.5"}) ||
+		summary.TemperaturePoints[1] != (openRGBLightingTemperaturePointSummary{Role: "middle", Label: "Middle", ColorHex: "#040506", Celsius: "50.25"}) ||
+		summary.TemperaturePoints[2] != (openRGBLightingTemperaturePointSummary{Role: "high", Label: "High", ColorHex: "#070809", Celsius: "80.75"}) {
+		t.Fatalf("temperature presentation = %#v", summary.TemperaturePoints)
 	}
 	if len(summary.SupportedEffects) != 2 ||
 		summary.SupportedEffects[0].ID != "future-effect" || summary.SupportedEffects[0].Label != "Future Effect" || summary.SupportedEffects[0].Selected ||
@@ -462,6 +472,73 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 	}
 	if strings.Contains(clusterTwoColorBody, `data-lf-reset-control`) {
 		t.Error("cluster-owned two-color template exposes local Reset")
+	}
+
+	for _, test := range []struct {
+		effect string
+		high   float64
+	}{
+		{effect: "cpu-temperature", high: 95},
+		{effect: "gpu-temperature", high: 80},
+	} {
+		temperatureSnapshot := openrgbimport.LightingSnapshot{
+			ConfiguredEffect:  test.effect,
+			EffectSupported:   true,
+			PaletteKind:       string(rgb.LightingPaletteTemperatureThree),
+			HasTemperature:    true,
+			TemperatureLow:    openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#00ff00", Celsius: 20},
+			TemperatureMiddle: openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#ffff00", Celsius: 50},
+			TemperatureHigh:   openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#ff0000", Celsius: test.high},
+		}
+		body := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(temperatureSnapshot))
+		for _, expected := range []string{
+			`data-lf-temperature-control`, `value="#00ff00"`, `value="#ffff00"`, `value="#ff0000"`,
+			`value="` + fmt.Sprint(test.high) + `"`, `step="any"`, `Low temperature threshold in degrees Celsius`,
+			`Middle temperature threshold in degrees Celsius`, `High temperature threshold in degrees Celsius`,
+		} {
+			if !strings.Contains(body, expected) {
+				t.Errorf("%s temperature template does not contain %q", test.effect, expected)
+			}
+		}
+		for _, role := range []string{"low", "middle", "high"} {
+			for _, suffix := range []string{"color", "hex", "celsius"} {
+				id := "lf-lighting-temperature-" + role + "-" + suffix
+				if count := strings.Count(body, ` id="`+id+`"`); count != 1 {
+					t.Errorf("temperature template ID %q count = %d, want 1", id, count)
+				}
+			}
+		}
+		if strings.Contains(body, `data-lf-speed-control`) || strings.Contains(body, "MinTemp") || strings.Contains(body, "MaxTemp") {
+			t.Errorf("%s rendered unsupported temperature controls", test.effect)
+		}
+		uncustomizedResetStart := strings.Index(body, `class="lf-reset-control"`)
+		if uncustomizedResetStart < 0 {
+			t.Errorf("%s uncustomized temperature Reset container is absent", test.effect)
+		} else if uncustomizedResetEnd := strings.Index(body[uncustomizedResetStart:], ">"); uncustomizedResetEnd < 0 ||
+			!strings.Contains(body[uncustomizedResetStart:uncustomizedResetStart+uncustomizedResetEnd], "hidden") {
+			t.Errorf("%s uncustomized temperature Reset is not hidden", test.effect)
+		}
+		temperatureSnapshot.Customized = true
+		customizedBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(temperatureSnapshot))
+		resetStart := strings.Index(customizedBody, `class="lf-reset-control"`)
+		if resetStart < 0 {
+			t.Errorf("%s customized temperature Reset is not visible", test.effect)
+		} else if resetEnd := strings.Index(customizedBody[resetStart:], ">"); resetEnd < 0 ||
+			strings.Contains(customizedBody[resetStart:resetStart+resetEnd], "hidden") {
+			t.Errorf("%s customized temperature Reset is not visible", test.effect)
+		}
+	}
+
+	clusterTemperature := openrgbimport.LightingSnapshot{
+		ConfiguredEffect: "cpu-temperature", EffectSupported: true,
+		PaletteKind: string(rgb.LightingPaletteTemperatureThree), HasTemperature: true, ClusterControlled: true,
+		TemperatureLow:    openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#00ff00", Celsius: 20},
+		TemperatureMiddle: openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#ffff00", Celsius: 50},
+		TemperatureHigh:   openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#ff0000", Celsius: 95},
+	}
+	clusterTemperatureBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(clusterTemperature))
+	if strings.Count(clusterTemperatureBody, " disabled") < 9 || strings.Contains(clusterTemperatureBody, `data-lf-reset-control`) {
+		t.Error("cluster-owned temperature editor is active or exposes Reset")
 	}
 
 	for _, palette := range []rgb.LightingPaletteKind{

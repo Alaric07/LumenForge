@@ -232,6 +232,59 @@ func TestOpenRGBLightingSnapshotTwoColorResolvedState(t *testing.T) {
 	}
 }
 
+func TestOpenRGBLightingSnapshotTemperatureResolvedState(t *testing.T) {
+	tests := []struct {
+		effect string
+		high   float64
+	}{
+		{effect: "cpu-temperature", high: 95},
+		{effect: "gpu-temperature", high: 80},
+	}
+	for _, test := range tests {
+		t.Run(test.effect, func(t *testing.T) {
+			device := lightingTestDevice(test.effect, []string{test.effect}, nil)
+			snapshot, ok := device.LightingSnapshot()
+			if !ok || snapshot.Customized || !snapshot.HasTemperature || snapshot.HasSpeed ||
+				snapshot.TemperatureLow != (LightingTemperaturePointSnapshot{ColorHex: "#00ff00", Celsius: 20}) ||
+				snapshot.TemperatureMiddle != (LightingTemperaturePointSnapshot{ColorHex: "#ffff00", Celsius: 50}) ||
+				snapshot.TemperatureHigh != (LightingTemperaturePointSnapshot{ColorHex: "#ff0000", Celsius: test.high}) {
+				t.Fatalf("uncustomized temperature snapshot = %#v, %t", snapshot, ok)
+			}
+
+			resolution, err := device.resolveLightingSettings(test.effect)
+			if err != nil {
+				t.Fatal(err)
+			}
+			settings := resolution.Settings.Clone()
+			settings.Temperature = &lightingsettings.TemperatureSettings{
+				Low:    lightingsettings.TemperaturePoint{Color: lightingsettings.Color{Red: 1, Green: 2, Blue: 3}, Celsius: 21.5},
+				Middle: lightingsettings.TemperaturePoint{Color: lightingsettings.Color{Red: 4, Green: 5, Blue: 6}, Celsius: 51.5},
+				High:   lightingsettings.TemperaturePoint{Color: lightingsettings.Color{Red: 7, Green: 8, Blue: 9}, Celsius: 81.5},
+			}
+			if err = device.lightingEffects.Set(device.Serial, test.effect, settings); err != nil {
+				t.Fatal(err)
+			}
+			device.DeviceProfile.RGBCluster = true
+			snapshot, ok = device.LightingSnapshot()
+			if !ok || !snapshot.Customized || !snapshot.ClusterControlled || !snapshot.HasTemperature ||
+				snapshot.TemperatureLow.ColorHex != "#010203" || snapshot.TemperatureLow.Celsius != 21.5 ||
+				snapshot.TemperatureMiddle.ColorHex != "#040506" || snapshot.TemperatureMiddle.Celsius != 51.5 ||
+				snapshot.TemperatureHigh.ColorHex != "#070809" || snapshot.TemperatureHigh.Celsius != 81.5 {
+				t.Fatalf("customized cluster temperature snapshot = %#v, %t", snapshot, ok)
+			}
+		})
+	}
+
+	for _, effect := range []string{"static", "wave", "rainbow", "gradient", "off"} {
+		device := lightingTestDevice(effect, []string{effect}, nil)
+		snapshot, ok := device.LightingSnapshot()
+		if !ok || snapshot.HasTemperature || snapshot.TemperatureLow != (LightingTemperaturePointSnapshot{}) ||
+			snapshot.TemperatureMiddle != (LightingTemperaturePointSnapshot{}) || snapshot.TemperatureHigh != (LightingTemperaturePointSnapshot{}) {
+			t.Errorf("%s fabricated temperature snapshot: %#v, %t", effect, snapshot, ok)
+		}
+	}
+}
+
 func TestOpenRGBLightingSnapshotOverrideStates(t *testing.T) {
 	device := lightingTestDevice("static", []string{"static"}, map[string]rgb.Profile{
 		"static": {ProfileName: "Static", StartColor: lightingTestColor(9, 8, 7)},

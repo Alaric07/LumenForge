@@ -438,6 +438,46 @@
                                             </div>
                                         {{ end }}
 
+                                        {{ if and (eq .PaletteKind "temperature-three-color") .HasTemperature }}
+                                            <div
+                                                class="lf-color-control lf-temperature-control"
+                                                data-lf-temperature-control
+                                                data-lf-device-serial="{{ $.Device.Serial }}"
+                                                data-lf-effect="{{ .ConfiguredEffect }}"
+                                                data-lf-cluster-controlled="{{ .ClusterControlled }}"
+                                                data-lf-low-color-id="lf-lighting-temperature-low-color"
+                                                data-lf-low-hex-id="lf-lighting-temperature-low-hex"
+                                                data-lf-low-celsius-id="lf-lighting-temperature-low-celsius"
+                                                data-lf-middle-color-id="lf-lighting-temperature-middle-color"
+                                                data-lf-middle-hex-id="lf-lighting-temperature-middle-hex"
+                                                data-lf-middle-celsius-id="lf-lighting-temperature-middle-celsius"
+                                                data-lf-high-color-id="lf-lighting-temperature-high-color"
+                                                data-lf-high-hex-id="lf-lighting-temperature-high-hex"
+                                                data-lf-high-celsius-id="lf-lighting-temperature-high-celsius"
+                                                data-lf-status-id="lf-lighting-temperature-status"
+                                            >
+                                                <div class="lf-temperature-control-fields">
+                                                    {{ $clusterControlled := .ClusterControlled }}
+                                                    {{ range $point := .TemperaturePoints }}
+                                                        <div class="lf-temperature-control-field">
+                                                            <div class="lf-color-control-header">
+                                                                <label class="lf-color-control-label" for="lf-lighting-temperature-{{ $point.Role }}-color">{{ $point.Label }}</label>
+                                                            </div>
+                                                            <div class="lf-temperature-control-inputs">
+                                                                <input class="lf-color-control-input" id="lf-lighting-temperature-{{ $point.Role }}-color" type="color" value="{{ $point.ColorHex }}" aria-label="{{ $point.Label }} temperature color" aria-describedby="lf-lighting-temperature-status" {{ if $clusterControlled }}disabled{{ end }}>
+                                                                <input class="lf-color-control-hex" id="lf-lighting-temperature-{{ $point.Role }}-hex" type="text" value="{{ $point.ColorHex }}" pattern="#[0-9a-fA-F]{6}" maxlength="7" aria-label="{{ $point.Label }} temperature color hex code" aria-describedby="lf-lighting-temperature-status" {{ if $clusterControlled }}disabled{{ end }}>
+                                                                <label class="lf-temperature-control-celsius-label" for="lf-lighting-temperature-{{ $point.Role }}-celsius"><input class="lf-temperature-control-celsius" id="lf-lighting-temperature-{{ $point.Role }}-celsius" type="number" step="any" value="{{ $point.Celsius }}" aria-label="{{ $point.Label }} temperature threshold in degrees Celsius" aria-describedby="lf-lighting-temperature-status" {{ if $clusterControlled }}disabled{{ end }}><span aria-hidden="true">°C</span></label>
+                                                            </div>
+                                                        </div>
+                                                    {{ end }}
+                                                </div>
+                                                {{ if .ClusterControlled }}
+                                                    <p class="lf-color-control-restriction">RGB Cluster currently owns this device's lighting output. Change cluster-wide lighting from the <a href="/rgbCluster">RGB Cluster workspace</a>.</p>
+                                                {{ end }}
+                                                <p class="lf-color-control-status" id="lf-lighting-temperature-status" aria-live="polite"></p>
+                                            </div>
+                                        {{ end }}
+
                                         {{ if not .ClusterControlled }}
                                             <div
                                                 class="lf-reset-control"

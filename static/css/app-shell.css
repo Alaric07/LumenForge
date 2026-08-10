@@ -1352,6 +1352,51 @@
     min-width: 0;
 }
 
+.lf-app-shell .lf-temperature-control-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+    gap: 20px;
+}
+
+.lf-app-shell .lf-temperature-control-field {
+    min-width: 0;
+}
+
+.lf-app-shell .lf-temperature-control-inputs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.lf-app-shell .lf-temperature-control-celsius-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--lf-text-secondary);
+    font-size: 13px;
+}
+
+.lf-app-shell .lf-temperature-control-celsius {
+    width: 8ch;
+    padding: 8px 10px;
+    border: 1px solid var(--lf-border-emphasized);
+    border-radius: 8px;
+    color: var(--lf-text-primary);
+    background: var(--lf-surface-subdued);
+    font: inherit;
+}
+
+.lf-app-shell .lf-temperature-control-celsius:focus-visible {
+    outline: 3px solid var(--lf-focus-ring);
+    outline-offset: 1px;
+}
+
+.lf-app-shell .lf-temperature-control-celsius:disabled {
+    color: var(--lf-text-muted);
+    cursor: not-allowed;
+}
+
 .lf-app-shell .lf-color-control-label {
     display: block;
     color: var(--lf-text-primary);
