@@ -37,7 +37,7 @@ var deviceLightingRuntimeCache = struct {
 }{values: make(map[string]*deviceLightingRuntime)}
 
 func loadDeviceLightingRuntime(paths config.Paths) (*deviceLightingRuntime, error) {
-	key := paths.OpenRGBDeviceLightingFile + "\x00" + paths.DeviceEffectSettingsFile + "\x00" + paths.ClusterEffectSettingsFile + "\x00" + paths.ShippedDatabaseRoot
+	key := paths.OpenRGBDeviceLightingFile + "\x00" + paths.DeviceEffectSettingsFile + "\x00" + paths.ShippedDatabaseRoot
 	deviceLightingRuntimeCache.Lock()
 	defer deviceLightingRuntimeCache.Unlock()
 	if runtime := deviceLightingRuntimeCache.values[key]; runtime != nil {
@@ -56,11 +56,7 @@ func loadDeviceLightingRuntime(paths config.Paths) (*deviceLightingRuntime, erro
 	if err != nil {
 		return nil, err
 	}
-	cluster, err := lightingsettings.LoadClusterStore(paths.ClusterEffectSettingsFile)
-	if err != nil {
-		return nil, err
-	}
-	resolver, err := lightingsettings.NewResolver(defaults, effects, cluster)
+	resolver, err := lightingsettings.NewDeviceResolver(defaults, effects)
 	if err != nil {
 		return nil, err
 	}

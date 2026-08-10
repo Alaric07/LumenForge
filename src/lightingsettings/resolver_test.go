@@ -27,6 +27,121 @@ func testResolver(t *testing.T) (*Resolver, *DeviceStore, *ClusterStore) {
 	return resolver, devices, cluster
 }
 
+func TestTargetSpecificResolverConstructionAndResolution(t *testing.T) {
+	root := t.TempDir()
+	defaults := loadTestDefaults(t)
+	devices, err := LoadDeviceStore(filepath.Join(root, "devices.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cluster, err := LoadClusterStore(filepath.Join(root, "cluster.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	deviceResolver, err := NewDeviceResolver(defaults, devices)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clusterResolver, err := NewClusterResolver(defaults, cluster)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	deviceDefault, err := deviceResolver.Resolve(IndependentDevice("device-default"), "static")
+	if err != nil || deviceDefault.Customized || deviceDefault.Settings.SingleColor == nil {
+		t.Fatalf("device default = %#v, %v", deviceDefault, err)
+	}
+	clusterDefault, err := clusterResolver.Resolve(RGBCluster(), "static")
+	if err != nil || clusterDefault.Customized || !reflect.DeepEqual(clusterDefault.Settings, deviceDefault.Settings) {
+		t.Fatalf("cluster default = %#v, %v", clusterDefault, err)
+	}
+	deviceDefault.Settings.SingleColor.Color.Red = 77
+	deviceDefaultAgain, err := deviceResolver.Resolve(IndependentDevice("device-default"), "static")
+	if err != nil || deviceDefaultAgain.Settings.SingleColor.Color.Red == 77 {
+		t.Fatalf("device default aliased repository = %#v, %v", deviceDefaultAgain, err)
+	}
+
+	deviceCustom := testStaticSettings(11)
+	if err = devices.Set("device-custom", "static", deviceCustom); err != nil {
+		t.Fatal(err)
+	}
+	resolvedDevice, err := deviceResolver.Resolve(IndependentDevice("device-custom"), "static")
+	if err != nil || !resolvedDevice.Customized || !reflect.DeepEqual(resolvedDevice.Settings, deviceCustom) {
+		t.Fatalf("device custom = %#v, %v", resolvedDevice, err)
+	}
+	resolvedDevice.Settings.SingleColor.Color.Red = 99
+	resolvedDeviceAgain, err := deviceResolver.Resolve(IndependentDevice("device-custom"), "static")
+	if err != nil || resolvedDeviceAgain.Settings.SingleColor.Color.Red != 11 {
+		t.Fatalf("device custom aliased store = %#v, %v", resolvedDeviceAgain, err)
+	}
+
+	clusterCustom := testStaticSettings(22)
+	if err = cluster.Set("static", clusterCustom); err != nil {
+		t.Fatal(err)
+	}
+	resolvedCluster, err := clusterResolver.Resolve(RGBCluster(), "static")
+	if err != nil || !resolvedCluster.Customized || !reflect.DeepEqual(resolvedCluster.Settings, clusterCustom) {
+		t.Fatalf("cluster custom = %#v, %v", resolvedCluster, err)
+	}
+	resolvedCluster.Settings.SingleColor.Color.Red = 88
+	resolvedClusterAgain, err := clusterResolver.Resolve(RGBCluster(), "static")
+	if err != nil || resolvedClusterAgain.Settings.SingleColor.Color.Red != 22 {
+		t.Fatalf("cluster custom aliased store = %#v, %v", resolvedClusterAgain, err)
+	}
+
+	const clusterDependencyError = "cluster lighting settings store is unavailable"
+	for attempt := 0; attempt < 2; attempt++ {
+		if _, resolveErr := deviceResolver.Resolve(RGBCluster(), "static"); resolveErr == nil || resolveErr.Error() != clusterDependencyError {
+			t.Fatalf("device resolver cluster error = %v, want %q", resolveErr, clusterDependencyError)
+		}
+	}
+	const deviceDependencyError = "device lighting settings store is unavailable"
+	for attempt := 0; attempt < 2; attempt++ {
+		if _, resolveErr := clusterResolver.Resolve(IndependentDevice("device"), "static"); resolveErr == nil || resolveErr.Error() != deviceDependencyError {
+			t.Fatalf("cluster resolver device error = %v, want %q", resolveErr, deviceDependencyError)
+		}
+	}
+	if _, resolveErr := deviceResolver.Resolve(Target{Kind: TargetRGBCluster, ID: "other"}, "static"); !errors.Is(resolveErr, ErrInvalidTarget) {
+		t.Fatalf("device resolver invalid cluster identity error = %v", resolveErr)
+	}
+	if _, resolveErr := clusterResolver.Resolve(IndependentDevice(""), "static"); !errors.Is(resolveErr, ErrInvalidTarget) {
+		t.Fatalf("cluster resolver invalid device identity error = %v", resolveErr)
+	}
+	if _, resolveErr := deviceResolver.Resolve(IndependentDevice("device"), "unknown"); !errors.Is(resolveErr, ErrUnknownEffect) {
+		t.Fatalf("device resolver invalid effect error = %v", resolveErr)
+	}
+}
+
+func TestTargetSpecificResolverConstructorsRejectMissingDependencies(t *testing.T) {
+	root := t.TempDir()
+	defaults := loadTestDefaults(t)
+	devices, err := LoadDeviceStore(filepath.Join(root, "devices.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cluster, err := LoadClusterStore(filepath.Join(root, "cluster.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name      string
+		construct func() error
+	}{
+		{name: "device defaults", construct: func() error { _, err := NewDeviceResolver(nil, devices); return err }},
+		{name: "device store", construct: func() error { _, err := NewDeviceResolver(defaults, nil); return err }},
+		{name: "cluster defaults", construct: func() error { _, err := NewClusterResolver(nil, cluster); return err }},
+		{name: "cluster store", construct: func() error { _, err := NewClusterResolver(defaults, nil); return err }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := test.construct(); err == nil {
+				t.Fatal("constructor accepted a missing dependency")
+			}
+		})
+	}
+}
+
 func TestResolverDefaultCustomizationIsolationAndReset(t *testing.T) {
 	resolver, devices, cluster := testResolver(t)
 	deviceOne := IndependentDevice("device-one")

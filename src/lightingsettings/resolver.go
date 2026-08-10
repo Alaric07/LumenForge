@@ -52,9 +52,25 @@ func NewResolver(defaults *DefaultRepository, devices *DeviceStore, cluster *Clu
 	return &Resolver{defaults: defaults, devices: devices, cluster: cluster}, nil
 }
 
+// NewDeviceResolver constructs a resolver for independent-device settings.
+func NewDeviceResolver(defaults *DefaultRepository, devices *DeviceStore) (*Resolver, error) {
+	if defaults == nil || devices == nil {
+		return nil, fmt.Errorf("device lighting settings resolver dependencies are incomplete")
+	}
+	return &Resolver{defaults: defaults, devices: devices}, nil
+}
+
+// NewClusterResolver constructs a resolver for RGB Cluster settings.
+func NewClusterResolver(defaults *DefaultRepository, cluster *ClusterStore) (*Resolver, error) {
+	if defaults == nil || cluster == nil {
+		return nil, fmt.Errorf("cluster lighting settings resolver dependencies are incomplete")
+	}
+	return &Resolver{defaults: defaults, cluster: cluster}, nil
+}
+
 // Resolve returns a defensive complete definition without mutating persistence.
 func (resolver *Resolver) Resolve(target Target, effectID string) (Resolution, error) {
-	if resolver == nil || resolver.defaults == nil || resolver.devices == nil || resolver.cluster == nil {
+	if resolver == nil || resolver.defaults == nil {
 		return Resolution{}, fmt.Errorf("lighting settings resolver is unavailable")
 	}
 	if err := validateEffectIdentity(effectID); err != nil {
@@ -71,10 +87,16 @@ func (resolver *Resolver) Resolve(target Target, effectID string) (Resolution, e
 		if err = validateDeviceIdentity(target.ID); err != nil {
 			return Resolution{}, err
 		}
+		if resolver.devices == nil {
+			return Resolution{}, fmt.Errorf("device lighting settings store is unavailable")
+		}
 		settings, found, err = resolver.devices.Get(target.ID, effectID)
 	case TargetRGBCluster:
 		if target.ID != RGBClusterIdentity {
 			return Resolution{}, fmt.Errorf("%w: RGB Cluster identity must be %q", ErrInvalidTarget, RGBClusterIdentity)
+		}
+		if resolver.cluster == nil {
+			return Resolution{}, fmt.Errorf("cluster lighting settings store is unavailable")
 		}
 		settings, found, err = resolver.cluster.Get(effectID)
 	default:
