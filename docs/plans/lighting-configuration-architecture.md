@@ -348,6 +348,27 @@ Manual hardware testing confirmed independent Start and End changes, complete
 pair persistence, Reset, Speed and Brightness preservation, cluster ownership,
 and restoration across restart.
 
+`33ea040c` added complete Low/Middle/High temperature editing for independent
+OpenRGB-imported devices whose canonical descriptor uses the three-point
+temperature contract. Presentation resolves all three colors and Celsius
+thresholds from the same canonical settings used by rendering, and every
+mutation persists one complete semantic Low/Middle/High set rather than sparse
+point-specific changes.
+
+The editor initializes from shipped resolved defaults, supports native and exact
+hexadecimal color inputs plus finite Celsius thresholds, and preserves strict
+Low < Middle < High ordering without sorting or reassigning semantic roles.
+Generic `MinTemp` and `MaxTemp` fields remain outside the editor. Existing
+selected-effect Reset semantics restore the complete shipped temperature
+settings while preserving the selected effect and device Brightness.
+Cluster-owned controls remain visible but disabled without local Reset.
+
+Automated tests and CodeRabbit review passed. Manual hardware testing confirmed
+the distinct CPU and GPU shipped thresholds, independent color and threshold
+changes, complete persistence across restart, ordering rejection, Reset,
+Brightness preservation, cluster ownership, and exclusion from non-temperature
+palette editors.
+
 The currently rendered Palette capability value remains a temporary diagnostic,
 not part of the final user-facing design. It should be removed after the
 remaining renderer-driven editors make the selected effect's applicable inputs
@@ -520,7 +541,7 @@ Speed or another genuine renderer-consumed setting.
    Lighting, and add single-color editing and Reset. Completed in `22f8117c`,
    with manual-test corrections in `ad4b0340`.
 8. Add two-color editing. Completed in `20e6d472`.
-9. Add temperature color and threshold editing.
+9. Add temperature color and threshold editing. Completed in `33ea040c`.
 10. Add Gradient editing.
 11. Cut RGB Cluster persistence and rendering to the resolver while preserving
     membership and device order separately.

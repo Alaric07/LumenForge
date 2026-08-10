@@ -304,6 +304,21 @@ Manual hardware testing confirmed independent Start and End changes, complete
 pair persistence, Reset, Speed and Brightness preservation, cluster ownership,
 and restoration across restart.
 
+`33ea040c` added descriptor-driven Low/Middle/High temperature color and Celsius
+threshold editing for independent OpenRGB-imported devices. All three semantic
+points are presented from canonical resolved settings, and changing any color
+or threshold persists one complete Low/Middle/High customization while
+preserving the selected effect and device Brightness.
+
+The editor uses native color and exact hexadecimal inputs together with Celsius
+numeric controls, rejects malformed or non-finite state and invalid threshold
+ordering, and never exposes legacy `MinTemp` or `MaxTemp` controls. CPU and GPU
+Temperature resolve their distinct shipped defaults, while cluster-owned
+controls remain disabled without local Reset and non-temperature palette kinds
+do not render the editor. Automated tests and CodeRabbit review passed. Manual
+hardware testing confirmed editing, ordering validation, persistence, Reset,
+Brightness preservation, cluster ownership, and restoration across restart.
+
 ### OpenRGB Device Lighting cutover
 
 - [x] Add the modern protected effect selector (`01b80d4a`).
@@ -323,7 +338,7 @@ and restoration across restart.
   simplify Device Lighting to renderer-supported controls, and add the
   Static/single-color editor and Reset (`22f8117c`, corrected in `ad4b0340`).
 - [x] Add the two-color Start/End editor (`20e6d472`).
-- [ ] Add Low/Middle/High temperature color and threshold editing.
+- [x] Add Low/Middle/High temperature color and threshold editing (`33ea040c`).
 - [ ] Add the ordered Gradient editor.
 - [ ] Remove the temporary user-facing Palette capability readout after the
   remaining renderer-driven editors make palette shape self-evident.
