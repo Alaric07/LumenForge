@@ -886,10 +886,6 @@
 
 .lf-app-shell .lf-lighting-effect-stage {
     min-width: 0;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(260px, 0.9fr);
-    gap: 26px;
-    align-items: end;
     margin-top: 30px;
 }
 
@@ -1071,39 +1067,6 @@
 
 .lf-app-shell .lf-lighting-effect-id {
     font-size: 12px;
-}
-
-.lf-app-shell .lf-lighting-primary-metrics {
-    min-width: 0;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
-    gap: 8px;
-}
-
-.lf-app-shell .lf-lighting-primary-metrics > span {
-    min-width: 0;
-    min-height: 72px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 7px;
-    padding: 12px;
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--lf-panel-secondary) 88%, transparent);
-}
-
-.lf-app-shell .lf-lighting-primary-metrics small {
-    color: var(--lf-text-muted);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-}
-
-.lf-app-shell .lf-lighting-primary-metrics strong {
-    color: var(--lf-text-primary);
-    font-size: 13px;
-    overflow-wrap: break-word;
 }
 
 .lf-app-shell .lf-range-control {
@@ -1820,9 +1783,6 @@
         height: 102px;
     }
 
-    .lf-app-shell .lf-lighting-effect-stage {
-        grid-template-columns: minmax(0, 1fr);
-    }
 }
 
 @media (max-width: 1040px) {
@@ -1940,7 +1900,6 @@
 
     .lf-app-shell .lf-openrgb-grid,
     .lf-app-shell .lf-device-summary-meta,
-    .lf-app-shell .lf-lighting-primary-metrics,
     .lf-app-shell .lf-overview-rail,
     .lf-app-shell .lf-lighting-rail {
         grid-template-columns: minmax(0, 1fr);

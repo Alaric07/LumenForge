@@ -565,12 +565,17 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 	for _, expected := range []string{
 		`data-lf-gradient-control`, `id="lf-lighting-gradient-stops"`, `Gradient stops`, `Add stop`, `Save Gradient`,
 		`Position uses 0 for the start and 1 for the end`, `Intensity is relative to device Brightness`,
-		`data-lf-speed-control`, `data-lf-brightness-slider`, `Palette`,
+		`data-lf-speed-control`, `data-lf-brightness-slider`,
 		`value="#ff0000"`, `value="#00ff00"`, `value="#0000ff"`, `value="#ffff00"`,
 		`value="0.25"`, `value="0.5"`, `value="0.75"`, `data-lf-gradient-remove`,
 	} {
 		if !strings.Contains(gradientBody, expected) {
 			t.Errorf("Gradient template does not contain %q", expected)
+		}
+	}
+	for _, obsolete := range []string{`lf-lighting-primary-metrics`, `<small>Palette</small>`, `<dt>Palette capability</dt>`} {
+		if strings.Contains(gradientBody, obsolete) {
+			t.Errorf("Gradient template still exposes the temporary Palette readout %q", obsolete)
 		}
 	}
 	for number := 1; number <= 4; number++ {

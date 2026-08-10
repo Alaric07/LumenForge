@@ -213,9 +213,6 @@
                                                     {{ end }}
                                                 </div>
                                             </div>
-                                            <div class="lf-lighting-primary-metrics">
-                                                <span><small>Palette</small><strong>{{ if .ConfiguredEffect }}{{ .PaletteKind }}{{ else }}Unknown{{ end }}</strong></span>
-                                            </div>
                                         </div>
 
                                         {{ if .HasBrightness }}
@@ -575,7 +572,6 @@
                                     <section class="lf-lighting-rail-panel">
                                         <p class="lf-section-kicker">Configuration</p>
                                         <dl class="lf-lighting-rail-facts">
-                                            <div><dt>Palette capability</dt><dd>{{ if .ConfiguredEffect }}{{ .PaletteKind }}{{ else }}Unknown{{ end }}</dd></div>
                                             <div><dt>Effect support</dt><dd>{{ if .ConfiguredEffect }}{{ if .EffectSupported }}Supported{{ else }}Unsupported{{ end }}{{ else }}Not configured{{ end }}</dd></div>
                                         </dl>
                                     </section>
