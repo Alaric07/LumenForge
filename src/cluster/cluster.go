@@ -43,6 +43,9 @@ type LightingSnapshot struct {
 	SelectedEffect      string
 	Brightness          uint8
 	EffectiveBrightness uint8
+	Settings            lightingsettings.EffectSettings
+	Customized          bool
+	ControllerCount     int
 	Available           bool
 }
 
@@ -67,6 +70,7 @@ type Device struct {
 	resolver           *lightingsettings.Resolver
 	runtimeErr         error
 	schedulerLightsOut bool
+	lightingMutationMu sync.Mutex
 
 	workerMutex          sync.Mutex
 	workerStop           chan struct{}
@@ -185,8 +189,13 @@ func (d *Device) LightingSnapshot() LightingSnapshot {
 	if err != nil {
 		return LightingSnapshot{}
 	}
+	resolution, err := d.resolver.Resolve(lightingsettings.RGBCluster(), state.SelectedEffect)
+	if err != nil {
+		return LightingSnapshot{}
+	}
 	d.mutex.RLock()
 	lightsOut := d.schedulerLightsOut
+	controllerCount := len(d.Controllers)
 	d.mutex.RUnlock()
 	effective := state.Brightness
 	if lightsOut {
@@ -196,6 +205,9 @@ func (d *Device) LightingSnapshot() LightingSnapshot {
 		SelectedEffect:      state.SelectedEffect,
 		Brightness:          state.Brightness,
 		EffectiveBrightness: effective,
+		Settings:            resolution.Settings.Clone(),
+		Customized:          resolution.Customized,
+		ControllerCount:     controllerCount,
 		Available:           true,
 	}
 }

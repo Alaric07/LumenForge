@@ -703,7 +703,7 @@ func TestClusterMutationFailuresPreserveStateLayoutCustomizationAndWorker(t *tes
 		if result := device.UpdateRgbProfile(0, "static"); result != 0 {
 			t.Fatalf("failed selected-effect mutation = %d", result)
 		}
-		if after := device.LightingSnapshot(); after != before {
+		if after := device.LightingSnapshot(); !reflect.DeepEqual(after, before) {
 			t.Fatalf("failed state mutation changed memory: before %#v after %#v", before, after)
 		}
 		if afterStarts, _ := clusterWorkerState(device); afterStarts != starts {
