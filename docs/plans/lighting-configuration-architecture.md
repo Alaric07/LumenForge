@@ -446,6 +446,31 @@ copied user state with native and OpenRGB-imported members confirmed canonical
 `static` at Brightness 60 before shutdown, while stopped, and after restart;
 copied legacy Cluster files remained byte-for-byte unchanged.
 
+`09f14f87` added the dedicated canonical RGB Cluster lighting mutation API and
+canonical presentation needed by the modern workspace. Effect selection,
+Brightness, conditional Speed, single-color, two-color, Temperature, and
+Gradient mutations operate directly on Cluster-owned state and complete
+resolver settings rather than legacy `rgb.Profile` compatibility projections.
+
+`f719e5f4` replaced the legacy RGB Cluster lighting page with the shared
+descriptor-driven workspace used by modern Device Lighting. Cluster mutations
+use dedicated serial-free endpoints, while the shared frontend preserves the
+existing independent OpenRGB endpoint and payload contracts. The Cluster page
+now exposes Effect, Brightness, conditional Speed, applicable color,
+Temperature, and Gradient controls while keeping membership order separate.
+The legacy Cluster On/Off and `LastNonOffProfile` interaction was not carried
+forward; canonical `off` remains an ordinary effect selection.
+
+`235941d0` completed Cluster-scoped effect Reset. Reset deletes only the
+selected Cluster/effect customization, resolves the immutable shipped default,
+preserves the selected effect and Cluster Brightness, and leaves membership,
+member order, and other effect customizations unchanged. The shared Reset
+frontend is target-aware: independent OpenRGB Reset retains its serial-bearing
+contract while RGB Cluster Reset is serial-free. Manual runtime validation
+confirmed customization, Reset, shipped-default restoration, preservation of
+the selected effect and Brightness, and isolation between effect
+customizations.
+
 ## 11. OpenRGB imports
 
 OpenRGB importing remains separate from lighting customization. The import
@@ -620,6 +645,9 @@ Speed or another genuine renderer-consumed setting.
     membership and device order separately. Resolver ownership was separated in
     `fd2b3ab4`; the Cluster cutover was completed in `af08ec39`.
 12. Modernize RGB Cluster with the shared descriptor-driven controls.
+    Canonical control mutations were added in `09f14f87`, the shared modern
+    workspace was completed in `f719e5f4`, and Cluster-scoped effect Reset was
+    completed in `235941d0`.
 13. Delete OpenRGB override code and legacy imported-device lighting controls.
 14. Migrate native target families separately.
 15. Remove `/rgb` after every remaining consumer has parity.

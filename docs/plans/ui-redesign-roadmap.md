@@ -220,7 +220,7 @@ zone-color conversion, or global RGB-profile conversion is planned.
   (`4f0a38a6`).
 - [x] Add dedicated OpenRGB device-lighting persistence
   (`c91a970c`).
-- [ ] Derive the RGB Cluster catalogue from descriptor scope.
+- [x] Derive the RGB Cluster catalogue from descriptor scope (`09f14f87`).
 - [ ] Remove duplicated metadata only after migrated consumers pass parity
   tests.
 - [ ] Keep renderer dispatch explicit until a proven replacement preserves
@@ -395,9 +395,15 @@ members confirmed persisted `static` / Brightness 60 restoration across restart.
 A tray-startup hotfix discovered during that validation was removed because it
 incorrectly rewrote the loaded Cluster effect to Rainbow.
 
-Cluster UI modernization remains the next milestone. Shared descriptor-driven
-controls, Cluster Reset, and final removal of compatibility/global RGB model
-paths are intentionally not marked complete yet.
+`09f14f87` added the dedicated canonical Cluster lighting control API,
+`f719e5f4` completed the shared descriptor-driven RGB Cluster workspace, and
+`235941d0` added Cluster-scoped effect Reset. Effect, Brightness, conditional
+Speed, single-color, two-color, Temperature, Gradient, status, and Reset now
+use the same modern interaction model as Device Lighting while retaining
+target-specific persistence and mutation contracts.
+
+Final removal of the remaining Cluster compatibility/global RGB model surface
+is intentionally left for a focused follow-up audit and cleanup milestone.
 
 ### RGB Cluster cutover
 
@@ -407,9 +413,9 @@ paths are intentionally not marked complete yet.
   (`af08ec39`).
 - [x] Preserve cluster membership and device order outside effect settings
   (`af08ec39`).
-- [ ] Use the shared descriptor-driven Effect, Brightness, Speed, color,
-  temperature, Gradient, and status components.
-- [ ] Add cluster-scoped Reset with the same deletion semantics.
+- [x] Use the shared descriptor-driven Effect, Brightness, Speed, color,
+  temperature, Gradient, and status components (`09f14f87`, `f719e5f4`).
+- [x] Add cluster-scoped Reset with the same deletion semantics (`235941d0`).
 - [x] Make cluster Static one color across the complete cluster output
   (`af08ec39`).
 - [ ] Remove cluster dependence on the mutable global RGB profile model after
@@ -531,7 +537,7 @@ Control design expectations:
 - [ ] Verify behavior with 1, 2, 4, and 8 LEDs.
 - [ ] Visually calibrate effects that are safe but limited on short buffers.
 - [ ] Keep device-specific and firmware-native effect catalogues separate.
-- [ ] Migrate the RGB Cluster catalogue to scope-based filtering.
+- [x] Migrate the RGB Cluster catalogue to scope-based filtering (`09f14f87`).
 - [ ] Remove superseded duplicated lists only after parity tests pass.
 
 An effect looking better in a cluster is not sufficient reason to classify it
@@ -669,7 +675,7 @@ must use deterministic contract tests rather than probabilistic retry loops.
 | Sensor requirement | Renderer dispatch and device-specific paths | Generic descriptors where applicable | `[~]` Generic CPU/GPU metadata created | Generic consumers migrate; device-local sensors remain separate |
 | Topology and scope | Renderer knowledge and target-specific lists | Software-effect descriptors | `[~]` Registry created | Catalogue filtering and parity tests pass |
 | Device-target effect list | OpenRGB-imported-device allowlist and native lists | Scope-filtered generic descriptors plus native capabilities | `[~]` OpenRGB generic catalogue migrated; native lists remain | Explicit dispatch and compatibility tests exist for each target |
-| RGB Cluster effect list | Cluster catalogue | Scope-filtered generic descriptors | `[ ]` Planned | Cluster list and behavior parity tests pass |
+| RGB Cluster effect list | Cluster catalogue | Scope-filtered generic descriptors | `[x]` Migrated (`09f14f87`) | Cluster list and behavior parity tests pass |
 | Icon identity | Stable asset naming and presentation paths | Software-effect descriptors | `[~]` Identity recorded | Presentation uses descriptor identity with fallback tests |
 | Renderer dispatch | Importer and cluster switches | Explicit dispatch until a proven replacement exists | `[!]` Decision required | Output parity and lifecycle behavior are demonstrated |
 | Default profile values | `database/rgb.json` and mutable target-local copies | Hidden immutable default repository plus complete target customizations | `[~]` OpenRGB integrated; other targets pending (`4f0a38a6`, `c91a970c`) | Resolver and defensive-copy tests pass; migrated targets no longer read local RGB copies |
@@ -711,15 +717,16 @@ roadmap does not promise that every duplicate will be deleted.
 15. [x] Cut OpenRGB effect selection, Brightness, Speed, rendering, restart,
     and reconnect to dedicated device-lighting persistence and the resolver
     (`c91a970c`).
-16. [ ] Make OpenRGB Static uniform and retire zone-owned Static colors and the
-    legacy color path without migration.
-17. [ ] Simplify Device Lighting presentation and add single-color editing and
-    Reset.
-18. [ ] Add two-color editing.
-19. [ ] Add temperature color and threshold editing.
-20. [ ] Add Gradient editing.
-21. [ ] Cut RGB Cluster persistence, rendering, catalogue, and Brightness to
-    the resolver and shared controls.
+16. [x] Make OpenRGB Static uniform and retire zone-owned Static colors and the
+    legacy color path without migration (`af25b031`).
+17. [x] Simplify Device Lighting presentation and add single-color editing and
+    Reset (`22f8117c`, corrected in `ad4b0340`).
+18. [x] Add two-color editing (`20e6d472`).
+19. [x] Add temperature color and threshold editing (`33ea040c`).
+20. [x] Add Gradient editing (`ed9d5016`).
+21. [x] Cut RGB Cluster persistence, rendering, catalogue, and Brightness to
+    the resolver and shared controls (`fd2b3ab4`, `af08ec39`, `09f14f87`,
+    `f719e5f4`, `235941d0`).
 22. [ ] Remove OpenRGB RGB Override and legacy imported-device lighting paths
     after OpenRGB parity.
 23. [ ] Migrate native-device families one at a time without changing their
