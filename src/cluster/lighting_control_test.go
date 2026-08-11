@@ -10,7 +10,6 @@ import (
 
 	"LumenForge/src/common"
 	"LumenForge/src/lightingsettings"
-	"LumenForge/src/rgb"
 )
 
 func TestClusterLightingSnapshotUsesCanonicalStateAndIsDefensive(t *testing.T) {
@@ -32,13 +31,6 @@ func TestClusterLightingSnapshotUsesCanonicalStateAndIsDefensive(t *testing.T) {
 	if err := device.SetLightingBrightness(61); err != nil {
 		t.Fatal(err)
 	}
-
-	device.mutex.Lock()
-	device.DeviceProfile.RGBProfile = "off"
-	compatibilityBrightness := uint8(2)
-	device.DeviceProfile.BrightnessSlider = &compatibilityBrightness
-	device.Rgb.Profiles["gradient"] = rgb.Profile{Speed: 999}
-	device.mutex.Unlock()
 
 	snapshot := device.LightingSnapshot()
 	if !snapshot.Available || snapshot.SelectedEffect != "gradient" || snapshot.Brightness != 61 ||

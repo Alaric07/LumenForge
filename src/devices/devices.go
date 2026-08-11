@@ -252,6 +252,9 @@ func GetSupportedDevices() interface{} {
 func GetRgbProfiles() map[string]interface{} {
 	profiles := make(map[string]interface{}, len(devices))
 	for _, device := range devices {
+		if !eligibleForLegacyGlobalRGB(device) {
+			continue
+		}
 		res := CallDeviceMethod(device.Serial, "GetRgbProfiles")
 		if res != nil {
 			val := res[0]
@@ -259,6 +262,10 @@ func GetRgbProfiles() map[string]interface{} {
 		}
 	}
 	return profiles
+}
+
+func eligibleForLegacyGlobalRGB(device *common.Device) bool {
+	return device != nil && device.ProductType != common.ProductTypeCluster
 }
 
 // ScheduleDeviceBrightness will change device brightness level based on scheduler
@@ -278,6 +285,9 @@ func ScheduleDeviceLcdBrightness(mode uint8) {
 // ControlDeviceRgb will disable / enable device RGB
 func ControlDeviceRgb(mode bool) {
 	for _, device := range GetDevices() {
+		if !eligibleForLegacyGlobalRGB(device) {
+			continue
+		}
 		CallDeviceMethod(device.Serial, "ControlDeviceRgb", mode)
 	}
 }
@@ -286,6 +296,9 @@ func ControlDeviceRgb(mode bool) {
 func UpdateGlobalRgbProfile(profile string) uint8 {
 	channelId := -1
 	for _, device := range devices {
+		if !eligibleForLegacyGlobalRGB(device) {
+			continue
+		}
 		CallDeviceMethod(device.Serial, "UpdateRgbProfile", channelId, profile)
 	}
 	return 1
@@ -300,6 +313,9 @@ func UpdateAllDevicesStaticColor(color rgb.Color) uint8 {
 		Brightness: 1.0,
 	}
 	for _, device := range devices {
+		if !eligibleForLegacyGlobalRGB(device) {
+			continue
+		}
 		CallDeviceMethod(device.Serial, "UpdateRgbProfileData", "static", profile)
 		CallDeviceMethod(device.Serial, "UpdateRgbProfile", channelId, "static")
 	}

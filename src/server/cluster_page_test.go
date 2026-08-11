@@ -125,13 +125,7 @@ func runRGBClusterPageAssertions(t *testing.T) {
 		t.Error("unavailable Cluster lighting rendered Reset")
 	}
 
-	legacyBrightness := uint8(99)
 	device := &cluster.Device{
-		DeviceProfile: &cluster.DeviceProfile{
-			RGBProfile:        "legacy-only-profile",
-			BrightnessSlider:  &legacyBrightness,
-			LastNonOffProfile: "legacy-last-effect",
-		},
 		Controllers: []*common.ClusterController{
 			{Product: "First <Member>", Serial: "member-one"},
 			{Product: "Second & Member", Serial: "member-two"},
@@ -148,12 +142,6 @@ func runRGBClusterPageAssertions(t *testing.T) {
 			t.Errorf("Cluster member rendering does not contain %q", expected)
 		}
 	}
-	for _, compatibilityValue := range []string{"legacy-only-profile", "legacy-last-effect", ">99%<"} {
-		if strings.Contains(memberBody, compatibilityValue) {
-			t.Errorf("canonical Cluster page exposed compatibility lighting value %q", compatibilityValue)
-		}
-	}
-
 	assertRGBClusterPaletteGates(t)
 }
 

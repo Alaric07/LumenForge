@@ -1,11 +1,48 @@
 package systray
 
 import (
+	"reflect"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"LumenForge/src/rgb"
 )
+
+func TestClusterTrayEffectsUseCanonicalClusterCatalogue(t *testing.T) {
+	want := make([]rgb.SoftwareEffectDescriptor, 0)
+	for _, descriptor := range rgb.SoftwareEffectDescriptors() {
+		if descriptor.Scope.Includes(rgb.EffectScopeCluster) {
+			want = append(want, descriptor)
+		}
+	}
+	sort.Slice(want, func(first, second int) bool {
+		return want[first].ID < want[second].ID
+	})
+
+	effects := clusterTrayEffects()
+	if !reflect.DeepEqual(effects, want) {
+		t.Fatalf("Cluster tray effects = %#v, want %#v", effects, want)
+	}
+	if len(effects) == 0 {
+		t.Fatal("Cluster tray effect catalogue is empty")
+	}
+	for index, effect := range effects {
+		if effect.ID == "" || effect.Label == "" || !effect.Scope.Includes(rgb.EffectScopeCluster) {
+			t.Fatalf("Cluster tray effect %d = %#v", index, effect)
+		}
+		if index > 0 && effects[index-1].ID >= effect.ID {
+			t.Fatalf("Cluster tray effects are not uniquely sorted: %#v", effects)
+		}
+	}
+
+	effects[0].ID = "mutated"
+	if again := clusterTrayEffects(); len(again) == 0 || again[0].ID != want[0].ID {
+		t.Fatalf("Cluster tray catalogue was not defensive: %#v", again)
+	}
+}
 
 func TestBatterySyncStopsWhileWaitingForReady(t *testing.T) {
 	ready := make(chan struct{})

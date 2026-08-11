@@ -27,17 +27,6 @@ var (
 
 const workerStopTimeout = 250 * time.Millisecond
 
-// DeviceProfile remains an in-memory compatibility projection for the legacy
-// Cluster page. Canonical lighting and layout stores are the only authorities.
-type DeviceProfile struct {
-	RGBProfile         string
-	BrightnessSlider   *uint8
-	OriginalBrightness uint8
-	DeviceOrder        []string
-	RgbOff             bool
-	LastNonOffProfile  string
-}
-
 // LightingSnapshot is a read-only view of canonical RGB Cluster target state.
 type LightingSnapshot struct {
 	SelectedEffect      string
@@ -52,13 +41,10 @@ type LightingSnapshot struct {
 type Device struct {
 	Product         string `json:"product"`
 	Serial          string `json:"serial"`
-	DeviceProfile   *DeviceProfile
-	Rgb             *rgb.RGB
 	activeRgb       *rgb.ActiveRGB
 	Controllers     []*common.ClusterController
 	mutex           sync.RWMutex
 	Exit            bool
-	RGBModes        []string
 	CpuTemp         float32
 	GpuTemp         float32
 	timer           *time.Ticker
@@ -80,23 +66,10 @@ type Device struct {
 	workerStarts         uint64
 }
 
-func clusterRGBModes() []string {
-	return []string{
-		"off", "arc", "comet", "datastream", "circle", "circleshift",
-		"colorpulse", "colorshift", "colorwarp", "cpu-temperature",
-		"flickering", "flame", "aurora", "cyberpunkglitch", "tokyonight",
-		"gpu-temperature", "gradient", "marquee", "nebula", "rain",
-		"rainbow", "pastelrainbow", "plasmacore", "rotarystack", "rotator",
-		"sequential", "spinner", "spiralrainbow", "pastelspiralrainbow",
-		"static", "stardust", "storm", "visor", "watercolor", "wave",
-	}
-}
-
 func newBaseDevice() *Device {
 	return &Device{
 		Product:         "Cluster",
 		Serial:          lightingsettings.RGBClusterIdentity,
-		RGBModes:        clusterRGBModes(),
 		autoRefreshChan: make(chan struct{}),
 		Controllers:     make([]*common.ClusterController, 0),
 	}
@@ -128,9 +101,6 @@ func newDevice(paths config.Paths) (*Device, error) {
 	device.lightingState = state
 	device.layout = layout
 	device.resolver = resolver
-	if err = device.refreshCompatibilityProjection(); err != nil {
-		return device, err
-	}
 	device.setAutoRefresh()
 	return device, nil
 }
@@ -297,74 +267,8 @@ func (d *Device) RemoveDeviceControllerBySerial(serial string) {
 	}
 }
 
-func (d *Device) compatibilityProfiles() (map[string]rgb.Profile, error) {
-	if !d.runtimeAvailable() {
-		return nil, fmt.Errorf("RGB Cluster lighting runtime is unavailable")
-	}
-	profiles := make(map[string]rgb.Profile, len(d.RGBModes))
-	for _, effect := range d.RGBModes {
-		resolution, err := d.resolver.Resolve(lightingsettings.RGBCluster(), effect)
-		if err != nil {
-			return nil, err
-		}
-		profiles[effect] = rgbProfileFromSettings(resolution.Settings)
-	}
-	return profiles, nil
-}
-
-func (d *Device) refreshCompatibilityProjection() error {
-	if !d.runtimeAvailable() {
-		return fmt.Errorf("RGB Cluster lighting runtime is unavailable")
-	}
-	state, err := d.lightingState.Snapshot()
-	if err != nil {
-		return err
-	}
-	layout, err := d.layout.Snapshot()
-	if err != nil {
-		return err
-	}
-	profiles, err := d.compatibilityProfiles()
-	if err != nil {
-		return err
-	}
-	brightness := state.Brightness
-	profile := &DeviceProfile{
-		RGBProfile:       state.SelectedEffect,
-		BrightnessSlider: &brightness,
-		DeviceOrder:      append([]string(nil), layout.DeviceOrder...),
-		RgbOff:           state.SelectedEffect == "off",
-	}
-	d.mutex.Lock()
-	d.DeviceProfile = profile
-	d.Rgb = &rgb.RGB{Device: d.Product, Profiles: profiles}
-	d.mutex.Unlock()
-	return nil
-}
-
-func (d *Device) GetRgbProfiles() interface{} {
-	if d == nil {
-		return &rgb.RGB{Profiles: map[string]rgb.Profile{}}
-	}
-	profiles, err := d.compatibilityProfiles()
-	if err != nil {
-		return &rgb.RGB{Device: d.Product, Profiles: map[string]rgb.Profile{}}
-	}
-	return &rgb.RGB{Device: d.Product, Profiles: profiles}
-}
-
-func (d *Device) GetRgbProfile(effect string) *rgb.Profile {
-	if !d.runtimeAvailable() {
-		return nil
-	}
-	resolution, err := d.resolver.Resolve(lightingsettings.RGBCluster(), effect)
-	if err != nil {
-		return nil
-	}
-	profile := rgbProfileFromSettings(resolution.Settings)
-	return &profile
-}
-
+// rgbProfileFromSettings adapts canonical resolved settings into the transient
+// profile shape consumed by the established RGB renderers.
 func rgbProfileFromSettings(settings lightingsettings.EffectSettings) rgb.Profile {
 	profile := rgb.Profile{ProfileName: settings.EffectID, Brightness: 1}
 	if settings.Speed != nil {
@@ -407,170 +311,6 @@ func rgbTemperatureColor(point lightingsettings.TemperaturePoint) rgb.Color {
 	return color
 }
 
-func lightingColorFromRGB(color rgb.Color) lightingsettings.Color {
-	return lightingsettings.Color{Red: color.Red, Green: color.Green, Blue: color.Blue}
-}
-
-func settingsFromLegacyProfile(effect string, profile rgb.Profile, current lightingsettings.EffectSettings) (lightingsettings.EffectSettings, error) {
-	descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect)
-	if !ok || !descriptor.Scope.Includes(rgb.EffectScopeCluster) {
-		return lightingsettings.EffectSettings{}, fmt.Errorf("unsupported RGB Cluster effect")
-	}
-	settings := current.Clone()
-	settings.SchemaVersion = lightingsettings.SchemaVersion
-	settings.EffectID = effect
-	if descriptor.SupportsSpeed {
-		speed := profile.Speed
-		settings.Speed = &speed
-	}
-	switch descriptor.PaletteKind {
-	case rgb.LightingPaletteNone, rgb.LightingPaletteGenerated:
-	case rgb.LightingPaletteStaticSingle:
-		settings.SingleColor = &lightingsettings.SingleColorSettings{Color: lightingColorFromRGB(profile.StartColor)}
-	case rgb.LightingPaletteTwoColor:
-		settings.TwoColor = &lightingsettings.TwoColorSettings{
-			Start: lightingColorFromRGB(profile.StartColor),
-			End:   lightingColorFromRGB(profile.EndColor),
-		}
-	case rgb.LightingPaletteTemperatureThree:
-		if current.Temperature == nil {
-			return lightingsettings.EffectSettings{}, fmt.Errorf("complete RGB Cluster temperature settings are unavailable")
-		}
-		settings.Temperature = &lightingsettings.TemperatureSettings{
-			Low: lightingsettings.TemperaturePoint{
-				Color: lightingColorFromRGB(profile.StartColor), Celsius: profile.MinTemp,
-			},
-			Middle: lightingsettings.TemperaturePoint{
-				Color: lightingColorFromRGB(profile.MiddleColor), Celsius: current.Temperature.Middle.Celsius,
-			},
-			High: lightingsettings.TemperaturePoint{
-				Color: lightingColorFromRGB(profile.EndColor), Celsius: profile.MaxTemp,
-			},
-		}
-	case rgb.LightingPaletteGradient:
-		indexes := make([]int, 0, len(profile.Gradients))
-		for index := range profile.Gradients {
-			indexes = append(indexes, index)
-		}
-		sort.Ints(indexes)
-		stops := make([]lightingsettings.GradientStop, 0, len(indexes))
-		for _, index := range indexes {
-			color := profile.Gradients[index]
-			stops = append(stops, lightingsettings.GradientStop{
-				Position: color.Position, Color: lightingColorFromRGB(color), Intensity: color.Brightness,
-			})
-		}
-		sort.SliceStable(stops, func(first, second int) bool { return stops[first].Position < stops[second].Position })
-		settings.Gradient = &lightingsettings.GradientSettings{Stops: stops}
-	default:
-		return lightingsettings.EffectSettings{}, fmt.Errorf("unsupported RGB Cluster palette")
-	}
-	if err := lightingsettings.Validate(settings); err != nil {
-		return lightingsettings.EffectSettings{}, err
-	}
-	return settings, nil
-}
-
-func (d *Device) ProcessNewGradientColor(effect string) (uint8, uint) {
-	if !d.runtimeAvailable() {
-		return 0, 0
-	}
-	resolution, err := d.resolver.Resolve(lightingsettings.RGBCluster(), effect)
-	if err != nil || resolution.Settings.Gradient == nil {
-		return 0, 0
-	}
-	settings := resolution.Settings.Clone()
-	stops := append([]lightingsettings.GradientStop(nil), settings.Gradient.Stops...)
-	position := 0.0
-	if len(stops) > 0 {
-		position = stops[len(stops)-1].Position
-	}
-	stops = append(stops, lightingsettings.GradientStop{
-		Position: position, Color: lightingsettings.Color{Green: 255, Blue: 255}, Intensity: 0,
-	})
-	settings.Gradient.Stops = stops
-	if err = d.effects.Set(effect, settings); err != nil {
-		logger.Log(logger.Fields{"error": err, "effect": effect}).Error("Unable to persist RGB Cluster Gradient")
-		return 0, 0
-	}
-	_ = d.refreshCompatibilityProjection()
-	if d.LightingSnapshot().SelectedEffect == effect {
-		d.restartWorker()
-	}
-	return 1, uint(len(stops) - 1)
-}
-
-func (d *Device) ProcessDeleteGradientColor(effect string) (uint8, uint) {
-	if !d.runtimeAvailable() {
-		return 0, 0
-	}
-	resolution, err := d.resolver.Resolve(lightingsettings.RGBCluster(), effect)
-	if err != nil || resolution.Settings.Gradient == nil {
-		return 0, 0
-	}
-	settings := resolution.Settings.Clone()
-	if len(settings.Gradient.Stops) < 3 {
-		return 2, 0
-	}
-	removed := len(settings.Gradient.Stops) - 1
-	settings.Gradient.Stops = append([]lightingsettings.GradientStop(nil), settings.Gradient.Stops[:removed]...)
-	if err = d.effects.Set(effect, settings); err != nil {
-		logger.Log(logger.Fields{"error": err, "effect": effect}).Error("Unable to persist RGB Cluster Gradient")
-		return 0, 0
-	}
-	_ = d.refreshCompatibilityProjection()
-	if d.LightingSnapshot().SelectedEffect == effect {
-		d.restartWorker()
-	}
-	return 1, uint(removed)
-}
-
-func (d *Device) UpdateRgbProfileData(effect string, profile rgb.Profile) uint8 {
-	if !d.runtimeAvailable() {
-		return 0
-	}
-	resolution, err := d.resolver.Resolve(lightingsettings.RGBCluster(), effect)
-	if err != nil {
-		return 0
-	}
-	settings, err := settingsFromLegacyProfile(effect, profile, resolution.Settings)
-	if err != nil {
-		logger.Log(logger.Fields{"error": err, "effect": effect}).Warn("Invalid RGB Cluster effect settings")
-		return 0
-	}
-	if err = d.effects.Set(effect, settings); err != nil {
-		logger.Log(logger.Fields{"error": err, "effect": effect}).Error("Unable to persist RGB Cluster effect settings")
-		return 0
-	}
-	_ = d.refreshCompatibilityProjection()
-	if d.LightingSnapshot().SelectedEffect == effect {
-		d.restartWorker()
-	}
-	return 1
-}
-
-func (d *Device) UpdateRgbProfile(_ int, effect string) uint8 {
-	if !d.runtimeAvailable() {
-		return 0
-	}
-	descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect)
-	if !ok || !descriptor.Scope.Includes(rgb.EffectScopeCluster) {
-		return 0
-	}
-	state, err := d.lightingState.Snapshot()
-	if err != nil {
-		return 0
-	}
-	state.SelectedEffect = effect
-	if err = d.lightingState.Set(state); err != nil {
-		logger.Log(logger.Fields{"error": err, "effect": effect}).Error("Unable to persist RGB Cluster selected effect")
-		return 0
-	}
-	_ = d.refreshCompatibilityProjection()
-	d.restartWorker()
-	return 1
-}
-
 func (d *Device) UpdateDeviceOrder(order []string) uint8 {
 	if !d.runtimeAvailable() {
 		return 0
@@ -580,26 +320,7 @@ func (d *Device) UpdateDeviceOrder(order []string) uint8 {
 		logger.Log(logger.Fields{"error": err}).Error("Unable to persist RGB Cluster layout")
 		return 0
 	}
-	_ = d.refreshCompatibilityProjection()
 	d.SortControllers()
-	d.restartWorker()
-	return 1
-}
-
-func (d *Device) ChangeDeviceBrightnessValue(value uint8) uint8 {
-	if !d.runtimeAvailable() || value > 100 {
-		return 0
-	}
-	state, err := d.lightingState.Snapshot()
-	if err != nil {
-		return 0
-	}
-	state.Brightness = value
-	if err = d.lightingState.Set(state); err != nil {
-		logger.Log(logger.Fields{"error": err, "brightness": value}).Error("Unable to persist RGB Cluster Brightness")
-		return 0
-	}
-	_ = d.refreshCompatibilityProjection()
 	d.restartWorker()
 	return 1
 }
@@ -613,16 +334,6 @@ func (d *Device) SchedulerBrightness(value uint8) uint8 {
 	d.mutex.Unlock()
 	d.restartWorker()
 	return 1
-}
-
-func (d *Device) ControlDeviceRgb(value bool) {
-	if value {
-		d.UpdateRgbProfile(0, "off")
-		return
-	}
-	// The clean-break legacy compatibility path intentionally uses Rainbow when
-	// turning lighting on so no remembered effect becomes another authority.
-	d.UpdateRgbProfile(0, "rainbow")
 }
 
 func (d *Device) controllerSnapshot() ([]*common.ClusterController, int) {
@@ -1030,7 +741,6 @@ func (d *Device) MigrateDeviceOrderSerial(oldSerial, newSerial string) {
 		logger.Log(logger.Fields{"error": err}).Error("Unable to migrate RGB Cluster layout serial")
 		return
 	}
-	_ = d.refreshCompatibilityProjection()
 	d.SortControllers()
 	d.restartWorker()
 }

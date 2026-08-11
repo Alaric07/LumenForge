@@ -73,6 +73,19 @@ type MenuLayout struct {
 }
 type MenuServer struct{}
 
+func clusterTrayEffects() []rgb.SoftwareEffectDescriptor {
+	effects := make([]rgb.SoftwareEffectDescriptor, 0)
+	for _, descriptor := range rgb.SoftwareEffectDescriptors() {
+		if descriptor.Scope.Includes(rgb.EffectScopeCluster) {
+			effects = append(effects, descriptor)
+		}
+	}
+	sort.Slice(effects, func(first, second int) bool {
+		return effects[first].ID < effects[second].ID
+	})
+	return effects
+}
+
 func newMenuLayout(id int32, props map[string]dbus.Variant, children ...dbus.Variant) MenuLayout {
 	return MenuLayout{
 		ID:       id,
@@ -162,13 +175,13 @@ func (m *MenuServer) Event(id int32, eventId string, data dbus.Variant, timestam
 	}
 
 	if id >= 200 && id < 300 {
-		modes := make([]string, len(cluster.Get().RGBModes))
-		copy(modes, cluster.Get().RGBModes)
-		sort.Strings(modes)
-
-		idx := id - 200
-		if int(idx) < len(modes) {
-			cluster.Get().UpdateRgbProfile(0, modes[idx])
+		effects := clusterTrayEffects()
+		index := int(id - 200)
+		device := cluster.Get()
+		if device != nil && index >= 0 && index < len(effects) {
+			if err := device.SetLightingEffect(effects[index].ID); err != nil {
+				logger.Log(logger.Fields{"error": err, "effect": effects[index].ID}).Error("Unable to set RGB Cluster tray effect")
+			}
 		}
 		return nil
 	}
@@ -586,13 +599,10 @@ func Init(ready chan struct{}) {
 	})
 
 	// RGB Cluster Submenu
-	modes := make([]string, len(cluster.Get().RGBModes))
-	copy(modes, cluster.Get().RGBModes)
-	sort.Strings(modes)
-
+	effects := clusterTrayEffects()
 	childItems := make(map[int32]string)
-	for i, mode := range modes {
-		childItems[int32(200+i)] = strings.Title(mode)
+	for index, effect := range effects {
+		childItems[int32(200+index)] = effect.Label
 	}
 	addSubMenu(103, "Global RGB Cluster", "preferences-desktop-display-color", childItems)
 

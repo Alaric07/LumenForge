@@ -3,10 +3,40 @@ package devices
 import (
 	"LumenForge/src/common"
 	"LumenForge/src/devices/openrgbimport"
+	"LumenForge/src/rgb"
 	"testing"
 )
 
 type registryTestDevice struct{}
+
+type legacyRGBBoundaryTestDevice struct {
+	profileLists        int
+	controls            int
+	profileSelections   int
+	profileUpdates      int
+	schedulerBrightness int
+}
+
+func (d *legacyRGBBoundaryTestDevice) GetRgbProfiles() interface{} {
+	d.profileLists++
+	return "profiles"
+}
+
+func (d *legacyRGBBoundaryTestDevice) ControlDeviceRgb(bool) {
+	d.controls++
+}
+
+func (d *legacyRGBBoundaryTestDevice) UpdateRgbProfile(int, string) {
+	d.profileSelections++
+}
+
+func (d *legacyRGBBoundaryTestDevice) UpdateRgbProfileData(string, rgb.Profile) {
+	d.profileUpdates++
+}
+
+func (d *legacyRGBBoundaryTestDevice) SchedulerBrightness(uint8) {
+	d.schedulerBrightness++
+}
 
 func (*registryTestDevice) SnapshotCount() int {
 	return len(GetDevices())
@@ -118,5 +148,53 @@ func TestOpenRGBImportRegistryHelpersUseExactInstance(t *testing.T) {
 	}
 	if _, _, ok := LookupOpenRGBImport(serial); ok {
 		t.Fatal("removed importer still exists")
+	}
+}
+
+func TestLegacyGlobalRGBHelpersSkipOnlyCluster(t *testing.T) {
+	native := &legacyRGBBoundaryTestDevice{}
+	cluster := &legacyRGBBoundaryTestDevice{}
+	mutex.Lock()
+	previousDevices := devices
+	devices = map[string]*common.Device{
+		"native": {
+			ProductType: common.ProductTypeLinkHub,
+			Serial:      "native",
+			Instance:    native,
+		},
+		"cluster": {
+			ProductType: common.ProductTypeCluster,
+			Serial:      "cluster",
+			Instance:    cluster,
+		},
+	}
+	mutex.Unlock()
+	t.Cleanup(func() {
+		mutex.Lock()
+		devices = previousDevices
+		mutex.Unlock()
+	})
+
+	profiles := GetRgbProfiles()
+	if profiles["native"] != "profiles" {
+		t.Fatalf("native legacy RGB profiles = %#v", profiles["native"])
+	}
+	if _, ok := profiles["cluster"]; ok {
+		t.Fatalf("Cluster leaked into legacy RGB profiles: %#v", profiles)
+	}
+	ControlDeviceRgb(true)
+	UpdateGlobalRgbProfile("wave")
+	UpdateAllDevicesStaticColor(rgb.Color{Red: 1, Green: 2, Blue: 3})
+
+	if native.profileLists != 1 || native.controls != 1 || native.profileSelections != 2 || native.profileUpdates != 1 {
+		t.Fatalf("native legacy RGB calls = %#v", native)
+	}
+	if cluster.profileLists != 0 || cluster.controls != 0 || cluster.profileSelections != 0 || cluster.profileUpdates != 0 {
+		t.Fatalf("Cluster received legacy global RGB calls = %#v", cluster)
+	}
+
+	ScheduleDeviceBrightness(0)
+	if native.schedulerBrightness != 1 || cluster.schedulerBrightness != 1 {
+		t.Fatalf("scheduler Brightness calls = native %d Cluster %d", native.schedulerBrightness, cluster.schedulerBrightness)
 	}
 }

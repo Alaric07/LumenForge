@@ -31,9 +31,6 @@ func (d *Device) SetLightingEffect(effect string) error {
 	if err = d.lightingState.Set(state); err != nil {
 		return err
 	}
-	if err = d.refreshCompatibilityProjection(); err != nil {
-		return err
-	}
 	d.restartWorker()
 	return nil
 }
@@ -56,9 +53,6 @@ func (d *Device) SetLightingBrightness(brightness uint8) error {
 	}
 	state.Brightness = brightness
 	if err = d.lightingState.Set(state); err != nil {
-		return err
-	}
-	if err = d.refreshCompatibilityProjection(); err != nil {
 		return err
 	}
 	d.restartWorker()
@@ -135,9 +129,6 @@ func (d *Device) ResetLightingEffect(expectedEffect string) error {
 	if err = lightingsettings.Validate(resolution.Settings); err != nil {
 		return err
 	}
-	if err = d.refreshCompatibilityProjection(); err != nil {
-		return err
-	}
 	d.restartWorker()
 	return nil
 }
@@ -189,9 +180,6 @@ func (d *Device) mutateSelectedLightingSettings(
 		return err
 	}
 	if err = d.effects.Set(expectedEffect, settings); err != nil {
-		return err
-	}
-	if err = d.refreshCompatibilityProjection(); err != nil {
 		return err
 	}
 	d.restartWorker()
