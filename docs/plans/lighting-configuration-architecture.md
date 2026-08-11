@@ -471,6 +471,21 @@ confirmed customization, Reset, shipped-default restoration, preservation of
 the selected effect and Brightness, and isolation between effect
 customizations.
 
+`0ccc2d3f` removed the remaining RGB Cluster compatibility projection and
+legacy global RGB mutation surface. Cluster no longer exposes mutable
+`DeviceProfile`, `rgb.RGB`, or legacy RGB profile read/mutation methods, and
+legacy global RGB helpers explicitly exclude the hidden Cluster target while
+continuing to serve native-device consumers. Scheduler lights-out and canonical
+layout/order operations remain active Cluster responsibilities.
+
+The system tray RGB Cluster submenu now derives its catalogue from canonical
+Cluster-scoped software-effect descriptors and selects effects through
+`SetLightingEffect`. The legacy `/rgb` editor remains available for targets
+that still require it, but RGB Cluster no longer appears there or accepts
+lighting mutations through generic legacy color/profile routes.
+`rgbProfileFromSettings` remains only as a transient canonical-settings-to-
+renderer adapter; it is not persisted desired state.
+
 ## 11. OpenRGB imports
 
 OpenRGB importing remains separate from lighting customization. The import
@@ -646,8 +661,9 @@ Speed or another genuine renderer-consumed setting.
     `fd2b3ab4`; the Cluster cutover was completed in `af08ec39`.
 12. Modernize RGB Cluster with the shared descriptor-driven controls.
     Canonical control mutations were added in `09f14f87`, the shared modern
-    workspace was completed in `f719e5f4`, and Cluster-scoped effect Reset was
-    completed in `235941d0`.
+    workspace was completed in `f719e5f4`, Cluster-scoped effect Reset was
+    completed in `235941d0`, and the remaining legacy Cluster RGB/profile
+    compatibility surface was removed in `0ccc2d3f`.
 13. Delete OpenRGB override code and legacy imported-device lighting controls.
 14. Migrate native target families separately.
 15. Remove `/rgb` after every remaining consumer has parity.

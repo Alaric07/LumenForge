@@ -402,8 +402,18 @@ Speed, single-color, two-color, Temperature, Gradient, status, and Reset now
 use the same modern interaction model as Device Lighting while retaining
 target-specific persistence and mutation contracts.
 
-Final removal of the remaining Cluster compatibility/global RGB model surface
-is intentionally left for a focused follow-up audit and cleanup milestone.
+`0ccc2d3f` removed the remaining Cluster compatibility/global RGB model
+surface. RGB Cluster no longer exposes mutable legacy RGB profile projections
+or legacy profile mutation methods, and legacy global RGB helpers explicitly
+skip Cluster while continuing to serve native-device consumers. The system
+tray Cluster submenu now derives canonical Cluster-scoped descriptors and
+selects through `SetLightingEffect`.
+
+The legacy `/rgb` editor remains for targets that still require it, but RGB
+Cluster is no longer listed there and is no longer mutable through its generic
+legacy color/profile routes. Scheduler lights-out, member order, canonical
+state, canonical effect customizations, and the transient renderer adapter
+remain intact.
 
 ### RGB Cluster cutover
 
@@ -418,8 +428,8 @@ is intentionally left for a focused follow-up audit and cleanup milestone.
 - [x] Add cluster-scoped Reset with the same deletion semantics (`235941d0`).
 - [x] Make cluster Static one color across the complete cluster output
   (`af08ec39`).
-- [ ] Remove cluster dependence on the mutable global RGB profile model after
-  renderer, persistence, restart, and UI parity.
+- [x] Remove cluster dependence on the mutable global RGB profile model after
+  renderer, persistence, restart, and UI parity (`0ccc2d3f`).
 
 ### Native-device migration
 
