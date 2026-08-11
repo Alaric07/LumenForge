@@ -2954,3 +2954,109 @@ test("bindGradientControl disables malformed initial state and ignores cluster-o
     lighting.init({document: {querySelectorAll: function(selector) { selectors.push(selector); return []; }}});
     assert.ok(selectors.includes("[data-lf-gradient-control]"));
 });
+
+test("shared lighting controls use dedicated serial-free RGB Cluster mutations", async function() {
+    const requests = [];
+    async function fetchMutation(url, options) {
+        requests.push({url, body: JSON.parse(options.body)});
+        return {ok: true, json: async function() { return {status: 1}; }};
+    }
+    function timers() {
+        const fixture = timerFixture();
+        return {clearTimeout: fixture.clearTimeout, setTimeout: fixture.setTimeout};
+    }
+
+    const effect = selectorFixture();
+    effect.selector.dataset.lfLightingTarget = "cluster";
+    const effectBrowser = browserFixture(fetchMutation, timers());
+    lighting.bindEffectSelector(effectBrowser.browser, effect.selector);
+    await effect.handler()();
+
+    const brightness = brightnessSliderFixture();
+    brightness.slider.dataset.lfLightingTarget = "cluster";
+    const brightnessBrowser = brightnessBrowserFixture(fetchMutation, timers());
+    lighting.bindBrightnessSlider(brightnessBrowser.browser, brightness.slider);
+    brightness.slider.value = "41";
+    await brightness.handlers.change();
+
+    const speed = speedSliderFixture();
+    speed.slider.dataset.lfLightingTarget = "cluster";
+    const speedBrowser = speedBrowserFixture(fetchMutation, timers());
+    lighting.bindSpeedSlider(speedBrowser.browser, speed.slider);
+    speed.slider.value = "5";
+    speed.handlers.input();
+    await speed.handlers.change();
+    assert.equal(speedBrowser.resetControl.hidden, true, "Cluster Speed mutation revealed OpenRGB Reset");
+
+    const color = colorBrowserFixture(fetchMutation, timers());
+    color.colorInput.dataset.lfLightingTarget = "cluster";
+    const commitColor = lighting.bindColorControl(color.browser, color.colorInput);
+    await commitColor("#00ff00");
+
+    const twoColor = twoColorBrowserFixture(fetchMutation, timers());
+    twoColor.container.dataset.lfLightingTarget = "cluster";
+    const commitTwoColor = lighting.bindTwoColorControl(twoColor.browser, twoColor.container);
+    twoColor.startHex.control.value = "#ddeeff";
+    await commitTwoColor();
+
+    const temperature = temperatureBrowserFixture(fetchMutation, timers());
+    temperature.container.dataset.lfLightingTarget = "cluster";
+    const commitTemperature = lighting.bindTemperatureControl(temperature.browser, temperature.container);
+    temperature.points.high.celsius.value = "96";
+    await commitTemperature();
+
+    const gradient = gradientBrowserFixture(fetchMutation, timers());
+    gradient.container.dataset.lfLightingTarget = "cluster";
+    const gradientController = lighting.bindGradientControl(gradient.browser, gradient.container);
+    gradient.stopRows()[1].querySelector("[data-lf-gradient-position]").value = "0.4";
+    await gradientController.save();
+
+    assert.deepEqual(requests.map(function(request) { return request.url; }), [
+        "/api/cluster/lighting/effect",
+        "/api/cluster/lighting/brightness",
+        "/api/cluster/lighting/speed",
+        "/api/cluster/lighting/single-color",
+        "/api/cluster/lighting/two-color",
+        "/api/cluster/lighting/temperature",
+        "/api/cluster/lighting/gradient"
+    ]);
+    assert.deepEqual(requests[0].body, {effect: "wave"});
+    assert.deepEqual(requests[1].body, {brightness: 41});
+    assert.deepEqual(requests[2].body, {effect: "circle", speed: 6});
+    assert.deepEqual(requests[3].body, {effect: "static", color: "#00ff00"});
+    assert.deepEqual(requests[4].body, {effect: "wave", start: "#ddeeff", end: "#aabbcc"});
+    assert.deepEqual(Object.keys(requests[5].body), ["effect", "low", "middle", "high"]);
+    assert.equal(requests[5].body.effect, "cpu-temperature");
+    assert.equal(requests[5].body.high.celsius, 96);
+    assert.equal(requests[6].body.effect, "gradient");
+    assert.equal(requests[6].body.stops[1].position, 0.4);
+    for (const request of requests) {
+        assert.equal(Object.prototype.hasOwnProperty.call(request.body, "serial"), false);
+        assert.doesNotMatch(request.url, /^\/api\/(?:color|brightness\/gradual)/);
+    }
+});
+
+test("RGB Cluster mutation failure rolls back and cannot expose OpenRGB Reset", async function() {
+    const timers = timerFixture();
+    let requests = 0;
+    const fixture = brightnessBrowserFixture(async function() {
+        requests++;
+        return {ok: true, json: async function() { return {status: 0}; }};
+    }, {clearTimeout: timers.clearTimeout, setTimeout: timers.setTimeout});
+    const control = brightnessSliderFixture();
+    control.slider.dataset.lfLightingTarget = "cluster";
+    lighting.bindBrightnessSlider(fixture.browser, control.slider);
+    control.slider.value = "70";
+    await control.handlers.change();
+
+    assert.equal(requests, 1);
+    assert.equal(control.slider.value, "40");
+    assert.equal(fixture.numberInput.value, "40");
+    assert.equal(fixture.status.textContent, "Unable to change brightness. Try again.");
+    assert.equal(fixture.resetControl.hidden, true);
+
+    const resetFixture = colorBrowserFixture(async function() { requests++; });
+    resetFixture.resetButton.dataset.lfLightingTarget = "cluster";
+    assert.equal(lighting.bindResetButton(resetFixture.browser, resetFixture.resetButton), null);
+    assert.equal(requests, 1);
+});

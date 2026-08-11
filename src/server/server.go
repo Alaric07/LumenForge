@@ -2739,6 +2739,14 @@ func uiRgbCluster(w http.ResponseWriter, _ *http.Request) {
 	web.CpuTemp = dashboard.GetDashboard().TemperatureToString(temperatures.GetCpuTemperature())
 	web.GpuTemp = dashboard.GetDashboard().TemperatureToString(temperatures.GetGpuTemperature())
 	web.Page = "rgbCluster"
+	snapshot, _ := getRGBClusterLightingStatus()
+	page := struct {
+		templates.Web
+		Lighting *clusterLightingWorkspaceSummary
+	}{
+		Web:      web,
+		Lighting: clusterLightingWorkspaceSummaryFromSnapshot(snapshot),
+	}
 
 	t := templates.GetTemplate()
 
@@ -2746,7 +2754,7 @@ func uiRgbCluster(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headers[header].Key, headers[header].Value)
 	}
 
-	executeTemplateOrRespond(w, t, "cluster.html", web, true)
+	executeTemplateOrRespond(w, t, "cluster.html", page, true)
 }
 
 // uiColorOverview handles overview or RGB profiles

@@ -331,10 +331,10 @@ test("switching Circle to Static removes the complete speed-control state", func
     assert.equal(renderedControl, null);
 });
 
-test("cluster and individual editors share icon-only endpoint semantics", function () {
+test("legacy editors retain icon endpoints while modern Cluster uses shared speed controls", function () {
     const sources = {
         rgb: fs.readFileSync(path.join(__dirname, "rgb.js"), "utf8"),
-        cluster: fs.readFileSync(path.join(__dirname, "cluster.js"), "utf8"),
+        lighting: fs.readFileSync(path.join(__dirname, "devices-lighting.js"), "utf8"),
         overview: fs.readFileSync(path.join(__dirname, "overview.js"), "utf8"),
         clusterTemplate: fs.readFileSync(path.join(__dirname, "..", "..", "web", "cluster.html"), "utf8"),
         rgbTemplate: fs.readFileSync(path.join(__dirname, "..", "..", "web", "rgb.html"), "utf8"),
@@ -343,15 +343,17 @@ test("cluster and individual editors share icon-only endpoint semantics", functi
 
     assert.match(sources.head, /\/static\/js\/rgb-speed\.js\?v=3/);
     assert.match(sources.rgbTemplate, /\/static\/js\/rgb\.js\?v=3/);
-    assert.match(sources.clusterTemplate, /\/static\/js\/cluster\.js\?v=3/);
+    assert.match(sources.clusterTemplate, /\/static\/js\/cluster\.js\?v=4/);
     assert.match(sources.rgb, /controlModeForProfiles\(\s*response\.data\.profiles/);
     assert.match(sources.rgb, /storedToUiForSlider/);
     assert.match(sources.rgb, /uiToStoredForSlider/);
-    assert.match(sources.cluster, /storedToUiForSlider/);
-    assert.match(sources.cluster, /uiToStoredForSlider/);
+    assert.match(sources.lighting, /storedToUiForSlider/);
+    assert.match(sources.lighting, /uiToStoredForSlider/);
+    assert.match(sources.clusterTemplate, /data-lf-lighting-target="cluster"/);
+    assert.match(sources.clusterTemplate, /data-lf-speed-slider/);
     assert.equal((sources.overview.match(/storedToUiForSlider/g) || []).length, 2);
 
-    for (const source of [sources.rgb, sources.overview, sources.clusterTemplate]) {
+    for (const source of [sources.rgb, sources.overview]) {
         assert.match(
             source,
             /title="Slow" aria-label="Slow"[\s\S]*icon-slow\.svg[\s\S]*type="range"[\s\S]*title="Fast" aria-label="Fast"[\s\S]*icon-fast\.svg/
@@ -360,23 +362,18 @@ test("cluster and individual editors share icon-only endpoint semantics", functi
         assert.doesNotMatch(source, /\/> Slow/);
         assert.doesNotMatch(source, /Fast <img/);
     }
+    assert.doesNotMatch(sources.clusterTemplate, /icon-(?:slow|fast)\.svg/);
 });
 
 test("speed endpoints share one centered flex row in slow-range-fast order", function () {
     const sources = {
         rgb: fs.readFileSync(path.join(__dirname, "rgb.js"), "utf8"),
-        overview: fs.readFileSync(path.join(__dirname, "overview.js"), "utf8"),
-        cluster: fs.readFileSync(
-            path.join(__dirname, "..", "..", "web", "cluster.html"),
-            "utf8"
-        )
+        overview: fs.readFileSync(path.join(__dirname, "overview.js"), "utf8")
     };
     const orderedFlexRow = /class="system-slider[^"]*d-flex[^"]*align-items-center[^"]*"[\s\S]*?<span[^>]*title="Slow" aria-label="Slow">[\s\S]*?icon-slow\.svg[\s\S]*?<\/span>\s*<label[^>]*>[\s\S]*?<input[^>]*type="range"[\s\S]*?<\/label>\s*<span[^>]*title="Fast" aria-label="Fast">[\s\S]*?icon-fast\.svg[\s\S]*?<\/span>\s*<\/div>/g;
 
     assert.equal((sources.rgb.match(orderedFlexRow) || []).length, 1);
     assert.equal((sources.overview.match(orderedFlexRow) || []).length, 2);
-    assert.equal((sources.cluster.match(orderedFlexRow) || []).length, 1);
-
     for (const source of Object.values(sources)) {
         assert.match(source, /class="flex-grow-1 m-0" style="min-width: 0;"/);
         assert.match(source, /class="text-nowrap d-inline-flex align-items-center"/);
@@ -385,11 +382,11 @@ test("speed endpoints share one centered flex row in slow-range-fast order", fun
 
 test("all visible-control payload paths use the shared stored conversion", function () {
     const rgb = fs.readFileSync(path.join(__dirname, "rgb.js"), "utf8");
-    const cluster = fs.readFileSync(path.join(__dirname, "cluster.js"), "utf8");
+    const lighting = fs.readFileSync(path.join(__dirname, "devices-lighting.js"), "utf8");
     const overview = fs.readFileSync(path.join(__dirname, "overview.js"), "utf8");
 
     assert.match(rgb, /if \(speedSlider\) \{[\s\S]*pf\["speed"\][\s\S]*uiToStoredForSlider/);
-    assert.match(cluster, /pf\["speed"\] = storedDuration/);
+    assert.match(lighting, /submitSpeedForTarget\(browser, target, effect, mappedSpeed\)/);
     assert.equal(
         (overview.match(/if \(\$speedSlider\.length\) \{[\s\S]*?pf\["speed"\] = LumenForgeRgbSpeed\.uiToStoredForSlider/g) || []).length,
         2
@@ -398,7 +395,6 @@ test("all visible-control payload paths use the shared stored conversion", funct
 
 test("cluster, individual, and overview controls share capability visibility", function () {
     const rgb = fs.readFileSync(path.join(__dirname, "rgb.js"), "utf8");
-    const cluster = fs.readFileSync(path.join(__dirname, "cluster.js"), "utf8");
     const overview = fs.readFileSync(path.join(__dirname, "overview.js"), "utf8");
     const clusterTemplate = fs.readFileSync(
         path.join(__dirname, "..", "..", "web", "cluster.html"),
@@ -410,13 +406,9 @@ test("cluster, individual, and overview controls share capability visibility", f
     assert.match(rgb, /\$\{speedRowHtml\}/);
     assert.doesNotMatch(rgb, /speedDisabled/);
 
-    assert.match(cluster, /function updateSpeedControlVisibility\(profile\)/);
-    assert.match(cluster, /LumenForgeRgbSpeed\.hasSpeedControl/);
-    assert.match(cluster, /\$speedControlGroup\.prop\("hidden", !visible\)/);
-    assert.match(cluster, /\.addClass\(visible \? "col-md-4" : "col-md-6"\)/);
-    assert.match(cluster, /\$speedSlider\.prop\("disabled", !visible\)/);
-    assert.match(clusterTemplate, /id="clusterSpeedControlGroup" hidden/);
-    assert.doesNotMatch(clusterTemplate, /\$speedDisabled/);
+    assert.match(clusterTemplate, /\{\{ if \.HasSpeedControl \}\}/);
+    assert.match(clusterTemplate, /data-lf-speed-slider/);
+    assert.doesNotMatch(clusterTemplate, /clusterSpeedControlGroup/);
 
     assert.equal(
         (overview.match(/const speedRowHtml = LumenForgeRgbSpeed\.hasSpeedControl/g) || []).length,

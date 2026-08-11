@@ -15,32 +15,50 @@
         }
     }
 })(typeof window === "undefined" ? null : window, function () {
-    const effectEndpoint = "/api/openrgbimport/effect";
+    const openRGBLightingEndpoints = Object.freeze({
+        effect: "/api/openrgbimport/effect",
+        brightness: "/api/openrgbimport/brightness",
+        speed: "/api/openrgbimport/speed",
+        color: "/api/openrgbimport/single-color",
+        twoColor: "/api/openrgbimport/two-color",
+        temperature: "/api/openrgbimport/temperature",
+        gradient: "/api/openrgbimport/gradient"
+    });
+    const clusterLightingEndpoints = Object.freeze({
+        effect: "/api/cluster/lighting/effect",
+        brightness: "/api/cluster/lighting/brightness",
+        speed: "/api/cluster/lighting/speed",
+        color: "/api/cluster/lighting/single-color",
+        twoColor: "/api/cluster/lighting/two-color",
+        temperature: "/api/cluster/lighting/temperature",
+        gradient: "/api/cluster/lighting/gradient"
+    });
+    const effectEndpoint = openRGBLightingEndpoints.effect;
     const effectTimeoutMilliseconds = 10000;
     const failureMessage = "Unable to change effect. Try again.";
-    const brightnessEndpoint = "/api/openrgbimport/brightness";
+    const brightnessEndpoint = openRGBLightingEndpoints.brightness;
     const brightnessTimeoutMilliseconds = 10000;
     const brightnessSuccessMilliseconds = 1800;
     const brightnessFailureMessage = "Unable to change brightness. Try again.";
-    const speedEndpoint = "/api/openrgbimport/speed";
+    const speedEndpoint = openRGBLightingEndpoints.speed;
     const speedTimeoutMilliseconds = 10000;
     const speedSuccessMilliseconds = 1800;
     const keyboardCommitMilliseconds = 400;
     const speedFailureMessage = "Unable to change speed. Try again.";
-    const colorEndpoint = "/api/openrgbimport/single-color";
+    const colorEndpoint = openRGBLightingEndpoints.color;
     const colorTimeoutMilliseconds = 10000;
     const colorSuccessMilliseconds = 1800;
     const colorFailureMessage = "Unable to change color. Try again.";
-    const twoColorEndpoint = "/api/openrgbimport/two-color";
+    const twoColorEndpoint = openRGBLightingEndpoints.twoColor;
     const twoColorTimeoutMilliseconds = 10000;
     const twoColorSuccessMilliseconds = 1800;
     const twoColorFailureMessage = "Unable to change colors. Try again.";
-    const temperatureEndpoint = "/api/openrgbimport/temperature";
+    const temperatureEndpoint = openRGBLightingEndpoints.temperature;
     const temperatureTimeoutMilliseconds = 10000;
     const temperatureSuccessMilliseconds = 1800;
     const temperatureFailureMessage = "Unable to change temperature colors. Try again.";
     const temperatureOrderMessage = "Thresholds must satisfy Low < Middle < High.";
-    const gradientEndpoint = "/api/openrgbimport/gradient";
+    const gradientEndpoint = openRGBLightingEndpoints.gradient;
     const gradientTimeoutMilliseconds = 10000;
     const gradientSuccessMilliseconds = 1800;
     const gradientFailureMessage = "Unable to change Gradient. Try again.";
@@ -258,168 +276,114 @@
         };
     }
 
-    async function submitEffect(browser, serial, effect) {
+    function lightingTarget(element) {
+        const cluster = element && element.dataset && element.dataset.lfLightingTarget === "cluster";
+        return {
+            endpoints: cluster ? clusterLightingEndpoints : openRGBLightingEndpoints,
+            kind: cluster ? "cluster" : "openrgb",
+            serial: cluster ? "" : element.dataset.lfDeviceSerial
+        };
+    }
+
+    function openRGBLightingTarget(serial) {
+        return {endpoints: openRGBLightingEndpoints, kind: "openrgb", serial: serial};
+    }
+
+    function lightingPayload(target, values) {
+        if (target.kind === "cluster") {
+            return values;
+        }
+        return Object.assign({serial: target.serial}, values);
+    }
+
+    async function submitLightingMutation(browser, endpoint, payload, timeoutMilliseconds, requestFailure, mutationFailure) {
         const controller = new browser.AbortController();
         const timeout = browser.setTimeout(function () {
             controller.abort();
-        }, effectTimeoutMilliseconds);
+        }, timeoutMilliseconds);
         try {
-            const response = await browser.fetch(effectEndpoint, {
+            const response = await browser.fetch(endpoint, {
                 method: "POST",
-                body: JSON.stringify({serial: serial, effect: effect}),
+                body: JSON.stringify(payload),
                 signal: controller.signal
             });
             if (!response.ok) {
-                throw new Error("effect request failed");
+                throw new Error(requestFailure);
             }
 
             const result = await response.json();
             if (!result || result.status !== 1) {
-                throw new Error("effect mutation was rejected");
+                throw new Error(mutationFailure);
             }
         } finally {
             browser.clearTimeout(timeout);
         }
+    }
+
+    function submitEffectForTarget(browser, target, effect) {
+        return submitLightingMutation(browser, target.endpoints.effect, lightingPayload(target, {effect: effect}),
+            effectTimeoutMilliseconds, "effect request failed", "effect mutation was rejected");
+    }
+
+    async function submitEffect(browser, serial, effect) {
+        return submitEffectForTarget(browser, openRGBLightingTarget(serial), effect);
+    }
+
+    function submitBrightnessForTarget(browser, target, brightness) {
+        return submitLightingMutation(browser, target.endpoints.brightness, lightingPayload(target, {brightness: brightness}),
+            brightnessTimeoutMilliseconds, "brightness request failed", "brightness mutation was rejected");
     }
 
     async function submitBrightness(browser, serial, brightness) {
-        const controller = new browser.AbortController();
-        const timeout = browser.setTimeout(function () {
-            controller.abort();
-        }, brightnessTimeoutMilliseconds);
-        try {
-            const response = await browser.fetch(brightnessEndpoint, {
-                method: "POST",
-                body: JSON.stringify({serial: serial, brightness: brightness}),
-                signal: controller.signal
-            });
-            if (!response.ok) {
-                throw new Error("brightness request failed");
-            }
+        return submitBrightnessForTarget(browser, openRGBLightingTarget(serial), brightness);
+    }
 
-            const result = await response.json();
-            if (!result || result.status !== 1) {
-                throw new Error("brightness mutation was rejected");
-            }
-        } finally {
-            browser.clearTimeout(timeout);
-        }
+    function submitSpeedForTarget(browser, target, effect, speed) {
+        return submitLightingMutation(browser, target.endpoints.speed, lightingPayload(target, {effect: effect, speed: speed}),
+            speedTimeoutMilliseconds, "speed request failed", "speed mutation was rejected");
     }
 
     async function submitSpeed(browser, serial, effect, speed) {
-        const controller = new browser.AbortController();
-        const timeout = browser.setTimeout(function () {
-            controller.abort();
-        }, speedTimeoutMilliseconds);
-        try {
-            const response = await browser.fetch(speedEndpoint, {
-                method: "POST",
-                body: JSON.stringify({serial: serial, effect: effect, speed: speed}),
-                signal: controller.signal
-            });
-            if (!response.ok) {
-                throw new Error("speed request failed");
-            }
+        return submitSpeedForTarget(browser, openRGBLightingTarget(serial), effect, speed);
+    }
 
-            const result = await response.json();
-            if (!result || result.status !== 1) {
-                throw new Error("speed mutation was rejected");
-            }
-        } finally {
-            browser.clearTimeout(timeout);
-        }
+    function submitColorForTarget(browser, target, effect, color) {
+        return submitLightingMutation(browser, target.endpoints.color, lightingPayload(target, {effect: effect, color: color}),
+            colorTimeoutMilliseconds, "color request failed", "color mutation was rejected");
     }
 
     async function submitColor(browser, serial, effect, color) {
-        const controller = new browser.AbortController();
-        const timeout = browser.setTimeout(function () {
-            controller.abort();
-        }, colorTimeoutMilliseconds);
-        try {
-            const response = await browser.fetch(colorEndpoint, {
-                method: "POST",
-                body: JSON.stringify({serial: serial, effect: effect, color: color}),
-                signal: controller.signal
-            });
-            if (!response.ok) {
-                throw new Error("color request failed");
-            }
-            const result = await response.json();
-            if (!result || result.status !== 1) {
-                throw new Error("color mutation was rejected");
-            }
-        } finally {
-            browser.clearTimeout(timeout);
-        }
+        return submitColorForTarget(browser, openRGBLightingTarget(serial), effect, color);
+    }
+
+    function submitTwoColorForTarget(browser, target, effect, start, end) {
+        return submitLightingMutation(browser, target.endpoints.twoColor,
+            lightingPayload(target, {effect: effect, start: start, end: end}), twoColorTimeoutMilliseconds,
+            "two-color request failed", "two-color mutation was rejected");
     }
 
     async function submitTwoColor(browser, serial, effect, start, end) {
-        const controller = new browser.AbortController();
-        const timeout = browser.setTimeout(function () {
-            controller.abort();
-        }, twoColorTimeoutMilliseconds);
-        try {
-            const response = await browser.fetch(twoColorEndpoint, {
-                method: "POST",
-                body: JSON.stringify({serial: serial, effect: effect, start: start, end: end}),
-                signal: controller.signal
-            });
-            if (!response.ok) {
-                throw new Error("two-color request failed");
-            }
-            const result = await response.json();
-            if (!result || result.status !== 1) {
-                throw new Error("two-color mutation was rejected");
-            }
-        } finally {
-            browser.clearTimeout(timeout);
-        }
+        return submitTwoColorForTarget(browser, openRGBLightingTarget(serial), effect, start, end);
+    }
+
+    function submitTemperatureForTarget(browser, target, effect, low, middle, high) {
+        return submitLightingMutation(browser, target.endpoints.temperature,
+            lightingPayload(target, {effect: effect, low: low, middle: middle, high: high}), temperatureTimeoutMilliseconds,
+            "temperature request failed", "temperature mutation was rejected");
     }
 
     async function submitTemperature(browser, serial, effect, low, middle, high) {
-        const controller = new browser.AbortController();
-        const timeout = browser.setTimeout(function () {
-            controller.abort();
-        }, temperatureTimeoutMilliseconds);
-        try {
-            const response = await browser.fetch(temperatureEndpoint, {
-                method: "POST",
-                body: JSON.stringify({serial: serial, effect: effect, low: low, middle: middle, high: high}),
-                signal: controller.signal
-            });
-            if (!response.ok) {
-                throw new Error("temperature request failed");
-            }
-            const result = await response.json();
-            if (!result || result.status !== 1) {
-                throw new Error("temperature mutation was rejected");
-            }
-        } finally {
-            browser.clearTimeout(timeout);
-        }
+        return submitTemperatureForTarget(browser, openRGBLightingTarget(serial), effect, low, middle, high);
+    }
+
+    function submitGradientForTarget(browser, target, effect, stops) {
+        return submitLightingMutation(browser, target.endpoints.gradient,
+            lightingPayload(target, {effect: effect, stops: stops}), gradientTimeoutMilliseconds,
+            "Gradient request failed", "Gradient mutation was rejected");
     }
 
     async function submitGradient(browser, serial, effect, stops) {
-        const controller = new browser.AbortController();
-        const timeout = browser.setTimeout(function () {
-            controller.abort();
-        }, gradientTimeoutMilliseconds);
-        try {
-            const response = await browser.fetch(gradientEndpoint, {
-                method: "POST",
-                body: JSON.stringify({serial: serial, effect: effect, stops: stops}),
-                signal: controller.signal
-            });
-            if (!response.ok) {
-                throw new Error("Gradient request failed");
-            }
-            const result = await response.json();
-            if (!result || result.status !== 1) {
-                throw new Error("Gradient mutation was rejected");
-            }
-        } finally {
-            browser.clearTimeout(timeout);
-        }
+        return submitGradientForTarget(browser, openRGBLightingTarget(serial), effect, stops);
     }
 
     async function submitReset(browser, serial, effect) {
@@ -468,10 +432,12 @@
         slider.style.setProperty("--lf-range-progress", brightness + "%");
     }
 
-    function updateBrightnessReadouts(browser, serial, brightness) {
+    function updateBrightnessReadouts(browser, target, brightness) {
         const readouts = browser.document.querySelectorAll("[data-lf-brightness-readout]");
         for (const readout of readouts) {
-            if (readout.dataset.lfDeviceSerial === serial) {
+            const readoutTarget = lightingTarget(readout);
+            if (readoutTarget.kind === target.kind &&
+                (target.kind === "cluster" || readoutTarget.serial === target.serial)) {
                 readout.textContent = brightness + "%";
             }
         }
@@ -494,6 +460,7 @@
         }
         let requestInFlight = false;
         let keyboardBinding;
+        const target = lightingTarget(slider);
         const setStatus = createStatusController(browser, status, brightnessSuccessMilliseconds);
 
         function restoreConfirmedBrightness() {
@@ -542,11 +509,11 @@
             setStatus("Saving brightness…", false);
 
             try {
-                await submitBrightness(browser, slider.dataset.lfDeviceSerial, brightness);
+                await submitBrightnessForTarget(browser, target, brightness);
                 confirmedBrightness = brightness;
                 slider.dataset.lfCurrentBrightness = String(brightness);
                 renderBrightness(slider, numberInput, brightness);
-                updateBrightnessReadouts(browser, slider.dataset.lfDeviceSerial, brightness);
+                updateBrightnessReadouts(browser, target, brightness);
                 setStatus("Brightness saved.", true);
             } catch (_) {
                 restoreConfirmedBrightness();
@@ -671,6 +638,7 @@
 
         let requestInFlight = false;
         let keyboardBinding;
+        const target = lightingTarget(slider);
         const setStatus = createStatusController(browser, status, speedSuccessMilliseconds);
 
         function restoreConfirmedSpeed() {
@@ -723,13 +691,15 @@
             numberInput.disabled = true;
             setStatus("Saving speed…", false);
             try {
-                await submitSpeed(browser, slider.dataset.lfDeviceSerial, effect, mappedSpeed);
+                await submitSpeedForTarget(browser, target, effect, mappedSpeed);
                 confirmedStoredSpeed = mappedSpeed;
                 slider.dataset.lfCurrentStoredSpeed = String(mappedSpeed);
                 confirmedSpeed = speedHelper.storedToUiForSlider(slider, mappedSpeed);
                 renderSpeed(speedHelper, slider, numberInput, confirmedSpeed);
                 updateSpeedReadouts(browser, slider.dataset.lfSpeedTarget, mappedSpeed);
-                revealEffectReset(browser, slider.dataset.lfDeviceSerial, effect);
+                if (target.kind === "openrgb") {
+                    revealEffectReset(browser, target.serial, effect);
+                }
                 setStatus("Speed saved.", true);
             } catch (_) {
                 restoreConfirmedSpeed();
@@ -762,6 +732,7 @@
 
         const status = browser.document.getElementById(selector.dataset.lfStatusId);
         const configuredEffect = selector.dataset.lfCurrentEffect || "";
+        const target = lightingTarget(selector);
         let requestInFlight = false;
 
         async function handleChange() {
@@ -777,7 +748,7 @@
             }
 
             try {
-                await submitEffect(browser, selector.dataset.lfDeviceSerial, selectedEffect);
+                await submitEffectForTarget(browser, target, selectedEffect);
                 browser.location.reload();
             } catch (_) {
                 selector.value = configuredEffect;
@@ -803,6 +774,7 @@
 
         let confirmedColor = colorInput.dataset.lfCurrentColor.toLowerCase();
         let requestInFlight = false;
+        const target = lightingTarget(colorInput);
         const setStatus = createStatusController(browser, status, colorSuccessMilliseconds);
 
         function preview(value) {
@@ -826,7 +798,7 @@
             hexInput.disabled = true;
             setStatus("Saving color…", false);
             try {
-                await submitColor(browser, colorInput.dataset.lfDeviceSerial, colorInput.dataset.lfEffect, normalized);
+                await submitColorForTarget(browser, target, colorInput.dataset.lfEffect, normalized);
                 confirmedColor = normalized;
                 colorInput.dataset.lfCurrentColor = normalized;
                 setStatus("Color saved.", true);
@@ -874,6 +846,7 @@
         if (confirmedStart === null || confirmedEnd === null) return null;
 
         let requestInFlight = false;
+        const target = lightingTarget(container);
         const setStatus = createStatusController(browser, status, twoColorSuccessMilliseconds);
 
         function render(start, end) {
@@ -912,7 +885,7 @@
             for (const control of controls) control.disabled = true;
             setStatus("Saving colors…", false);
             try {
-                await submitTwoColor(browser, container.dataset.lfDeviceSerial, container.dataset.lfEffect, start, end);
+                await submitTwoColorForTarget(browser, target, container.dataset.lfEffect, start, end);
                 confirmedStart = start;
                 confirmedEnd = end;
                 container.dataset.lfCurrentStart = start;
@@ -1013,6 +986,7 @@
         }
         confirmed = cloneState(confirmed);
         let requestInFlight = false;
+        const target = lightingTarget(container);
         const setStatus = createStatusController(browser, status, temperatureSuccessMilliseconds);
 
         function restoreConfirmed() {
@@ -1047,7 +1021,7 @@
             for (const control of controls) control.disabled = true;
             setStatus("Saving temperature colors…", false);
             try {
-                await submitTemperature(browser, container.dataset.lfDeviceSerial, container.dataset.lfEffect, next.low, next.middle, next.high);
+                await submitTemperatureForTarget(browser, target, container.dataset.lfEffect, next.low, next.middle, next.high);
                 confirmed = cloneState(next);
                 render(confirmed);
                 setStatus("Temperature colors saved.", true);
@@ -1099,6 +1073,7 @@
         const setStatus = createStatusController(browser, status, gradientSuccessMilliseconds);
         let requestInFlight = false;
         let confirmed = null;
+        const target = lightingTarget(container);
 
         function normalizeColor(value) {
             return /^#[0-9a-fA-F]{6}$/.test(value) ? value.toLowerCase() : null;
@@ -1334,7 +1309,7 @@
             setSaving(true);
             setStatus("Saving Gradient…", false);
             try {
-                await submitGradient(browser, container.dataset.lfDeviceSerial, container.dataset.lfEffect, ordered);
+                await submitGradientForTarget(browser, target, container.dataset.lfEffect, ordered);
                 confirmed = normalized(ordered);
                 setStatus("Gradient saved.", true);
                 browser.location.reload();
@@ -1397,6 +1372,7 @@
     }
 
     function bindResetButton(browser, button) {
+        if (lightingTarget(button).kind === "cluster") return null;
         const clusterControlled = button.dataset.lfClusterControlled === "true";
         if (clusterControlled) return null;
         const status = browser.document.getElementById(button.dataset.lfStatusId);

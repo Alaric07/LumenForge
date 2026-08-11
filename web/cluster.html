@@ -2,156 +2,416 @@
 <html lang="en">
 {{ template "head" . }}
 <body>
+    <link href="/static/css/app-shell.css" rel="stylesheet">
 
-<div class="container-fluid">
-    {{ $devs := .Devices }}
-    {{ $device := .Device }}
-    {{ $rgbModes := .Device.RGBModes }}
-    {{ $controllers := .Device.Controllers }}
-    {{ $deviceProfile := .Device.DeviceProfile }}
-    <input type="hidden" id="deviceId" name="deviceId" value="{{ $device.Serial }}">
-    <div class="row">
-        <!-- Sidebar -->
-        {{ template "sidebar" . }}
+    <div class="lf-app-shell lf-cluster-shell">
+        <aside class="lf-global-nav" aria-label="Application navigation">
+            <a class="lf-brand" href="/" aria-label="LumenForge dashboard" title="LumenForge dashboard">
+                <span class="lf-brand-mark-frame" aria-hidden="true">
+                    <img class="lf-brand-mark" src="/static/img/lumenforge-main.png" alt="">
+                </span>
+                <span class="lf-brand-name">LumenForge</span>
+            </a>
 
-        <!-- Main -->
-        <main class="main-content p-4">
-            <!-- Temperature bar -->
-            {{ if .Dashboard.TemperatureBar }}
-            {{ template "temperature-bar" . }}
+            <nav class="lf-global-links">
+                <a class="lf-global-link" href="/" aria-label="Dashboard" title="Dashboard">
+                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-dashboard.svg" alt=""></span>
+                    <span class="lf-global-label">Dashboard</span>
+                </a>
+                <a class="lf-global-link" href="/devices" aria-label="Devices" title="Devices">
+                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-device.svg" alt=""></span>
+                    <span class="lf-global-label">Devices</span>
+                </a>
+                <a class="lf-global-link lf-global-link-active" href="/rgbCluster" aria-label="RGB Cluster" title="RGB Cluster" aria-current="page">
+                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-cluster.svg" alt=""></span>
+                    <span class="lf-global-label">RGB Cluster</span>
+                </a>
+                <a class="lf-global-link" href="/temperature" aria-label="Cooling profiles" title="Cooling profiles">
+                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-temperature.svg" alt=""></span>
+                    <span class="lf-global-label">Cooling profiles</span>
+                </a>
+                <a class="lf-global-link" href="/lcd" aria-label="LCD" title="LCD">
+                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-lcd.svg" alt=""></span>
+                    <span class="lf-global-label">LCD</span>
+                </a>
+                <a class="lf-global-link" href="/macros" aria-label="Macros" title="Macros">
+                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-macro.svg" alt=""></span>
+                    <span class="lf-global-label">Macros</span>
+                </a>
+                <a class="lf-global-link" href="/settings" aria-label="Settings" title="Settings">
+                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-settings.svg" alt=""></span>
+                    <span class="lf-global-label">Settings</span>
+                </a>
+            </nav>
+        </aside>
+
+        <main class="lf-device-workspace lf-cluster-workspace">
+            <header class="lf-device-hero">
+                <div class="lf-device-hero-visual" aria-hidden="true">
+                    <span class="lf-device-hero-glow"></span>
+                    <img class="lf-device-hero-image lf-device-hero-image-fallback" src="/static/img/icons/icon-cluster.svg" alt="">
+                </div>
+                <div class="lf-device-hero-copy">
+                    <p class="lf-device-hero-context">Shared lighting target</p>
+                    <h1 class="lf-workspace-title">RGB Cluster</h1>
+                    <p class="lf-workspace-description">Configure one lighting effect across the current cluster membership.</p>
+                    {{ with .Lighting }}
+                        {{ if .Available }}
+                            <div class="lf-device-hero-facts">
+                                <span class="lf-device-hero-fact"><span>Effect</span><strong>{{ .ConfiguredEffectLabel }}</strong></span>
+                                <span class="lf-device-hero-fact"><span>Brightness</span><strong data-lf-brightness-readout data-lf-lighting-target="cluster">{{ .Brightness }}%</strong></span>
+                                <span class="lf-device-hero-fact"><span>Members</span><strong>{{ .ControllerCount }}</strong></span>
+                                <span class="lf-device-hero-fact">Stored cluster state</span>
+                            </div>
+                        {{ end }}
+                    {{ end }}
+                </div>
+            </header>
+
+            {{ with .Lighting }}
+                {{ if .Available }}
+                    <section class="lf-lighting-workspace" aria-labelledby="lf-cluster-lighting-title">
+                        <div class="lf-lighting-layout">
+                            <div class="lf-lighting-main">
+                                <section class="lf-lighting-primary" aria-labelledby="lf-cluster-lighting-title">
+                                    <header class="lf-lighting-primary-header">
+                                        <div>
+                                            <p class="lf-section-kicker">Stored configuration</p>
+                                            <h2 class="lf-lighting-title" id="lf-cluster-lighting-title">Lighting</h2>
+                                        </div>
+                                        <span class="lf-lighting-status lf-lighting-status-supported">Supported</span>
+                                    </header>
+
+                                    <div class="lf-lighting-effect-stage">
+                                        <div class="lf-lighting-effect-identity">
+                                            {{ template "lf-lighting-effect-icon" . }}
+                                            <div class="lf-lighting-effect-control">
+                                                <label class="lf-lighting-label" for="lf-cluster-effect-selector">Configured effect</label>
+                                                <strong class="lf-lighting-effect-name">{{ .ConfiguredEffectLabel }}</strong>
+                                                <select
+                                                    class="lf-lighting-effect-selector"
+                                                    id="lf-cluster-effect-selector"
+                                                    data-lf-effect-selector
+                                                    data-lf-lighting-target="cluster"
+                                                    data-lf-current-effect="{{ .ConfiguredEffect }}"
+                                                    data-lf-cluster-controlled="false"
+                                                    data-lf-status-id="lf-cluster-effect-status"
+                                                    aria-describedby="lf-cluster-effect-status"
+                                                >
+                                                    {{ range .SupportedEffects }}
+                                                        <option value="{{ .ID }}"{{ if .Selected }} selected{{ end }}>{{ .Label }}</option>
+                                                    {{ end }}
+                                                </select>
+                                                <span class="lf-lighting-effect-id-label">Stable ID <code class="lf-lighting-effect-id">{{ .ConfiguredEffect }}</code></span>
+                                                <p class="lf-lighting-effect-status" id="lf-cluster-effect-status" aria-live="polite"></p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="lf-range-control">
+                                        <div class="lf-range-control-header">
+                                            <label class="lf-range-control-label" for="lf-cluster-brightness-slider">Brightness</label>
+                                            <span class="lf-range-control-value">
+                                                <input
+                                                    class="lf-range-control-number"
+                                                    id="lf-cluster-brightness-number"
+                                                    type="number"
+                                                    min="0"
+                                                    max="100"
+                                                    step="1"
+                                                    value="{{ .Brightness }}"
+                                                    data-lf-brightness-number
+                                                    aria-label="Cluster brightness percentage"
+                                                    aria-describedby="lf-cluster-brightness-status"
+                                                >
+                                                <span class="lf-range-control-suffix" aria-hidden="true">%</span>
+                                            </span>
+                                        </div>
+                                        <input
+                                            class="lf-range-control-input"
+                                            id="lf-cluster-brightness-slider"
+                                            type="range"
+                                            min="0"
+                                            max="100"
+                                            step="1"
+                                            value="{{ .Brightness }}"
+                                            style="--lf-range-progress: {{ .Brightness }}%;"
+                                            data-lf-brightness-slider
+                                            data-lf-lighting-target="cluster"
+                                            data-lf-current-brightness="{{ .Brightness }}"
+                                            data-lf-cluster-controlled="false"
+                                            data-lf-number-id="lf-cluster-brightness-number"
+                                            data-lf-status-id="lf-cluster-brightness-status"
+                                            aria-valuetext="{{ .Brightness }} percent"
+                                            aria-describedby="lf-cluster-brightness-status"
+                                        >
+                                        <div class="lf-range-control-scale" aria-hidden="true"><span>0%</span><span>100%</span></div>
+                                        <p class="lf-range-control-status" id="lf-cluster-brightness-status" aria-live="polite"></p>
+                                    </div>
+
+                                    {{ if .HasSpeedControl }}
+                                        <div class="lf-range-control lf-range-control-speed" data-lf-speed-control>
+                                            <div class="lf-range-control-header">
+                                                <label class="lf-range-control-label" for="lf-cluster-speed-slider">Speed</label>
+                                                <span class="lf-range-control-value">
+                                                    <input
+                                                        class="lf-range-control-number"
+                                                        id="lf-cluster-speed-number"
+                                                        type="number"
+                                                        min="1"
+                                                        max="10"
+                                                        step="0.1"
+                                                        value="{{ .Speed }}"
+                                                        data-lf-speed-number
+                                                        aria-label="Cluster speed level"
+                                                        aria-describedby="lf-cluster-speed-status"
+                                                    >
+                                                </span>
+                                            </div>
+                                            <input
+                                                class="lf-range-control-input"
+                                                id="lf-cluster-speed-slider"
+                                                type="range"
+                                                min="1"
+                                                max="10"
+                                                step="0.1"
+                                                value="{{ .Speed }}"
+                                                data-lf-speed-slider
+                                                data-lf-lighting-target="cluster"
+                                                data-lf-current-stored-speed="{{ .Speed }}"
+                                                data-lf-effect="{{ .ConfiguredEffect }}"
+                                                data-lf-speed-control-mode="software"
+                                                data-lf-speed-target="base"
+                                                data-lf-cluster-controlled="false"
+                                                data-lf-number-id="lf-cluster-speed-number"
+                                                data-lf-status-id="lf-cluster-speed-status"
+                                                aria-label="Cluster animation speed from Slow to Fast"
+                                                aria-describedby="lf-cluster-speed-status"
+                                            >
+                                            <div class="lf-range-control-scale" aria-hidden="true"><span>Slow</span><span>Fast</span></div>
+                                            <p class="lf-range-control-status" id="lf-cluster-speed-status" aria-live="polite"></p>
+                                        </div>
+                                    {{ end }}
+
+                                    {{ if eq .PaletteKind "static-single-color" }}
+                                        <div class="lf-color-control">
+                                            <div class="lf-color-control-header">
+                                                <label class="lf-color-control-label" for="lf-cluster-color-input">Color</label>
+                                            </div>
+                                            <div class="lf-color-control-inputs">
+                                                <input
+                                                    class="lf-color-control-input"
+                                                    id="lf-cluster-color-input"
+                                                    type="color"
+                                                    value="{{ .SingleColorHex }}"
+                                                    data-lf-color-input
+                                                    data-lf-lighting-target="cluster"
+                                                    data-lf-current-color="{{ .SingleColorHex }}"
+                                                    data-lf-effect="{{ .ConfiguredEffect }}"
+                                                    data-lf-cluster-controlled="false"
+                                                    data-lf-hex-id="lf-cluster-color-hex"
+                                                    data-lf-status-id="lf-cluster-color-status"
+                                                    aria-label="Cluster effect color"
+                                                    aria-describedby="lf-cluster-color-status"
+                                                >
+                                                <input
+                                                    class="lf-color-control-hex"
+                                                    id="lf-cluster-color-hex"
+                                                    type="text"
+                                                    value="{{ .SingleColorHex }}"
+                                                    pattern="#[0-9a-fA-F]{6}"
+                                                    maxlength="7"
+                                                    data-lf-color-hex
+                                                    aria-label="Cluster effect color hex code"
+                                                >
+                                            </div>
+                                            <p class="lf-range-control-status" id="lf-cluster-color-status" aria-live="polite"></p>
+                                        </div>
+                                    {{ end }}
+
+                                    {{ if eq .PaletteKind "two-color" }}
+                                        <div
+                                            class="lf-color-control lf-two-color-control"
+                                            data-lf-two-color-control
+                                            data-lf-lighting-target="cluster"
+                                            data-lf-effect="{{ .ConfiguredEffect }}"
+                                            data-lf-cluster-controlled="false"
+                                            data-lf-current-start="{{ .TwoColorStartHex }}"
+                                            data-lf-current-end="{{ .TwoColorEndHex }}"
+                                            data-lf-start-color-id="lf-cluster-start-color-input"
+                                            data-lf-start-hex-id="lf-cluster-start-color-hex"
+                                            data-lf-end-color-id="lf-cluster-end-color-input"
+                                            data-lf-end-hex-id="lf-cluster-end-color-hex"
+                                            data-lf-status-id="lf-cluster-two-color-status"
+                                        >
+                                            <div class="lf-two-color-control-fields">
+                                                <div class="lf-two-color-control-field">
+                                                    <div class="lf-color-control-header"><label class="lf-color-control-label" for="lf-cluster-start-color-input">Start</label></div>
+                                                    <div class="lf-color-control-inputs">
+                                                        <input class="lf-color-control-input" id="lf-cluster-start-color-input" type="color" value="{{ .TwoColorStartHex }}" aria-label="Cluster start color" aria-describedby="lf-cluster-two-color-status">
+                                                        <input class="lf-color-control-hex" id="lf-cluster-start-color-hex" type="text" value="{{ .TwoColorStartHex }}" pattern="#[0-9a-fA-F]{6}" maxlength="7" aria-label="Cluster start color hex code">
+                                                    </div>
+                                                </div>
+                                                <div class="lf-two-color-control-field">
+                                                    <div class="lf-color-control-header"><label class="lf-color-control-label" for="lf-cluster-end-color-input">End</label></div>
+                                                    <div class="lf-color-control-inputs">
+                                                        <input class="lf-color-control-input" id="lf-cluster-end-color-input" type="color" value="{{ .TwoColorEndHex }}" aria-label="Cluster end color" aria-describedby="lf-cluster-two-color-status">
+                                                        <input class="lf-color-control-hex" id="lf-cluster-end-color-hex" type="text" value="{{ .TwoColorEndHex }}" pattern="#[0-9a-fA-F]{6}" maxlength="7" aria-label="Cluster end color hex code">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p class="lf-color-control-status" id="lf-cluster-two-color-status" aria-live="polite"></p>
+                                        </div>
+                                    {{ end }}
+
+                                    {{ if and (eq .PaletteKind "temperature-three-color") .HasTemperature }}
+                                        <div
+                                            class="lf-color-control lf-temperature-control"
+                                            data-lf-temperature-control
+                                            data-lf-lighting-target="cluster"
+                                            data-lf-effect="{{ .ConfiguredEffect }}"
+                                            data-lf-cluster-controlled="false"
+                                            data-lf-low-color-id="lf-cluster-temperature-low-color"
+                                            data-lf-low-hex-id="lf-cluster-temperature-low-hex"
+                                            data-lf-low-celsius-id="lf-cluster-temperature-low-celsius"
+                                            data-lf-middle-color-id="lf-cluster-temperature-middle-color"
+                                            data-lf-middle-hex-id="lf-cluster-temperature-middle-hex"
+                                            data-lf-middle-celsius-id="lf-cluster-temperature-middle-celsius"
+                                            data-lf-high-color-id="lf-cluster-temperature-high-color"
+                                            data-lf-high-hex-id="lf-cluster-temperature-high-hex"
+                                            data-lf-high-celsius-id="lf-cluster-temperature-high-celsius"
+                                            data-lf-status-id="lf-cluster-temperature-status"
+                                        >
+                                            <div class="lf-temperature-control-fields">
+                                                {{ range $point := .TemperaturePoints }}
+                                                    <div class="lf-temperature-control-field">
+                                                        <div class="lf-color-control-header"><label class="lf-color-control-label" for="lf-cluster-temperature-{{ $point.Role }}-color">{{ $point.Label }}</label></div>
+                                                        <div class="lf-temperature-control-inputs">
+                                                            <input class="lf-color-control-input" id="lf-cluster-temperature-{{ $point.Role }}-color" type="color" value="{{ $point.ColorHex }}" aria-label="Cluster {{ $point.Label }} temperature color" aria-describedby="lf-cluster-temperature-status">
+                                                            <input class="lf-color-control-hex" id="lf-cluster-temperature-{{ $point.Role }}-hex" type="text" value="{{ $point.ColorHex }}" pattern="#[0-9a-fA-F]{6}" maxlength="7" aria-label="Cluster {{ $point.Label }} temperature color hex code" aria-describedby="lf-cluster-temperature-status">
+                                                            <label class="lf-temperature-control-celsius-label" for="lf-cluster-temperature-{{ $point.Role }}-celsius"><input class="lf-temperature-control-celsius" id="lf-cluster-temperature-{{ $point.Role }}-celsius" type="number" step="any" value="{{ $point.Celsius }}" aria-label="Cluster {{ $point.Label }} temperature threshold in degrees Celsius" aria-describedby="lf-cluster-temperature-status"><span aria-hidden="true">°C</span></label>
+                                                        </div>
+                                                    </div>
+                                                {{ end }}
+                                            </div>
+                                            <p class="lf-color-control-status" id="lf-cluster-temperature-status" aria-live="polite"></p>
+                                        </div>
+                                    {{ end }}
+
+                                    {{ if and (eq .PaletteKind "gradient") .HasGradient }}
+                                        <section
+                                            class="lf-color-control lf-gradient-control"
+                                            data-lf-gradient-control
+                                            data-lf-lighting-target="cluster"
+                                            data-lf-effect="{{ .ConfiguredEffect }}"
+                                            data-lf-cluster-controlled="false"
+                                            data-lf-rows-id="lf-cluster-gradient-stops"
+                                            data-lf-add-id="lf-cluster-gradient-add"
+                                            data-lf-save-id="lf-cluster-gradient-save"
+                                            data-lf-status-id="lf-cluster-gradient-status"
+                                            aria-labelledby="lf-cluster-gradient-heading"
+                                        >
+                                            <div class="lf-gradient-control-header">
+                                                <div>
+                                                    <h3 id="lf-cluster-gradient-heading">Gradient stops</h3>
+                                                    <p>Position uses 0 for the start and 1 for the end. Intensity is relative to cluster Brightness.</p>
+                                                </div>
+                                                <button class="lf-button lf-button-secondary" id="lf-cluster-gradient-add" type="button" data-lf-gradient-add {{ if ge (len .GradientStops) 1024 }}disabled{{ end }}>Add stop</button>
+                                            </div>
+                                            <div class="lf-gradient-stop-list" id="lf-cluster-gradient-stops">
+                                                {{ $minimumStops := eq (len .GradientStops) 2 }}
+                                                {{ range $stop := .GradientStops }}
+                                                    <div class="lf-gradient-stop" data-lf-gradient-stop>
+                                                        <h4 data-lf-gradient-stop-number>Stop {{ $stop.Number }}</h4>
+                                                        <div class="lf-gradient-stop-fields">
+                                                            <label class="lf-gradient-field-label" for="lf-cluster-gradient-color-{{ $stop.Number }}">Color
+                                                                <span class="lf-gradient-color-fields">
+                                                                    <input class="lf-color-control-input" id="lf-cluster-gradient-color-{{ $stop.Number }}" type="color" value="{{ $stop.ColorHex }}" data-lf-gradient-color aria-label="Cluster stop {{ $stop.Number }} color" aria-describedby="lf-cluster-gradient-status">
+                                                                    <input class="lf-color-control-hex" id="lf-cluster-gradient-hex-{{ $stop.Number }}" type="text" value="{{ $stop.ColorHex }}" pattern="#[0-9a-fA-F]{6}" maxlength="7" data-lf-gradient-hex aria-label="Cluster stop {{ $stop.Number }} color hex code" aria-describedby="lf-cluster-gradient-status">
+                                                                </span>
+                                                            </label>
+                                                            <label class="lf-gradient-field-label" for="lf-cluster-gradient-position-{{ $stop.Number }}">Position
+                                                                <input class="lf-gradient-number-input" id="lf-cluster-gradient-position-{{ $stop.Number }}" type="number" min="0" max="1" step="any" value="{{ $stop.Position }}" data-lf-gradient-position aria-label="Cluster stop {{ $stop.Number }} position from 0 start to 1 end" aria-describedby="lf-cluster-gradient-status">
+                                                            </label>
+                                                            <label class="lf-gradient-field-label" for="lf-cluster-gradient-intensity-{{ $stop.Number }}">Relative intensity
+                                                                <input class="lf-gradient-number-input" id="lf-cluster-gradient-intensity-{{ $stop.Number }}" type="number" min="0" max="1" step="any" value="{{ $stop.Intensity }}" data-lf-gradient-intensity aria-label="Cluster stop {{ $stop.Number }} relative intensity from 0 to 1" aria-describedby="lf-cluster-gradient-status">
+                                                            </label>
+                                                            <button class="lf-button lf-button-secondary lf-gradient-remove" type="button" data-lf-gradient-remove aria-label="Remove cluster stop {{ $stop.Number }}" {{ if $minimumStops }}disabled{{ end }}>Remove</button>
+                                                        </div>
+                                                    </div>
+                                                {{ end }}
+                                            </div>
+                                            <div class="lf-gradient-actions">
+                                                <button class="lf-button lf-button-primary" id="lf-cluster-gradient-save" type="button" data-lf-gradient-save disabled>Save Gradient</button>
+                                            </div>
+                                            <p class="lf-color-control-status" id="lf-cluster-gradient-status" aria-live="polite"></p>
+                                        </section>
+                                    {{ end }}
+                                </section>
+                            </div>
+
+                            <aside class="lf-lighting-rail" aria-label="Cluster lighting information">
+                                <section class="lf-lighting-rail-panel lf-lighting-preview-panel">
+                                    <span class="lf-lighting-rail-icon" aria-hidden="true">⌁</span>
+                                    <p class="lf-section-kicker">Target</p>
+                                    <h2>RGB Cluster</h2>
+                                    <p>Changes apply to the current ordered cluster membership.</p>
+                                </section>
+                                <section class="lf-lighting-rail-panel">
+                                    <p class="lf-section-kicker">Configuration</p>
+                                    <dl class="lf-lighting-rail-facts">
+                                        <div><dt>Members</dt><dd>{{ .ControllerCount }}</dd></div>
+                                        <div><dt>Effect support</dt><dd>Supported</dd></div>
+                                    </dl>
+                                </section>
+                            </aside>
+                        </div>
+                    </section>
+                {{ else }}
+                    <section class="lf-workspace-empty" role="status" aria-labelledby="lf-cluster-unavailable-title">
+                        <span class="lf-empty-icon-frame" aria-hidden="true"><img class="lf-empty-icon" src="/static/img/icons/icon-cluster.svg" alt=""></span>
+                        <h2 class="lf-empty-title" id="lf-cluster-unavailable-title">Cluster lighting unavailable</h2>
+                        <p class="lf-empty-description">The canonical RGB Cluster lighting configuration could not be loaded.</p>
+                    </section>
+                {{ end }}
             {{ end }}
 
-            <!-- Cluster -->
-            <div class="row g-4 mb-4 justify-content-center">
-                <div class="col-xl-9 col-lg-11">
-                    <div class="card system-card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <span><i class="bi bi-diagram-3 pe-2"></i>{{ .Device.Product }} Configuration</span>
-                        </div>
-                        <div class="card-body p-4">
-                            
-                            {{ $activeProfile := $deviceProfile.RGBProfile }}
-                            {{ $selectedProfile := "rainbow" }}
-                            {{ if and (ne $deviceProfile.RGBProfile "off") (ne $deviceProfile.RGBProfile "") }}
-                                {{ $selectedProfile = $deviceProfile.RGBProfile }}
-                            {{ else if ne $deviceProfile.LastNonOffProfile "" }}
-                                {{ $selectedProfile = $deviceProfile.LastNonOffProfile }}
-                            {{ end }}
-                            {{ $speed := 1.0 }}
-                            {{ if $activeProfile }}
-                                {{ $profileData := index .Device.Rgb.Profiles $activeProfile }}
-                                {{ if $profileData }}
-                                    {{ $speed = $profileData.Speed }}
-                                 {{ end }}
-                            {{ end }}
-
-                            <!-- Top Controls Row -->
-                            <div class="row align-items-center justify-content-center mb-4 pb-4 border-bottom border-secondary border-opacity-25">
-                                <div class="col-md-4" id="clusterBrightnessControlGroup">
-                                    <div class="d-flex align-items-center justify-content-center">
-                                        <span class="text-warning text-uppercase text-sm fw-bold me-3" style="min-width: 90px; letter-spacing: 1px;">{{ .Lang "txtBrightness" }}</span>
-                                        <div class="system-slider w-100 no-padding-top m-0">
-                                            <label for="brightnessSlider" class="w-100">
-                                                <input type="range" id="brightnessSlider" name="brightnessSlider" min="0" max="100" value="{{ $deviceProfile.BrightnessSlider }}" step="1" class="w-100">
-                                            </label>
-                                        </div>
-                                        <span class="text-warning ms-3 text-end fw-bold" id="brightnessSliderValue" style="min-width: 50px;">{{ $deviceProfile.BrightnessSlider }} %</span>
-                                    </div>
-                                </div>
-                                <div class="col-md-4" id="clusterSpeedControlGroup" hidden>
-                                    <div class="d-flex align-items-center justify-content-center">
-                                        <span class="text-warning text-uppercase text-sm fw-bold me-3" style="min-width: 90px; letter-spacing: 1px;">{{ .Lang "txtSpeed" }}</span>
-                                        <div class="system-slider w-100 no-padding-top m-0 d-flex align-items-center gap-2">
-                                            <span class="text-nowrap d-inline-flex align-items-center" title="Slow" aria-label="Slow">
-                                                <img src="/static/img/icons/icon-slow.svg" width="20" height="20" alt="" aria-hidden="true" />
-                                            </span>
-                                            <label for="speedSlider" class="flex-grow-1 m-0" style="min-width: 0;">
-                                                <input type="range" id="speedSlider" name="speedSlider" min="1" max="10" value="{{ $speed }}" step="0.1" class="w-100" data-stored-speed="{{ $speed }}" data-rgb-profile="{{ $activeProfile }}" data-speed-control-mode="software" aria-label="Animation speed from Slow to Fast">
-                                            </label>
-                                            <span class="text-nowrap d-inline-flex align-items-center" title="Fast" aria-label="Fast">
-                                                <img src="/static/img/icons/icon-fast.svg" width="20" height="20" alt="" aria-hidden="true" />
-                                            </span>
-                                        </div>
-                                        <span class="text-warning ms-3 text-end fw-bold" id="speedSliderValue" style="min-width: 50px;"></span>
-                                    </div>
-                                </div>
-                                <div class="col-md-4" id="clusterRgbControlGroup">
-                                    <div class="d-flex align-items-center justify-content-center">
-                                        <span class="text-warning text-uppercase text-sm fw-bold me-3" style="min-width: 90px; letter-spacing: 1px;">{{ .Lang "txtRgb" }}</span>
-                                        <label for="clusterRgbProfile" class="w-100">
-                                            <select id="clusterRgbProfile" class="form-select system-select w-100 clusterRgbProfile" name="clusterRgbProfile">
-                                                {{ range $key, $mode := $rgbModes }}
-                                                {{ if ne $mode "off" }}
-                                                {{ if eq $mode $selectedProfile }}
-                                                <option value="0;{{ $mode }}" selected>{{ $mode }}</option>
-                                                {{ else }}
-                                                <option value="0;{{ $mode }}">{{ $mode }}</option>
-                                                {{ end }}
-                                                {{ end }}
-                                                {{ end }}
-                                            </select>
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Quick Actions Row -->
-                            <div class="d-flex flex-wrap align-items-center justify-content-center gap-4 mb-4 pb-4 border-bottom border-secondary border-opacity-25">
-                                <div class="d-flex align-items-center">
-                                    <span class="text-warning text-uppercase text-sm fw-bold me-3" style="letter-spacing: 1px;">Cluster Lighting On/Off</span>
-                                    <label class="system-toggle compact m-0">
-                                        <input type="checkbox" id="clusterLightingToggle" data-last-non-off="{{ $deviceProfile.LastNonOffProfile }}" {{ if ne $activeProfile "off" }}checked{{ end }}>
-                                        <span class="toggle-track"></span>
-                                    </label>
-                                </div>
-                                <div class="d-flex align-items-center ms-md-4">
-                                    <span class="text-warning text-uppercase text-sm fw-bold me-3" style="letter-spacing: 1px;">Apply Solid Color</span>
-                                    <div class="settings-actions d-flex align-items-center">
-                                        <div class="system-color compact me-2">
-                                            <label class="m-0">
-                                                <input type="color" id="clusterSolidColor" class="system-color compact" value="#ff0000">
-                                            </label>
-                                        </div>
-                                        <button class="system-button compact" id="btnApplySolidColor">{{ .Lang "txtApply" }}</button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Table Section -->
-                            <div class="table-responsive">
-                                <table class="table table-borderless text-sm text-center mx-auto mb-0" id="table" style="width: auto; min-width: 80%;">
-                                    <thead class="border-bottom border-secondary border-opacity-25 text-uppercase" style="letter-spacing: 1px;">
-                                        <tr>
-                                            <th class="py-3 font-monospace text-warning">Order</th>
-                                            <th class="py-3 px-5 text-warning">{{ .Lang "txtDevice" }}</th>
-                                            <th class="py-3 px-5 text-warning">{{ .Lang "txtDeviceSerial" }}</th>
-                                            <th class="py-3 px-4 text-warning">{{ .Lang "txtRgb" }}</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="clusterSortable">
-                                    {{ range $key, $value := $device.Controllers }}
-                                    <tr data-serial="{{ $value.Serial }}" style="cursor: grab;" class="border-bottom border-secondary border-opacity-10 align-middle">
-                                        <td class="py-3 text-warning"><i class="bi bi-list fs-5"></i></td>
-                                        <td class="py-3 text-white fw-bold">{{ $value.Product }}</td>
-                                        <td class="py-3 text-light opacity-75 font-monospace">{{ $value.Serial }}</td>
-                                        <td class="py-3 text-light opacity-75">{{ $device.DeviceProfile.RGBProfile }}</td>
-                                    </tr>
-                                    {{ end }}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                        </div>
+            <section class="lf-overview-panel lf-cluster-members" aria-labelledby="lf-cluster-members-title">
+                <header class="lf-overview-panel-header">
+                    <div>
+                        <p class="lf-section-kicker">Output order</p>
+                        <h2 id="lf-cluster-members-title">Cluster members</h2>
                     </div>
+                    <p>Drag configured members to change their lighting order.</p>
+                </header>
+                {{ $hasMembers := false }}
+                <div class="lf-cluster-members-table-wrap" tabindex="0" role="group" aria-labelledby="lf-cluster-members-title">
+                    <table class="lf-cluster-members-table">
+                        <thead>
+                            <tr><th scope="col">Order</th><th scope="col">Device</th><th scope="col">Serial</th></tr>
+                        </thead>
+                        <tbody id="clusterSortable">
+                            {{ with .Device }}
+                                {{ range .Controllers }}
+                                    {{ if . }}
+                                        {{ $hasMembers = true }}
+                                        <tr data-serial="{{ .Serial }}">
+                                            <td class="lf-cluster-member-handle"><span aria-hidden="true">☷</span><span class="lf-visually-hidden">Drag to reorder</span></td>
+                                            <td class="lf-cluster-member-product">{{ .Product }}</td>
+                                            <td class="lf-cluster-member-serial">{{ .Serial }}</td>
+                                        </tr>
+                                    {{ end }}
+                                {{ end }}
+                            {{ end }}
+                        </tbody>
+                    </table>
+                    {{ if not $hasMembers }}<p class="lf-cluster-members-empty">No cluster members configured.</p>{{ end }}
                 </div>
-            </div>
+            </section>
         </main>
     </div>
-</div>
-<script src="/static/js/cluster.js?v=3"></script>
-<script src="/static/js/sidebar.js"></script>
-{{ if .Dashboard.TemperatureBar }}
-<script src="/static/js/temperature-bar.js"></script>
-{{ end }}
+
+    <script src="/static/js/devices-lighting.js?v=4"></script>
+    <script src="/static/js/cluster.js?v=4"></script>
 </body>
 </html>
