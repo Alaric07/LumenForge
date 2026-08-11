@@ -40,25 +40,27 @@ type PathOptions struct {
 type Paths struct {
 	Mode ServiceMode
 
-	ApplicationRoot           string
-	ConfigurationDirectory    string
-	ConfigurationFile         string
-	ExternalSourcesFile       string
-	MutableDataRoot           string
-	MutableDatabaseRoot       string
-	DashboardFile             string
-	DisplayFile               string
-	MutableProfilesRoot       string
-	MutableRGBRoot            string
-	MutableLightingRoot       string
-	OpenRGBDeviceLightingFile string
-	DeviceEffectSettingsFile  string
-	ClusterEffectSettingsFile string
-	MutableTemperaturesRoot   string
-	MutableMacrosRoot         string
-	MutableKeyAssignmentsRoot string
-	MutableLEDRoot            string
-	OpenRGBImportFile         string
+	ApplicationRoot             string
+	ConfigurationDirectory      string
+	ConfigurationFile           string
+	ExternalSourcesFile         string
+	MutableDataRoot             string
+	MutableDatabaseRoot         string
+	DashboardFile               string
+	DisplayFile                 string
+	MutableProfilesRoot         string
+	MutableRGBRoot              string
+	MutableLightingRoot         string
+	OpenRGBDeviceLightingFile   string
+	DeviceEffectSettingsFile    string
+	ClusterEffectSettingsFile   string
+	RGBClusterLightingStateFile string
+	RGBClusterLayoutFile        string
+	MutableTemperaturesRoot     string
+	MutableMacrosRoot           string
+	MutableKeyAssignmentsRoot   string
+	MutableLEDRoot              string
+	OpenRGBImportFile           string
 
 	ShippedDatabaseRoot          string
 	ShippedDeviceDefinitionsRoot string
@@ -206,25 +208,27 @@ func ResolvePaths(options PathOptions) (Paths, error) {
 	return Paths{
 		Mode: mode,
 
-		ApplicationRoot:           applicationRoot,
-		ConfigurationDirectory:    configRoot,
-		ConfigurationFile:         filepath.Join(configRoot, "config.json"),
-		ExternalSourcesFile:       externalSourcesFile,
-		MutableDataRoot:           dataRoot,
-		MutableDatabaseRoot:       mutableDatabaseRoot,
-		DashboardFile:             filepath.Join(dataRoot, "dashboard.json"),
-		DisplayFile:               filepath.Join(dataRoot, "display.json"),
-		MutableProfilesRoot:       filepath.Join(mutableDatabaseRoot, "profiles"),
-		MutableRGBRoot:            filepath.Join(mutableDatabaseRoot, "rgb"),
-		MutableLightingRoot:       filepath.Join(mutableDatabaseRoot, "lighting"),
-		OpenRGBDeviceLightingFile: filepath.Join(mutableDatabaseRoot, "lighting", "openrgb-device-state.json"),
-		DeviceEffectSettingsFile:  filepath.Join(mutableDatabaseRoot, "lighting", "independent-device-effects.json"),
-		ClusterEffectSettingsFile: filepath.Join(mutableDatabaseRoot, "lighting", "rgb-cluster-effects.json"),
-		MutableTemperaturesRoot:   filepath.Join(mutableDatabaseRoot, "temperatures"),
-		MutableMacrosRoot:         filepath.Join(mutableDatabaseRoot, "macros"),
-		MutableKeyAssignmentsRoot: filepath.Join(mutableDatabaseRoot, "key-assignments"),
-		MutableLEDRoot:            filepath.Join(mutableDatabaseRoot, "led"),
-		OpenRGBImportFile:         filepath.Join(mutableDatabaseRoot, "openrgbimport-zones.json"),
+		ApplicationRoot:             applicationRoot,
+		ConfigurationDirectory:      configRoot,
+		ConfigurationFile:           filepath.Join(configRoot, "config.json"),
+		ExternalSourcesFile:         externalSourcesFile,
+		MutableDataRoot:             dataRoot,
+		MutableDatabaseRoot:         mutableDatabaseRoot,
+		DashboardFile:               filepath.Join(dataRoot, "dashboard.json"),
+		DisplayFile:                 filepath.Join(dataRoot, "display.json"),
+		MutableProfilesRoot:         filepath.Join(mutableDatabaseRoot, "profiles"),
+		MutableRGBRoot:              filepath.Join(mutableDatabaseRoot, "rgb"),
+		MutableLightingRoot:         filepath.Join(mutableDatabaseRoot, "lighting"),
+		OpenRGBDeviceLightingFile:   filepath.Join(mutableDatabaseRoot, "lighting", "openrgb-device-state.json"),
+		DeviceEffectSettingsFile:    filepath.Join(mutableDatabaseRoot, "lighting", "independent-device-effects.json"),
+		ClusterEffectSettingsFile:   filepath.Join(mutableDatabaseRoot, "lighting", "rgb-cluster-effects.json"),
+		RGBClusterLightingStateFile: filepath.Join(mutableDatabaseRoot, "lighting", "rgb-cluster-state.json"),
+		RGBClusterLayoutFile:        filepath.Join(mutableDatabaseRoot, "rgb-cluster-layout.json"),
+		MutableTemperaturesRoot:     filepath.Join(mutableDatabaseRoot, "temperatures"),
+		MutableMacrosRoot:           filepath.Join(mutableDatabaseRoot, "macros"),
+		MutableKeyAssignmentsRoot:   filepath.Join(mutableDatabaseRoot, "key-assignments"),
+		MutableLEDRoot:              filepath.Join(mutableDatabaseRoot, "led"),
+		OpenRGBImportFile:           filepath.Join(mutableDatabaseRoot, "openrgbimport-zones.json"),
 
 		ShippedDatabaseRoot:          shippedDatabaseRoot,
 		ShippedDeviceDefinitionsRoot: filepath.Join(shippedDatabaseRoot, "external"),

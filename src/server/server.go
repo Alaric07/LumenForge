@@ -107,7 +107,14 @@ var (
 	resetOpenRGBImportCustomizationValue = func(device *openrgbimport.Device, serial, effect string) error {
 		return device.ResetEffectCustomization(serial, effect)
 	}
-	mediaInputControl = inputmanager.InputControlKeyboard
+	mediaInputControl           = inputmanager.InputControlKeyboard
+	getRGBClusterLightingStatus = func() (cluster.LightingSnapshot, int) {
+		device := cluster.Get()
+		if device == nil {
+			return cluster.LightingSnapshot{}, 0
+		}
+		return device.LightingSnapshot(), device.ControllerCount()
+	}
 )
 
 const (
@@ -1519,19 +1526,12 @@ func getDashboardLighting(w http.ResponseWriter, _ *http.Request) {
 		NonClusterRgbDevices int    `json:"nonClusterRgbDevices"`
 	}
 
-	cl := cluster.Get()
 	effect := "off"
 	brightness := 0
-	clusterMembers := 0
-
-	if cl != nil {
-		if cl.DeviceProfile != nil {
-			effect = cl.DeviceProfile.RGBProfile
-			if cl.DeviceProfile.BrightnessSlider != nil {
-				brightness = int(*cl.DeviceProfile.BrightnessSlider)
-			}
-		}
-		clusterMembers = len(cl.Controllers)
+	snapshot, clusterMembers := getRGBClusterLightingStatus()
+	if snapshot.Available {
+		effect = snapshot.SelectedEffect
+		brightness = int(snapshot.Brightness)
 	}
 	if effect == "" {
 		effect = "off"

@@ -641,10 +641,6 @@ func InitTray() {
 		return
 	}
 
-	// Hotfix: Force clear any stuck RgbOff states from previous toggles
-	devices.ControlDeviceRgb(false)
-	cluster.Get().ControlDeviceRgb(false)
-
 	ready := make(chan struct{})
 	trayWorkers.Add(2)
 	stateMutex.Unlock()

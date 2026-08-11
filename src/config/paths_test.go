@@ -42,6 +42,12 @@ func TestResolvePathsInstalledUserWithXDGRoots(t *testing.T) {
 	if paths.ClusterEffectSettingsFile != "/srv/alice-data/lumenforge/database/lighting/rgb-cluster-effects.json" {
 		t.Fatalf("ClusterEffectSettingsFile = %q", paths.ClusterEffectSettingsFile)
 	}
+	if paths.RGBClusterLightingStateFile != "/srv/alice-data/lumenforge/database/lighting/rgb-cluster-state.json" {
+		t.Fatalf("RGBClusterLightingStateFile = %q", paths.RGBClusterLightingStateFile)
+	}
+	if paths.RGBClusterLayoutFile != "/srv/alice-data/lumenforge/database/rgb-cluster-layout.json" {
+		t.Fatalf("RGBClusterLayoutFile = %q", paths.RGBClusterLayoutFile)
+	}
 }
 
 func TestResolvePathsInstalledUserFallbacks(t *testing.T) {

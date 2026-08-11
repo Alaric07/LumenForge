@@ -5,27 +5,30 @@ package cluster
 // License: GPL-3.0 or later
 
 import (
-	"LumenForge/src/common"
-	"LumenForge/src/config"
-	"LumenForge/src/logger"
-	"LumenForge/src/rgb"
-	"LumenForge/src/temperatures"
-	"encoding/json"
+	"fmt"
 	"math/rand"
-	"os"
-	"slices"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
+
+	"LumenForge/src/common"
+	"LumenForge/src/config"
+	"LumenForge/src/lightingsettings"
+	"LumenForge/src/logger"
+	"LumenForge/src/rgb"
+	"LumenForge/src/temperatures"
 )
 
 var (
-	pwd                   = ""
 	d                     *Device
 	deviceRefreshInterval = 1000
-	rgbProfileUpgrade     = []string{"arc", "comet", "datastream", "plasmacore", "stardust", "gradient", "pastelrainbow", "pastelspiralrainbow", "rain", "off", "rotarystack", "flame", "aurora", "cyberpunkglitch", "tokyonight"}
 )
 
+const workerStopTimeout = 250 * time.Millisecond
+
+// DeviceProfile remains an in-memory compatibility projection for the legacy
+// Cluster page. Canonical lighting and layout stores are the only authorities.
 type DeviceProfile struct {
 	RGBProfile         string
 	BrightnessSlider   *uint8
@@ -33,6 +36,14 @@ type DeviceProfile struct {
 	DeviceOrder        []string
 	RgbOff             bool
 	LastNonOffProfile  string
+}
+
+// LightingSnapshot is a read-only view of canonical RGB Cluster target state.
+type LightingSnapshot struct {
+	SelectedEffect      string
+	Brightness          uint8
+	EffectiveBrightness uint8
+	Available           bool
 }
 
 type Device struct {
@@ -49,81 +60,111 @@ type Device struct {
 	GpuTemp         float32
 	timer           *time.Ticker
 	autoRefreshChan chan struct{}
+
+	lightingState      *clusterLightingStateStore
+	layout             *clusterLayoutStore
+	effects            *lightingsettings.ClusterStore
+	resolver           *lightingsettings.Resolver
+	runtimeErr         error
+	schedulerLightsOut bool
+
+	workerMutex          sync.Mutex
+	workerStop           chan struct{}
+	workerDone           chan struct{}
+	workerStopping       bool
+	workerRestartPending bool
+	workerStarts         uint64
+}
+
+func clusterRGBModes() []string {
+	return []string{
+		"off", "arc", "comet", "datastream", "circle", "circleshift",
+		"colorpulse", "colorshift", "colorwarp", "cpu-temperature",
+		"flickering", "flame", "aurora", "cyberpunkglitch", "tokyonight",
+		"gpu-temperature", "gradient", "marquee", "nebula", "rain",
+		"rainbow", "pastelrainbow", "plasmacore", "rotarystack", "rotator",
+		"sequential", "spinner", "spiralrainbow", "pastelspiralrainbow",
+		"static", "stardust", "storm", "visor", "watercolor", "wave",
+	}
+}
+
+func newBaseDevice() *Device {
+	return &Device{
+		Product:         "Cluster",
+		Serial:          lightingsettings.RGBClusterIdentity,
+		RGBModes:        clusterRGBModes(),
+		autoRefreshChan: make(chan struct{}),
+		Controllers:     make([]*common.ClusterController, 0),
+	}
+}
+
+func newDevice(paths config.Paths) (*Device, error) {
+	device := newBaseDevice()
+	defaults, err := lightingsettings.LoadDefaultRepository(filepath.Join(paths.ShippedDatabaseRoot, "rgb.json"))
+	if err != nil {
+		return device, fmt.Errorf("load RGB Cluster shipped defaults: %w", err)
+	}
+	effects, err := lightingsettings.LoadClusterStore(paths.ClusterEffectSettingsFile)
+	if err != nil {
+		return device, fmt.Errorf("load RGB Cluster effect settings: %w", err)
+	}
+	state, err := loadClusterLightingStateStore(paths.RGBClusterLightingStateFile)
+	if err != nil {
+		return device, err
+	}
+	layout, err := loadClusterLayoutStore(paths.RGBClusterLayoutFile)
+	if err != nil {
+		return device, err
+	}
+	resolver, err := lightingsettings.NewClusterResolver(defaults, effects)
+	if err != nil {
+		return device, err
+	}
+	device.effects = effects
+	device.lightingState = state
+	device.layout = layout
+	device.resolver = resolver
+	if err = device.refreshCompatibilityProjection(); err != nil {
+		return device, err
+	}
+	device.setAutoRefresh()
+	return device, nil
 }
 
 func Init() *Device {
-	// Set global working directory
-	pwd = config.GetPaths().MutableDataRoot
-	d = &Device{
-		Product: "Cluster",
-		Serial:  "cluster",
-		RGBModes: []string{
-			"off",
-			"arc",
-			"comet",
-			"datastream",
-			"circle",
-			"circleshift",
-			"colorpulse",
-			"colorshift",
-			"colorwarp",
-			"cpu-temperature",
-			"flickering",
-			"flame",
-			"aurora",
-			"cyberpunkglitch", "tokyonight",
-			"gpu-temperature",
-			"gradient",
-			"marquee",
-			"nebula",
-			"rain",
-			"rainbow",
-			"pastelrainbow",
-			"plasmacore",
-			"rotarystack",
-			"rotator",
-			"sequential",
-			"spinner",
-			"spiralrainbow",
-			"pastelspiralrainbow",
-			"static",
-			"stardust",
-			"storm",
-			"visor",
-			"watercolor",
-			"wave",
-		},
-		autoRefreshChan: make(chan struct{}),
-		timer:           &time.Ticker{},
-		Controllers:     make([]*common.ClusterController, 0),
+	device, err := newDevice(config.GetPaths())
+	if err != nil {
+		device.runtimeErr = err
+		logger.Log(logger.Fields{"error": err}).Error("Unable to initialize canonical RGB Cluster lighting")
+		device.setAutoRefresh()
 	}
-	d.loadRgb()
-	d.loadDeviceProfile()
-	d.saveDeviceProfile()
-	d.setAutoRefresh()
+	d = device
 	return d
 }
 
-// Stop will stop all device operations and switch a device back to hardware mode
+// Stop stops Cluster output without changing canonical desired state.
 func (d *Device) Stop() {
 	if d == nil {
 		return
 	}
-
-	d.Exit = true
 	logger.Log(logger.Fields{"serial": d.Serial, "product": d.Product}).Info("Stopping device...")
-
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
+	d.mutex.Lock()
+	d.Exit = true
+	autoRefreshChan := d.autoRefreshChan
+	d.autoRefreshChan = nil
+	timer := d.timer
+	d.timer = nil
+	d.mutex.Unlock()
+	if autoRefreshChan != nil {
+		close(autoRefreshChan)
 	}
-	d.timer.Stop()
-
-	if d.autoRefreshChan != nil {
-		close(d.autoRefreshChan)
-		d.autoRefreshChan = nil
+	if timer != nil {
+		timer.Stop()
 	}
+	d.stopWorker()
+	d.mutex.Lock()
 	d.Controllers = make([]*common.ClusterController, 0)
+	d.mutex.Unlock()
 	logger.Log(logger.Fields{"serial": d.Serial, "product": d.Product}).Info("Device stopped")
 }
 
@@ -131,12 +172,52 @@ func Get() *Device {
 	return d
 }
 
-// AddDeviceController will add a new Cluster Controller
+func (d *Device) runtimeAvailable() bool {
+	return d != nil && d.runtimeErr == nil && d.lightingState != nil && d.layout != nil && d.effects != nil && d.resolver != nil
+}
+
+// LightingSnapshot returns canonical state without exposing mutable stores.
+func (d *Device) LightingSnapshot() LightingSnapshot {
+	if !d.runtimeAvailable() {
+		return LightingSnapshot{}
+	}
+	state, err := d.lightingState.Snapshot()
+	if err != nil {
+		return LightingSnapshot{}
+	}
+	d.mutex.RLock()
+	lightsOut := d.schedulerLightsOut
+	d.mutex.RUnlock()
+	effective := state.Brightness
+	if lightsOut {
+		effective = 0
+	}
+	return LightingSnapshot{
+		SelectedEffect:      state.SelectedEffect,
+		Brightness:          state.Brightness,
+		EffectiveBrightness: effective,
+		Available:           true,
+	}
+}
+
+// ControllerCount returns the current runtime membership count.
+func (d *Device) ControllerCount() int {
+	if d == nil {
+		return 0
+	}
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+	return len(d.Controllers)
+}
+
 func (d *Device) AddDeviceController(controller *common.ClusterController) {
+	if d == nil || controller == nil {
+		return
+	}
 	d.mutex.Lock()
 	duplicate := false
-	for _, c := range d.Controllers {
-		if c.Serial == controller.Serial && c.ChannelId == controller.ChannelId {
+	for _, current := range d.Controllers {
+		if current != nil && current.Serial == controller.Serial && current.ChannelId == controller.ChannelId {
 			duplicate = true
 			break
 		}
@@ -144,721 +225,763 @@ func (d *Device) AddDeviceController(controller *common.ClusterController) {
 	if !duplicate {
 		d.Controllers = append(d.Controllers, controller)
 	}
+	count := len(d.Controllers)
 	d.mutex.Unlock()
-
-	if !duplicate {
-		d.SortControllers()
-
-		if len(d.Controllers) == 1 {
-			d.setDeviceColor()
-		}
+	if duplicate {
+		return
+	}
+	d.SortControllers()
+	if count == 1 {
+		d.restartWorker()
 	}
 }
 
-// SortControllers permanently sorts the controllers array based on the saved DeviceOrder
+// SortControllers orders runtime members from the independent layout store.
 func (d *Device) SortControllers() {
-	if d.DeviceProfile != nil && len(d.DeviceProfile.DeviceOrder) > 0 {
-		d.mutex.Lock()
-		defer d.mutex.Unlock()
-		sort.Slice(d.Controllers, func(i, j int) bool {
-			idxI := common.IndexOfString(d.DeviceProfile.DeviceOrder, d.Controllers[i].Serial)
-			idxJ := common.IndexOfString(d.DeviceProfile.DeviceOrder, d.Controllers[j].Serial)
-			if idxI == -1 {
-				return false
-			}
-			if idxJ == -1 {
-				return true
-			}
-			return idxI < idxJ
-		})
+	if d == nil || d.layout == nil {
+		return
 	}
-}
-
-// RemoveDeviceControllerBySerial removes a controller by its serial
-func (d *Device) RemoveDeviceControllerBySerial(serial string) {
+	layout, err := d.layout.Snapshot()
+	if err != nil {
+		return
+	}
+	ranks := make(map[string]int, len(layout.DeviceOrder))
+	for index, serial := range layout.DeviceOrder {
+		ranks[serial] = index
+	}
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
+	sort.SliceStable(d.Controllers, func(first, second int) bool {
+		firstController := d.Controllers[first]
+		secondController := d.Controllers[second]
+		if firstController == nil || secondController == nil {
+			return firstController != nil && secondController == nil
+		}
+		firstRank, firstFound := ranks[firstController.Serial]
+		secondRank, secondFound := ranks[secondController.Serial]
+		if firstFound != secondFound {
+			return firstFound
+		}
+		return firstFound && firstRank < secondRank
+	})
+}
 
-	removedAny := false
-	for i := len(d.Controllers) - 1; i >= 0; i-- {
-		if d.Controllers[i].Serial == serial {
-			d.Controllers = append(d.Controllers[:i], d.Controllers[i+1:]...)
-			removedAny = true
+func (d *Device) RemoveDeviceControllerBySerial(serial string) {
+	if d == nil {
+		return
+	}
+	d.mutex.Lock()
+	removed := false
+	for index := len(d.Controllers) - 1; index >= 0; index-- {
+		if d.Controllers[index] != nil && d.Controllers[index].Serial == serial {
+			d.Controllers = append(d.Controllers[:index], d.Controllers[index+1:]...)
+			removed = true
 		}
 	}
-
-	if removedAny && len(d.Controllers) == 0 {
-		if d.activeRgb != nil {
-			d.activeRgb.Exit <- true
-			d.activeRgb = nil
-		}
+	empty := len(d.Controllers) == 0
+	d.mutex.Unlock()
+	if removed && empty {
+		d.stopWorker()
 	}
 }
 
-// GetRgbProfiles will return RGB profiles for a target device
-func (d *Device) GetRgbProfiles() interface{} {
-	return d.Rgb
+func (d *Device) compatibilityProfiles() (map[string]rgb.Profile, error) {
+	if !d.runtimeAvailable() {
+		return nil, fmt.Errorf("RGB Cluster lighting runtime is unavailable")
+	}
+	profiles := make(map[string]rgb.Profile, len(d.RGBModes))
+	for _, effect := range d.RGBModes {
+		resolution, err := d.resolver.Resolve(lightingsettings.RGBCluster(), effect)
+		if err != nil {
+			return nil, err
+		}
+		profiles[effect] = rgbProfileFromSettings(resolution.Settings)
+	}
+	return profiles, nil
 }
 
-// GetRgbProfile will return rgb.Profile struct
-func (d *Device) GetRgbProfile(profile string) *rgb.Profile {
-	if d.Rgb == nil {
-		return nil
+func (d *Device) refreshCompatibilityProjection() error {
+	if !d.runtimeAvailable() {
+		return fmt.Errorf("RGB Cluster lighting runtime is unavailable")
 	}
-
-	if val, ok := d.Rgb.Profiles[profile]; ok {
-		return &val
+	state, err := d.lightingState.Snapshot()
+	if err != nil {
+		return err
 	}
+	layout, err := d.layout.Snapshot()
+	if err != nil {
+		return err
+	}
+	profiles, err := d.compatibilityProfiles()
+	if err != nil {
+		return err
+	}
+	brightness := state.Brightness
+	profile := &DeviceProfile{
+		RGBProfile:       state.SelectedEffect,
+		BrightnessSlider: &brightness,
+		DeviceOrder:      append([]string(nil), layout.DeviceOrder...),
+		RgbOff:           state.SelectedEffect == "off",
+	}
+	d.mutex.Lock()
+	d.DeviceProfile = profile
+	d.Rgb = &rgb.RGB{Device: d.Product, Profiles: profiles}
+	d.mutex.Unlock()
 	return nil
 }
 
-// ProcessNewGradientColor will create new gradient color
-func (d *Device) ProcessNewGradientColor(profileName string) (uint8, uint) {
-	if d.GetRgbProfile(profileName) == nil {
-		logger.Log(logger.Fields{"serial": d.Serial, "profile": profileName}).Warn("Non-existing RGB profile")
-		return 0, 0
+func (d *Device) GetRgbProfiles() interface{} {
+	if d == nil {
+		return &rgb.RGB{Profiles: map[string]rgb.Profile{}}
 	}
-
-	pf := d.GetRgbProfile(profileName)
-	if pf == nil {
-		return 0, 0
+	profiles, err := d.compatibilityProfiles()
+	if err != nil {
+		return &rgb.RGB{Device: d.Product, Profiles: map[string]rgb.Profile{}}
 	}
-
-	if pf.Gradients == nil {
-		return 0, 0
-	}
-
-	// find next available key
-	nextID := 0
-	for k := range pf.Gradients {
-		if k >= nextID {
-			nextID = k + 1
-		}
-	}
-	pf.Gradients[nextID] = rgb.Color{Red: 0, Green: 255, Blue: 255}
-
-	d.Rgb.Profiles[profileName] = *pf
-	d.saveRgbProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true // Exit current RGB mode
-		d.activeRgb = nil
-	}
-	d.setDeviceColor() // Restart RGB
-	return 1, uint(nextID)
+	return &rgb.RGB{Device: d.Product, Profiles: profiles}
 }
 
-// ProcessDeleteGradientColor will delete gradient color
-func (d *Device) ProcessDeleteGradientColor(profileName string) (uint8, uint) {
-	if d.GetRgbProfile(profileName) == nil {
-		logger.Log(logger.Fields{"serial": d.Serial, "profile": profileName}).Warn("Non-existing RGB profile")
+func (d *Device) GetRgbProfile(effect string) *rgb.Profile {
+	if !d.runtimeAvailable() {
+		return nil
+	}
+	resolution, err := d.resolver.Resolve(lightingsettings.RGBCluster(), effect)
+	if err != nil {
+		return nil
+	}
+	profile := rgbProfileFromSettings(resolution.Settings)
+	return &profile
+}
+
+func rgbProfileFromSettings(settings lightingsettings.EffectSettings) rgb.Profile {
+	profile := rgb.Profile{ProfileName: settings.EffectID, Brightness: 1}
+	if settings.Speed != nil {
+		profile.Speed = *settings.Speed
+	}
+	if settings.SingleColor != nil {
+		profile.StartColor = rgbColorFromLightingColor(settings.SingleColor.Color)
+		profile.EndColor = profile.StartColor
+	}
+	if settings.TwoColor != nil {
+		profile.StartColor = rgbColorFromLightingColor(settings.TwoColor.Start)
+		profile.EndColor = rgbColorFromLightingColor(settings.TwoColor.End)
+	}
+	if settings.Temperature != nil {
+		profile.StartColor = rgbTemperatureColor(settings.Temperature.Low)
+		profile.MiddleColor = rgbTemperatureColor(settings.Temperature.Middle)
+		profile.EndColor = rgbTemperatureColor(settings.Temperature.High)
+		profile.MinTemp = settings.Temperature.Low.Celsius
+		profile.MaxTemp = settings.Temperature.High.Celsius
+	}
+	if settings.Gradient != nil {
+		profile.Gradients = make(map[int]rgb.Color, len(settings.Gradient.Stops))
+		for index, stop := range settings.Gradient.Stops {
+			color := rgbColorFromLightingColor(stop.Color)
+			color.Position = stop.Position
+			color.Brightness = stop.Intensity
+			profile.Gradients[index] = color
+		}
+	}
+	return profile
+}
+
+func rgbColorFromLightingColor(color lightingsettings.Color) rgb.Color {
+	return rgb.Color{Red: color.Red, Green: color.Green, Blue: color.Blue, Brightness: 1}
+}
+
+func rgbTemperatureColor(point lightingsettings.TemperaturePoint) rgb.Color {
+	color := rgbColorFromLightingColor(point.Color)
+	color.Temperature = point.Celsius
+	return color
+}
+
+func lightingColorFromRGB(color rgb.Color) lightingsettings.Color {
+	return lightingsettings.Color{Red: color.Red, Green: color.Green, Blue: color.Blue}
+}
+
+func settingsFromLegacyProfile(effect string, profile rgb.Profile, current lightingsettings.EffectSettings) (lightingsettings.EffectSettings, error) {
+	descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect)
+	if !ok || !descriptor.Scope.Includes(rgb.EffectScopeCluster) {
+		return lightingsettings.EffectSettings{}, fmt.Errorf("unsupported RGB Cluster effect")
+	}
+	settings := current.Clone()
+	settings.SchemaVersion = lightingsettings.SchemaVersion
+	settings.EffectID = effect
+	if descriptor.SupportsSpeed {
+		speed := profile.Speed
+		settings.Speed = &speed
+	}
+	switch descriptor.PaletteKind {
+	case rgb.LightingPaletteNone, rgb.LightingPaletteGenerated:
+	case rgb.LightingPaletteStaticSingle:
+		settings.SingleColor = &lightingsettings.SingleColorSettings{Color: lightingColorFromRGB(profile.StartColor)}
+	case rgb.LightingPaletteTwoColor:
+		settings.TwoColor = &lightingsettings.TwoColorSettings{
+			Start: lightingColorFromRGB(profile.StartColor),
+			End:   lightingColorFromRGB(profile.EndColor),
+		}
+	case rgb.LightingPaletteTemperatureThree:
+		if current.Temperature == nil {
+			return lightingsettings.EffectSettings{}, fmt.Errorf("complete RGB Cluster temperature settings are unavailable")
+		}
+		settings.Temperature = &lightingsettings.TemperatureSettings{
+			Low: lightingsettings.TemperaturePoint{
+				Color: lightingColorFromRGB(profile.StartColor), Celsius: profile.MinTemp,
+			},
+			Middle: lightingsettings.TemperaturePoint{
+				Color: lightingColorFromRGB(profile.MiddleColor), Celsius: current.Temperature.Middle.Celsius,
+			},
+			High: lightingsettings.TemperaturePoint{
+				Color: lightingColorFromRGB(profile.EndColor), Celsius: profile.MaxTemp,
+			},
+		}
+	case rgb.LightingPaletteGradient:
+		indexes := make([]int, 0, len(profile.Gradients))
+		for index := range profile.Gradients {
+			indexes = append(indexes, index)
+		}
+		sort.Ints(indexes)
+		stops := make([]lightingsettings.GradientStop, 0, len(indexes))
+		for _, index := range indexes {
+			color := profile.Gradients[index]
+			stops = append(stops, lightingsettings.GradientStop{
+				Position: color.Position, Color: lightingColorFromRGB(color), Intensity: color.Brightness,
+			})
+		}
+		sort.SliceStable(stops, func(first, second int) bool { return stops[first].Position < stops[second].Position })
+		settings.Gradient = &lightingsettings.GradientSettings{Stops: stops}
+	default:
+		return lightingsettings.EffectSettings{}, fmt.Errorf("unsupported RGB Cluster palette")
+	}
+	if err := lightingsettings.Validate(settings); err != nil {
+		return lightingsettings.EffectSettings{}, err
+	}
+	return settings, nil
+}
+
+func (d *Device) ProcessNewGradientColor(effect string) (uint8, uint) {
+	if !d.runtimeAvailable() {
 		return 0, 0
 	}
-
-	pf := d.GetRgbProfile(profileName)
-	if pf == nil {
+	resolution, err := d.resolver.Resolve(lightingsettings.RGBCluster(), effect)
+	if err != nil || resolution.Settings.Gradient == nil {
 		return 0, 0
 	}
+	settings := resolution.Settings.Clone()
+	stops := append([]lightingsettings.GradientStop(nil), settings.Gradient.Stops...)
+	position := 0.0
+	if len(stops) > 0 {
+		position = stops[len(stops)-1].Position
+	}
+	stops = append(stops, lightingsettings.GradientStop{
+		Position: position, Color: lightingsettings.Color{Green: 255, Blue: 255}, Intensity: 0,
+	})
+	settings.Gradient.Stops = stops
+	if err = d.effects.Set(effect, settings); err != nil {
+		logger.Log(logger.Fields{"error": err, "effect": effect}).Error("Unable to persist RGB Cluster Gradient")
+		return 0, 0
+	}
+	_ = d.refreshCompatibilityProjection()
+	if d.LightingSnapshot().SelectedEffect == effect {
+		d.restartWorker()
+	}
+	return 1, uint(len(stops) - 1)
+}
 
-	if len(pf.Gradients) < 3 {
+func (d *Device) ProcessDeleteGradientColor(effect string) (uint8, uint) {
+	if !d.runtimeAvailable() {
+		return 0, 0
+	}
+	resolution, err := d.resolver.Resolve(lightingsettings.RGBCluster(), effect)
+	if err != nil || resolution.Settings.Gradient == nil {
+		return 0, 0
+	}
+	settings := resolution.Settings.Clone()
+	if len(settings.Gradient.Stops) < 3 {
 		return 2, 0
 	}
-
-	maxKey := -1
-	for k := range pf.Gradients {
-		if k > maxKey {
-			maxKey = k
-		}
+	removed := len(settings.Gradient.Stops) - 1
+	settings.Gradient.Stops = append([]lightingsettings.GradientStop(nil), settings.Gradient.Stops[:removed]...)
+	if err = d.effects.Set(effect, settings); err != nil {
+		logger.Log(logger.Fields{"error": err, "effect": effect}).Error("Unable to persist RGB Cluster Gradient")
+		return 0, 0
 	}
-	delete(pf.Gradients, maxKey)
-
-	d.Rgb.Profiles[profileName] = *pf
-	d.saveRgbProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true // Exit current RGB mode
-		d.activeRgb = nil
+	_ = d.refreshCompatibilityProjection()
+	if d.LightingSnapshot().SelectedEffect == effect {
+		d.restartWorker()
 	}
-	d.setDeviceColor() // Restart RGB
-	return 1, uint(maxKey)
+	return 1, uint(removed)
 }
 
-// UpdateRgbProfileData will update RGB profile data
-func (d *Device) UpdateRgbProfileData(profileName string, profile rgb.Profile) uint8 {
-	if d.GetRgbProfile(profileName) == nil {
-		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
+func (d *Device) UpdateRgbProfileData(effect string, profile rgb.Profile) uint8 {
+	if !d.runtimeAvailable() {
 		return 0
 	}
-
-	pf := d.GetRgbProfile(profileName)
-	if pf == nil {
+	resolution, err := d.resolver.Resolve(lightingsettings.RGBCluster(), effect)
+	if err != nil {
 		return 0
 	}
-	profile.StartColor.Brightness = pf.StartColor.Brightness
-	profile.EndColor.Brightness = pf.EndColor.Brightness
-	pf.StartColor = profile.StartColor
-	pf.EndColor = profile.EndColor
-	pf.Speed = profile.Speed
-	pf.Gradients = profile.Gradients
-
-	d.Rgb.Profiles[profileName] = *pf
-	d.saveRgbProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true // Exit current RGB mode
-		d.activeRgb = nil
+	settings, err := settingsFromLegacyProfile(effect, profile, resolution.Settings)
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "effect": effect}).Warn("Invalid RGB Cluster effect settings")
+		return 0
 	}
-	d.setDeviceColor() // Restart RGB
+	if err = d.effects.Set(effect, settings); err != nil {
+		logger.Log(logger.Fields{"error": err, "effect": effect}).Error("Unable to persist RGB Cluster effect settings")
+		return 0
+	}
+	_ = d.refreshCompatibilityProjection()
+	if d.LightingSnapshot().SelectedEffect == effect {
+		d.restartWorker()
+	}
 	return 1
 }
 
-// UpdateRgbProfile will update device RGB profile
-func (d *Device) UpdateRgbProfile(_ int, profile string) uint8 {
-	if d.DeviceProfile == nil {
+func (d *Device) UpdateRgbProfile(_ int, effect string) uint8 {
+	if !d.runtimeAvailable() {
 		return 0
 	}
-	pf := d.GetRgbProfile(profile)
-	if pf == nil {
-		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
+	descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect)
+	if !ok || !descriptor.Scope.Includes(rgb.EffectScopeCluster) {
 		return 0
 	}
-	if profile != "off" {
-		d.DeviceProfile.LastNonOffProfile = profile
+	state, err := d.lightingState.Snapshot()
+	if err != nil {
+		return 0
 	}
-	d.DeviceProfile.RGBProfile = profile
-	d.saveDeviceProfile()
-
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true // Exit current RGB mode
-		d.activeRgb = nil
+	state.SelectedEffect = effect
+	if err = d.lightingState.Set(state); err != nil {
+		logger.Log(logger.Fields{"error": err, "effect": effect}).Error("Unable to persist RGB Cluster selected effect")
+		return 0
 	}
-	d.setDeviceColor() // Restart RGB
+	_ = d.refreshCompatibilityProjection()
+	d.restartWorker()
 	return 1
 }
 
-// UpdateDeviceOrder saves the new sequence of devices for the cluster animations
 func (d *Device) UpdateDeviceOrder(order []string) uint8 {
-	if d.DeviceProfile == nil {
+	if !d.runtimeAvailable() {
 		return 0
 	}
-	d.DeviceProfile.DeviceOrder = order
-	d.saveDeviceProfile()
-
+	layout := clusterLayout{SchemaVersion: clusterPersistenceSchemaVersion, DeviceOrder: append([]string(nil), order...)}
+	if err := d.layout.Set(layout); err != nil {
+		logger.Log(logger.Fields{"error": err}).Error("Unable to persist RGB Cluster layout")
+		return 0
+	}
+	_ = d.refreshCompatibilityProjection()
 	d.SortControllers()
-
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true // Exit current RGB mode
-		d.activeRgb = nil
-	}
-	d.setDeviceColor() // Restart RGB
+	d.restartWorker()
 	return 1
 }
 
-// ChangeDeviceBrightnessValue will change device brightness via slider
 func (d *Device) ChangeDeviceBrightnessValue(value uint8) uint8 {
-	if value < 0 || value > 100 {
+	if !d.runtimeAvailable() || value > 100 {
 		return 0
 	}
-
-	d.DeviceProfile.BrightnessSlider = &value
-	d.saveDeviceProfile()
+	state, err := d.lightingState.Snapshot()
+	if err != nil {
+		return 0
+	}
+	state.Brightness = value
+	if err = d.lightingState.Set(state); err != nil {
+		logger.Log(logger.Fields{"error": err, "brightness": value}).Error("Unable to persist RGB Cluster Brightness")
+		return 0
+	}
+	_ = d.refreshCompatibilityProjection()
+	d.restartWorker()
 	return 1
 }
 
-// SchedulerBrightness will change device brightness via scheduler
 func (d *Device) SchedulerBrightness(value uint8) uint8 {
-	if value == 0 {
-		d.DeviceProfile.OriginalBrightness = *d.DeviceProfile.BrightnessSlider
-		d.DeviceProfile.BrightnessSlider = &value
-	} else {
-		d.DeviceProfile.BrightnessSlider = &d.DeviceProfile.OriginalBrightness
+	if !d.runtimeAvailable() {
+		return 0
 	}
+	d.mutex.Lock()
+	d.schedulerLightsOut = value == 0
+	d.mutex.Unlock()
+	d.restartWorker()
 	return 1
 }
 
-// ControlDeviceRgb will toggle cluster RGB output on/off
 func (d *Device) ControlDeviceRgb(value bool) {
-	if d.DeviceProfile == nil {
+	if value {
+		d.UpdateRgbProfile(0, "off")
 		return
 	}
-
-	d.DeviceProfile.RgbOff = value
-	d.saveDeviceProfile()
-
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
-	d.setDeviceColor()
+	// The clean-break legacy compatibility path intentionally uses Rainbow when
+	// turning lighting on so no remembered effect becomes another authority.
+	d.UpdateRgbProfile(0, "rainbow")
 }
 
-// saveRgbProfile will save rgb profile data
-func (d *Device) saveRgbProfile() {
-	rgbDirectory := pwd + "/database/rgb/"
-	rgbFilename := rgbDirectory + d.Serial + ".json"
-	if common.FileExists(rgbFilename) {
-		if err := common.SaveJsonData(rgbFilename, d.Rgb); err != nil {
-			logger.Log(logger.Fields{"error": err, "location": rgbFilename}).Error("Unable to save rgb profile data")
-			return
-		}
+func (d *Device) controllerSnapshot() ([]*common.ClusterController, int) {
+	if d == nil {
+		return nil, 0
 	}
-}
-
-// loadRgb will load RGB file if found, or create the default.
-func (d *Device) loadRgb() {
-	rgbDirectory := pwd + "/database/rgb/"
-	rgbFilename := rgbDirectory + d.Serial + ".json"
-
-	// Check if filename has .json extension
-	if !common.IsValidExtension(rgbFilename, ".json") {
-		return
-	}
-
-	if !common.FileExists(rgbFilename) {
-		profile := rgb.GetRGB()
-		profile.Device = d.Product
-
-		if err := common.SaveJsonData(rgbFilename, profile); err != nil {
-			logger.Log(logger.Fields{"error": err, "location": rgbFilename}).Error("Unable to save rgb profile data")
-			return
-		}
-	}
-
-	file, err := os.Open(rgbFilename)
-	if err != nil {
-		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "location": rgbFilename}).Warn("Unable to load RGB")
-		return
-	}
-	if err = json.NewDecoder(file).Decode(&d.Rgb); err != nil {
-		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "location": rgbFilename}).Warn("Unable to decode profile")
-		return
-	}
-	err = file.Close()
-	if err != nil {
-		logger.Log(logger.Fields{"location": rgbFilename, "serial": d.Serial}).Warn("Failed to close file handle")
-	}
-
-	d.upgradeRgbProfile(rgbFilename, rgbProfileUpgrade)
-
-	profiles := make(map[string]rgb.Profile, len(d.Rgb.Profiles))
-	for key, value := range d.Rgb.Profiles {
-		if slices.Contains(d.RGBModes, key) {
-			profiles[key] = value
-		}
-	}
-	d.Rgb.Profiles = profiles
-}
-
-// upgradeRgbProfile will upgrade current rgb profile list
-func (d *Device) upgradeRgbProfile(path string, profiles []string) {
-	save := false
-	for _, profile := range profiles {
-		pf := d.GetRgbProfile(profile)
-		if pf == nil {
-			save = true
-			logger.Log(logger.Fields{"profile": profile}).Info("Upgrading RGB profile")
-			template := rgb.GetRgbProfile(profile)
-			if template == nil {
-				d.Rgb.Profiles[profile] = rgb.Profile{}
-			} else {
-				d.Rgb.Profiles[profile] = *template
-			}
-		}
-	}
-
-	if save {
-		if err := common.SaveJsonData(path, d.Rgb); err != nil {
-			logger.Log(logger.Fields{"error": err, "location": path}).Error("Unable to save rgb profile data")
-			return
-		}
-	}
-}
-
-// distributeColors splits the generated buffer across all controllers
-func (d *Device) distributeColors(buff []byte) {
 	d.mutex.RLock()
-	controllers := make([]*common.ClusterController, len(d.Controllers))
-	copy(controllers, d.Controllers) // copy slice to avoid race
-	d.mutex.RUnlock()
-
-	var wg sync.WaitGroup
-	offset := 0
-
-	for _, c := range controllers {
-		if c == nil {
+	defer d.mutex.RUnlock()
+	controllers := make([]*common.ClusterController, 0, len(d.Controllers))
+	total := 0
+	for _, controller := range d.Controllers {
+		if controller == nil {
 			continue
 		}
-		length := int(c.LedChannels) * 3
+		copy := *controller
+		controllers = append(controllers, &copy)
+		total += int(copy.LedChannels)
+	}
+	return controllers, total
+}
 
+func distributeColorsToControllers(buff []byte, controllers []*common.ClusterController) {
+	distributeColorsToControllersUntilStopped(buff, controllers, nil)
+}
+
+func distributeColorsToControllersUntilStopped(buff []byte, controllers []*common.ClusterController, stop <-chan struct{}) {
+	var wait sync.WaitGroup
+	offset := 0
+	for _, controller := range controllers {
+		if stop != nil {
+			select {
+			case <-stop:
+				wait.Wait()
+				return
+			default:
+			}
+		}
+		length := int(controller.LedChannels) * 3
 		if offset+length > len(buff) {
 			break
 		}
-
-		if c.WriteColorEx != nil {
-			// Each controller owns its completed frame segment. Some device-specific
-			// callbacks remap or modify their input while preparing hardware packets.
-			slice := append([]byte(nil), buff[offset:offset+length]...)
-			wg.Add(1)
-			go func(ctrl *common.ClusterController, data []byte) {
-				defer wg.Done()
-				ctrl.WriteColorEx(data, ctrl.ChannelId)
-			}(c, slice)
+		if controller.WriteColorEx != nil {
+			segment := append([]byte(nil), buff[offset:offset+length]...)
+			wait.Add(1)
+			go func(current *common.ClusterController, data []byte) {
+				defer wait.Done()
+				current.WriteColorEx(data, current.ChannelId)
+			}(controller, segment)
 		}
-
 		offset += length
 	}
-
-	wg.Wait() // wait for all goroutines to finish
+	wait.Wait()
 }
 
-// setDeviceColor will set cluster rgb effect
-func (d *Device) setDeviceColor() {
-	if d.DeviceProfile == nil {
+func (d *Device) distributeColors(buff []byte) {
+	controllers, _ := d.controllerSnapshot()
+	distributeColorsToControllers(buff, controllers)
+}
+
+func (d *Device) clearWorkerOwnershipLocked(done chan struct{}) {
+	if d.workerDone != done {
 		return
 	}
+	d.workerStop = nil
+	d.workerDone = nil
+	d.workerStopping = false
+	d.activeRgb = nil
+}
 
-	profile := d.GetRgbProfile(d.DeviceProfile.RGBProfile)
-	if profile == nil {
+func (d *Device) stopWorkerLocked() bool {
+	if d.workerDone == nil {
+		return true
+	}
+	done := d.workerDone
+	if !d.workerStopping {
+		close(d.workerStop)
+		d.workerStopping = true
+	}
+	timer := time.NewTimer(workerStopTimeout)
+	defer timer.Stop()
+	select {
+	case <-done:
+		d.clearWorkerOwnershipLocked(done)
+		return true
+	case <-timer.C:
+		logger.Log(logger.Fields{"serial": d.Serial, "product": d.Product}).Warn("Timed out stopping RGB Cluster worker")
+		return false
+	}
+}
+
+func (d *Device) stopWorker() bool {
+	if d == nil {
+		return true
+	}
+	d.workerMutex.Lock()
+	defer d.workerMutex.Unlock()
+	d.workerRestartPending = false
+	return d.stopWorkerLocked()
+}
+
+func (d *Device) restartWorker() {
+	if d == nil {
 		return
 	}
+	d.workerMutex.Lock()
+	defer d.workerMutex.Unlock()
+	if d.workerRestartPending && d.workerDone != nil && d.workerStopping {
+		return
+	}
+	d.workerRestartPending = true
+	if !d.stopWorkerLocked() {
+		return
+	}
+	d.workerRestartPending = false
+	d.startWorkerLocked()
+}
 
-	activeRgb := rgb.Exit()
-	d.activeRgb = activeRgb
-	activeRgb.RGBStartColor = rgb.GenerateRandomColor(1)
-	activeRgb.RGBEndColor = rgb.GenerateRandomColor(1)
+func (d *Device) startWorker() {
+	if d == nil {
+		return
+	}
+	d.workerMutex.Lock()
+	defer d.workerMutex.Unlock()
+	d.startWorkerLocked()
+}
 
-	go func() {
-		startTime := time.Now()
-		rand.New(rand.NewSource(time.Now().UnixNano()))
+func (d *Device) startWorkerLocked() {
+	if d.workerDone != nil || !d.runtimeAvailable() {
+		return
+	}
+	d.mutex.RLock()
+	exiting := d.Exit
+	d.mutex.RUnlock()
+	if exiting {
+		return
+	}
+	controllers, channels := d.controllerSnapshot()
+	if len(controllers) == 0 || channels == 0 {
+		return
+	}
+	snapshot := d.LightingSnapshot()
+	resolution, err := d.resolver.Resolve(lightingsettings.RGBCluster(), snapshot.SelectedEffect)
+	if err != nil {
+		logger.Log(logger.Fields{"error": err}).Error("Unable to resolve RGB Cluster lighting")
+		return
+	}
+	profile := rgbProfileFromSettings(resolution.Settings)
+	active := rgb.Exit()
+	active.RGBStartColor = rgb.GenerateRandomColor(1)
+	active.RGBEndColor = rgb.GenerateRandomColor(1)
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	d.activeRgb = active
+	d.workerStop = stop
+	d.workerDone = done
+	d.workerStopping = false
+	d.workerStarts++
+	go d.runWorker(snapshot.SelectedEffect, snapshot.EffectiveBrightness, profile, active, stop, done)
+}
 
-		for {
-			lightChannels := 0
-			for k := range d.Controllers {
-				lightChannels += int(d.Controllers[k].LedChannels)
-			}
-
-			select {
-			case <-activeRgb.Exit:
-				return
-			default:
-				if d.Exit {
-					return
-				}
-				buff := d.generateRgbEffect(lightChannels, &startTime, d.DeviceProfile.RGBProfile, activeRgb)
-				d.distributeColors(buff)
-				time.Sleep(20 * time.Millisecond)
-			}
+func (d *Device) runWorker(effect string, brightness uint8, profile rgb.Profile, active *rgb.ActiveRGB, stop <-chan struct{}, done chan struct{}) {
+	defer func() {
+		close(done)
+		d.workerMutex.Lock()
+		if d.workerDone != done {
+			d.workerMutex.Unlock()
+			return
+		}
+		d.clearWorkerOwnershipLocked(done)
+		restart := d.workerRestartPending
+		d.workerRestartPending = false
+		d.workerMutex.Unlock()
+		if restart {
+			d.startWorker()
 		}
 	}()
+	startTime := time.Now()
+	rand.New(rand.NewSource(time.Now().UnixNano()))
+	ticker := time.NewTicker(20 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		controllers, channels := d.controllerSnapshot()
+		if channels > 0 {
+			buffer := d.generateRgbEffectFromProfile(channels, &startTime, effect, profile, brightness, active)
+			distributeColorsToControllersUntilStopped(buffer, controllers, stop)
+		}
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+		}
+	}
 }
 
-// generateRgbEffect will generate RGB effect for given device index
-func (d *Device) generateRgbEffect(channels int, startTime *time.Time, rgbProfile string, activeRgb *rgb.ActiveRGB) []byte {
-	buff := make([]byte, 0)
-	rgbCustomColor := true
+func (d *Device) setDeviceColor() {
+	d.restartWorker()
+}
 
-	if d.DeviceProfile != nil && d.DeviceProfile.RgbOff {
-		rgbProfile = "off"
+func (d *Device) generateRgbEffect(channels int, startTime *time.Time, effect string, active *rgb.ActiveRGB) []byte {
+	if !d.runtimeAvailable() {
+		return make([]byte, channels*3)
 	}
+	resolution, err := d.resolver.Resolve(lightingsettings.RGBCluster(), effect)
+	if err != nil {
+		return make([]byte, channels*3)
+	}
+	return d.generateRgbEffectFromProfile(channels, startTime, effect, rgbProfileFromSettings(resolution.Settings), d.LightingSnapshot().EffectiveBrightness, active)
+}
 
-	profile := d.GetRgbProfile(rgbProfile)
-	if profile == nil {
-		for i := 0; i < channels; i++ {
-			buff = []byte{0, 0, 0}
-		}
-		return buff
+func (d *Device) generateRgbEffectFromProfile(channels int, startTime *time.Time, effect string, profile rgb.Profile, brightness uint8, active *rgb.ActiveRGB) []byte {
+	if channels <= 0 {
+		return []byte{}
+	}
+	if active == nil {
+		return make([]byte, channels*3)
+	}
+	descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect)
+	if !ok || !descriptor.Scope.Includes(rgb.EffectScopeCluster) {
+		return make([]byte, channels*3)
+	}
+	if effect == "off" {
+		return make([]byte, channels*3)
 	}
 	rgbModeSpeed := common.FClamp(profile.Speed, 0.1, 10)
-	if (rgb.Color{}) == profile.StartColor || (rgb.Color{}) == profile.EndColor {
-		rgbCustomColor = false
-	}
-
-	r := rgb.New(
+	customColor := descriptor.PaletteKind != rgb.LightingPaletteGenerated && descriptor.PaletteKind != rgb.LightingPaletteNone
+	normalizedBrightness := rgb.GetBrightnessValueFloat(brightness)
+	renderer := rgb.New(
 		channels,
 		rgbModeSpeed,
 		nil,
 		nil,
-		profile.Brightness,
+		normalizedBrightness,
 		common.Clamp(profile.Smoothness, 1, 100),
 		time.Duration(rgbModeSpeed)*time.Second,
-		rgbCustomColor,
+		customColor,
 	)
-
-	if rgbCustomColor {
-		r.RGBStartColor = &profile.StartColor
-		r.RGBEndColor = &profile.EndColor
+	if customColor {
+		profile.StartColor.Brightness = normalizedBrightness
+		profile.MiddleColor.Brightness = normalizedBrightness
+		profile.EndColor.Brightness = normalizedBrightness
+		renderer.RGBStartColor = &profile.StartColor
+		renderer.RGBMiddleColor = &profile.MiddleColor
+		renderer.RGBEndColor = &profile.EndColor
 	} else {
-		r.RGBStartColor = activeRgb.RGBStartColor
-		r.RGBEndColor = activeRgb.RGBEndColor
+		renderer.RGBStartColor = active.RGBStartColor
+		renderer.RGBEndColor = active.RGBEndColor
 	}
+	renderer.MinTemp = profile.MinTemp
+	renderer.MaxTemp = profile.MaxTemp
 
-	// Brightness
-	r.RGBBrightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
-	r.RGBStartColor.Brightness = r.RGBBrightness
-	r.RGBEndColor.Brightness = r.RGBBrightness
-
-	r.MinTemp = profile.MinTemp
-	r.MaxTemp = profile.MaxTemp
-
-	switch rgbProfile {
-	case "off":
-		{
-			for n := 0; n < channels; n++ {
-				buff = append(buff, []byte{0, 0, 0}...)
-			}
-		}
+	switch effect {
 	case "rainbow":
-		{
-			r.Rainbow(*startTime)
-			buff = r.Output
-		}
+		renderer.Rainbow(*startTime)
 	case "spiralrainbow":
-		{
-			r.SpiralRainbow(*startTime)
-			buff = r.Output
-		}
+		renderer.SpiralRainbow(*startTime)
 	case "pastelrainbow":
-		{
-			r.PastelRainbow(*startTime)
-			buff = r.Output
-		}
+		renderer.PastelRainbow(*startTime)
 	case "pastelspiralrainbow":
-		{
-			r.PastelSpiralRainbow(*startTime)
-			buff = r.Output
-		}
+		renderer.PastelSpiralRainbow(*startTime)
 	case "arc":
-		{
-			r.Arc(*startTime)
-			buff = r.Output
-		}
+		renderer.Arc(*startTime)
 	case "rain":
-		{
-			r.Rain(*startTime)
-			buff = r.Output
-		}
+		renderer.Rain(*startTime)
 	case "watercolor":
-		{
-			r.Watercolor(*startTime)
-			buff = r.Output
-		}
+		renderer.Watercolor(*startTime)
 	case "gradient":
-		{
-			r.ColorshiftGradient(*startTime, profile.Gradients, profile.Speed)
-			buff = r.Output
-		}
+		renderer.ColorshiftGradient(*startTime, profile.Gradients, profile.Speed)
 	case "cpu-temperature":
-		{
-			r.Temperature(float64(d.CpuTemp))
-			buff = r.Output
-		}
+		cpu, _ := d.temperatureSnapshot()
+		renderer.Temperature(float64(cpu))
 	case "gpu-temperature":
-		{
-			r.Temperature(float64(d.GpuTemp))
-			buff = r.Output
-		}
+		_, gpu := d.temperatureSnapshot()
+		renderer.Temperature(float64(gpu))
 	case "colorpulse":
-		{
-			r.Colorpulse(startTime)
-			buff = r.Output
-		}
+		renderer.Colorpulse(startTime)
 	case "static":
-		{
-			r.Static()
-			buff = r.Output
-		}
+		renderer.Static()
 	case "rotator":
-		{
-			r.Rotator(startTime)
-			buff = r.Output
-		}
+		renderer.Rotator(startTime)
 	case "rotarystack":
-		{
-			r.RotaryStack(startTime)
-			buff = r.Output
-		}
+		renderer.RotaryStack(startTime)
 	case "wave":
-		{
-			r.Wave(startTime)
-			buff = r.Output
-		}
+		renderer.Wave(startTime)
 	case "storm":
-		{
-			r.Storm()
-			buff = r.Output
-		}
+		renderer.Storm()
 	case "flickering":
-		{
-			r.Flickering(startTime)
-			buff = r.Output
-		}
+		renderer.Flickering(startTime)
 	case "flame":
-		{
-			r.Flame(startTime)
-			buff = r.Output
-		}
+		renderer.Flame(startTime)
 	case "aurora":
-		{
-			r.Aurora(startTime)
-			buff = r.Output
-		}
+		renderer.Aurora(startTime)
 	case "cyberpunkglitch":
-		{
-			r.CyberpunkGlitch(startTime)
-			buff = r.Output
-		}
+		renderer.CyberpunkGlitch(startTime)
 	case "tokyonight":
-		{
-			r.TokyoNight(startTime)
-			buff = r.Output
-		}
+		renderer.TokyoNight(startTime)
 	case "colorshift":
-		{
-			r.Colorshift(startTime, activeRgb)
-			buff = r.Output
-		}
+		renderer.Colorshift(startTime, active)
 	case "circleshift":
-		{
-			r.CircleShift(startTime)
-			buff = r.Output
-		}
+		renderer.CircleShift(startTime)
 	case "circle":
-		{
-			r.Circle(startTime)
-			buff = r.Output
-		}
+		renderer.Circle(startTime)
 	case "spinner":
-		{
-			r.Spinner(startTime)
-			buff = r.Output
-		}
+		renderer.Spinner(startTime)
 	case "colorwarp":
-		{
-			r.Colorwarp(startTime, activeRgb)
-			buff = r.Output
-		}
+		renderer.Colorwarp(startTime, active)
 	case "nebula":
-		{
-			r.Nebula(startTime)
-			buff = r.Output
-		}
+		renderer.Nebula(startTime)
 	case "visor":
-		{
-			r.Visor(startTime)
-			buff = r.Output
-		}
+		renderer.Visor(startTime)
 	case "comet":
-		{
-			r.Comet(startTime)
-			buff = r.Output
-		}
+		renderer.Comet(startTime)
 	case "datastream":
-		{
-			r.DataStream(startTime)
-			buff = r.Output
-		}
+		renderer.DataStream(startTime)
 	case "plasmacore":
-		{
-			r.PlasmaCore(startTime)
-			buff = r.Output
-		}
+		renderer.PlasmaCore(startTime)
 	case "stardust":
-		{
-			r.Stardust(startTime)
-			buff = r.Output
-		}
+		renderer.Stardust(startTime)
 	case "marquee":
-		{
-			r.Marquee(startTime)
-			buff = r.Output
-		}
+		renderer.Marquee(startTime)
 	case "sequential":
-		{
-			r.Sequential(startTime)
-			buff = r.Output
-		}
+		renderer.Sequential(startTime)
 	}
-	return buff
+	return renderer.Output
 }
 
-// saveDeviceProfile will save device profile for persistent configuration
-func (d *Device) saveDeviceProfile() {
-	var defaultBrightness = uint8(100)
-
-	profilePath := pwd + "/database/profiles/" + d.Serial + ".json"
-	deviceProfile := &DeviceProfile{
-		BrightnessSlider:   &defaultBrightness,
-		OriginalBrightness: 100,
-	}
-
-	if d.DeviceProfile == nil {
-		deviceProfile.RGBProfile = "rainbow"
-		d.DeviceProfile = deviceProfile
-	} else {
-		if d.DeviceProfile.BrightnessSlider == nil {
-			deviceProfile.BrightnessSlider = &defaultBrightness
-			d.DeviceProfile.BrightnessSlider = &defaultBrightness
-		} else {
-			deviceProfile.BrightnessSlider = d.DeviceProfile.BrightnessSlider
-		}
-		deviceProfile.RGBProfile = d.DeviceProfile.RGBProfile
-		deviceProfile.OriginalBrightness = d.DeviceProfile.OriginalBrightness
-		deviceProfile.DeviceOrder = d.DeviceProfile.DeviceOrder
-		deviceProfile.LastNonOffProfile = d.DeviceProfile.LastNonOffProfile
-	}
-
-	if err := common.SaveJsonData(profilePath, deviceProfile); err != nil {
-		logger.Log(logger.Fields{"error": err, "location": profilePath}).Error("Unable to save cluster profile data")
-		return
-	}
-	d.loadDeviceProfile()
-}
-
-// loadDeviceProfiles will load custom user profiles
-func (d *Device) loadDeviceProfile() {
-	profileLocation := pwd + "/database/profiles/" + d.Serial + ".json"
-
-	pf := &DeviceProfile{}
-
-	if !common.IsValidExtension(profileLocation, ".json") {
-		return
-	}
-
-	file, err := os.Open(profileLocation)
-	if err != nil {
-		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "location": profileLocation}).Warn("Unable to load profile")
-		return
-	}
-
-	if err = json.NewDecoder(file).Decode(pf); err != nil {
-		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "location": profileLocation}).Warn("Unable to decode profile")
-		return
-	}
-
-	err = file.Close()
-	if err != nil {
-		logger.Log(logger.Fields{"location": profileLocation, "serial": d.Serial}).Warn("Failed to close file handle")
-	}
-
-	d.DeviceProfile = pf
-}
-
-// setCpuTemperature will store current CPU temperature
 func (d *Device) setTemperatures() {
-	d.CpuTemp = temperatures.GetCpuTemperature()
-	d.GpuTemp = temperatures.GetGpuTemperature()
+	cpu := temperatures.GetCpuTemperature()
+	gpu := temperatures.GetGpuTemperature()
+
+	d.mutex.Lock()
+	d.CpuTemp = cpu
+	d.GpuTemp = gpu
+	d.mutex.Unlock()
 }
 
-// setAutoRefresh will refresh device data
+func (d *Device) temperatureSnapshot() (float32, float32) {
+	if d == nil {
+		return 0, 0
+	}
+
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+	return d.CpuTemp, d.GpuTemp
+}
+
 func (d *Device) setAutoRefresh() {
-	d.timer = time.NewTicker(time.Duration(deviceRefreshInterval) * time.Millisecond)
+	if d == nil {
+		return
+	}
+	d.mutex.Lock()
+	if d.timer != nil || d.Exit || d.autoRefreshChan == nil {
+		d.mutex.Unlock()
+		return
+	}
+	timer := time.NewTicker(time.Duration(deviceRefreshInterval) * time.Millisecond)
+	autoRefreshChan := d.autoRefreshChan
+	d.timer = timer
+	d.mutex.Unlock()
 	go func() {
 		for {
 			select {
-			case <-d.timer.C:
-				if d.Exit {
+			case <-timer.C:
+				d.mutex.RLock()
+				exiting := d.Exit
+				d.mutex.RUnlock()
+				if exiting {
 					return
 				}
 				d.setTemperatures()
-			case <-d.autoRefreshChan:
-				d.timer.Stop()
+			case <-autoRefreshChan:
+				timer.Stop()
 				return
 			}
 		}
@@ -866,28 +989,49 @@ func (d *Device) setAutoRefresh() {
 }
 
 func (d *Device) MigrateDeviceOrderSerial(oldSerial, newSerial string) {
-	if d.DeviceProfile == nil {
+	if !d.runtimeAvailable() || oldSerial == newSerial {
+		return
+	}
+	layout, err := d.layout.Snapshot()
+	if err != nil {
 		return
 	}
 	modified := false
-	for i, s := range d.DeviceProfile.DeviceOrder {
-		if s == oldSerial {
-			d.DeviceProfile.DeviceOrder[i] = newSerial
+	migrated := make([]string, 0, len(layout.DeviceOrder))
+	seen := make(map[string]struct{}, len(layout.DeviceOrder))
+	for _, serial := range layout.DeviceOrder {
+		if serial == oldSerial {
+			serial = newSerial
 			modified = true
 		}
+		if _, exists := seen[serial]; exists {
+			continue
+		}
+		seen[serial] = struct{}{}
+		migrated = append(migrated, serial)
 	}
-	if modified {
-		d.saveDeviceProfile()
+	if !modified {
+		return
 	}
+	layout.DeviceOrder = migrated
+	if err = d.layout.Set(layout); err != nil {
+		logger.Log(logger.Fields{"error": err}).Error("Unable to migrate RGB Cluster layout serial")
+		return
+	}
+	_ = d.refreshCompatibilityProjection()
+	d.SortControllers()
+	d.restartWorker()
 }
 
-// UpdateControllerProduct updates the Product name of a controller by serial
 func (d *Device) UpdateControllerProduct(serial string, product string) {
+	if d == nil {
+		return
+	}
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	for _, c := range d.Controllers {
-		if c.Serial == serial {
-			c.Product = product
+	for _, controller := range d.Controllers {
+		if controller != nil && controller.Serial == serial {
+			controller.Product = product
 			break
 		}
 	}
