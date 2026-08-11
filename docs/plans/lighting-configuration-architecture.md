@@ -401,6 +401,51 @@ the selected effect's applicable inputs self-evident. `PaletteKind` remains an
 internal presentation discriminator for selecting the correct control surface;
 it is no longer exposed as a user-facing capability value.
 
+### RGB Cluster canonical lighting cutover
+
+`fd2b3ab4` separated device and RGB Cluster resolver ownership so each scope can
+resolve only its own canonical state. `af08ec39` then cut RGB Cluster lighting
+persistence, rendering, restart behavior, and Dashboard presentation to that
+Cluster resolver.
+
+The Cluster now persists target state in
+`database/lighting/rgb-cluster-state.json`, complete per-effect customizations in
+`database/lighting/rgb-cluster-effects.json`, and ordered device layout
+separately in `database/rgb-cluster-layout.json`. Fresh state resolves hidden
+Rainbow at Brightness 100 without depending on legacy lighting files. Malformed
+canonical state, customization, or layout fails closed; there is no migration,
+dual read/write, or fallback to `database/rgb/cluster.json` or
+`database/profiles/cluster.json`.
+
+Cluster membership remains device-owned. The Cluster layout stores only ordered
+member identity rather than duplicating membership, LED counts, channel IDs, or
+callbacks. Rendering resolves one complete Cluster effect, builds one aggregate
+frame, applies owning Cluster Brightness exactly once, and sends copied completed
+segments to member controllers. OpenRGB-imported members therefore do not receive
+a second Brightness scale. Uniform Static ownership, Gradient stop order and
+relative intensity, and Temperature Low/Middle/High semantics are preserved.
+
+The runtime retains one Cluster worker owner at a time. A timed-out worker keeps
+ownership while one pending restart is coalesced; Stop or removal of the final
+member cancels that pending restart. Scheduler lights-out changes only transient
+effective Brightness and does not overwrite persisted Cluster Brightness.
+Canonical `off` remains an effect selection rather than a separate `RgbOff`
+authority.
+
+Isolated runtime validation exposed one unrelated legacy startup side effect:
+`systray.InitTray` called the global and Cluster `ControlDeviceRgb(false)` paths,
+which rewrote a correctly loaded selected effect to Rainbow. `af08ec39` removed
+those startup mutations so tray initialization no longer changes desired
+lighting state.
+
+Focused Cluster, config, lighting-settings, and server tests passed together
+with race and repeated worker/concurrency tests, the full repository test suite,
+`go vet` with the required CGO flag allowance, `go mod verify`, an isolated
+build, and CodeRabbit review. Isolated real-hardware/runtime validation using
+copied user state with native and OpenRGB-imported members confirmed canonical
+`static` at Brightness 60 before shutdown, while stopped, and after restart;
+copied legacy Cluster files remained byte-for-byte unchanged.
+
 ## 11. OpenRGB imports
 
 OpenRGB importing remains separate from lighting customization. The import
@@ -572,7 +617,8 @@ Speed or another genuine renderer-consumed setting.
 10. Add Gradient editing. Completed in `ed9d5016`. Remove the temporary
     user-facing Palette diagnostic after editor parity. Completed in `5a58140f`.
 11. Cut RGB Cluster persistence and rendering to the resolver while preserving
-    membership and device order separately.
+    membership and device order separately. Resolver ownership was separated in
+    `fd2b3ab4`; the Cluster cutover was completed in `af08ec39`.
 12. Modernize RGB Cluster with the shared descriptor-driven controls.
 13. Delete OpenRGB override code and legacy imported-device lighting controls.
 14. Migrate native target families separately.

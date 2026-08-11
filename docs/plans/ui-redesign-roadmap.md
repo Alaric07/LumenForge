@@ -380,15 +380,38 @@ Reset deletes only the selected device/effect customization, preserves the
 selected effect and device Brightness, resolves the hidden default, and is
 shown only while that customization exists.
 
+`fd2b3ab4` separated device and RGB Cluster resolver ownership, and `af08ec39`
+completed the Cluster persistence/rendering cutover. Cluster target state,
+complete effect customizations, and ordered device layout now have separate
+canonical stores. Cluster Brightness is applied once to the aggregate frame,
+membership remains device-owned, Static is uniform across the owning Cluster
+scope, and legacy Cluster RGB/profile files are no longer lighting authorities.
+
+The cutover also made scheduler lights-out transient rather than persisted
+Brightness state, moved Dashboard lighting presentation to the canonical Cluster
+snapshot, and hardened single-worker ownership and restart behavior. Hardware
+validation using copied real user state with native and OpenRGB-imported
+members confirmed persisted `static` / Brightness 60 restoration across restart.
+A tray-startup hotfix discovered during that validation was removed because it
+incorrectly rewrote the loaded Cluster effect to Rainbow.
+
+Cluster UI modernization remains the next milestone. Shared descriptor-driven
+controls, Cluster Reset, and final removal of compatibility/global RGB model
+paths are intentionally not marked complete yet.
+
 ### RGB Cluster cutover
 
-- [ ] Add dedicated cluster settings persistence and canonical resolution.
-- [ ] Make cluster Brightness authoritative and apply it exactly once.
-- [ ] Preserve cluster membership and device order outside effect settings.
+- [x] Add dedicated cluster settings persistence and canonical resolution
+  (`fd2b3ab4`, `af08ec39`).
+- [x] Make cluster Brightness authoritative and apply it exactly once
+  (`af08ec39`).
+- [x] Preserve cluster membership and device order outside effect settings
+  (`af08ec39`).
 - [ ] Use the shared descriptor-driven Effect, Brightness, Speed, color,
   temperature, Gradient, and status components.
 - [ ] Add cluster-scoped Reset with the same deletion semantics.
-- [ ] Make cluster Static one color across the complete cluster output.
+- [x] Make cluster Static one color across the complete cluster output
+  (`af08ec39`).
 - [ ] Remove cluster dependence on the mutable global RGB profile model after
   renderer, persistence, restart, and UI parity.
 
