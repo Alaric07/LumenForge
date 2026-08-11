@@ -77,6 +77,9 @@ func runRGBClusterPageAssertions(t *testing.T) {
 		`data-lf-current-brightness="60"`,
 		`id="lf-cluster-color-input"`,
 		`value="#112233"`,
+		`data-lf-reset-control`,
+		`data-lf-reset-button`,
+		`Reset to default`,
 		`id="clusterSortable"`,
 		`No cluster members configured.`,
 	} {
@@ -84,9 +87,17 @@ func runRGBClusterPageAssertions(t *testing.T) {
 			t.Errorf("GET /rgbCluster response does not contain %q", expected)
 		}
 	}
+	resetControlTag := clusterPageOpeningTag(t, body, `data-lf-reset-control`)
+	resetButtonTag := clusterPageOpeningTag(t, body, `data-lf-reset-button`)
+	for _, tag := range []string{resetControlTag, resetButtonTag} {
+		if !strings.Contains(tag, `data-lf-lighting-target="cluster"`) || !strings.Contains(tag, `data-lf-effect="static"`) || strings.Contains(tag, `data-lf-device-serial`) {
+			t.Errorf("Cluster Reset tag has the wrong target contract: %s", tag)
+		}
+	}
+	if !strings.Contains(resetControlTag, `hidden`) {
+		t.Errorf("pristine Cluster Reset control is not hidden: %s", resetControlTag)
+	}
 	for _, obsolete := range []string{
-		`data-lf-reset-control`,
-		`data-lf-reset-button`,
 		`clusterLightingToggle`,
 		`clusterRgbProfile`,
 		`btnApplySolidColor`,
@@ -102,6 +113,16 @@ func runRGBClusterPageAssertions(t *testing.T) {
 	}
 	if count := strings.Count(body, "<h1 "); count != 1 {
 		t.Errorf("GET /rgbCluster h1 count = %d, want 1", count)
+	}
+	customizedSnapshot := staticSnapshot
+	customizedSnapshot.Customized = true
+	customizedBody := renderRGBClusterPage(t, clusterLightingWorkspaceSummaryFromSnapshot(customizedSnapshot), nil)
+	if tag := clusterPageOpeningTag(t, customizedBody, `data-lf-reset-control`); strings.Contains(tag, `hidden`) {
+		t.Errorf("customized Cluster Reset control is hidden: %s", tag)
+	}
+	unavailableBody := renderRGBClusterPage(t, clusterLightingWorkspaceSummaryFromSnapshot(cluster.LightingSnapshot{}), nil)
+	if strings.Contains(unavailableBody, `data-lf-reset-control`) || strings.Contains(unavailableBody, `data-lf-reset-button`) {
+		t.Error("unavailable Cluster lighting rendered Reset")
 	}
 
 	legacyBrightness := uint8(99)
@@ -150,6 +171,20 @@ func renderRGBClusterPage(t *testing.T, lighting *clusterLightingWorkspaceSummar
 		t.Fatal(err)
 	}
 	return rendered.String()
+}
+
+func clusterPageOpeningTag(t *testing.T, body, marker string) string {
+	t.Helper()
+	markerIndex := strings.Index(body, marker)
+	if markerIndex < 0 {
+		t.Fatalf("Cluster page does not contain %q", marker)
+	}
+	start := strings.LastIndex(body[:markerIndex], "<")
+	endOffset := strings.Index(body[markerIndex:], ">")
+	if start < 0 || endOffset < 0 {
+		t.Fatalf("Cluster page has malformed tag around %q", marker)
+	}
+	return body[start : markerIndex+endOffset+1]
 }
 
 func assertRGBClusterPaletteGates(t *testing.T) {
@@ -204,12 +239,15 @@ func assertRGBClusterPaletteGates(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			body := renderRGBClusterPage(t, clusterLightingWorkspaceSummaryFromSnapshot(test.snapshot), nil)
+			if tag := clusterPageOpeningTag(t, body, `data-lf-reset-control`); !strings.Contains(tag, `hidden`) {
+				t.Errorf("pristine Cluster %s Reset control is not hidden: %s", test.name, tag)
+			}
 			for _, expected := range test.present {
 				if !strings.Contains(body, expected) {
 					t.Errorf("Cluster %s page does not contain %q", test.name, expected)
 				}
 			}
-			for _, excluded := range append(test.absent, `data-lf-reset-control`, `data-lf-reset-button`) {
+			for _, excluded := range test.absent {
 				if strings.Contains(body, excluded) {
 					t.Errorf("Cluster %s page unexpectedly contains %q", test.name, excluded)
 				}

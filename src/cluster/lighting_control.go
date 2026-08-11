@@ -105,6 +105,43 @@ func (d *Device) SetLightingGradient(expectedEffect string, stops []lightingsett
 	})
 }
 
+// ResetLightingEffect removes only the selected effect's canonical
+// customization before resolving and reapplying the immutable shipped default.
+func (d *Device) ResetLightingEffect(expectedEffect string) error {
+	if !d.runtimeAvailable() {
+		return fmt.Errorf("RGB Cluster lighting runtime is unavailable")
+	}
+	d.lightingMutationMu.Lock()
+	defer d.lightingMutationMu.Unlock()
+
+	state, err := d.lightingState.Snapshot()
+	if err != nil {
+		return err
+	}
+	if state.SelectedEffect != expectedEffect {
+		return fmt.Errorf("RGB Cluster selected effect changed")
+	}
+	descriptor, ok := rgb.SoftwareEffectDescriptorByID(expectedEffect)
+	if !ok || !descriptor.Scope.Includes(rgb.EffectScopeCluster) {
+		return fmt.Errorf("effect %q is not supported by RGB Cluster", expectedEffect)
+	}
+	if _, err = d.effects.Delete(expectedEffect); err != nil {
+		return err
+	}
+	resolution, err := d.resolver.Resolve(lightingsettings.RGBCluster(), expectedEffect)
+	if err != nil {
+		return err
+	}
+	if err = lightingsettings.Validate(resolution.Settings); err != nil {
+		return err
+	}
+	if err = d.refreshCompatibilityProjection(); err != nil {
+		return err
+	}
+	d.restartWorker()
+	return nil
+}
+
 func requireClusterPalette(effect string, palette rgb.LightingPaletteKind) func(rgb.SoftwareEffectDescriptor) error {
 	return func(descriptor rgb.SoftwareEffectDescriptor) error {
 		if descriptor.PaletteKind != palette {

@@ -2074,6 +2074,7 @@ function colorBrowserFixture(fetchImplementation, overrides) {
         addEventListener: function(event, handler) { hexHandlers[event] = handler; }
     };
     const status = {textContent: ""};
+    const resetControl = resetVisibilityFixture("static");
     const resetButton = {
         disabled: false,
         dataset: {
@@ -2092,6 +2093,10 @@ function colorBrowserFixture(fetchImplementation, overrides) {
                 if (id === "color-status") return status;
                 if (id === "reset-status") return status;
                 return null;
+            },
+            querySelectorAll: function(selector) {
+                if (selector === "[data-lf-reset-control]") return [resetControl];
+                assert.fail("unexpected selector " + selector);
             }
         },
         fetch: fetchImplementation,
@@ -2102,7 +2107,7 @@ function colorBrowserFixture(fetchImplementation, overrides) {
         clearTimeout: clearTimeout
     };
     Object.assign(browser, overrides || {});
-    return {browser, colorInput, colorHandlers, hexInput, hexHandlers, resetButton, resetHandlers, status, getReloads: () => reloads};
+    return {browser, colorInput, colorHandlers, hexInput, hexHandlers, resetButton, resetControl, resetHandlers, status, getReloads: () => reloads};
 }
 
 function twoColorBrowserFixture(fetchImplementation, overrides) {
@@ -2123,6 +2128,7 @@ function twoColorBrowserFixture(fetchImplementation, overrides) {
     const endColor = input("#aabbcc");
     const endHex = input("#aabbcc");
     const status = {textContent: ""};
+    const resetControl = resetVisibilityFixture("wave");
     const container = {
         dataset: {
             lfClusterControlled: "false",
@@ -2148,7 +2154,13 @@ function twoColorBrowserFixture(fetchImplementation, overrides) {
     const browser = {
         AbortController,
         clearTimeout,
-        document: {getElementById: function(id) { return elements[id] || null; }},
+        document: {
+            getElementById: function(id) { return elements[id] || null; },
+            querySelectorAll: function(selector) {
+                if (selector === "[data-lf-reset-control]") return [resetControl];
+                assert.fail("unexpected selector " + selector);
+            }
+        },
         fetch: fetchImplementation,
         location: {reload: function() { reloads++; }},
         setTimeout
@@ -2160,6 +2172,7 @@ function twoColorBrowserFixture(fetchImplementation, overrides) {
         endColor,
         endHex,
         reloads: function() { return reloads; },
+        resetControl,
         startColor,
         startHex,
         status
@@ -2341,16 +2354,23 @@ function temperatureBrowserFixture(fetchImplementation, overrides) {
         }
     }
     let reloads = 0;
+    const resetControl = resetVisibilityFixture("cpu-temperature");
     const browser = {
         AbortController,
         clearTimeout,
-        document: {getElementById: function(id) { return elements[id] || null; }},
+        document: {
+            getElementById: function(id) { return elements[id] || null; },
+            querySelectorAll: function(selector) {
+                if (selector === "[data-lf-reset-control]") return [resetControl];
+                assert.fail("unexpected selector " + selector);
+            }
+        },
         fetch: fetchImplementation,
         location: {reload: function() { reloads++; }},
         setTimeout
     };
     Object.assign(browser, overrides || {});
-    return {browser, container: {dataset}, points, status: elements["temperature-status"], reloads: function() { return reloads; }};
+    return {browser, container: {dataset}, points, resetControl, status: elements["temperature-status"], reloads: function() { return reloads; }};
 }
 
 test("bindTemperatureControl commits each semantic point as one complete normalized payload", async function(t) {
@@ -2751,13 +2771,18 @@ function gradientBrowserFixture(fetchImplementation, overrides, initialStops) {
     status.id = "gradient-status";
     container.append(rows, add, save, status);
     const byID = {"gradient-rows": rows, "gradient-add": add, "gradient-save": save, "gradient-status": status};
+    const resetControl = resetVisibilityFixture("gradient");
     let reloads = 0;
     const browser = {
         AbortController,
         clearTimeout,
         document: {
             createElement: element,
-            getElementById: function(id) { return byID[id] || null; }
+            getElementById: function(id) { return byID[id] || null; },
+            querySelectorAll: function(selector) {
+                if (selector === "[data-lf-reset-control]") return [resetControl];
+                assert.fail("unexpected selector " + selector);
+            }
         },
         fetch: fetchImplementation,
         location: {reload: function() { reloads++; }},
@@ -2765,7 +2790,7 @@ function gradientBrowserFixture(fetchImplementation, overrides, initialStops) {
     };
     Object.assign(browser, overrides || {});
     return {
-        add, browser, container, rows, save, status,
+        add, browser, container, resetControl, rows, save, status,
         reloads: function() { return reloads; },
         stopRows: function() { return rows.querySelectorAll("[data-lf-gradient-stop]"); }
     };
@@ -2975,41 +3000,58 @@ test("shared lighting controls use dedicated serial-free RGB Cluster mutations",
     const brightness = brightnessSliderFixture();
     brightness.slider.dataset.lfLightingTarget = "cluster";
     const brightnessBrowser = brightnessBrowserFixture(fetchMutation, timers());
+    brightnessBrowser.resetControl.dataset.lfLightingTarget = "cluster";
     lighting.bindBrightnessSlider(brightnessBrowser.browser, brightness.slider);
     brightness.slider.value = "41";
     await brightness.handlers.change();
+    assert.equal(brightnessBrowser.resetControl.hidden, true, "Cluster Brightness exposed effect Reset");
 
     const speed = speedSliderFixture();
     speed.slider.dataset.lfLightingTarget = "cluster";
     const speedBrowser = speedBrowserFixture(fetchMutation, timers());
+    speedBrowser.resetControl.dataset.lfLightingTarget = "cluster";
     lighting.bindSpeedSlider(speedBrowser.browser, speed.slider);
     speed.slider.value = "5";
     speed.handlers.input();
     await speed.handlers.change();
-    assert.equal(speedBrowser.resetControl.hidden, true, "Cluster Speed mutation revealed OpenRGB Reset");
+    assert.equal(speedBrowser.resetControl.hidden, false, "Cluster Speed mutation did not reveal Cluster Reset");
 
     const color = colorBrowserFixture(fetchMutation, timers());
     color.colorInput.dataset.lfLightingTarget = "cluster";
+    color.resetControl.dataset.lfLightingTarget = "cluster";
     const commitColor = lighting.bindColorControl(color.browser, color.colorInput);
     await commitColor("#00ff00");
+    assert.equal(color.resetControl.hidden, false, "Cluster color mutation did not reveal Cluster Reset");
 
     const twoColor = twoColorBrowserFixture(fetchMutation, timers());
     twoColor.container.dataset.lfLightingTarget = "cluster";
+    twoColor.resetControl.dataset.lfLightingTarget = "cluster";
     const commitTwoColor = lighting.bindTwoColorControl(twoColor.browser, twoColor.container);
     twoColor.startHex.control.value = "#ddeeff";
     await commitTwoColor();
+    assert.equal(twoColor.resetControl.hidden, false, "Cluster two-color mutation did not reveal Cluster Reset");
 
     const temperature = temperatureBrowserFixture(fetchMutation, timers());
     temperature.container.dataset.lfLightingTarget = "cluster";
+    temperature.resetControl.dataset.lfLightingTarget = "cluster";
     const commitTemperature = lighting.bindTemperatureControl(temperature.browser, temperature.container);
     temperature.points.high.celsius.value = "96";
     await commitTemperature();
+    assert.equal(temperature.resetControl.hidden, false, "Cluster temperature mutation did not reveal Cluster Reset");
 
     const gradient = gradientBrowserFixture(fetchMutation, timers());
     gradient.container.dataset.lfLightingTarget = "cluster";
+    gradient.resetControl.dataset.lfLightingTarget = "cluster";
     const gradientController = lighting.bindGradientControl(gradient.browser, gradient.container);
     gradient.stopRows()[1].querySelector("[data-lf-gradient-position]").value = "0.4";
     await gradientController.save();
+    assert.equal(gradient.resetControl.hidden, false, "Cluster Gradient mutation did not reveal Cluster Reset");
+
+    const reset = colorBrowserFixture(fetchMutation, timers());
+    reset.resetButton.dataset.lfLightingTarget = "cluster";
+    const commitReset = lighting.bindResetButton(reset.browser, reset.resetButton);
+    await commitReset();
+    assert.equal(reset.getReloads(), 1);
 
     assert.deepEqual(requests.map(function(request) { return request.url; }), [
         "/api/cluster/lighting/effect",
@@ -3018,7 +3060,8 @@ test("shared lighting controls use dedicated serial-free RGB Cluster mutations",
         "/api/cluster/lighting/single-color",
         "/api/cluster/lighting/two-color",
         "/api/cluster/lighting/temperature",
-        "/api/cluster/lighting/gradient"
+        "/api/cluster/lighting/gradient",
+        "/api/cluster/lighting/effect-reset"
     ]);
     assert.deepEqual(requests[0].body, {effect: "wave"});
     assert.deepEqual(requests[1].body, {brightness: 41});
@@ -3030,13 +3073,14 @@ test("shared lighting controls use dedicated serial-free RGB Cluster mutations",
     assert.equal(requests[5].body.high.celsius, 96);
     assert.equal(requests[6].body.effect, "gradient");
     assert.equal(requests[6].body.stops[1].position, 0.4);
+    assert.deepEqual(requests[7].body, {effect: "static"});
     for (const request of requests) {
         assert.equal(Object.prototype.hasOwnProperty.call(request.body, "serial"), false);
         assert.doesNotMatch(request.url, /^\/api\/(?:color|brightness\/gradual)/);
     }
 });
 
-test("RGB Cluster mutation failure rolls back and cannot expose OpenRGB Reset", async function() {
+test("RGB Cluster Brightness failure rolls back and cluster-owned device Reset remains unavailable", async function() {
     const timers = timerFixture();
     let requests = 0;
     const fixture = brightnessBrowserFixture(async function() {
@@ -3056,7 +3100,32 @@ test("RGB Cluster mutation failure rolls back and cannot expose OpenRGB Reset", 
     assert.equal(fixture.resetControl.hidden, true);
 
     const resetFixture = colorBrowserFixture(async function() { requests++; });
-    resetFixture.resetButton.dataset.lfLightingTarget = "cluster";
+    resetFixture.resetButton.dataset.lfClusterControlled = "true";
     assert.equal(lighting.bindResetButton(resetFixture.browser, resetFixture.resetButton), null);
     assert.equal(requests, 1);
+});
+
+test("RGB Cluster Reset failure restores the button and in-flight clicks are deduplicated", async function() {
+    let requests = 0;
+    let resolveRequest;
+    const pendingResponse = new Promise(function(resolve) { resolveRequest = resolve; });
+    const fixture = colorBrowserFixture(async function(url, options) {
+        requests++;
+        assert.equal(url, "/api/cluster/lighting/effect-reset");
+        assert.deepEqual(JSON.parse(options.body), {effect: "static"});
+        return pendingResponse;
+    });
+    fixture.resetButton.dataset.lfLightingTarget = "cluster";
+    const commit = lighting.bindResetButton(fixture.browser, fixture.resetButton);
+    const pending = commit();
+    commit();
+    fixture.resetHandlers.click();
+    assert.equal(requests, 1);
+    assert.equal(fixture.resetButton.disabled, true);
+
+    resolveRequest({ok: true, json: async function() { return {status: 0}; }});
+    await pending;
+    assert.equal(fixture.getReloads(), 0);
+    assert.equal(fixture.resetButton.disabled, false);
+    assert.equal(fixture.status.textContent, "Unable to reset effect. Try again.");
 });

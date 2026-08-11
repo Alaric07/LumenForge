@@ -21,6 +21,7 @@ type clusterLightingMutationCalls struct {
 	twoColors    []clusterLightingTwoColorCall
 	temperatures []clusterLightingTemperatureCall
 	gradients    []clusterLightingGradientCall
+	resets       []string
 	setError     error
 }
 
@@ -59,6 +60,7 @@ func installClusterLightingMutationTestSeams(t *testing.T) *clusterLightingMutat
 	previousTwoColor := setClusterLightingTwoColor
 	previousTemperature := setClusterLightingTemperature
 	previousGradient := setClusterLightingGradient
+	previousReset := setClusterLightingReset
 	t.Cleanup(func() {
 		getClusterLightingDevice = previousDevice
 		setClusterLightingEffect = previousEffect
@@ -68,6 +70,7 @@ func installClusterLightingMutationTestSeams(t *testing.T) *clusterLightingMutat
 		setClusterLightingTwoColor = previousTwoColor
 		setClusterLightingTemperature = previousTemperature
 		setClusterLightingGradient = previousGradient
+		setClusterLightingReset = previousReset
 	})
 
 	device := &cluster.Device{}
@@ -122,6 +125,13 @@ func installClusterLightingMutationTestSeams(t *testing.T) *clusterLightingMutat
 		calls.gradients = append(calls.gradients, clusterLightingGradientCall{effect: effect, stops: append([]lightingsettings.GradientStop(nil), stops...)})
 		return calls.setError
 	}
+	setClusterLightingReset = func(got *cluster.Device, effect string) error {
+		if got != device {
+			t.Fatal("reset mutation received a different Cluster device")
+		}
+		calls.resets = append(calls.resets, effect)
+		return calls.setError
+	}
 	return calls
 }
 
@@ -138,6 +148,11 @@ func TestClusterLightingMutationRoutesCallCanonicalMethodsOnce(t *testing.T) {
 		{name: "effect", path: "/api/cluster/lighting/effect", body: `{"effect":"static"}`, assert: func(t *testing.T) {
 			if !reflect.DeepEqual(calls.effects, []string{"static"}) {
 				t.Fatalf("effect calls = %#v", calls.effects)
+			}
+		}},
+		{name: "effect reset", path: "/api/cluster/lighting/effect-reset", body: `{"effect":"static"}`, assert: func(t *testing.T) {
+			if !reflect.DeepEqual(calls.resets, []string{"static"}) {
+				t.Fatalf("reset calls = %#v", calls.resets)
 			}
 		}},
 		{name: "brightness", path: "/api/cluster/lighting/brightness", body: `{"brightness":60}`, assert: func(t *testing.T) {
@@ -201,6 +216,11 @@ func TestClusterLightingMutationRoutesStrictlyRejectInvalidRequests(t *testing.T
 		{name: "malformed", path: "/api/cluster/lighting/effect", body: `{"effect":`},
 		{name: "trailing JSON", path: "/api/cluster/lighting/effect", body: `{"effect":"static"}{}`},
 		{name: "oversized", path: "/api/cluster/lighting/effect", body: strings.Repeat(" ", clusterLightingRequestLimit+1) + `{"effect":"static"}`},
+		{name: "reset missing effect", path: "/api/cluster/lighting/effect-reset", body: `{}`},
+		{name: "reset unknown effect", path: "/api/cluster/lighting/effect-reset", body: `{"effect":"missing"}`},
+		{name: "reset rejects serial", path: "/api/cluster/lighting/effect-reset", body: `{"effect":"static","serial":"not-used"}`},
+		{name: "reset malformed", path: "/api/cluster/lighting/effect-reset", body: `{"effect":`},
+		{name: "reset trailing JSON", path: "/api/cluster/lighting/effect-reset", body: `{"effect":"static"}{}`},
 		{name: "brightness missing", path: "/api/cluster/lighting/brightness", body: `{}`},
 		{name: "brightness fraction", path: "/api/cluster/lighting/brightness", body: `{"brightness":1.5}`},
 		{name: "brightness range", path: "/api/cluster/lighting/brightness", body: `{"brightness":101}`},
@@ -225,8 +245,28 @@ func TestClusterLightingMutationRoutesStrictlyRejectInvalidRequests(t *testing.T
 			requireLightingMutationResponse(t, recorder, 0)
 		})
 	}
-	if len(calls.effects)+len(calls.brightness)+len(calls.speeds)+len(calls.singleColors)+len(calls.twoColors)+len(calls.temperatures)+len(calls.gradients) != 0 {
+	if len(calls.effects)+len(calls.brightness)+len(calls.speeds)+len(calls.singleColors)+len(calls.twoColors)+len(calls.temperatures)+len(calls.gradients)+len(calls.resets) != 0 {
 		t.Fatalf("invalid requests reached mutation seams: %#v", calls)
+	}
+}
+
+func TestClusterLightingResetFailureIsGenericAndProtected(t *testing.T) {
+	calls := installClusterLightingMutationTestSeams(t)
+	calls.setError = errors.New("private persistence path /secret/cluster.json")
+	router := setRoutes()
+	recorder := requestOpenRGBLightingMutation(t, router, http.MethodPost, "/api/cluster/lighting/effect-reset", `{"effect":"static"}`)
+	response := requireLightingMutationResponse(t, recorder, 0)
+	if !reflect.DeepEqual(calls.resets, []string{"static"}) || strings.Contains(recorder.Body.String(), "/secret/") || strings.Contains(response.Message, "persistence") {
+		t.Fatalf("failed reset response = %#v, body %q, calls %#v", response, recorder.Body.String(), calls.resets)
+	}
+
+	unprotected := httptest.NewRequest(http.MethodPost, "/api/cluster/lighting/effect-reset", strings.NewReader(`{"effect":"static"}`))
+	unprotected.Host = "127.0.0.1"
+	unprotected.Header.Set("Content-Type", "application/json")
+	unprotectedRecorder := httptest.NewRecorder()
+	router.ServeHTTP(unprotectedRecorder, unprotected)
+	if unprotectedRecorder.Code != http.StatusForbidden || len(calls.resets) != 1 {
+		t.Fatalf("unprotected reset response = %d %q, calls %#v", unprotectedRecorder.Code, unprotectedRecorder.Body.String(), calls.resets)
 	}
 }
 

@@ -22,7 +22,8 @@
         color: "/api/openrgbimport/single-color",
         twoColor: "/api/openrgbimport/two-color",
         temperature: "/api/openrgbimport/temperature",
-        gradient: "/api/openrgbimport/gradient"
+        gradient: "/api/openrgbimport/gradient",
+        reset: "/api/openrgbimport/effect-reset"
     });
     const clusterLightingEndpoints = Object.freeze({
         effect: "/api/cluster/lighting/effect",
@@ -31,7 +32,8 @@
         color: "/api/cluster/lighting/single-color",
         twoColor: "/api/cluster/lighting/two-color",
         temperature: "/api/cluster/lighting/temperature",
-        gradient: "/api/cluster/lighting/gradient"
+        gradient: "/api/cluster/lighting/gradient",
+        reset: "/api/cluster/lighting/effect-reset"
     });
     const effectEndpoint = openRGBLightingEndpoints.effect;
     const effectTimeoutMilliseconds = 10000;
@@ -64,7 +66,7 @@
     const gradientFailureMessage = "Unable to change Gradient. Try again.";
     const gradientCompleteMessage = "Every Gradient stop needs a valid color, position, and intensity.";
     const gradientRangeMessage = "Gradient positions and intensities must be between 0 and 1.";
-    const resetEndpoint = "/api/openrgbimport/effect-reset";
+    const resetEndpoint = openRGBLightingEndpoints.reset;
     const resetTimeoutMilliseconds = 10000;
     const resetSuccessMilliseconds = 3000;
     const resetFailureMessage = "Unable to reset effect. Try again.";
@@ -386,27 +388,13 @@
         return submitGradientForTarget(browser, openRGBLightingTarget(serial), effect, stops);
     }
 
+    function submitResetForTarget(browser, target, effect) {
+        return submitLightingMutation(browser, target.endpoints.reset, lightingPayload(target, {effect: effect}),
+            resetTimeoutMilliseconds, "reset request failed", "reset mutation was rejected");
+    }
+
     async function submitReset(browser, serial, effect) {
-        const controller = new browser.AbortController();
-        const timeout = browser.setTimeout(function () {
-            controller.abort();
-        }, resetTimeoutMilliseconds);
-        try {
-            const response = await browser.fetch(resetEndpoint, {
-                method: "POST",
-                body: JSON.stringify({serial: serial, effect: effect}),
-                signal: controller.signal
-            });
-            if (!response.ok) {
-                throw new Error("reset request failed");
-            }
-            const result = await response.json();
-            if (!result || result.status !== 1) {
-                throw new Error("reset mutation was rejected");
-            }
-        } finally {
-            browser.clearTimeout(timeout);
-        }
+        return submitResetForTarget(browser, openRGBLightingTarget(serial), effect);
     }
 
     function parseBrightness(value) {
@@ -587,13 +575,20 @@
         }
     }
 
-    function revealEffectReset(browser, serial, effect) {
+    function revealEffectResetForTarget(browser, target, effect) {
         const controls = browser.document.querySelectorAll("[data-lf-reset-control]");
         for (const control of controls) {
-            if (control.dataset.lfDeviceSerial === serial && control.dataset.lfEffect === effect) {
+            const controlTarget = lightingTarget(control);
+            if (controlTarget.kind === target.kind &&
+                (target.kind === "cluster" || controlTarget.serial === target.serial) &&
+                control.dataset.lfEffect === effect) {
                 control.hidden = false;
             }
         }
+    }
+
+    function revealEffectReset(browser, serial, effect) {
+        revealEffectResetForTarget(browser, openRGBLightingTarget(serial), effect);
     }
 
     function bindSpeedSlider(browser, slider) {
@@ -697,9 +692,7 @@
                 confirmedSpeed = speedHelper.storedToUiForSlider(slider, mappedSpeed);
                 renderSpeed(speedHelper, slider, numberInput, confirmedSpeed);
                 updateSpeedReadouts(browser, slider.dataset.lfSpeedTarget, mappedSpeed);
-                if (target.kind === "openrgb") {
-                    revealEffectReset(browser, target.serial, effect);
-                }
+                revealEffectResetForTarget(browser, target, effect);
                 setStatus("Speed saved.", true);
             } catch (_) {
                 restoreConfirmedSpeed();
@@ -801,6 +794,7 @@
                 await submitColorForTarget(browser, target, colorInput.dataset.lfEffect, normalized);
                 confirmedColor = normalized;
                 colorInput.dataset.lfCurrentColor = normalized;
+                revealEffectResetForTarget(browser, target, colorInput.dataset.lfEffect);
                 setStatus("Color saved.", true);
                 browser.location.reload();
             } catch (_) {
@@ -891,6 +885,7 @@
                 container.dataset.lfCurrentStart = start;
                 container.dataset.lfCurrentEnd = end;
                 render(start, end);
+                revealEffectResetForTarget(browser, target, container.dataset.lfEffect);
                 setStatus("Colors saved.", true);
                 browser.location.reload();
             } catch (_) {
@@ -1024,6 +1019,7 @@
                 await submitTemperatureForTarget(browser, target, container.dataset.lfEffect, next.low, next.middle, next.high);
                 confirmed = cloneState(next);
                 render(confirmed);
+                revealEffectResetForTarget(browser, target, container.dataset.lfEffect);
                 setStatus("Temperature colors saved.", true);
                 browser.location.reload();
             } catch (_) {
@@ -1311,6 +1307,7 @@
             try {
                 await submitGradientForTarget(browser, target, container.dataset.lfEffect, ordered);
                 confirmed = normalized(ordered);
+                revealEffectResetForTarget(browser, target, container.dataset.lfEffect);
                 setStatus("Gradient saved.", true);
                 browser.location.reload();
             } catch (_) {
@@ -1372,13 +1369,13 @@
     }
 
     function bindResetButton(browser, button) {
-        if (lightingTarget(button).kind === "cluster") return null;
         const clusterControlled = button.dataset.lfClusterControlled === "true";
         if (clusterControlled) return null;
         const status = browser.document.getElementById(button.dataset.lfStatusId);
         if (!status) return null;
 
         let requestInFlight = false;
+        const target = lightingTarget(button);
         const setStatus = createStatusController(browser, status, resetSuccessMilliseconds);
 
         async function handleClick() {
@@ -1387,7 +1384,7 @@
             button.disabled = true;
             setStatus("Resetting effect…", false);
             try {
-                await submitReset(browser, button.dataset.lfDeviceSerial, button.dataset.lfEffect);
+                await submitResetForTarget(browser, target, button.dataset.lfEffect);
                 setStatus("Effect reset.", true);
                 browser.location.reload();
             } catch (_) {

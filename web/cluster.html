@@ -347,6 +347,26 @@
                                             <p class="lf-color-control-status" id="lf-cluster-gradient-status" aria-live="polite"></p>
                                         </section>
                                     {{ end }}
+
+                                    <div
+                                        class="lf-reset-control"
+                                        data-lf-reset-control
+                                        data-lf-lighting-target="cluster"
+                                        data-lf-effect="{{ .ConfiguredEffect }}"
+                                        {{ if not .Customized }}hidden{{ end }}
+                                    >
+                                        <button
+                                            class="lf-button lf-button-secondary lf-reset-button"
+                                            type="button"
+                                            data-lf-reset-button
+                                            data-lf-lighting-target="cluster"
+                                            data-lf-effect="{{ .ConfiguredEffect }}"
+                                            data-lf-status-id="lf-cluster-reset-status"
+                                        >
+                                            Reset to default
+                                        </button>
+                                        <p class="lf-range-control-status" id="lf-cluster-reset-status" aria-live="polite"></p>
+                                    </div>
                                 </section>
                             </div>
 

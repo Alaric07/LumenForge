@@ -43,6 +43,9 @@ var (
 	setClusterLightingGradient = func(device *cluster.Device, effect string, stops []lightingsettings.GradientStop) error {
 		return device.SetLightingGradient(effect, stops)
 	}
+	setClusterLightingReset = func(device *cluster.Device, effect string) error {
+		return device.ResetLightingEffect(effect)
+	}
 )
 
 type clusterLightingEffectSummary struct {
@@ -248,6 +251,28 @@ func setRGBClusterLightingEffect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	clusterLightingSuccess(w, "RGB Cluster effect set")
+}
+
+func resetRGBClusterLightingEffect(w http.ResponseWriter, r *http.Request) {
+	request := struct {
+		Effect *string `json:"effect"`
+	}{}
+	if !decodeClusterLightingRequest(w, r, &request) {
+		return
+	}
+	if request.Effect == nil || !clusterLightingDescriptor(*request.Effect, "", false) {
+		clusterLightingFailure(w, "Invalid effect reset request")
+		return
+	}
+	device := clusterLightingDeviceOrFail(w)
+	if device == nil {
+		return
+	}
+	if err := setClusterLightingReset(device, *request.Effect); err != nil {
+		clusterLightingFailure(w, "Unable to reset RGB Cluster effect")
+		return
+	}
+	clusterLightingSuccess(w, "RGB Cluster effect reset")
 }
 
 func setRGBClusterLightingBrightness(w http.ResponseWriter, r *http.Request) {

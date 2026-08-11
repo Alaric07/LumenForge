@@ -261,6 +261,180 @@ func TestClusterLightingSuccessfulMutationReappliesOutput(t *testing.T) {
 	}
 }
 
+func TestClusterLightingResetDeletesOnlySelectedCustomization(t *testing.T) {
+	device, _ := newClusterTestDevice(t)
+	if err := device.SetLightingEffect("static"); err != nil {
+		t.Fatal(err)
+	}
+	staticColor := lightingsettings.Color{Red: 9, Green: 8, Blue: 7}
+	if err := device.SetLightingSingleColor("static", staticColor); err != nil {
+		t.Fatal(err)
+	}
+	staticBefore, ok, err := device.effects.Get("static")
+	if err != nil || !ok {
+		t.Fatalf("stored Static customization = %#v, %t, %v", staticBefore, ok, err)
+	}
+	if err = device.SetLightingEffect("wave"); err != nil {
+		t.Fatal(err)
+	}
+	shippedWave, err := device.resolver.Resolve(lightingsettings.RGBCluster(), "wave")
+	if err != nil || shippedWave.Customized {
+		t.Fatalf("shipped Wave resolution = %#v, %v", shippedWave, err)
+	}
+	if err = device.SetLightingSpeed("wave", 4); err != nil {
+		t.Fatal(err)
+	}
+	if err = device.SetLightingBrightness(63); err != nil {
+		t.Fatal(err)
+	}
+	device.AddDeviceController(&common.ClusterController{Serial: "member-one", LedChannels: 1, WriteColorEx: func([]byte, int) {}})
+	device.AddDeviceController(&common.ClusterController{Serial: "member-two", LedChannels: 1, WriteColorEx: func([]byte, int) {}})
+	controllersBefore, _ := device.controllerSnapshot()
+	controllerOrder := func(controllers []*common.ClusterController) []string {
+		serials := make([]string, len(controllers))
+		for index, controller := range controllers {
+			serials[index] = controller.Serial
+		}
+		return serials
+	}
+	orderBefore := controllerOrder(controllersBefore)
+	layoutBefore, err := device.layout.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	startsBefore, running := clusterWorkerState(device)
+	if !running {
+		t.Fatal("test Cluster worker did not start")
+	}
+
+	if err = device.ResetLightingEffect("wave"); err != nil {
+		t.Fatal(err)
+	}
+
+	after := device.LightingSnapshot()
+	if !after.Available || after.SelectedEffect != "wave" || after.Brightness != 63 || after.Customized ||
+		!reflect.DeepEqual(after.Settings, shippedWave.Settings) {
+		t.Fatalf("reset Wave snapshot = %#v, shipped %#v", after, shippedWave.Settings)
+	}
+	if _, customized, err := device.effects.Get("wave"); err != nil || customized {
+		t.Fatalf("Wave customization after reset exists=%t err=%v", customized, err)
+	}
+	staticAfter, customized, err := device.effects.Get("static")
+	if err != nil || !customized || !reflect.DeepEqual(staticAfter, staticBefore) {
+		t.Fatalf("unrelated Static customization = %#v, %t, %v; want %#v", staticAfter, customized, err, staticBefore)
+	}
+	controllersAfter, _ := device.controllerSnapshot()
+	orderAfter := controllerOrder(controllersAfter)
+	layoutAfter, err := device.layout.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(orderAfter, orderBefore) || !reflect.DeepEqual(layoutAfter, layoutBefore) {
+		t.Fatalf("reset changed membership/order: controllers %#v -> %#v, layout %#v -> %#v", orderBefore, orderAfter, layoutBefore, layoutAfter)
+	}
+	if startsAfter, running := clusterWorkerState(device); !running || startsAfter != startsBefore+1 {
+		t.Fatalf("successful reset worker starts = %d -> %d, running %t", startsBefore, startsAfter, running)
+	}
+}
+
+func TestClusterLightingResetMissingCustomizationIsSuccessfulNoOp(t *testing.T) {
+	device, paths := newClusterTestDevice(t)
+	if err := device.SetLightingBrightness(42); err != nil {
+		t.Fatal(err)
+	}
+	device.AddDeviceController(&common.ClusterController{Serial: "member", LedChannels: 1, WriteColorEx: func([]byte, int) {}})
+	before := device.LightingSnapshot()
+	startsBefore, _ := clusterWorkerState(device)
+	if err := device.ResetLightingEffect("rainbow"); err != nil {
+		t.Fatal(err)
+	}
+	after := device.LightingSnapshot()
+	if !reflect.DeepEqual(after, before) || after.Customized || after.SelectedEffect != "rainbow" || after.Brightness != 42 {
+		t.Fatalf("no-op reset changed canonical state: before %#v after %#v", before, after)
+	}
+	if startsAfter, running := clusterWorkerState(device); !running || startsAfter != startsBefore+1 {
+		t.Fatalf("no-op reset worker starts = %d -> %d, running %t", startsBefore, startsAfter, running)
+	}
+	if _, err := os.Stat(paths.ClusterEffectSettingsFile); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("no-op reset created customization file: %v", err)
+	}
+}
+
+func TestClusterLightingResetRejectsInvalidStateWithoutMutation(t *testing.T) {
+	device, _ := newClusterTestDevice(t)
+	if err := device.SetLightingEffect("static"); err != nil {
+		t.Fatal(err)
+	}
+	if err := device.SetLightingSingleColor("static", lightingsettings.Color{Red: 1, Green: 2, Blue: 3}); err != nil {
+		t.Fatal(err)
+	}
+	device.AddDeviceController(&common.ClusterController{Serial: "member", LedChannels: 1, WriteColorEx: func([]byte, int) {}})
+	before := device.LightingSnapshot()
+	startsBefore, _ := clusterWorkerState(device)
+	if err := device.ResetLightingEffect("wave"); err == nil {
+		t.Fatal("stale expected effect accepted")
+	}
+	if after := device.LightingSnapshot(); !reflect.DeepEqual(after, before) {
+		t.Fatalf("stale reset changed state: before %#v after %#v", before, after)
+	}
+	if startsAfter, _ := clusterWorkerState(device); startsAfter != startsBefore {
+		t.Fatalf("stale reset reapplied output: %d -> %d", startsBefore, startsAfter)
+	}
+
+	device.Stop()
+	device.lightingState.mu.Lock()
+	device.lightingState.state.SelectedEffect = "not-an-effect"
+	device.lightingState.mu.Unlock()
+	if err := device.ResetLightingEffect("not-an-effect"); err == nil {
+		t.Fatal("unknown selected effect accepted")
+	}
+	stored, customized, err := device.effects.Get("static")
+	if err != nil || !customized || stored.SingleColor == nil || stored.SingleColor.Color.Red != 1 {
+		t.Fatalf("rejected unknown reset changed customization = %#v, %t, %v", stored, customized, err)
+	}
+
+	var nilDevice *Device
+	if err := nilDevice.ResetLightingEffect("static"); err == nil {
+		t.Fatal("nil runtime reset reported success")
+	}
+	if err := (&Device{}).ResetLightingEffect("static"); err == nil {
+		t.Fatal("unavailable runtime reset reported success")
+	}
+}
+
+func TestClusterLightingResetPersistenceFailurePreservesCustomizationAndOutput(t *testing.T) {
+	device, paths := newClusterTestDevice(t)
+	if err := device.SetLightingEffect("static"); err != nil {
+		t.Fatal(err)
+	}
+	if err := device.SetLightingSingleColor("static", lightingsettings.Color{Red: 10, Green: 20, Blue: 30}); err != nil {
+		t.Fatal(err)
+	}
+	device.AddDeviceController(&common.ClusterController{Serial: "member", LedChannels: 1, WriteColorEx: func([]byte, int) {}})
+	before := device.LightingSnapshot()
+	startsBefore, _ := clusterWorkerState(device)
+	lightingRoot := filepath.Dir(paths.ClusterEffectSettingsFile)
+	movedRoot := lightingRoot + "-moved"
+	if err := os.Rename(lightingRoot, movedRoot); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(lightingRoot, []byte("blocks directory recreation"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := device.ResetLightingEffect("static"); err == nil {
+		t.Fatal("reset persistence failure reported success")
+	}
+	if after := device.LightingSnapshot(); !reflect.DeepEqual(after, before) {
+		t.Fatalf("failed reset changed canonical state: before %#v after %#v", before, after)
+	}
+	if _, customized, err := device.effects.Get("static"); err != nil || !customized {
+		t.Fatalf("failed reset removed customization: exists=%t err=%v", customized, err)
+	}
+	if startsAfter, _ := clusterWorkerState(device); startsAfter != startsBefore {
+		t.Fatalf("failed reset reapplied output: %d -> %d", startsBefore, startsAfter)
+	}
+}
+
 func TestClusterLightingMutationPersistenceFailurePreservesStateAndOutput(t *testing.T) {
 	writeErr := errors.New("injected persistence failure")
 	t.Run("target state", func(t *testing.T) {

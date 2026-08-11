@@ -3592,6 +3592,7 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/openrgbimport/effect", http.MethodPost, setOpenRGBImportEffect)
 	handleFunc(r, "/api/openrgbimport/brightness", http.MethodPost, setOpenRGBImportBrightness)
 	handleFunc(r, "/api/cluster/lighting/effect", http.MethodPost, setRGBClusterLightingEffect)
+	handleFunc(r, "/api/cluster/lighting/effect-reset", http.MethodPost, resetRGBClusterLightingEffect)
 	handleFunc(r, "/api/cluster/lighting/brightness", http.MethodPost, setRGBClusterLightingBrightness)
 	handleFunc(r, "/api/cluster/lighting/speed", http.MethodPost, setRGBClusterLightingSpeed)
 	handleFunc(r, "/api/cluster/lighting/single-color", http.MethodPost, setRGBClusterLightingSingleColor)
