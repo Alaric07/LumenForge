@@ -151,9 +151,10 @@ func TestOpenRGBImportRegistryHelpersUseExactInstance(t *testing.T) {
 	}
 }
 
-func TestLegacyGlobalRGBHelpersSkipOnlyCluster(t *testing.T) {
+func TestLegacyGlobalRGBHelpersSkipClusterAndOpenRGBImports(t *testing.T) {
 	native := &legacyRGBBoundaryTestDevice{}
 	cluster := &legacyRGBBoundaryTestDevice{}
+	imported := &openrgbimport.Device{Serial: "imported", IsOpenRGB: true}
 	mutex.Lock()
 	previousDevices := devices
 	devices = map[string]*common.Device{
@@ -166,6 +167,11 @@ func TestLegacyGlobalRGBHelpersSkipOnlyCluster(t *testing.T) {
 			ProductType: common.ProductTypeCluster,
 			Serial:      "cluster",
 			Instance:    cluster,
+		},
+		"imported": {
+			ProductType: common.ProductTypeMotherboard,
+			Serial:      "imported",
+			Instance:    imported,
 		},
 	}
 	mutex.Unlock()
@@ -182,6 +188,9 @@ func TestLegacyGlobalRGBHelpersSkipOnlyCluster(t *testing.T) {
 	if _, ok := profiles["cluster"]; ok {
 		t.Fatalf("Cluster leaked into legacy RGB profiles: %#v", profiles)
 	}
+	if _, ok := profiles["imported"]; ok {
+		t.Fatalf("OpenRGB import leaked into legacy RGB profiles: %#v", profiles)
+	}
 	ControlDeviceRgb(true)
 	UpdateGlobalRgbProfile("wave")
 	UpdateAllDevicesStaticColor(rgb.Color{Red: 1, Green: 2, Blue: 3})
@@ -192,7 +201,13 @@ func TestLegacyGlobalRGBHelpersSkipOnlyCluster(t *testing.T) {
 	if cluster.profileLists != 0 || cluster.controls != 0 || cluster.profileSelections != 0 || cluster.profileUpdates != 0 {
 		t.Fatalf("Cluster received legacy global RGB calls = %#v", cluster)
 	}
+	if eligibleForLegacyGlobalRGB(devices["imported"]) {
+		t.Fatal("OpenRGB import is eligible for legacy global RGB")
+	}
 
+	mutex.Lock()
+	delete(devices, "imported")
+	mutex.Unlock()
 	ScheduleDeviceBrightness(0)
 	if native.schedulerBrightness != 1 || cluster.schedulerBrightness != 1 {
 		t.Fatalf("scheduler Brightness calls = native %d Cluster %d", native.schedulerBrightness, cluster.schedulerBrightness)

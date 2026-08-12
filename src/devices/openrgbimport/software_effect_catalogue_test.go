@@ -191,8 +191,6 @@ func TestOpenRGBSoftwareEffectCatalogueContractsAndFrames(t *testing.T) {
 func TestOpenRGBSoftwareEffectCatalogueMutationValidation(t *testing.T) {
 	_, _ = installLightingDeviceTestSeams(t)
 	installLightingTemperatureTestSeams(t, 45, 60, 65)
-	profiles := shippedSoftwareEffectProfiles(t)
-	profiles["off"] = rgb.Profile{}
 	catalogue := importerSoftwareEffectCatalogue()
 
 	for _, effect := range catalogue {
@@ -200,7 +198,6 @@ func TestOpenRGBSoftwareEffectCatalogueMutationValidation(t *testing.T) {
 			device := newLightingMutationDevice()
 			device.RGBModes = importerSoftwareEffectCatalogue()
 			device.colorCount = 4
-			device.Rgb = &rgb.RGB{Profiles: profiles}
 			if err := device.SetEffect(effect); err != nil {
 				t.Fatalf("SetEffect(%q): %v", effect, err)
 			}

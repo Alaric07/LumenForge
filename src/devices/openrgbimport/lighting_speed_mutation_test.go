@@ -31,18 +31,13 @@ func newLightingSpeedMutationDevice(effect string, speed float64) *Device {
 	device.effect = effect
 	device.RGBModes = []string{effect, "static", "off"}
 	device.DeviceProfile.RGBProfile = effect
-	device.Rgb = &rgb.RGB{
-		Device: device.Product,
-		Profiles: map[string]rgb.Profile{
-			effect: {
-				ProfileName: effect,
-				Speed:       speed,
-				StartColor:  rgb.Color{Red: 20, Green: 40, Blue: 60, Brightness: 1},
-				EndColor:    rgb.Color{Red: 90, Green: 70, Blue: 50, Brightness: 1},
-			},
-		},
+	profile := rgb.Profile{
+		ProfileName: effect,
+		Speed:       speed,
+		StartColor:  rgb.Color{Red: 20, Green: 40, Blue: 60, Brightness: 1},
+		EndColor:    rgb.Color{Red: 90, Green: 70, Blue: 50, Brightness: 1},
 	}
-	settings, err := lightingSettingsFromRGBProfile(effect, device.Rgb.Profiles[effect])
+	settings, err := canonicalTestSettingsFromRGBProfile(effect, profile)
 	if err == nil {
 		if err = device.lightingEffects.Set(device.Serial, effect, settings); err != nil {
 			panic(err)
@@ -70,7 +65,7 @@ func lightingSpeedRunnerState(t *testing.T, device *Device) (float64, rgb.Color,
 }
 
 func TestOpenRGBLightingSetEffectSpeedPersistenceSources(t *testing.T) {
-	t.Run("Gradient without override", func(t *testing.T) {
+	t.Run("Gradient canonical speed", func(t *testing.T) {
 		installLightingDeviceTestSeams(t)
 		installLightingSpeedPersistenceSeams(t)
 		device := newLightingSpeedMutationDevice("gradient", 2)
@@ -127,52 +122,33 @@ func TestOpenRGBLightingSetEffectSpeedPersistenceSources(t *testing.T) {
 		}
 	})
 
-	t.Run("enabled local override", func(t *testing.T) {
+	t.Run("canonical device definition", func(t *testing.T) {
 		installLightingDeviceTestSeams(t)
 		installLightingSpeedPersistenceSeams(t)
 		device := newLightingSpeedMutationDevice("rain", 2)
-		device.DeviceProfile.RGBOverride = &RGBOverride{
-			Enabled:        true,
-			RGBStartColor:  rgb.Color{Red: 1, Green: 2, Blue: 3},
-			RGBMiddleColor: rgb.Color{Red: 4, Green: 5, Blue: 6},
-			RGBEndColor:    rgb.Color{Red: 7, Green: 8, Blue: 9},
-			RgbModeSpeed:   3,
-		}
-		overrideBefore := *device.DeviceProfile.RGBOverride
 
 		if err := device.SetEffectSpeed(lightingDeviceTestSerial, "rain", 2.5); err != nil {
 			t.Fatalf("SetEffectSpeed: %v", err)
 		}
 		runnerSpeed, runnerStart, runnerEnd := lightingSpeedRunnerState(t, device)
 		stopLightingSpeedWorker(device)
-		canonical := device.GetRgbProfile("rain")
+		canonical := device.resolvedRendererProfile("rain")
 		if canonical == nil || runnerSpeed != 2.5 || runnerStart != canonical.StartColor || runnerEnd != canonical.EndColor {
 			t.Fatalf("canonical runner state = speed %v, start %#v, end %#v; profile %#v", runnerSpeed, runnerStart, runnerEnd, canonical)
 		}
-		if got := device.GetRgbProfile("rain").Speed; got != 2.5 {
+		if got := device.resolvedRendererProfile("rain").Speed; got != 2.5 {
 			t.Fatalf("customized speed = %v, want 2.5", got)
-		}
-		if *device.DeviceProfile.RGBOverride != overrideBefore {
-			t.Fatalf("Speed mutation changed presentation-only override state: %#v", device.DeviceProfile.RGBOverride)
 		}
 		snapshot, ok := device.LightingSnapshot()
 		if !ok || !snapshot.HasSpeed || snapshot.Speed != 2.5 || !snapshot.Customized {
-			t.Fatalf("Lighting snapshot after override speed update = %#v", snapshot)
+			t.Fatalf("Lighting snapshot after speed update = %#v", snapshot)
 		}
 	})
 
-	t.Run("Gradient ignores enabled override", func(t *testing.T) {
+	t.Run("Gradient uses canonical settings", func(t *testing.T) {
 		installLightingDeviceTestSeams(t)
 		installLightingSpeedPersistenceSeams(t)
 		device := newLightingSpeedMutationDevice("gradient", 2)
-		device.DeviceProfile.RGBOverride = &RGBOverride{
-			Enabled:        true,
-			RGBStartColor:  rgb.Color{Red: 1, Green: 2, Blue: 3},
-			RGBMiddleColor: rgb.Color{Red: 4, Green: 5, Blue: 6},
-			RGBEndColor:    rgb.Color{Red: 7, Green: 8, Blue: 9},
-			RgbModeSpeed:   8,
-		}
-		overrideBefore := *device.DeviceProfile.RGBOverride
 
 		if err := device.SetEffectSpeed(lightingDeviceTestSerial, "gradient", 6); err != nil {
 			t.Fatalf("SetEffectSpeed: %v", err)
@@ -182,17 +158,11 @@ func TestOpenRGBLightingSetEffectSpeedPersistenceSources(t *testing.T) {
 		if runnerSpeed != 6 {
 			t.Fatalf("Gradient runner speed = %v, want base speed 6", runnerSpeed)
 		}
-		canonical := device.GetRgbProfile("gradient")
+		canonical := device.resolvedRendererProfile("gradient")
 		if canonical == nil || runnerStart != canonical.StartColor || runnerEnd != canonical.EndColor {
 			t.Fatalf("Gradient runner did not use canonical colors: start %#v, end %#v, profile %#v", runnerStart, runnerEnd, canonical)
 		}
-		if device.DeviceProfile.RGBOverride.RgbModeSpeed != 8 {
-			t.Fatalf("Gradient changed override speed to %v", device.DeviceProfile.RGBOverride.RgbModeSpeed)
-		}
-		if *device.DeviceProfile.RGBOverride != overrideBefore {
-			t.Fatalf("Gradient speed mutation changed override state from %#v to %#v", overrideBefore, device.DeviceProfile.RGBOverride)
-		}
-		if got := device.GetRgbProfile("gradient").Speed; got != 6 {
+		if got := device.resolvedRendererProfile("gradient").Speed; got != 6 {
 			t.Fatalf("persisted Gradient speed = %v, want 6", got)
 		}
 		snapshot, ok := device.LightingSnapshot()
@@ -256,7 +226,7 @@ func TestOpenRGBLightingSetEffectSpeedInitialOutputTimeoutRetainsPersistedSpeed(
 	installLightingDeviceTestSeams(t)
 	installLightingSpeedPersistenceSeams(t)
 	device := newLightingSpeedMutationDevice("rainbow", 2)
-	profileBefore := *device.GetRgbProfile("rainbow")
+	profileBefore := *device.resolvedRendererProfile("rainbow")
 	previousContext := initialEffectOutputContext
 	timeoutDone := make(chan struct{})
 	initialEffectOutputContext = func() (context.Context, context.CancelFunc) {
@@ -290,7 +260,7 @@ func TestOpenRGBLightingSetEffectSpeedInitialOutputTimeoutRetainsPersistedSpeed(
 	if !errors.Is(err, context.DeadlineExceeded) || !strings.Contains(err.Error(), "wait for initial OpenRGB effect output") {
 		t.Fatalf("SetEffectSpeed timeout = %v", err)
 	}
-	if got := device.GetRgbProfile("rainbow").Speed; got != 5 {
+	if got := device.resolvedRendererProfile("rainbow").Speed; got != 5 {
 		t.Fatalf("in-memory speed after timeout = %v, want persisted 5", got)
 	}
 	if resolution, resolveErr := device.resolveLightingSettings("rainbow"); resolveErr != nil || resolution.Settings.Speed == nil || *resolution.Settings.Speed != 5 {
@@ -300,7 +270,7 @@ func TestOpenRGBLightingSetEffectSpeedInitialOutputTimeoutRetainsPersistedSpeed(
 	close(releaseOutput)
 	<-outputReturned
 	stopLightingSpeedWorker(device)
-	profileAfter := device.GetRgbProfile("rainbow")
+	profileAfter := device.resolvedRendererProfile("rainbow")
 	if profileAfter.StartColor != profileBefore.StartColor || profileAfter.MiddleColor != profileBefore.MiddleColor ||
 		profileAfter.EndColor != profileBefore.EndColor || device.GetEffect() != "rainbow" {
 		t.Fatalf("timeout changed effect or color state: effect %q, profile %#v", device.GetEffect(), profileAfter)
@@ -397,7 +367,7 @@ func TestOpenRGBLightingSetEffectSpeedPersistenceFailureRollsBack(t *testing.T) 
 		if err == nil || !strings.Contains(err.Error(), "save OpenRGB effect speed") {
 			t.Fatalf("SetEffectSpeed error = %v", err)
 		}
-		if got := device.GetRgbProfile("rainbow").Speed; got != 2 {
+		if got := device.resolvedRendererProfile("rainbow").Speed; got != 2 {
 			t.Fatalf("speed after failed save = %v, want restored 2", got)
 		}
 		if device.running || calls.colors != 0 || calls.frames != 0 || calls.persistentFrames != 0 {
@@ -405,19 +375,15 @@ func TestOpenRGBLightingSetEffectSpeedPersistenceFailureRollsBack(t *testing.T) 
 		}
 	})
 
-	t.Run("enabled override is not a Speed persistence source", func(t *testing.T) {
+	t.Run("successful customization reapplies output", func(t *testing.T) {
 		_, calls := installLightingDeviceTestSeams(t)
 		installLightingSpeedPersistenceSeams(t)
 		device := newLightingSpeedMutationDevice("rainbow", 2)
-		device.DeviceProfile.RGBOverride = &RGBOverride{Enabled: true, RgbModeSpeed: 3}
 
 		if err := device.SetEffectSpeed(lightingDeviceTestSerial, "rainbow", 5); err != nil {
 			t.Fatalf("SetEffectSpeed: %v", err)
 		}
 		stopLightingSpeedWorker(device)
-		if device.DeviceProfile.RGBOverride == nil || device.DeviceProfile.RGBOverride.RgbModeSpeed != 3 {
-			t.Fatalf("Speed mutation changed presentation-only override = %#v", device.DeviceProfile.RGBOverride)
-		}
 		if calls.persistentFrames == 0 {
 			t.Fatal("successful canonical Speed mutation did not reapply output")
 		}
@@ -440,7 +406,7 @@ func TestOpenRGBLightingSetEffectSpeedPersistenceFailureRollsBack(t *testing.T) 
 		if err := device.SetEffectSpeed(lightingDeviceTestSerial, "rainbow", 7); err == nil {
 			t.Fatal("second SetEffectSpeed succeeded despite persistence failure")
 		}
-		if got := device.GetRgbProfile("rainbow").Speed; got != 5 {
+		if got := device.resolvedRendererProfile("rainbow").Speed; got != 5 {
 			t.Fatalf("speed after later failed save = %v, want confirmed 5", got)
 		}
 	})
@@ -459,7 +425,7 @@ func TestOpenRGBLightingSetEffectSpeedOutputFailureRetainsPersistedSpeed(t *test
 	if resolution, resolveErr := device.resolveLightingSettings("rainbow"); resolveErr != nil || resolution.Settings.Speed == nil || *resolution.Settings.Speed != 5 {
 		t.Fatalf("persisted speed after output failure = %#v, %v", resolution, resolveErr)
 	}
-	if got := device.GetRgbProfile("rainbow").Speed; got != 5 {
+	if got := device.resolvedRendererProfile("rainbow").Speed; got != 5 {
 		t.Fatalf("in-memory speed after output failure = %v, want desired 5", got)
 	}
 	if calls.persistentFrames != 1 || device.running || device.ControllerID() != -1 {
@@ -472,13 +438,12 @@ func TestOpenRGBLightingSetEffectSpeedClusterPreservesState(t *testing.T) {
 	rgbDirectory := installLightingSpeedPersistenceSeams(t)
 	device := newLightingSpeedMutationDevice("rainbow", 2)
 	device.DeviceProfile.RGBCluster = true
-	device.DeviceProfile.RGBOverride = &RGBOverride{Enabled: true, RgbModeSpeed: 3}
 
 	err := device.SetEffectSpeed(lightingDeviceTestSerial, "rainbow", 5)
 	if err == nil || err.Error() != "device is controlled by RGB cluster" {
 		t.Fatalf("cluster SetEffectSpeed error = %v", err)
 	}
-	if device.DeviceProfile.RGBOverride.RgbModeSpeed != 3 || device.GetRgbProfile("rainbow").Speed != 2 {
+	if device.resolvedRendererProfile("rainbow").Speed != 2 {
 		t.Fatal("cluster rejection changed stored speed state")
 	}
 	if calls.colors != 0 || calls.frames != 0 || calls.persistentFrames != 0 || device.running {

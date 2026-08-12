@@ -9,7 +9,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"math"
 	"net"
 	"os"
 	"path/filepath"
@@ -143,7 +142,64 @@ func newLightingMutationDevice() *Device {
 	return device
 }
 
-func newStaticOverrideTestDevice(brightness uint8) *Device {
+func canonicalTestSettingsFromRGBProfile(effect string, profile rgb.Profile) (lightingsettings.EffectSettings, error) {
+	descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect)
+	if !ok || !descriptor.Scope.Includes(rgb.EffectScopeDevice) {
+		return lightingsettings.EffectSettings{}, errors.New("unsupported OpenRGB effect")
+	}
+	color := func(value rgb.Color) lightingsettings.Color {
+		return lightingsettings.Color{Red: value.Red, Green: value.Green, Blue: value.Blue}
+	}
+	settings := lightingsettings.EffectSettings{SchemaVersion: lightingsettings.SchemaVersion, EffectID: effect}
+	if descriptor.SupportsSpeed {
+		speed := profile.Speed
+		settings.Speed = &speed
+	}
+	switch descriptor.PaletteKind {
+	case rgb.LightingPaletteNone, rgb.LightingPaletteGenerated:
+	case rgb.LightingPaletteStaticSingle:
+		settings.SingleColor = &lightingsettings.SingleColorSettings{Color: color(profile.StartColor)}
+	case rgb.LightingPaletteTwoColor:
+		settings.TwoColor = &lightingsettings.TwoColorSettings{
+			Start: color(profile.StartColor),
+			End:   color(profile.EndColor),
+		}
+	case rgb.LightingPaletteTemperatureThree:
+		settings.Temperature = &lightingsettings.TemperatureSettings{
+			Low: lightingsettings.TemperaturePoint{
+				Color: color(profile.StartColor), Celsius: profile.StartColor.Temperature,
+			},
+			Middle: lightingsettings.TemperaturePoint{
+				Color: color(profile.MiddleColor), Celsius: profile.MiddleColor.Temperature,
+			},
+			High: lightingsettings.TemperaturePoint{
+				Color: color(profile.EndColor), Celsius: profile.EndColor.Temperature,
+			},
+		}
+	case rgb.LightingPaletteGradient:
+		stops := make([]lightingsettings.GradientStop, 0, len(profile.Gradients))
+		for index := 0; index < len(profile.Gradients); index++ {
+			value, found := profile.Gradients[index]
+			if !found {
+				return lightingsettings.EffectSettings{}, errors.New("Gradient stops must use contiguous indexes")
+			}
+			stops = append(stops, lightingsettings.GradientStop{
+				Position:  value.Position,
+				Color:     color(value),
+				Intensity: value.Brightness,
+			})
+		}
+		settings.Gradient = &lightingsettings.GradientSettings{Stops: stops}
+	default:
+		return lightingsettings.EffectSettings{}, errors.New("unsupported OpenRGB effect palette")
+	}
+	if err := lightingsettings.Validate(settings); err != nil {
+		return lightingsettings.EffectSettings{}, err
+	}
+	return settings, nil
+}
+
+func newCanonicalStaticTestDevice(brightness uint8) *Device {
 	device := newLightingMutationDevice()
 	device.Config = &DeviceConfig{
 		Serial:  lightingDeviceTestSerial,
@@ -169,21 +225,6 @@ func newStaticOverrideTestDevice(brightness uint8) *Device {
 			Color:      &rgb.Color{Red: 5, Green: 60, Blue: 120, Brightness: 1},
 			ColorIndex: []int{6, 7, 8},
 			Name:       "Rear",
-		},
-	}
-	device.DeviceProfile.RGBOverride = &RGBOverride{
-		RGBStartColor:  rgb.Color{Red: 200, Green: 100, Blue: 50, Brightness: 1},
-		RGBMiddleColor: rgb.Color{Red: 20, Green: 40, Blue: 60, Brightness: 1},
-		RGBEndColor:    rgb.Color{Red: 80, Green: 100, Blue: 120, Brightness: 1},
-		RgbModeSpeed:   3,
-	}
-	device.Rgb = &rgb.RGB{
-		Device: "Lighting Test Controller",
-		Profiles: map[string]rgb.Profile{
-			"static": {
-				ProfileName: "static",
-				StartColor:  rgb.Color{Red: 12, Green: 34, Blue: 56, Brightness: 1},
-			},
 		},
 	}
 	return device
@@ -657,7 +698,7 @@ func TestOpenRGBCanonicalStaticFrame(t *testing.T) {
 			expected:   []byte{200, 100, 50, 200, 100, 50, 200, 100, 50},
 		},
 		{
-			name:       "black override",
+			name:       "black",
 			brightness: 100,
 			color:      rgb.Color{},
 			expected:   []byte{0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -672,14 +713,13 @@ func TestOpenRGBCanonicalStaticFrame(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			device := newStaticOverrideTestDevice(test.brightness)
+			device := newCanonicalStaticTestDevice(test.brightness)
 			setCanonicalStaticColor(t, device, test.color)
 			profileDir := t.TempDir()
 			device.DeviceProfile.Path = filepath.Join(profileDir, lightingDeviceTestSerial+".json")
 
 			profileBefore := cloneDeviceProfile(device.DeviceProfile)
 			configBefore := cloneDeviceConfig(device.Config)
-			rgbBefore := cloneRGBState(device.Rgb)
 			lastColorBefore := append([]byte(nil), device.lastColor...)
 
 			frame := canonicalStaticFrame(t, device, test.brightness)
@@ -691,9 +731,6 @@ func TestOpenRGBCanonicalStaticFrame(t *testing.T) {
 			}
 			if !reflect.DeepEqual(device.Config, configBefore) {
 				t.Fatal("building the canonical Static frame changed the controller config")
-			}
-			if !reflect.DeepEqual(device.Rgb, rgbBefore) {
-				t.Fatal("building the canonical Static frame changed the RGB definition")
 			}
 			if !bytes.Equal(device.lastColor, lastColorBefore) {
 				t.Fatal("building the canonical Static frame changed lastColor")
@@ -707,896 +744,6 @@ func TestOpenRGBCanonicalStaticFrame(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestOpenRGBStaticOverrideBrightnessOutput(t *testing.T) {
-	tests := []struct {
-		name       string
-		brightness uint8
-		color      rgb.Color
-		expected   []byte
-	}{
-		{
-			name:       "zero brightness",
-			brightness: 0,
-			color:      rgb.Color{Red: 200, Green: 100, Blue: 50},
-			expected:   []byte{0, 0, 0, 0, 0, 0, 0, 0, 0},
-		},
-		{
-			name:       "intermediate brightness",
-			brightness: 50,
-			color:      rgb.Color{Red: 200, Green: 100, Blue: 50},
-			expected:   []byte{100, 50, 25, 100, 50, 25, 100, 50, 25},
-		},
-		{
-			name:       "full brightness",
-			brightness: 100,
-			color:      rgb.Color{Red: 200, Green: 100, Blue: 50},
-			expected:   []byte{200, 100, 50, 200, 100, 50, 200, 100, 50},
-		},
-		{
-			name:       "integer truncation",
-			brightness: 50,
-			color:      rgb.Color{Red: 1, Green: 255, Blue: 3},
-			expected:   []byte{0, 127, 1, 0, 127, 1, 0, 127, 1},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			_, calls := installLightingDeviceTestSeams(t)
-			device := newStaticOverrideTestDevice(25)
-			setCanonicalStaticColor(t, device, test.color)
-			device.DeviceProfile.RGBOverride.Enabled = true
-			device.DeviceProfile.RGBOverride.RGBStartColor = test.color
-
-			zoneColorsBefore := cloneDeviceProfile(device.DeviceProfile).ZoneColors
-			overrideBefore := *device.DeviceProfile.RGBOverride
-			configBefore := cloneDeviceConfig(device.Config)
-			rgbBefore := cloneRGBState(device.Rgb)
-			lastColorBefore := append([]byte(nil), device.lastColor...)
-
-			if err := device.SetBrightness(test.brightness); err != nil {
-				t.Fatalf("SetBrightness(%d): %v", test.brightness, err)
-			}
-			if calls.colors != 0 || calls.frames != 1 {
-				t.Fatalf("output calls = colors %d, frames %d, want 0, 1", calls.colors, calls.frames)
-			}
-			if len(calls.frameValues) != 1 || !bytes.Equal(calls.frameValues[0], test.expected) {
-				t.Fatalf("Static override brightness frame = %v, want %v", calls.frameValues, test.expected)
-			}
-			state, found, stateErr := device.lightingState.Resolve(device.Serial)
-			if stateErr != nil || !found || state.Brightness != test.brightness {
-				t.Fatalf("persisted brightness = %#v, %t, %v; want %d", state, found, stateErr, test.brightness)
-			}
-			if !reflect.DeepEqual(device.DeviceProfile.ZoneColors, zoneColorsBefore) {
-				t.Fatal("Static override brightness change modified stored zone colors")
-			}
-			if device.DeviceProfile.RGBOverride == nil || !reflect.DeepEqual(*device.DeviceProfile.RGBOverride, overrideBefore) {
-				t.Fatal("Static override brightness change modified the override")
-			}
-			if !reflect.DeepEqual(device.Config, configBefore) {
-				t.Fatal("Static override brightness change modified configured zones")
-			}
-			if !reflect.DeepEqual(device.Rgb, rgbBefore) {
-				t.Fatal("Static override brightness change modified the RGB definition")
-			}
-			if !bytes.Equal(device.lastColor, lastColorBefore) {
-				t.Fatal("Static override brightness change modified lastColor")
-			}
-		})
-	}
-
-	t.Run("disabled override remains inert", func(t *testing.T) {
-		_, calls := installLightingDeviceTestSeams(t)
-		device := newStaticOverrideTestDevice(100)
-		zoneColorsBefore := cloneDeviceProfile(device.DeviceProfile).ZoneColors
-		overrideBefore := *device.DeviceProfile.RGBOverride
-		configBefore := cloneDeviceConfig(device.Config)
-		rgbBefore := cloneRGBState(device.Rgb)
-		lastColorBefore := append([]byte(nil), device.lastColor...)
-
-		if err := device.SetBrightness(50); err != nil {
-			t.Fatalf("SetBrightness: %v", err)
-		}
-		expected := []byte{0, 127, 127, 0, 127, 127, 0, 127, 127}
-		if calls.colors != 0 || calls.frames != 1 || !bytes.Equal(calls.frameValues[0], expected) {
-			t.Fatalf("disabled override output = colors %d, frames %v, want canonical frame %v", calls.colors, calls.frameValues, expected)
-		}
-		if !reflect.DeepEqual(device.DeviceProfile.ZoneColors, zoneColorsBefore) {
-			t.Fatal("disabled override brightness change modified stored zone colors")
-		}
-		if device.DeviceProfile.RGBOverride == nil || !reflect.DeepEqual(*device.DeviceProfile.RGBOverride, overrideBefore) {
-			t.Fatal("disabled override brightness change modified the override")
-		}
-		if !reflect.DeepEqual(device.Config, configBefore) || !reflect.DeepEqual(device.Rgb, rgbBefore) || !bytes.Equal(device.lastColor, lastColorBefore) {
-			t.Fatal("disabled override brightness change modified base device state")
-		}
-	})
-
-	t.Run("animated effect sends no synchronous Static frame", func(t *testing.T) {
-		_, calls := installLightingDeviceTestSeams(t)
-		device := newStaticOverrideTestDevice(100)
-		device.DeviceProfile.RGBOverride.Enabled = true
-		zoneColorsBefore := cloneDeviceProfile(device.DeviceProfile).ZoneColors
-		overrideBefore := *device.DeviceProfile.RGBOverride
-		configBefore := cloneDeviceConfig(device.Config)
-		rgbBefore := cloneRGBState(device.Rgb)
-		lastColorBefore := append([]byte(nil), device.lastColor...)
-
-		if err := device.SetEffect("rainbow"); err != nil {
-			t.Fatalf("SetEffect(rainbow): %v", err)
-		}
-		if err := device.SetBrightness(50); err != nil {
-			device.Stop()
-			t.Fatalf("SetBrightness: %v", err)
-		}
-		device.Stop()
-		if calls.colors != 0 || calls.frames != 0 {
-			t.Fatalf("animated brightness output calls = colors %d, frames %d, want none", calls.colors, calls.frames)
-		}
-		if !reflect.DeepEqual(device.DeviceProfile.ZoneColors, zoneColorsBefore) || device.DeviceProfile.RGBOverride == nil || !reflect.DeepEqual(*device.DeviceProfile.RGBOverride, overrideBefore) {
-			t.Fatal("animated brightness change modified stored colour state")
-		}
-		if !reflect.DeepEqual(device.Config, configBefore) || !reflect.DeepEqual(device.Rgb, rgbBefore) || !bytes.Equal(device.lastColor, lastColorBefore) {
-			t.Fatal("animated brightness change modified base device state")
-		}
-	})
-
-	t.Run("Off does not select Static override", func(t *testing.T) {
-		_, calls := installLightingDeviceTestSeams(t)
-		device := newStaticOverrideTestDevice(100)
-		device.effect = "off"
-		device.DeviceProfile.RGBProfile = "off"
-		device.DeviceProfile.RGBOverride.Enabled = true
-		zoneColorsBefore := cloneDeviceProfile(device.DeviceProfile).ZoneColors
-		overrideBefore := *device.DeviceProfile.RGBOverride
-		configBefore := cloneDeviceConfig(device.Config)
-		rgbBefore := cloneRGBState(device.Rgb)
-		lastColorBefore := append([]byte(nil), device.lastColor...)
-
-		if err := device.SetBrightness(50); err != nil {
-			t.Fatalf("SetBrightness: %v", err)
-		}
-		expectedOff := []byte{0, 0, 0}
-		if calls.colors != 1 || calls.frames != 0 || !bytes.Equal(calls.colorValues[0], expectedOff) {
-			t.Fatalf("Off brightness output = colors %v, frames %v, want black %v", calls.colorValues, calls.frameValues, expectedOff)
-		}
-		if device.GetEffect() != "off" {
-			t.Fatalf("effect = %q, want off", device.GetEffect())
-		}
-		if !reflect.DeepEqual(device.DeviceProfile.ZoneColors, zoneColorsBefore) || device.DeviceProfile.RGBOverride == nil || !reflect.DeepEqual(*device.DeviceProfile.RGBOverride, overrideBefore) {
-			t.Fatal("Off brightness change modified stored colour state")
-		}
-		if !reflect.DeepEqual(device.Config, configBefore) || !reflect.DeepEqual(device.Rgb, rgbBefore) || !bytes.Equal(device.lastColor, lastColorBefore) {
-			t.Fatal("Off brightness change modified base device state")
-		}
-	})
-
-	t.Run("output failure retains persisted brightness", func(t *testing.T) {
-		preserveOpenRGBStatus(t)
-		_, calls := installLightingDeviceTestSeams(t)
-		calls.err = errors.New("test Static override brightness output failure")
-		device := newStaticOverrideTestDevice(100)
-		device.DeviceProfile.RGBOverride.Enabled = true
-		zoneColorsBefore := cloneDeviceProfile(device.DeviceProfile).ZoneColors
-		overrideBefore := *device.DeviceProfile.RGBOverride
-		configBefore := cloneDeviceConfig(device.Config)
-		rgbBefore := cloneRGBState(device.Rgb)
-		lastColorBefore := append([]byte(nil), device.lastColor...)
-
-		if err := device.SetBrightness(50); err == nil {
-			t.Fatal("Static override brightness output failure was not returned")
-		}
-		if calls.colors != 0 || calls.frames != 1 {
-			t.Fatalf("output calls = colors %d, frames %d, want 0, 1", calls.colors, calls.frames)
-		}
-		state, found, stateErr := device.lightingState.Resolve(device.Serial)
-		if stateErr != nil || !found || state.Brightness != 50 {
-			t.Fatalf("persisted brightness = %#v, %t, %v; want 50", state, found, stateErr)
-		}
-		if device.ControllerID() != -1 {
-			t.Fatalf("controller ID = %d, want unavailable -1", device.ControllerID())
-		}
-		if !reflect.DeepEqual(device.DeviceProfile.ZoneColors, zoneColorsBefore) {
-			t.Fatal("failed Static override brightness output modified stored zone colors")
-		}
-		if device.DeviceProfile.RGBOverride == nil || !reflect.DeepEqual(*device.DeviceProfile.RGBOverride, overrideBefore) {
-			t.Fatal("failed Static override brightness output modified the override")
-		}
-		if !reflect.DeepEqual(device.Config, configBefore) || !reflect.DeepEqual(device.Rgb, rgbBefore) || !bytes.Equal(device.lastColor, lastColorBefore) {
-			t.Fatal("failed Static override brightness output modified base device state")
-		}
-	})
-}
-
-func TestOpenRGBStaticOverrideBlackProductionOutput(t *testing.T) {
-	profileDir, calls := installLightingDeviceTestSeams(t)
-	device := newStaticOverrideTestDevice(100)
-	device.DeviceProfile.RGBOverride.Enabled = true
-	device.DeviceProfile.RGBOverride.RGBStartColor = rgb.Color{}
-	setCanonicalStaticColor(t, device, rgb.Color{})
-	if err := device.saveDeviceProfileChecked(); err != nil {
-		t.Fatalf("save baseline profile: %v", err)
-	}
-	profilePath := filepath.Join(profileDir, lightingDeviceTestSerial+".json")
-	profileBefore, err := os.ReadFile(profilePath)
-	if err != nil {
-		t.Fatalf("read baseline profile: %v", err)
-	}
-	zoneColorsBefore := cloneDeviceProfile(device.DeviceProfile).ZoneColors
-
-	if err = device.resumeDesiredState(context.Background()); err != nil {
-		t.Fatalf("resume black Static override: %v", err)
-	}
-	if calls.colors != 0 || calls.frames != 1 {
-		t.Fatalf("black Static output calls = colors %d, frames %d, want 0, 1", calls.colors, calls.frames)
-	}
-	if len(calls.frameValues) != 1 || len(calls.frameValues[0]) != device.colorCount*3 {
-		t.Fatalf("black Static frame = %v, want %d zero bytes", calls.frameValues, device.colorCount*3)
-	}
-	for index, value := range calls.frameValues[0] {
-		if value != 0 {
-			t.Fatalf("black Static frame byte %d = %d, want 0", index, value)
-		}
-	}
-	baseFrame := []byte{90, 30, 10, 90, 30, 10, 5, 60, 120}
-	if bytes.Equal(calls.frameValues[0], baseFrame) {
-		t.Fatal("black Static output selected the stored base-zone frame")
-	}
-	profileAfter, err := os.ReadFile(profilePath)
-	if err != nil {
-		t.Fatalf("read profile after black output: %v", err)
-	}
-	if !bytes.Equal(profileAfter, profileBefore) {
-		t.Fatal("black Static replay changed persisted profile content")
-	}
-	if !reflect.DeepEqual(device.DeviceProfile.ZoneColors, zoneColorsBefore) {
-		t.Fatal("black Static output modified stored zone colors")
-	}
-}
-
-func TestOpenRGBStaticOverrideOutputSelection(t *testing.T) {
-	_, calls := installLightingDeviceTestSeams(t)
-	device := newStaticOverrideTestDevice(100)
-	setCanonicalStaticColor(t, device, rgb.Color{Red: 11, Green: 22, Blue: 33})
-	canonicalFrame := []byte{11, 22, 33, 11, 22, 33, 11, 22, 33}
-
-	zoneColorsBefore := cloneDeviceProfile(device.DeviceProfile).ZoneColors
-	configBefore := cloneDeviceConfig(device.Config)
-	rgbBefore := cloneRGBState(device.Rgb)
-	lastColorBefore := append([]byte(nil), device.lastColor...)
-
-	if err := device.resumeDesiredState(context.Background()); err != nil {
-		t.Fatalf("resume disabled Static override: %v", err)
-	}
-	device.DeviceProfile.RGBOverride.Enabled = true
-	if err := device.resumeDesiredState(context.Background()); err != nil {
-		t.Fatalf("resume enabled Static override: %v", err)
-	}
-	device.DeviceProfile.RGBOverride.Enabled = false
-	if err := device.resumeDesiredState(context.Background()); err != nil {
-		t.Fatalf("resume restored Static base: %v", err)
-	}
-
-	if calls.colors != 0 || calls.frames != 3 {
-		t.Fatalf("output calls = colors %d, frames %d, want 0, 3", calls.colors, calls.frames)
-	}
-	wantedFrames := [][]byte{canonicalFrame, canonicalFrame, canonicalFrame}
-	if !reflect.DeepEqual(calls.frameValues, wantedFrames) {
-		t.Fatalf("Static output frames = %v, want %v", calls.frameValues, wantedFrames)
-	}
-	if !reflect.DeepEqual(device.DeviceProfile.ZoneColors, zoneColorsBefore) {
-		t.Fatal("Static override output changed stored zone colors")
-	}
-	if !reflect.DeepEqual(device.Config, configBefore) {
-		t.Fatal("Static override output changed configured zones")
-	}
-	if !reflect.DeepEqual(device.Rgb, rgbBefore) {
-		t.Fatal("Static override output changed the RGB definition")
-	}
-	if !bytes.Equal(device.lastColor, lastColorBefore) {
-		t.Fatal("Static override output changed lastColor")
-	}
-}
-
-func TestOpenRGBStaticOverrideTransitionsAndResume(t *testing.T) {
-	_, calls := installLightingDeviceTestSeams(t)
-	device := newStaticOverrideTestDevice(50)
-	device.DeviceProfile.RGBOverride.Enabled = true
-	setCanonicalStaticColor(t, device, rgb.Color{Red: 200, Green: 100, Blue: 50})
-	expected := []byte{100, 50, 25, 100, 50, 25, 100, 50, 25}
-
-	if err := device.resumeDesiredState(context.Background()); err != nil {
-		t.Fatalf("resume Static override: %v", err)
-	}
-	if err := device.SetEffect("rainbow"); err != nil {
-		t.Fatalf("Static to animated: %v", err)
-	}
-	if err := device.SetEffect("static"); err != nil {
-		t.Fatalf("animated to Static: %v", err)
-	}
-	if err := device.SetEffect("rainbow"); err != nil {
-		t.Fatalf("second Static to animated: %v", err)
-	}
-	if err := device.SetEffect("static"); err != nil {
-		t.Fatalf("second animated to Static: %v", err)
-	}
-
-	if calls.colors != 0 || calls.frames != 3 {
-		t.Fatalf("output calls = colors %d, frames %d, want 0, 3", calls.colors, calls.frames)
-	}
-	for index, frame := range calls.frameValues {
-		if !bytes.Equal(frame, expected) {
-			t.Fatalf("Static frame %d = %v, want %v", index, frame, expected)
-		}
-	}
-	device.mu.Lock()
-	workerActive := device.running || device.stopChan != nil || device.doneChan != nil
-	device.mu.Unlock()
-	if workerActive {
-		t.Fatal("final Static transition left an animation worker active")
-	}
-}
-
-func TestOpenRGBStaticOverrideClusterBoundary(t *testing.T) {
-	profileDir, calls := installLightingDeviceTestSeams(t)
-	device := newStaticOverrideTestDevice(100)
-	device.DeviceProfile.RGBOverride.Enabled = true
-	device.DeviceProfile.RGBCluster = true
-
-	if frame := canonicalStaticFrame(t, device, device.brightness); len(frame) != device.colorCount*3 {
-		t.Fatalf("canonical Static frame length = %d, want %d", len(frame), device.colorCount*3)
-	}
-	if err := device.resumeDesiredState(context.Background()); err != nil {
-		t.Fatalf("clustered resume: %v", err)
-	}
-	if err := device.SetEffect("static"); err == nil {
-		t.Fatal("clustered SetEffect(static) unexpectedly succeeded")
-	}
-	if calls.colors != 0 || calls.frames != 0 {
-		t.Fatalf("clustered output calls = colors %d, frames %d, want none", calls.colors, calls.frames)
-	}
-	entries, err := os.ReadDir(profileDir)
-	if err != nil {
-		t.Fatalf("read profile directory: %v", err)
-	}
-	if len(entries) != 0 {
-		t.Fatalf("cluster rejection wrote %d profile files", len(entries))
-	}
-}
-
-func TestOpenRGBStaticOverrideOutputFailure(t *testing.T) {
-	preserveOpenRGBStatus(t)
-	_, calls := installLightingDeviceTestSeams(t)
-	calls.err = errors.New("test Static override output failure")
-	device := newStaticOverrideTestDevice(100)
-	device.DeviceProfile.RGBOverride.Enabled = true
-
-	zoneColorsBefore := cloneDeviceProfile(device.DeviceProfile).ZoneColors
-	configBefore := cloneDeviceConfig(device.Config)
-	rgbBefore := cloneRGBState(device.Rgb)
-	lastColorBefore := append([]byte(nil), device.lastColor...)
-
-	if err := device.SetEffect("static"); err == nil {
-		t.Fatal("Static override output failure was not returned")
-	}
-	if calls.colors != 0 || calls.frames != 1 {
-		t.Fatalf("output calls = colors %d, frames %d, want 0, 1", calls.colors, calls.frames)
-	}
-	if device.ControllerID() != -1 {
-		t.Fatalf("controller ID = %d, want unavailable -1", device.ControllerID())
-	}
-	state, found, stateErr := device.lightingState.Resolve(device.Serial)
-	if stateErr != nil || !found || state.SelectedEffect != "static" {
-		t.Fatalf("persisted effect = %#v, %t, %v", state, found, stateErr)
-	}
-	if !reflect.DeepEqual(device.DeviceProfile.ZoneColors, zoneColorsBefore) {
-		t.Fatal("failed Static override output changed stored zone colors")
-	}
-	if !reflect.DeepEqual(device.Config, configBefore) {
-		t.Fatal("failed Static override output changed configured zones")
-	}
-	if !reflect.DeepEqual(device.Rgb, rgbBefore) {
-		t.Fatal("failed Static override output changed the RGB definition")
-	}
-	if !bytes.Equal(device.lastColor, lastColorBefore) {
-		t.Fatal("failed Static override output changed lastColor")
-	}
-}
-
-func testRGBOverrideColors() (rgb.Color, rgb.Color, rgb.Color) {
-	return rgb.Color{Red: 0, Green: 0, Blue: 0, Brightness: 0.2, Temperature: 20, Position: 0.1, Hex: "000000"},
-		rgb.Color{Red: 40, Green: 50, Blue: 60, Brightness: 0.3, Temperature: 45, Position: 0.5, Hex: "28323c"},
-		rgb.Color{Red: 200, Green: 210, Blue: 220, Brightness: 0.4, Temperature: 80, Position: 0.9, Hex: "c8d2dc"}
-}
-
-func normalizedTestRGBOverride(enabled bool, start, middle, end rgb.Color, speed float64) RGBOverride {
-	start.Brightness = 1
-	middle.Brightness = 1
-	end.Brightness = 1
-	return RGBOverride{
-		Enabled:        enabled,
-		RGBStartColor:  start,
-		RGBMiddleColor: middle,
-		RGBEndColor:    end,
-		RgbModeSpeed:   speed,
-	}
-}
-
-func TestOpenRGBProcessSetRgbOverrideNilReceiver(t *testing.T) {
-	var device *Device
-	if got := device.ProcessSetRgbOverride(0, 0, false, rgb.Color{}, rgb.Color{}, rgb.Color{}, 0); got != 0 {
-		t.Fatalf("nil ProcessSetRgbOverride() = %d, want 0", got)
-	}
-}
-
-func TestOpenRGBRGBOverrideMutationAndPersistence(t *testing.T) {
-	t.Run("enable complete black override before Static output", func(t *testing.T) {
-		profileDir, calls := installLightingDeviceTestSeams(t)
-		device := newStaticOverrideTestDevice(100)
-		device.DeviceProfile.RGBOverride = nil
-		start, middle, end := testRGBOverrideColors()
-		setCanonicalStaticColor(t, device, start)
-		speed := 4.5
-		want := normalizedTestRGBOverride(true, start, middle, end, speed)
-		var observed RGBOverride
-		var observationErr error
-		calls.beforeOutput = func() {
-			profile, err := loadLightingDeviceProfile(profileDir)
-			observationErr = err
-			if err == nil && profile.RGBOverride != nil {
-				observed = *profile.RGBOverride
-			}
-		}
-
-		if err := device.SetRGBOverride(device.Serial, 0, 0, true, start, end, middle, &speed); err != nil {
-			t.Fatalf("SetRGBOverride: %v", err)
-		}
-		if observationErr != nil {
-			t.Fatalf("load profile during output: %v", observationErr)
-		}
-		if observed != want {
-			t.Fatalf("persisted override observed before output = %#v, want %#v", observed, want)
-		}
-		if calls.frames != 1 || calls.colors != 0 || !bytes.Equal(calls.frameValues[0], make([]byte, device.colorCount*3)) {
-			t.Fatalf("black Static output = colors %d, frames %v, want one black frame", calls.colors, calls.frameValues)
-		}
-		if device.DeviceProfile.RGBOverride == nil || *device.DeviceProfile.RGBOverride != want {
-			t.Fatalf("in-memory override = %#v, want %#v", device.DeviceProfile.RGBOverride, want)
-		}
-		persisted := readLightingDeviceProfile(t, profileDir)
-		if persisted.RGBOverride == nil || *persisted.RGBOverride != want {
-			t.Fatalf("persisted override = %#v, want %#v", persisted.RGBOverride, want)
-		}
-
-		reloaded := newStaticOverrideTestDevice(100)
-		reloaded.loadDeviceProfiles()
-		if reloaded.DeviceProfile == nil || reloaded.DeviceProfile.RGBOverride == nil || *reloaded.DeviceProfile.RGBOverride != want {
-			t.Fatalf("reloaded override = %#v, want %#v", reloaded.DeviceProfile, want)
-		}
-	})
-
-	t.Run("edit replaces every override field", func(t *testing.T) {
-		_, calls := installLightingDeviceTestSeams(t)
-		device := newStaticOverrideTestDevice(100)
-		device.DeviceProfile.RGBOverride = &RGBOverride{
-			Enabled:        true,
-			RGBStartColor:  rgb.Color{Red: 1, Green: 2, Blue: 3, Temperature: 4},
-			RGBMiddleColor: rgb.Color{Red: 5, Green: 6, Blue: 7, Temperature: 8},
-			RGBEndColor:    rgb.Color{Red: 9, Green: 10, Blue: 11, Temperature: 12},
-			RgbModeSpeed:   1,
-		}
-		start, middle, end := testRGBOverrideColors()
-		start.Red = 12
-		speed := 10.0
-		want := normalizedTestRGBOverride(true, start, middle, end, speed)
-
-		if err := device.SetRGBOverride(device.Serial, 0, 0, true, start, end, middle, &speed); err != nil {
-			t.Fatalf("SetRGBOverride: %v", err)
-		}
-		if device.DeviceProfile.RGBOverride == nil || *device.DeviceProfile.RGBOverride != want {
-			t.Fatalf("edited override = %#v, want complete replacement %#v", device.DeviceProfile.RGBOverride, want)
-		}
-		if calls.frames != 1 || calls.colors != 0 {
-			t.Fatalf("edit output calls = colors %d, frames %d, want 0, 1", calls.colors, calls.frames)
-		}
-	})
-
-	for _, test := range []struct {
-		name      string
-		prior     *RGBOverride
-		speed     *float64
-		wantSpeed float64
-	}{
-		{name: "omitted speed defaults to five", speed: nil, wantSpeed: 5},
-		{name: "omitted speed preserves prior", prior: &RGBOverride{Enabled: true, RgbModeSpeed: 3.25}, speed: nil, wantSpeed: 3.25},
-		{name: "zero speed accepted", speed: func() *float64 { value := 0.0; return &value }(), wantSpeed: 0},
-		{name: "maximum speed accepted", speed: func() *float64 { value := 10.0; return &value }(), wantSpeed: 10},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			profileDir, _ := installLightingDeviceTestSeams(t)
-			device := newStaticOverrideTestDevice(100)
-			device.DeviceProfile.RGBOverride = test.prior
-			start, middle, end := testRGBOverrideColors()
-			if err := device.SetRGBOverride(device.Serial, 0, 0, false, start, end, middle, test.speed); err != nil {
-				t.Fatalf("SetRGBOverride: %v", err)
-			}
-			persisted := readLightingDeviceProfile(t, profileDir)
-			if persisted.RGBOverride == nil || persisted.RGBOverride.RgbModeSpeed != test.wantSpeed || persisted.RGBOverride.Enabled {
-				t.Fatalf("persisted override = %#v, want disabled speed %v", persisted.RGBOverride, test.wantSpeed)
-			}
-		})
-	}
-
-	t.Run("disable reapplies canonical Static frame", func(t *testing.T) {
-		_, calls := installLightingDeviceTestSeams(t)
-		device := newStaticOverrideTestDevice(100)
-		device.DeviceProfile.RGBOverride.Enabled = true
-		setCanonicalStaticColor(t, device, rgb.Color{Red: 12, Green: 34, Blue: 56})
-		baseFrame := canonicalStaticFrame(t, device, device.brightness)
-		start, middle, end := testRGBOverrideColors()
-		speed := 2.0
-
-		if err := device.SetRGBOverride(device.Serial, 0, 0, false, start, end, middle, &speed); err != nil {
-			t.Fatalf("disable override: %v", err)
-		}
-		if calls.frames != 1 || !bytes.Equal(calls.frameValues[0], baseFrame) {
-			t.Fatalf("disabled Static frame = %v, want base %v", calls.frameValues, baseFrame)
-		}
-		if device.DeviceProfile.RGBOverride == nil || device.DeviceProfile.RGBOverride.Enabled {
-			t.Fatalf("disabled override was not retained: %#v", device.DeviceProfile.RGBOverride)
-		}
-	})
-}
-
-func TestOpenRGBRGBOverrideValidation(t *testing.T) {
-	validStart, validMiddle, validEnd := testRGBOverrideColors()
-	validSpeed := 2.0
-	tests := []struct {
-		name      string
-		serial    string
-		channel   int
-		subdevice int
-		start     rgb.Color
-		middle    rgb.Color
-		end       rgb.Color
-		speed     *float64
-		prepare   func(*Device)
-	}{
-		{name: "nonzero channel", serial: lightingDeviceTestSerial, channel: 1, start: validStart, middle: validMiddle, end: validEnd, speed: &validSpeed},
-		{name: "nonzero subdevice", serial: lightingDeviceTestSerial, subdevice: 1, start: validStart, middle: validMiddle, end: validEnd, speed: &validSpeed},
-		{name: "negative red", serial: lightingDeviceTestSerial, start: func() rgb.Color { value := validStart; value.Red = -1; return value }(), middle: validMiddle, end: validEnd, speed: &validSpeed},
-		{name: "middle green above range", serial: lightingDeviceTestSerial, start: validStart, middle: func() rgb.Color { value := validMiddle; value.Green = 256; return value }(), end: validEnd, speed: &validSpeed},
-		{name: "nonfinite end blue", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: func() rgb.Color { value := validEnd; value.Blue = math.Inf(1); return value }(), speed: &validSpeed},
-		{name: "negative start temperature", serial: lightingDeviceTestSerial, start: func() rgb.Color { value := validStart; value.Temperature = -1; return value }(), middle: validMiddle, end: validEnd, speed: &validSpeed},
-		{name: "middle temperature above range", serial: lightingDeviceTestSerial, start: validStart, middle: func() rgb.Color { value := validMiddle; value.Temperature = 106; return value }(), end: validEnd, speed: &validSpeed},
-		{name: "nonfinite end temperature", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: func() rgb.Color { value := validEnd; value.Temperature = math.NaN(); return value }(), speed: &validSpeed},
-		{name: "negative speed", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: validEnd, speed: func() *float64 { value := -1.0; return &value }()},
-		{name: "speed above range", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: validEnd, speed: func() *float64 { value := 11.0; return &value }()},
-		{name: "NaN speed", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: validEnd, speed: func() *float64 { value := math.NaN(); return &value }()},
-		{name: "infinite speed", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: validEnd, speed: func() *float64 { value := math.Inf(-1); return &value }()},
-		{name: "mismatched identity", serial: "openrgb-other-device", start: validStart, middle: validMiddle, end: validEnd, speed: &validSpeed},
-		{name: "inactive lifecycle", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: validEnd, speed: &validSpeed, prepare: func(device *Device) { device.lifecycleDetached = true }},
-		{name: "missing profile", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: validEnd, speed: &validSpeed, prepare: func(device *Device) { device.DeviceProfile = nil }},
-		{name: "inactive profile", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: validEnd, speed: &validSpeed, prepare: func(device *Device) { device.DeviceProfile.Active = false }},
-		{name: "unsupported configured effect", serial: lightingDeviceTestSerial, start: validStart, middle: validMiddle, end: validEnd, speed: &validSpeed, prepare: func(device *Device) { device.effect = "obsolete" }},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			profileDir, calls := installLightingDeviceTestSeams(t)
-			device := newStaticOverrideTestDevice(100)
-			if test.prepare != nil {
-				test.prepare(device)
-			}
-			profileBefore := cloneDeviceProfile(device.DeviceProfile)
-
-			if err := device.SetRGBOverride(test.serial, test.channel, test.subdevice, true, test.start, test.end, test.middle, test.speed); err == nil {
-				t.Fatal("invalid override unexpectedly succeeded")
-			}
-			if calls.colors != 0 || calls.frames != 0 || calls.persistentFrames != 0 {
-				t.Fatalf("invalid override output calls = colors %d, frames %d, persistent %d", calls.colors, calls.frames, calls.persistentFrames)
-			}
-			entries, err := os.ReadDir(profileDir)
-			if err != nil {
-				t.Fatalf("read profile directory: %v", err)
-			}
-			if len(entries) != 0 {
-				t.Fatalf("invalid override wrote %d profile files", len(entries))
-			}
-			if !reflect.DeepEqual(device.DeviceProfile, profileBefore) {
-				t.Fatalf("invalid override changed profile from %#v to %#v", profileBefore, device.DeviceProfile)
-			}
-		})
-	}
-}
-
-func TestOpenRGBRGBOverrideFailureAndClusterSemantics(t *testing.T) {
-	t.Run("persistence failure fully restores nil override and worker", func(t *testing.T) {
-		_, calls := installLightingDeviceTestSeams(t)
-		blockedPath := filepath.Join(t.TempDir(), "profiles")
-		if err := os.WriteFile(blockedPath, []byte("not a directory"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		deviceProfileDir = func() string { return blockedPath }
-		device := newStaticOverrideTestDevice(100)
-		device.DeviceProfile.RGBOverride = nil
-		profileBefore := cloneDeviceProfile(device.DeviceProfile)
-		stop := make(chan struct{})
-		device.running = true
-		device.stopChan = stop
-		start, middle, end := testRGBOverrideColors()
-		speed := 2.0
-
-		if err := device.SetRGBOverride(device.Serial, 0, 0, true, start, end, middle, &speed); err == nil {
-			t.Fatal("override succeeded despite persistence failure")
-		}
-		if !reflect.DeepEqual(device.DeviceProfile, profileBefore) || device.DeviceProfile.RGBOverride != nil {
-			t.Fatalf("profile rollback = %#v, want %#v with nil override", device.DeviceProfile, profileBefore)
-		}
-		if !device.running || device.stopChan != stop {
-			t.Fatal("persistence failure replaced the current worker")
-		}
-		select {
-		case <-stop:
-			t.Fatal("persistence failure stopped the current worker")
-		default:
-		}
-		if calls.colors != 0 || calls.frames != 0 || calls.persistentFrames != 0 {
-			t.Fatalf("persistence failure output calls = colors %d, frames %d, persistent %d", calls.colors, calls.frames, calls.persistentFrames)
-		}
-		device.running = false
-		device.stopChan = nil
-	})
-
-	t.Run("Static output failure retains persisted desired override", func(t *testing.T) {
-		preserveOpenRGBStatus(t)
-		profileDir, calls := installLightingDeviceTestSeams(t)
-		calls.err = errors.New("test checked override output failure")
-		device := newStaticOverrideTestDevice(100)
-		start, middle, end := testRGBOverrideColors()
-		start.Red = 100
-		speed := 2.0
-		want := normalizedTestRGBOverride(true, start, middle, end, speed)
-
-		if err := device.SetRGBOverride(device.Serial, 0, 0, true, start, end, middle, &speed); err == nil {
-			t.Fatal("override succeeded despite Static output failure")
-		}
-		persisted := readLightingDeviceProfile(t, profileDir)
-		if persisted.RGBOverride == nil || *persisted.RGBOverride != want {
-			t.Fatalf("persisted desired override = %#v, want %#v", persisted.RGBOverride, want)
-		}
-		if device.DeviceProfile.RGBOverride == nil || *device.DeviceProfile.RGBOverride != want {
-			t.Fatalf("in-memory desired override = %#v, want %#v", device.DeviceProfile.RGBOverride, want)
-		}
-		if calls.frames != 1 || device.ControllerID() != -1 {
-			t.Fatalf("output failure = frames %d, controller %d; want 1, -1", calls.frames, device.ControllerID())
-		}
-	})
-
-	t.Run("cluster persists inactive local state without replacing output", func(t *testing.T) {
-		profileDir, calls := installLightingDeviceTestSeams(t)
-		device := newStaticOverrideTestDevice(100)
-		device.DeviceProfile.RGBCluster = true
-		stop := make(chan struct{})
-		device.running = true
-		device.stopChan = stop
-		start, middle, end := testRGBOverrideColors()
-		speed := 6.0
-
-		if err := device.SetRGBOverride(device.Serial, 0, 0, true, start, end, middle, &speed); err != nil {
-			t.Fatalf("clustered override: %v", err)
-		}
-		persisted := readLightingDeviceProfile(t, profileDir)
-		if persisted.RGBOverride == nil || !persisted.RGBOverride.Enabled || persisted.RGBOverride.RgbModeSpeed != speed || !persisted.RGBCluster {
-			t.Fatalf("clustered persisted profile = %#v", persisted)
-		}
-		if calls.colors != 0 || calls.frames != 0 || calls.persistentFrames != 0 {
-			t.Fatalf("clustered override output calls = colors %d, frames %d, persistent %d", calls.colors, calls.frames, calls.persistentFrames)
-		}
-		if !device.running || device.stopChan != stop || device.DeviceProfile == nil || !device.DeviceProfile.RGBCluster {
-			t.Fatal("clustered override changed cluster or local worker state")
-		}
-		device.running = false
-		device.stopChan = nil
-	})
-}
-
-func TestOpenRGBRGBOverrideAnimatedAndOffReapplication(t *testing.T) {
-	t.Run("animated enable replaces one worker with persisted override state", func(t *testing.T) {
-		profileDir, calls := installLightingDeviceTestSeams(t)
-		device := newLightingMutationDevice()
-		device.effect = "rainbow"
-		device.DeviceProfile.RGBProfile = "rainbow"
-		device.Rgb = &rgb.RGB{Profiles: map[string]rgb.Profile{
-			"rainbow": {
-				ProfileName: "rainbow",
-				Speed:       2.75,
-				StartColor:  rgb.Color{Red: 10, Green: 20, Blue: 30, Brightness: 1},
-				MiddleColor: rgb.Color{Red: 40, Green: 50, Blue: 60, Brightness: 1},
-				EndColor:    rgb.Color{Red: 70, Green: 80, Blue: 90, Brightness: 1},
-			},
-		}}
-		base := device.Rgb.Profiles["rainbow"]
-		settings, err := lightingSettingsFromRGBProfile("rainbow", base)
-		if err != nil || device.lightingEffects.Set(device.Serial, "rainbow", settings) != nil {
-			t.Fatalf("seed canonical Rainbow settings: %v", err)
-		}
-		canonical := device.GetRgbProfile("rainbow")
-		if canonical == nil {
-			t.Fatal("canonical Rainbow settings are unavailable")
-		}
-		if err := device.SetEffect("rainbow"); err != nil {
-			t.Fatalf("start prior worker: %v", err)
-		}
-		select {
-		case <-calls.persistentOutput:
-		case <-time.After(2 * time.Second):
-			t.Fatal("timed out waiting for prior worker")
-		}
-		device.mu.Lock()
-		oldDone := device.doneChan
-		device.mu.Unlock()
-
-		start, middle, end := testRGBOverrideColors()
-		speed := 6.25
-		want := normalizedTestRGBOverride(true, start, middle, end, speed)
-		persistedOutput := make(chan struct{}, 1)
-		var observationErr error
-		calls.beforeOutput = func() {
-			profile, err := loadLightingDeviceProfile(profileDir)
-			if err != nil {
-				observationErr = err
-				return
-			}
-			if profile.RGBOverride != nil && *profile.RGBOverride == want {
-				select {
-				case persistedOutput <- struct{}{}:
-				default:
-				}
-			}
-		}
-		if err := device.SetRGBOverride(device.Serial, 0, 0, true, start, end, middle, &speed); err != nil {
-			device.Stop()
-			t.Fatalf("enable animated override: %v", err)
-		}
-		select {
-		case <-persistedOutput:
-		case <-time.After(2 * time.Second):
-			device.Stop()
-			t.Fatalf("timed out waiting for persisted override output; observation error %v", observationErr)
-		}
-		device.mu.Lock()
-		newDone := device.doneChan
-		runnerStart := *device.rgbRunner.RGBStartColor
-		runnerMiddle := *device.rgbRunner.RGBMiddleColor
-		runnerEnd := *device.rgbRunner.RGBEndColor
-		runnerSpeed := device.rgbRunner.RgbModeSpeed
-		workerActive := device.running
-		device.mu.Unlock()
-		device.Stop()
-
-		select {
-		case <-oldDone:
-		default:
-			t.Fatal("prior animation worker was not stopped")
-		}
-		if !workerActive || newDone == nil || newDone == oldDone {
-			t.Fatal("animated override did not install exactly one replacement worker")
-		}
-		if runnerStart != canonical.StartColor || runnerMiddle != canonical.MiddleColor || runnerEnd != canonical.EndColor || runnerSpeed != canonical.Speed {
-			t.Fatalf("presentation-only override changed animated state = %#v/%#v/%#v speed %v, want %#v/%#v/%#v speed %v",
-				runnerStart, runnerMiddle, runnerEnd, runnerSpeed,
-				canonical.StartColor, canonical.MiddleColor, canonical.EndColor, canonical.Speed)
-		}
-	})
-
-	t.Run("animated disable replaces one worker with base profile state", func(t *testing.T) {
-		profileDir, calls := installLightingDeviceTestSeams(t)
-		device := newLightingMutationDevice()
-		device.effect = "rainbow"
-		device.DeviceProfile.RGBProfile = "rainbow"
-		base := rgb.Profile{
-			ProfileName: "rainbow",
-			Speed:       2.75,
-			StartColor:  rgb.Color{Red: 10, Green: 20, Blue: 30, Brightness: 1},
-			MiddleColor: rgb.Color{Red: 40, Green: 50, Blue: 60, Brightness: 1},
-			EndColor:    rgb.Color{Red: 70, Green: 80, Blue: 90, Brightness: 1},
-		}
-		device.Rgb = &rgb.RGB{Profiles: map[string]rgb.Profile{"rainbow": base}}
-		settings, err := lightingSettingsFromRGBProfile("rainbow", base)
-		if err != nil || device.lightingEffects.Set(device.Serial, "rainbow", settings) != nil {
-			t.Fatalf("seed canonical Rainbow settings: %v", err)
-		}
-		canonical := device.GetRgbProfile("rainbow")
-		if canonical == nil {
-			t.Fatal("canonical Rainbow settings are unavailable")
-		}
-		device.DeviceProfile.RGBOverride = &RGBOverride{
-			Enabled:        true,
-			RGBStartColor:  rgb.Color{Red: 101, Green: 102, Blue: 103, Brightness: 1},
-			RGBMiddleColor: rgb.Color{Red: 111, Green: 112, Blue: 113, Brightness: 1},
-			RGBEndColor:    rgb.Color{Red: 121, Green: 122, Blue: 123, Brightness: 1},
-			RgbModeSpeed:   7,
-		}
-		if err := device.SetEffect("rainbow"); err != nil {
-			t.Fatalf("start prior worker: %v", err)
-		}
-		select {
-		case <-calls.persistentOutput:
-		case <-time.After(2 * time.Second):
-			t.Fatal("timed out waiting for prior worker")
-		}
-		device.mu.Lock()
-		oldDone := device.doneChan
-		device.mu.Unlock()
-		persistedOutput := make(chan struct{}, 1)
-		var observationErr error
-		calls.beforeOutput = func() {
-			profile, err := loadLightingDeviceProfile(profileDir)
-			observationErr = err
-			if err == nil && profile.RGBOverride != nil && !profile.RGBOverride.Enabled {
-				select {
-				case persistedOutput <- struct{}{}:
-				default:
-				}
-			}
-		}
-		start, middle, end := testRGBOverrideColors()
-		speed := 3.0
-		if err := device.SetRGBOverride(device.Serial, 0, 0, false, start, end, middle, &speed); err != nil {
-			device.Stop()
-			t.Fatalf("disable animated override: %v", err)
-		}
-		select {
-		case <-persistedOutput:
-		case <-time.After(2 * time.Second):
-			device.Stop()
-			t.Fatal("timed out waiting for replacement worker")
-		}
-		device.mu.Lock()
-		newDone := device.doneChan
-		runnerStart := *device.rgbRunner.RGBStartColor
-		runnerMiddle := *device.rgbRunner.RGBMiddleColor
-		runnerEnd := *device.rgbRunner.RGBEndColor
-		runnerSpeed := device.rgbRunner.RgbModeSpeed
-		workerActive := device.running
-		device.mu.Unlock()
-		device.Stop()
-
-		if observationErr != nil {
-			t.Fatalf("animated persisted-before-output observation error: %v", observationErr)
-		}
-		select {
-		case <-oldDone:
-		default:
-			t.Fatal("prior animation worker was not stopped")
-		}
-		if !workerActive || newDone == nil || newDone == oldDone {
-			t.Fatal("animated override did not install exactly one replacement worker")
-		}
-		if runnerStart != canonical.StartColor || runnerMiddle != canonical.MiddleColor || runnerEnd != canonical.EndColor || runnerSpeed != canonical.Speed {
-			t.Fatalf("disabled animated state = %#v/%#v/%#v speed %v, want base %#v/%#v/%#v speed %v",
-				runnerStart, runnerMiddle, runnerEnd, runnerSpeed, canonical.StartColor, canonical.MiddleColor, canonical.EndColor, canonical.Speed)
-		}
-	})
-
-	t.Run("Off remains black", func(t *testing.T) {
-		_, calls := installLightingDeviceTestSeams(t)
-		device := newLightingMutationDevice()
-		start := rgb.Color{Red: 255, Green: 1, Blue: 2, Temperature: 20}
-		middle := rgb.Color{Red: 3, Green: 254, Blue: 4, Temperature: 40}
-		end := rgb.Color{Red: 5, Green: 6, Blue: 253, Temperature: 80}
-		speed := 2.0
-
-		if err := device.SetRGBOverride(device.Serial, 0, 0, true, start, end, middle, &speed); err != nil {
-			t.Fatalf("Off override: %v", err)
-		}
-		if calls.colors != 1 || calls.frames != 0 || !reflect.DeepEqual(calls.colorValues, [][]byte{{0, 0, 0}}) {
-			t.Fatalf("Off output = colors %v, frames %v, want one black color", calls.colorValues, calls.frameValues)
-		}
-	})
 }
 
 func openRGBTemperatureMiddleColorProfile(name string) rgb.Profile {
@@ -1636,13 +783,7 @@ func newOpenRGBTemperatureMiddleColorDevice(t *testing.T, effect, serial string)
 	device.effect = "off"
 	device.RGBModes = []string{"off", "static", "cpu-temperature", "gpu-temperature", "colorpulse", "gradient"}
 	device.DeviceProfile.RGBProfile = "off"
-	device.Rgb = &rgb.RGB{
-		Device: device.Product,
-		Profiles: map[string]rgb.Profile{
-			effect: openRGBTemperatureMiddleColorProfile(effect),
-		},
-	}
-	settings, err := lightingSettingsFromRGBProfile(effect, device.Rgb.Profiles[effect])
+	settings, err := canonicalTestSettingsFromRGBProfile(effect, openRGBTemperatureMiddleColorProfile(effect))
 	if err != nil {
 		t.Fatalf("convert %q profile: %v", effect, err)
 	}
@@ -1692,71 +833,6 @@ func runOpenRGBTemperatureMiddleColorWorker(
 	return *device.rgbRunner.RGBStartColor, *device.rgbRunner.RGBMiddleColor, *device.rgbRunner.RGBEndColor
 }
 
-func TestOpenRGBTemperatureMiddleColorUpdateAndPersistence(t *testing.T) {
-	serial := "openrgb-temperature-middle-color-persistence-test"
-	profileName := "cpu-temperature"
-	device := newOpenRGBTemperatureMiddleColorDevice(t, profileName, serial)
-	updated := openRGBTemperatureMiddleColorProfile(profileName)
-	updated.StartColor = rgb.Color{Red: 101, Green: 102, Blue: 103, Brightness: 0.95, Temperature: 20}
-	updated.MiddleColor = rgb.Color{Red: 111, Green: 112, Blue: 113, Brightness: 0.85, Temperature: 45}
-	updated.EndColor = rgb.Color{Red: 121, Green: 122, Blue: 123, Brightness: 0.75, Temperature: 70}
-
-	if result := device.UpdateRgbProfileData(profileName, updated); result != 1 {
-		t.Fatalf("UpdateRgbProfileData result = %d, want 1", result)
-	}
-	expectedSettings, err := lightingSettingsFromRGBProfile(profileName, updated)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resolution, err := device.resolveLightingSettings(profileName)
-	if err != nil || !resolution.Customized || !reflect.DeepEqual(resolution.Settings, expectedSettings) {
-		t.Fatalf("persisted canonical temperature settings = %#v, %v; want %#v", resolution, err, expectedSettings)
-	}
-	actual := device.GetRgbProfile(profileName)
-	expectedProfile := rgbProfileFromLightingSettings(expectedSettings)
-	if actual == nil || !reflect.DeepEqual(*actual, expectedProfile) {
-		t.Fatalf("resolved RGB compatibility profile = %#v, want %#v", actual, expectedProfile)
-	}
-
-	updated.MiddleColor.Red = 250
-	actual = device.GetRgbProfile(profileName)
-	if actual == nil || actual.MiddleColor.Red == 250 {
-		t.Fatal("stored RGB profile aliases caller-owned update data")
-	}
-
-	t.Run("GPU accepts black MiddleColor", func(t *testing.T) {
-		serial := "openrgb-gpu-temperature-black-middle-color-test"
-		profileName := "gpu-temperature"
-		device := newOpenRGBTemperatureMiddleColorDevice(t, profileName, serial)
-		updated := openRGBTemperatureMiddleColorProfile(profileName)
-		updated.MiddleColor = rgb.Color{Brightness: 0.1, Temperature: 50}
-
-		if result := device.UpdateRgbProfileData(profileName, updated); result != 1 {
-			t.Fatalf("UpdateRgbProfileData result = %d, want 1", result)
-		}
-		actual := device.GetRgbProfile(profileName)
-		if actual == nil || actual.MiddleColor.Red != 0 || actual.MiddleColor.Green != 0 || actual.MiddleColor.Blue != 0 || actual.MiddleColor.Temperature != 50 {
-			t.Fatalf("updated black MiddleColor = %#v", actual)
-		}
-	})
-}
-
-func TestOpenRGBTemperatureMiddleColorPartialStaticUpdate(t *testing.T) {
-	serial := "openrgb-temperature-middle-color-partial-static-test"
-	profileName := "static"
-	device := newOpenRGBTemperatureMiddleColorDevice(t, profileName, serial)
-	color := rgb.Color{Red: 201, Green: 101, Blue: 51}
-	complete := rgb.Profile{ProfileName: profileName, StartColor: color}
-
-	if result := device.UpdateRgbProfileData(profileName, complete); result != 1 {
-		t.Fatalf("UpdateRgbProfileData result = %d, want 1", result)
-	}
-	actual := device.GetRgbProfile(profileName)
-	if actual == nil || actual.StartColor.Red != color.Red || actual.StartColor.Green != color.Green || actual.StartColor.Blue != color.Blue || actual.MiddleColor != (rgb.Color{}) || actual.EndColor != (rgb.Color{}) {
-		t.Fatalf("resolved complete Static profile = %#v", actual)
-	}
-}
-
 func TestOpenRGBTemperatureMiddleColorWorkerRefresh(t *testing.T) {
 	tests := []struct {
 		name              string
@@ -1804,7 +880,7 @@ func TestOpenRGBTemperatureMiddleColorWorkerRefresh(t *testing.T) {
 				test.amdTemperature,
 			)
 			device := newOpenRGBTemperatureMiddleColorDevice(t, test.effect, test.serial)
-			profile := device.GetRgbProfile(test.effect)
+			profile := device.resolvedRendererProfile(test.effect)
 			if profile == nil {
 				t.Fatalf("canonical %q settings are unavailable", test.effect)
 			}
@@ -1835,47 +911,10 @@ func TestOpenRGBTemperatureMiddleColorWorkerRefresh(t *testing.T) {
 	}
 }
 
-func TestOpenRGBTemperatureMiddleColorOverridePrecedence(t *testing.T) {
-	_, calls := installLightingDeviceTestSeams(t)
-	temperatureCalls := installLightingTemperatureTestSeams(t, 45, 60, 65)
-	effect := "cpu-temperature"
-	device := newOpenRGBTemperatureMiddleColorDevice(t, effect, "openrgb-middle-override-test")
-	base := device.GetRgbProfile(effect)
-	if base == nil {
-		t.Fatal("canonical temperature settings are unavailable")
-	}
-	overrideMiddle := rgb.Color{Red: 201, Green: 202, Blue: 203, Brightness: 1, Temperature: 55}
-	device.DeviceProfile.RGBOverride = &RGBOverride{
-		Enabled:        true,
-		RGBStartColor:  rgb.Color{Red: 181, Green: 182, Blue: 183, Brightness: 1},
-		RGBMiddleColor: overrideMiddle,
-		RGBEndColor:    rgb.Color{Red: 221, Green: 222, Blue: 223, Brightness: 1},
-		RgbModeSpeed:   3.5,
-	}
-
-	_, middle, _ := runOpenRGBTemperatureMiddleColorWorker(t, device, calls, effect)
-	if middle != base.MiddleColor {
-		t.Fatalf("presentation-only override middle = %#v, want base %#v", middle, base.MiddleColor)
-	}
-	device.DeviceProfile.RGBOverride.Enabled = false
-	_, middle, _ = runOpenRGBTemperatureMiddleColorWorker(t, device, calls, effect)
-	if middle != base.MiddleColor {
-		t.Fatalf("disabled override middle = %#v, want base %#v", middle, base.MiddleColor)
-	}
-	if resolved := device.GetRgbProfile(effect); resolved == nil || resolved.MiddleColor != base.MiddleColor {
-		t.Fatal("override execution changed canonical temperature settings")
-	}
-	if temperatureCalls.cpu == 0 || temperatureCalls.nvidia != 0 || temperatureCalls.amd != 0 {
-		t.Fatalf("override worker temperature calls = CPU %d, NVIDIA %d, AMD %d; want CPU only",
-			temperatureCalls.cpu, temperatureCalls.nvidia, temperatureCalls.amd)
-	}
-}
-
 func TestOpenRGBTemperatureMiddleColorNonTemperatureAndLegacyRegression(t *testing.T) {
 	t.Run("Static output", func(t *testing.T) {
 		_, calls := installLightingDeviceTestSeams(t)
-		device := newStaticOverrideTestDevice(100)
-		device.DeviceProfile.RGBOverride.Enabled = false
+		device := newCanonicalStaticTestDevice(100)
 		expected := canonicalStaticFrame(t, device, device.brightness)
 
 		if err := device.SetEffect("static"); err != nil {
@@ -1944,7 +983,7 @@ func TestOpenRGBTemperatureMiddleColorNonTemperatureAndLegacyRegression(t *testi
 		}
 
 		device := &Device{Serial: serial, Product: "Legacy OpenRGB Controller"}
-		profile := device.GetRgbProfile("cpu-temperature")
+		profile := device.resolvedRendererProfile("cpu-temperature")
 		if profile != nil {
 			t.Fatalf("legacy target-local RGB profile was consulted: %#v", profile)
 		}

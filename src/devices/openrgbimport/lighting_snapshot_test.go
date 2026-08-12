@@ -23,13 +23,12 @@ func lightingTestDevice(effect string, modes []string, definitions map[string]rg
 			RGBProfile:       effect,
 			BrightnessSlider: &brightness,
 		},
-		Rgb: &rgb.RGB{Profiles: definitions},
 	}
 	attachTestLightingRuntime(device)
 	device.effect = effect
 	device.brightness = brightness
 	for effectID, definition := range definitions {
-		settings, err := lightingSettingsFromRGBProfile(effectID, definition)
+		settings, err := canonicalTestSettingsFromRGBProfile(effectID, definition)
 		if err == nil {
 			if err = device.lightingEffects.Set(device.Serial, effectID, settings); err != nil {
 				panic(err)
@@ -66,13 +65,6 @@ func TestOpenRGBLightingSnapshotConfiguredState(t *testing.T) {
 		"off":        {},
 	})
 	device.DeviceProfile.RGBCluster = true
-	device.DeviceProfile.RGBOverride = &RGBOverride{
-		Enabled:        true,
-		RGBStartColor:  lightingTestColor(1, 2, 3),
-		RGBMiddleColor: lightingTestColor(4, 5, 6),
-		RGBEndColor:    lightingTestColor(7, 8, 9),
-		RgbModeSpeed:   0,
-	}
 
 	snapshot, ok := device.LightingSnapshot()
 	if !ok {
@@ -338,36 +330,6 @@ func TestOpenRGBLightingSnapshotGradientResolvedState(t *testing.T) {
 	}
 }
 
-func TestOpenRGBLightingSnapshotOverrideStates(t *testing.T) {
-	device := lightingTestDevice("static", []string{"static"}, map[string]rgb.Profile{
-		"static": {ProfileName: "Static", StartColor: lightingTestColor(9, 8, 7)},
-	})
-
-	t.Run("nil override", func(t *testing.T) {
-		device.DeviceProfile.RGBOverride = nil
-		snapshot, _ := device.LightingSnapshot()
-		if snapshot.SingleColorHex != "#090807" || !snapshot.Customized {
-			t.Errorf("snapshot = %+v", snapshot)
-		}
-	})
-
-	t.Run("disabled override", func(t *testing.T) {
-		device.DeviceProfile.RGBOverride = &RGBOverride{Enabled: false, RGBStartColor: lightingTestColor(255, 255, 255), RgbModeSpeed: 50}
-		snapshot, _ := device.LightingSnapshot()
-		if snapshot.SingleColorHex != "#090807" || snapshot.Speed != 0 || !snapshot.Customized {
-			t.Errorf("disabled override affected state: %+v", snapshot)
-		}
-	})
-
-	t.Run("enabled override", func(t *testing.T) {
-		device.DeviceProfile.RGBOverride = &RGBOverride{Enabled: true, RGBStartColor: lightingTestColor(255, 255, 255), RgbModeSpeed: 50}
-		snapshot, _ := device.LightingSnapshot()
-		if snapshot.SingleColorHex != "#090807" || snapshot.Speed != 0 || !snapshot.Customized {
-			t.Errorf("enabled override affected presentation-only canonical state: %+v", snapshot)
-		}
-	})
-}
-
 func TestOpenRGBLightingSnapshotBrightnessAndCluster(t *testing.T) {
 	for _, tt := range []struct {
 		name       string
@@ -445,15 +407,6 @@ func TestOpenRGBLightingSnapshotUnknownStates(t *testing.T) {
 		}
 	})
 
-	t.Run("missing RGB state", func(t *testing.T) {
-		device := lightingTestDevice("wave", []string{"wave"}, nil)
-		device.Rgb = nil
-		snapshot, ok := device.LightingSnapshot()
-		if !ok || !snapshot.EffectSupported || len(snapshot.SupportedEffects) != 1 {
-			t.Fatalf("snapshot = %+v, %t", snapshot, ok)
-		}
-	})
-
 	t.Run("unclassified supported effect", func(t *testing.T) {
 		device := lightingTestDevice("future-effect", []string{"future-effect"}, map[string]rgb.Profile{
 			"future-effect": {ProfileName: "Future"},
@@ -470,7 +423,6 @@ func TestOpenRGBLightingSnapshotCopiesOwnedValues(t *testing.T) {
 	sourceProfile := rgb.Profile{ProfileName: "Wave", StartColor: lightingTestColor(1, 2, 3), EndColor: lightingTestColor(4, 5, 6), Speed: 7}
 	device := lightingTestDevice("wave", []string{"wave", "static"}, map[string]rgb.Profile{"wave": sourceProfile})
 	device.DeviceProfile.BrightnessSlider = &brightness
-	device.DeviceProfile.RGBOverride = &RGBOverride{Enabled: true, RGBStartColor: lightingTestColor(7, 8, 9), RGBEndColor: lightingTestColor(10, 11, 12), RgbModeSpeed: 3}
 
 	snapshot, ok := device.LightingSnapshot()
 	if !ok {
@@ -482,13 +434,6 @@ func TestOpenRGBLightingSnapshotCopiesOwnedValues(t *testing.T) {
 	device.mu.Lock()
 	device.RGBModes[0] = "changed"
 	brightness = 99
-	device.DeviceProfile.RGBOverride.RGBStartColor.Red = 200
-	device.rgbMutex.Lock()
-	changedProfile := device.Rgb.Profiles["wave"]
-	changedProfile.ProfileName = "Changed"
-	changedProfile.StartColor.Red = 201
-	device.Rgb.Profiles["wave"] = changedProfile
-	device.rgbMutex.Unlock()
 	device.mu.Unlock()
 
 	if !reflect.DeepEqual(snapshot, want) {

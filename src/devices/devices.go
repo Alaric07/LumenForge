@@ -265,7 +265,11 @@ func GetRgbProfiles() map[string]interface{} {
 }
 
 func eligibleForLegacyGlobalRGB(device *common.Device) bool {
-	return device != nil && device.ProductType != common.ProductTypeCluster
+	if device == nil || device.ProductType == common.ProductTypeCluster {
+		return false
+	}
+	_, imported := device.Instance.(*openrgbimport.Device)
+	return !imported
 }
 
 // ScheduleDeviceBrightness will change device brightness level based on scheduler

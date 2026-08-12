@@ -4,7 +4,6 @@ import (
 	"LumenForge/src/common"
 	"LumenForge/src/devices/openrgbimport"
 	"LumenForge/src/lightingsettings"
-	"LumenForge/src/rgb"
 	"context"
 	"errors"
 	"net/http"
@@ -433,9 +432,6 @@ func TestOpenRGBLightingSpeedClusterOwnershipGuard(t *testing.T) {
 		IsOpenRGB:     true,
 		RGBModes:      []string{"rainbow"},
 		DeviceProfile: profile,
-		Rgb: &rgb.RGB{Profiles: map[string]rgb.Profile{
-			"rainbow": {ProfileName: "rainbow", Speed: 2},
-		}},
 	}
 	wrapper := &common.Device{Serial: lightingMutationTestSerial, Instance: device}
 	lookupOpenRGBImportForLighting = func(serial string) (*common.Device, *openrgbimport.Device, bool) {
@@ -461,8 +457,8 @@ func TestOpenRGBLightingSpeedClusterOwnershipGuard(t *testing.T) {
 	if response.Message != "Unable to set speed" || strings.Contains(recorder.Body.String(), ownershipError) {
 		t.Fatalf("cluster-owned speed response = %s", recorder.Body.String())
 	}
-	if device.DeviceProfile != profile || profile.RGBProfile != "rainbow" || device.Rgb.Profiles["rainbow"].Speed != 2 {
-		t.Fatalf("cluster rejection changed fixture state: profile=%#v RGB=%#v", profile, device.Rgb)
+	if device.DeviceProfile != profile || profile.RGBProfile != "rainbow" {
+		t.Fatalf("cluster rejection changed fixture state: profile=%#v", profile)
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"LumenForge/src/common"
 	"LumenForge/src/devices/openrgbimport"
 	"LumenForge/src/lightingsettings"
-	"LumenForge/src/rgb"
 	"errors"
 	"net/http"
 	"strings"
@@ -112,9 +111,6 @@ func TestOpenRGBLightingColorMutationRequestValidation(t *testing.T) {
 			IsOpenRGB:     true,
 			RGBModes:      []string{"static"},
 			DeviceProfile: profile,
-			Rgb: &rgb.RGB{Profiles: map[string]rgb.Profile{
-				"static": {ProfileName: "static"},
-			}},
 		}
 		wrapper := &common.Device{Serial: lightingMutationTestSerial, Instance: device}
 		lookupOpenRGBImportForLighting = func(serial string) (*common.Device, *openrgbimport.Device, bool) {
@@ -303,9 +299,6 @@ func TestOpenRGBLightingResetMutationRequestValidation(t *testing.T) {
 			IsOpenRGB:     true,
 			RGBModes:      []string{"static"},
 			DeviceProfile: profile,
-			Rgb: &rgb.RGB{Profiles: map[string]rgb.Profile{
-				"static": {ProfileName: "static"},
-			}},
 		}
 		wrapper := &common.Device{Serial: lightingMutationTestSerial, Instance: device}
 		lookupOpenRGBImportForLighting = func(serial string) (*common.Device, *openrgbimport.Device, bool) {

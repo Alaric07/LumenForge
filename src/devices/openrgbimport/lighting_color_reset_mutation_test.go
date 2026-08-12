@@ -13,20 +13,17 @@ func newLightingColorMutationDevice(effect string, initialSpeed float64) *Device
 	device.effect = effect
 	device.RGBModes = []string{"static", "rotator", "rainbow"}
 	device.DeviceProfile.RGBProfile = effect
-	device.Rgb = &rgb.RGB{
-		Device: device.Product,
-		Profiles: map[string]rgb.Profile{
-			"static":  {ProfileName: "Static"},
-			"rotator": {ProfileName: "Rotator", Speed: 4.25},
-			"rainbow": {ProfileName: "Rainbow", Speed: 6},
-		},
+	profiles := map[string]rgb.Profile{
+		"static":  {ProfileName: "Static"},
+		"rotator": {ProfileName: "Rotator", Speed: 4.25},
+		"rainbow": {ProfileName: "Rainbow", Speed: 6},
 	}
 	if initialSpeed != 0 {
-		profile := device.Rgb.Profiles[effect]
+		profile := profiles[effect]
 		profile.Speed = initialSpeed
-		device.Rgb.Profiles[effect] = profile
+		profiles[effect] = profile
 	}
-	settings, err := lightingSettingsFromRGBProfile(effect, device.Rgb.Profiles[effect])
+	settings, err := canonicalTestSettingsFromRGBProfile(effect, profiles[effect])
 	if err == nil {
 		if err = device.lightingEffects.Set(device.Serial, effect, settings); err != nil {
 			panic(err)
@@ -52,7 +49,7 @@ func TestSetEffectColor(t *testing.T) {
 
 		stopLightingSpeedWorker(device)
 
-		profile := device.GetRgbProfile("static")
+		profile := device.resolvedRendererProfile("static")
 		if profile == nil || profile.StartColor.Red != 12 || profile.StartColor.Green != 34 || profile.StartColor.Blue != 56 {
 			t.Fatalf("profile not materialized correctly: %+v", profile)
 		}
@@ -71,7 +68,7 @@ func TestSetEffectColor(t *testing.T) {
 		}
 		stopLightingSpeedWorker(device)
 
-		profile := device.GetRgbProfile("rotator")
+		profile := device.resolvedRendererProfile("rotator")
 		if profile == nil || profile.Speed != 4.25 {
 			t.Fatalf("Rotator speed mutated: %+v", profile)
 		}
@@ -104,7 +101,7 @@ func TestSetEffectColor(t *testing.T) {
 
 	t.Run("persistence failure changes neither canonical store state nor output", func(t *testing.T) {
 		device := newLightingColorMutationDevice("static", 0)
-		beforeProfile := *device.GetRgbProfile("static")
+		beforeProfile := *device.resolvedRendererProfile("static")
 
 		confirmed := device.lightingEffects
 		device.lightingEffects = failingLightingEffectAccess{
@@ -117,7 +114,7 @@ func TestSetEffectColor(t *testing.T) {
 			t.Fatal("expected persistence error")
 		}
 
-		if !reflect.DeepEqual(*device.GetRgbProfile("static"), beforeProfile) {
+		if !reflect.DeepEqual(*device.resolvedRendererProfile("static"), beforeProfile) {
 			t.Fatal("canonical store changed despite persistence failure")
 		}
 		if device.running {

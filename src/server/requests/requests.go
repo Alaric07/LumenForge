@@ -11,7 +11,6 @@ import (
 	"LumenForge/src/dashboard"
 	"LumenForge/src/devices"
 	"LumenForge/src/devices/lcd"
-	"LumenForge/src/devices/openrgbimport"
 	"LumenForge/src/display"
 	"LumenForge/src/externalsources"
 	"LumenForge/src/inputmanager"
@@ -34,12 +33,6 @@ var (
 	lookupOpenRGBOverrideDevice = devices.LookupOpenRGBImport
 	getRGBOverrideDevice        = devices.GetDevice
 	callRGBOverrideDeviceMethod = devices.CallDeviceMethod
-	setOpenRGBOverride          = func(device *openrgbimport.Device, serial string, channelId, subDeviceId int, enabled bool, startColor, endColor, middleColor rgb.Color, speed *float64) error {
-		return device.SetRGBOverride(serial, channelId, subDeviceId, enabled, startColor, endColor, middleColor, speed)
-	}
-	logOpenRGBOverrideFailure = func(err error) {
-		logger.Log(map[string]interface{}{"error": err}).Error("Unable to set OpenRGB RGB override")
-	}
 )
 
 // Payload contains data from a client about device speed change
@@ -4467,7 +4460,11 @@ func ProcessGetRgbOverride(r *http.Request) *Payload {
 		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
 	}
 
-	if devices.GetDevice(req.DeviceId) == nil {
+	if _, _, imported := lookupOpenRGBOverrideDevice(req.DeviceId); imported {
+		return &Payload{Data: language.GetValue("txtNoRgbOverride"), Code: http.StatusOK, Status: 0}
+	}
+
+	if getRGBOverrideDevice(req.DeviceId) == nil {
 		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
 	}
 
@@ -4479,7 +4476,7 @@ func ProcessGetRgbOverride(r *http.Request) *Payload {
 		return &Payload{Message: language.GetValue("txtNonExistingChannelId"), Code: http.StatusOK, Status: 0}
 	}
 
-	results := devices.CallDeviceMethod(
+	results := callRGBOverrideDeviceMethod(
 		req.DeviceId,
 		"ProcessGetRgbOverride",
 		req.ChannelId,
@@ -4533,33 +4530,8 @@ func ProcessSetRgbOverride(r *http.Request) *Payload {
 		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
 	}
 
-	if wrapper, device, identified := lookupOpenRGBOverrideDevice(req.DeviceId); identified {
-		wrapperDevice, matches := wrapperInstanceOpenRGBDevice(wrapper)
-		if wrapper == nil || device == nil || wrapper.Hidden || wrapper.Unavailable || wrapper.Serial != req.DeviceId ||
-			!matches || wrapperDevice != device || !device.MatchesOpenRGBImport(req.DeviceId) {
-			return &Payload{Message: language.GetValue("txtRgbOverrideFailed"), Code: http.StatusOK, Status: 0}
-		}
-		if req.ChannelId != 0 || req.SubDeviceId != 0 {
-			return &Payload{Message: language.GetValue("txtNonExistingChannelId"), Code: http.StatusOK, Status: 0}
-		}
-		if req.Speed != nil && (*req.Speed < 0 || *req.Speed > 10) {
-			return &Payload{Message: language.GetValue("txtInvalidSpeedValue"), Code: http.StatusOK, Status: 0}
-		}
-		if err = setOpenRGBOverride(
-			device,
-			req.DeviceId,
-			req.ChannelId,
-			req.SubDeviceId,
-			req.Enabled,
-			req.StartColor,
-			req.EndColor,
-			req.MiddleColor,
-			req.Speed,
-		); err != nil {
-			logOpenRGBOverrideFailure(err)
-			return &Payload{Message: language.GetValue("txtRgbOverrideFailed"), Code: http.StatusOK, Status: 0}
-		}
-		return &Payload{Message: language.GetValue("txtRgbOverrideUpdated"), Code: http.StatusOK, Status: 1}
+	if _, _, imported := lookupOpenRGBOverrideDevice(req.DeviceId); imported {
+		return &Payload{Message: language.GetValue("txtRgbOverrideFailed"), Code: http.StatusOK, Status: 0}
 	}
 
 	if getRGBOverrideDevice(req.DeviceId) == nil {
@@ -4624,14 +4596,6 @@ func ProcessSetRgbOverride(r *http.Request) *Payload {
 		}
 	}
 	return &Payload{Message: language.GetValue("txtRgbOverrideFailed"), Code: http.StatusOK, Status: 0}
-}
-
-func wrapperInstanceOpenRGBDevice(wrapper *common.Device) (*openrgbimport.Device, bool) {
-	if wrapper == nil {
-		return nil, false
-	}
-	device, ok := wrapper.Instance.(*openrgbimport.Device)
-	return device, ok && device != nil
 }
 
 // ProcessSetRgbTemperatureProbe will process setting RGB temperature probe override

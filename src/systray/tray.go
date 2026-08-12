@@ -124,7 +124,12 @@ func (m *MenuServer) Version() (uint32, *dbus.Error) { return 1, nil }
 func (m *MenuServer) Status() (string, *dbus.Error) { return "normal", nil }
 
 // AboutToShow exported method from spec
-func (m *MenuServer) AboutToShow(parentId int32) (bool, *dbus.Error) { return true, nil }
+func (m *MenuServer) AboutToShow(parentId int32) (bool, *dbus.Error) {
+	if parentId == 106 {
+		RefreshDevicesMenu(parentId)
+	}
+	return true, nil
+}
 
 // GetLayout exported method from spec
 func (m *MenuServer) GetLayout(parentId, recursionDepth int32, propNames []string) (uint32, MenuLayout, *dbus.Error) {
@@ -152,6 +157,15 @@ func (m *MenuServer) Event(id int32, eventId string, data dbus.Variant, timestam
 		actionOffset := int(id-1000) % 100
 
 		if serial, ok := deviceMap[deviceIndex]; ok {
+			if importedState, imported := importedDeviceTrayLighting(serial); imported {
+				if importedState.ready && !importedState.snapshot.ClusterControlled && actionOffset >= 0 && actionOffset < len(importedState.effects) {
+					effect := importedState.effects[actionOffset]
+					if err := setOpenRGBTrayEffect(importedState.device, effect.ID); err != nil {
+						logger.Log(logger.Fields{"error": err, "effect": effect.ID}).Error("Unable to set OpenRGB import tray effect")
+					}
+				}
+				return nil
+			}
 			if devices.GetDeviceClusterStatus(serial) {
 				return nil
 			}
@@ -197,8 +211,22 @@ func (m *MenuServer) Event(id int32, eventId string, data dbus.Variant, timestam
 	case 999: // Toggle Non-Clustered RGB
 		nonClusteredRgbOff = !nonClusteredRgbOff
 		if nonClusteredRgbOff {
-			for serial := range devices.GetDevicesEx() {
+			for serial := range getTrayDevices() {
 				if serial == "cluster" {
+					continue
+				}
+				if importedState, imported := importedDeviceTrayLighting(serial); imported {
+					if importedState.ready && !importedState.snapshot.ClusterControlled {
+						if importedState.snapshot.ConfiguredEffect == "off" {
+							delete(deviceAnimationScrapbook, serial)
+						} else if importedState.snapshot.ConfiguredEffect != "" {
+							if err := setOpenRGBTrayEffect(importedState.device, "off"); err != nil {
+								logger.Log(logger.Fields{"error": err}).Error("Unable to disable OpenRGB import tray lighting")
+							} else {
+								deviceAnimationScrapbook[serial] = importedState.snapshot.ConfiguredEffect
+							}
+						}
+					}
 					continue
 				}
 				if !devices.GetDeviceClusterStatus(serial) {
@@ -210,7 +238,23 @@ func (m *MenuServer) Event(id int32, eventId string, data dbus.Variant, timestam
 				}
 			}
 		} else {
+			allDevices := getTrayDevices()
 			for serial, savedProfile := range deviceAnimationScrapbook {
+				if wrapper := allDevices[serial]; wrapper == nil {
+					continue
+				}
+				if importedState, imported := importedDeviceTrayLighting(serial); imported {
+					if savedProfile == "" || savedProfile == "off" {
+						delete(deviceAnimationScrapbook, serial)
+					} else if importedState.ready && !importedState.snapshot.ClusterControlled {
+						if err := setOpenRGBTrayEffect(importedState.device, savedProfile); err != nil {
+							logger.Log(logger.Fields{"error": err}).Error("Unable to restore OpenRGB import tray lighting")
+						} else {
+							delete(deviceAnimationScrapbook, serial)
+						}
+					}
+					continue
+				}
 				if savedProfile != "" && savedProfile != "off" {
 					devices.CallDeviceMethod(serial, "UpdateRgbProfile", -1, savedProfile)
 				}

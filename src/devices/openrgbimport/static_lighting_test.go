@@ -37,7 +37,7 @@ func TestOpenRGBCanonicalStaticUniformTopologyAndBrightness(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			_, calls := installLightingDeviceTestSeams(t)
-			device := newStaticOverrideTestDevice(test.brightness)
+			device := newCanonicalStaticTestDevice(test.brightness)
 			device.Config = &DeviceConfig{Serial: device.Serial, Product: device.Product, Zones: append([]ZoneConfig(nil), test.zones...)}
 			device.ZoneAmount = len(test.zones)
 			device.colorCount = configLedCount(device.Config)
@@ -47,7 +47,6 @@ func TestOpenRGBCanonicalStaticUniformTopologyAndBrightness(t *testing.T) {
 				0: {Color: &rgb.Color{Red: 1, Green: 2, Blue: 3}, ColorIndex: []int{0, 1, 2}, Name: "legacy-a"},
 				1: {Color: &rgb.Color{Red: 250, Green: 240, Blue: 230}, ColorIndex: []int{3, 4, 5}, Name: "legacy-b"},
 			}
-			device.DeviceProfile.RGBOverride = &RGBOverride{Enabled: true, RGBStartColor: rgb.Color{Red: 77, Green: 88, Blue: 99}}
 			setCanonicalStaticColor(t, device, rgb.Color{Red: 201, Green: 101, Blue: 51})
 
 			profileBefore := cloneDeviceProfile(device.DeviceProfile)
@@ -164,7 +163,7 @@ func TestOpenRGBCanonicalStaticResolutionIsolationAndDeletion(t *testing.T) {
 
 func TestOpenRGBCanonicalStaticProfileSwitchCannotChangeColor(t *testing.T) {
 	profileDir, calls := installLightingDeviceTestSeams(t)
-	device := newStaticOverrideTestDevice(40)
+	device := newCanonicalStaticTestDevice(40)
 	setCanonicalStaticColor(t, device, rgb.Color{Red: 120, Green: 80, Blue: 40})
 	current := cloneDeviceProfile(device.DeviceProfile)
 	current.Active = true
@@ -176,7 +175,6 @@ func TestOpenRGBCanonicalStaticProfileSwitchCannotChangeColor(t *testing.T) {
 		0: {Color: &rgb.Color{Red: 1, Green: 2, Blue: 3}, ColorIndex: []int{0, 1, 2, 3, 4, 5}},
 		1: {Color: &rgb.Color{Red: 250, Green: 249, Blue: 248}, ColorIndex: []int{6, 7, 8}},
 	}
-	other.RGBOverride = &RGBOverride{Enabled: true, RGBStartColor: rgb.Color{Red: 9, Green: 19, Blue: 29}}
 	device.DeviceProfile = current
 	device.UserProfiles = map[string]*DeviceProfile{"default": current, "other": other}
 
@@ -233,9 +231,17 @@ func TestOpenRGBCanonicalStaticRestartReconnectAndCleanBreak(t *testing.T) {
 		ZoneColors: map[int]ZoneColors{
 			0: {Color: &rgb.Color{Red: 1, Green: 250, Blue: 2}, ColorIndex: []int{0, 1, 2}, Name: "legacy"},
 		},
-		RGBOverride: &RGBOverride{Enabled: true, RGBStartColor: rgb.Color{Red: 200, Green: 210, Blue: 220}},
 	}
 	profileData, err := json.Marshal(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var legacyProfile map[string]interface{}
+	if err = json.Unmarshal(profileData, &legacyProfile); err != nil {
+		t.Fatal(err)
+	}
+	legacyProfile["RGBOverride"] = map[string]interface{}{"Enabled": true, "RGBStartColor": map[string]interface{}{"Red": 200}}
+	profileData, err = json.Marshal(legacyProfile)
 	if err != nil {
 		t.Fatal(err)
 	}

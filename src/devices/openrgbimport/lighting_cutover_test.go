@@ -20,6 +20,36 @@ type failingLightingStateAccess struct {
 	err error
 }
 
+func TestOpenRGBLegacyRGBCompatibilitySurfaceRemoved(t *testing.T) {
+	deviceType := reflect.TypeOf(&Device{})
+	for _, method := range []string{
+		"GetRgbProfiles",
+		"GetRgbProfile",
+		"UpdateRgbProfileData",
+		"UpdateRgbProfile",
+		"ProcessGetRgbOverride",
+		"SetRGBOverride",
+		"ProcessSetRgbOverride",
+	} {
+		if _, found := deviceType.MethodByName(method); found {
+			t.Errorf("OpenRGB Device still exposes legacy method %s", method)
+		}
+	}
+	for _, target := range []struct {
+		name   string
+		typeOf reflect.Type
+		field  string
+	}{
+		{name: "Device", typeOf: reflect.TypeOf(Device{}), field: "Rgb"},
+		{name: "DeviceSnapshot", typeOf: reflect.TypeOf(DeviceSnapshot{}), field: "Rgb"},
+		{name: "DeviceProfile", typeOf: reflect.TypeOf(DeviceProfile{}), field: "RGBOverride"},
+	} {
+		if _, found := target.typeOf.FieldByName(target.field); found {
+			t.Errorf("%s still exposes legacy field %s", target.name, target.field)
+		}
+	}
+}
+
 func (access failingLightingStateAccess) Set(string, DeviceLightingState) error { return access.err }
 
 type failOnLightingStateRestore struct {
@@ -502,7 +532,7 @@ func TestOpenRGBLightingCutoverSelectionBrightnessAndSpeed(t *testing.T) {
 		t.Fatal(err)
 	}
 	device.Stop()
-	if restoredSpeed := device.GetRgbProfile("rainbow"); restoredSpeed == nil || restoredSpeed.Speed != 4.5 || device.brightness != 40 {
+	if restoredSpeed := device.resolvedRendererProfile("rainbow"); restoredSpeed == nil || restoredSpeed.Speed != 4.5 || device.brightness != 40 {
 		t.Fatalf("switching back restored profile %#v, brightness %d", restoredSpeed, device.brightness)
 	}
 
@@ -862,7 +892,6 @@ func TestOpenRGBLightingSnapshotUsesAuthoritativeStateAndResolution(t *testing.T
 	device.DeviceProfile.RGBProfile = "obsolete-legacy-effect"
 	legacyBrightness := uint8(1)
 	device.DeviceProfile.BrightnessSlider = &legacyBrightness
-	device.DeviceProfile.RGBOverride = &RGBOverride{Enabled: true, RgbModeSpeed: 9}
 
 	snapshot, ok := device.LightingSnapshot()
 	if !ok || snapshot.ConfiguredEffect != "rainbow" || !snapshot.HasBrightness || snapshot.Brightness != 35 {

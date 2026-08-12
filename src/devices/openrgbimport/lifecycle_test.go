@@ -224,9 +224,6 @@ func TestPrepareImportUsesResolvedDefaultsAndCompletesLiveDefaultProfile(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if globalPrepared.device.Rgb != nil {
-		t.Fatal("prepared import retained a legacy target-local RGB copy")
-	}
 	t.Cleanup(globalPrepared.device.Stop)
 
 	firstConfig := testConfig("openrgb-prepare-first", "First")
@@ -253,13 +250,13 @@ func TestPrepareImportUsesResolvedDefaultsAndCompletesLiveDefaultProfile(t *test
 		t.Fatalf("second fresh default profile membership = %#v, active profile %p", second.device.UserProfiles, second.device.DeviceProfile)
 	}
 
-	firstGradient := first.device.GetRgbProfile("gradient")
-	secondGradient := second.device.GetRgbProfile("gradient")
+	firstGradient := first.device.resolvedRendererProfile("gradient")
+	secondGradient := second.device.resolvedRendererProfile("gradient")
 	if firstGradient == nil || secondGradient == nil || len(firstGradient.Gradients) == 0 || len(secondGradient.Gradients) == 0 {
 		t.Fatalf("resolved Gradient defaults are incomplete: first=%#v second=%#v", firstGradient, secondGradient)
 	}
 	firstGradient.Gradients[0] = rgb.Color{Red: 200}
-	if secondAgain := second.device.GetRgbProfile("gradient"); reflect.DeepEqual(firstGradient, secondAgain) {
+	if secondAgain := second.device.resolvedRendererProfile("gradient"); reflect.DeepEqual(firstGradient, secondAgain) {
 		t.Fatal("prepared imports share mutable resolved Gradient data")
 	}
 	wantCatalogue := importerSoftwareEffectCatalogue()
@@ -1259,7 +1256,6 @@ func TestUnmatchedAllZeroFallbackImportsOnce(t *testing.T) {
 		live.Config == nil ||
 		!reflect.DeepEqual(live.Config.Zones, cfg.Zones) ||
 		live.DeviceProfile == nil ||
-		live.Rgb != nil ||
 		registry.count() != 1 ||
 		enabledConfiguredCount() != 1 ||
 		managerAdds.Load() != 1 ||
@@ -2445,7 +2441,6 @@ func TestDetachForRemovalDisablesOutputAndPreservesDesiredState(t *testing.T) {
 		RGBCluster:       true,
 		ZoneColors:       buildZoneColorsFromConfig(&cfg, []byte{1, 2, 3}),
 	}
-	rgbState := &rgb.RGB{Device: "Detach", Profiles: map[string]rgb.Profile{"rainbow": {ProfileName: "rainbow"}}}
 	userProfiles := map[string]*DeviceProfile{"default": profile}
 	client, server := net.Pipe()
 	defer server.Close()
@@ -2457,7 +2452,6 @@ func TestDetachForRemovalDisablesOutputAndPreservesDesiredState(t *testing.T) {
 	device.controllerId = 17
 	device.openrgbConn = client
 	device.DeviceProfile = profile
-	device.Rgb = rgbState
 	device.UserProfiles = userProfiles
 	device.effect = "rainbow"
 	device.brightness = brightness
@@ -2487,7 +2481,7 @@ func TestDetachForRemovalDisablesOutputAndPreservesDesiredState(t *testing.T) {
 		t.Fatal("persistent connection was not cleared")
 	}
 	if device.DeviceProfile != profile || device.Config == nil || device.effect != "rainbow" ||
-		device.brightness != brightness || device.Rgb != rgbState ||
+		device.brightness != brightness ||
 		!reflect.DeepEqual(device.UserProfiles, userProfiles) {
 		device.mu.Unlock()
 		t.Fatal("detach changed preserved desired state")
@@ -2782,9 +2776,11 @@ func TestActivatingPublishedImportRejectsArtifactMutations(t *testing.T) {
 	}
 	if exposed.SaveDeviceProfile("", false) != 0 ||
 		exposed.SaveUserProfile("stale") != 0 ||
-		exposed.ProcessSetRgbCluster(true) != 0 ||
-		exposed.UpdateRgbProfileData("static", rgb.Profile{ProfileName: "static"}) != 0 {
-		t.Fatal("activating device accepted a profile, RGB, or cluster mutation")
+		exposed.ProcessSetRgbCluster(true) != 0 {
+		t.Fatal("activating device accepted a profile or cluster mutation")
+	}
+	if err = exposed.SetEffect("static"); err == nil {
+		t.Fatal("activating device accepted a canonical lighting mutation")
 	}
 	profileDuring, err := os.ReadFile(profilePath)
 	if err != nil {
@@ -2921,10 +2917,7 @@ func TestDetachedStaleObjectCannotMutateDisabledOrReimportedState(t *testing.T) 
 		oldDevice.SaveDeviceProfile("", false) != 0 ||
 		oldDevice.ChangeDeviceProfile("default") != 0 ||
 		oldDevice.DeleteDeviceProfile("stale") != 0 ||
-		oldDevice.ProcessSetRgbCluster(true) != 0 ||
-		oldDevice.UpdateRgbProfileData("static", rgb.Profile{ProfileName: "static"}) != 0 ||
-		oldDevice.UpdateRgbProfile(-1, "static") != 0 ||
-		oldDevice.ProcessSetRgbOverride(0, 0, true, rgb.Color{}, rgb.Color{}, rgb.Color{}, 1) != 0 {
+		oldDevice.ProcessSetRgbCluster(true) != 0 {
 		t.Fatal("detached stale object accepted a persistent or cluster mutation")
 	}
 	oldDevice.SetSpeed("fast")

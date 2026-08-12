@@ -235,14 +235,18 @@ func TestOpenRGBSoftwareEffectExpandedResumeUsesRenderer(t *testing.T) {
 	device.effect = "arc"
 	device.DeviceProfile.RGBProfile = "arc"
 	device.DeviceProfile.BrightnessSlider = &brightness
-	device.Rgb = &rgb.RGB{Profiles: map[string]rgb.Profile{
-		"arc": {
-			ProfileName: "Arc",
-			StartColor:  rgb.Color{Red: 12, Green: 34, Blue: 56, Brightness: 1},
-			EndColor:    rgb.Color{Red: 210, Green: 120, Blue: 40, Brightness: 1},
-			Speed:       2,
-		},
-	}}
+	settings, err := canonicalTestSettingsFromRGBProfile("arc", rgb.Profile{
+		ProfileName: "Arc",
+		StartColor:  rgb.Color{Red: 12, Green: 34, Blue: 56, Brightness: 1},
+		EndColor:    rgb.Color{Red: 210, Green: 120, Blue: 40, Brightness: 1},
+		Speed:       2,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = device.lightingEffects.Set(device.Serial, "arc", settings); err != nil {
+		t.Fatal(err)
+	}
 	if err := device.lightingState.Set(device.Serial, DeviceLightingState{SelectedEffect: "arc", Brightness: brightness}); err != nil {
 		t.Fatal(err)
 	}

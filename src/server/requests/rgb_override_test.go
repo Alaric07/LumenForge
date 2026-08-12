@@ -1,17 +1,16 @@
 package requests
 
 import (
+	"bytes"
+	"net/http/httptest"
+	"reflect"
+	"testing"
+
 	"LumenForge/src/common"
 	"LumenForge/src/devices/openrgbimport"
 	"LumenForge/src/language"
 	"LumenForge/src/logger"
 	"LumenForge/src/rgb"
-	"bytes"
-	"errors"
-	"net/http/httptest"
-	"reflect"
-	"strings"
-	"testing"
 )
 
 const rgbOverrideRequestSerial = "openrgb-override-request-test"
@@ -25,8 +24,6 @@ type rgbOverrideRequestSeams struct {
 	lookup func(string) (*common.Device, *openrgbimport.Device, bool)
 	get    func(string) interface{}
 	call   func(string, string, ...interface{}) []reflect.Value
-	set    func(*openrgbimport.Device, string, int, int, bool, rgb.Color, rgb.Color, rgb.Color, *float64) error
-	log    func(error)
 }
 
 func installRGBOverrideRequestSeams(t *testing.T) *rgbOverrideRequestSeams {
@@ -34,16 +31,10 @@ func installRGBOverrideRequestSeams(t *testing.T) *rgbOverrideRequestSeams {
 	previousLookup := lookupOpenRGBOverrideDevice
 	previousGet := getRGBOverrideDevice
 	previousCall := callRGBOverrideDeviceMethod
-	previousSet := setOpenRGBOverride
-	previousLog := logOpenRGBOverrideFailure
 	seams := &rgbOverrideRequestSeams{
 		lookup: func(string) (*common.Device, *openrgbimport.Device, bool) { return nil, nil, false },
 		get:    func(string) interface{} { return nil },
 		call:   func(string, string, ...interface{}) []reflect.Value { return nil },
-		set: func(*openrgbimport.Device, string, int, int, bool, rgb.Color, rgb.Color, rgb.Color, *float64) error {
-			return nil
-		},
-		log: func(error) {},
 	}
 	lookupOpenRGBOverrideDevice = func(serial string) (*common.Device, *openrgbimport.Device, bool) {
 		return seams.lookup(serial)
@@ -52,149 +43,60 @@ func installRGBOverrideRequestSeams(t *testing.T) *rgbOverrideRequestSeams {
 	callRGBOverrideDeviceMethod = func(serial, method string, args ...interface{}) []reflect.Value {
 		return seams.call(serial, method, args...)
 	}
-	setOpenRGBOverride = func(device *openrgbimport.Device, serial string, channelId, subDeviceId int, enabled bool, startColor, endColor, middleColor rgb.Color, speed *float64) error {
-		return seams.set(device, serial, channelId, subDeviceId, enabled, startColor, endColor, middleColor, speed)
-	}
-	logOpenRGBOverrideFailure = func(err error) { seams.log(err) }
 	t.Cleanup(func() {
 		lookupOpenRGBOverrideDevice = previousLookup
 		getRGBOverrideDevice = previousGet
 		callRGBOverrideDeviceMethod = previousCall
-		setOpenRGBOverride = previousSet
-		logOpenRGBOverrideFailure = previousLog
 	})
 	return seams
 }
 
-func rgbOverrideRequest(body string) *Payload {
+func rgbOverrideSetRequest(body string) *Payload {
 	request := httptest.NewRequest("POST", "/api/color/setOverride", bytes.NewBufferString(body))
 	return ProcessSetRgbOverride(request)
 }
 
-func validOpenRGBOverrideRequestTarget(seams *rgbOverrideRequestSeams) (*common.Device, *openrgbimport.Device) {
-	device := &openrgbimport.Device{Serial: rgbOverrideRequestSerial, IsOpenRGB: true}
-	wrapper := &common.Device{Serial: rgbOverrideRequestSerial, Instance: device}
-	seams.lookup = func(string) (*common.Device, *openrgbimport.Device, bool) {
-		return wrapper, device, true
-	}
-	return wrapper, device
+func rgbOverrideGetRequest(body string) *Payload {
+	request := httptest.NewRequest("POST", "/api/color/getOverride", bytes.NewBufferString(body))
+	return ProcessGetRgbOverride(request)
 }
 
-func TestProcessSetRgbOverrideOpenRGBDispatch(t *testing.T) {
-	t.Run("valid controller-wide request preserves omitted speed", func(t *testing.T) {
-		seams := installRGBOverrideRequestSeams(t)
-		_, device := validOpenRGBOverrideRequestTarget(seams)
-		called := false
-		seams.set = func(gotDevice *openrgbimport.Device, serial string, channelId, subDeviceId int, enabled bool, startColor, endColor, middleColor rgb.Color, speed *float64) error {
-			called = true
-			if gotDevice != device || serial != rgbOverrideRequestSerial || channelId != 0 || subDeviceId != 0 || !enabled {
-				t.Fatalf("OpenRGB dispatch target = %#v, %q, %d/%d, enabled %t", gotDevice, serial, channelId, subDeviceId, enabled)
-			}
-			if speed != nil {
-				t.Fatalf("omitted speed forwarded as %v, want nil for importer-side preservation", *speed)
-			}
-			if startColor.Red != 0 || startColor.Green != 1 || startColor.Blue != 2 ||
-				middleColor.Red != 3 || endColor.Red != 6 {
-				t.Fatalf("OpenRGB colors forwarded incorrectly: start %#v, middle %#v, end %#v", startColor, middleColor, endColor)
-			}
-			return nil
+func installImportedRGBOverrideTarget(t *testing.T, seams *rgbOverrideRequestSeams) {
+	t.Helper()
+	device := &openrgbimport.Device{Serial: rgbOverrideRequestSerial, IsOpenRGB: true}
+	wrapper := &common.Device{Serial: rgbOverrideRequestSerial, Instance: device}
+	seams.lookup = func(serial string) (*common.Device, *openrgbimport.Device, bool) {
+		if serial != rgbOverrideRequestSerial {
+			t.Fatalf("imported RGB Override lookup serial = %q, want %q", serial, rgbOverrideRequestSerial)
 		}
-		seams.get = func(string) interface{} {
-			t.Fatal("OpenRGB request fell through to native lookup")
-			return nil
-		}
-		seams.call = func(string, string, ...interface{}) []reflect.Value {
-			t.Fatal("OpenRGB request fell through to reflective dispatch")
-			return nil
-		}
+		return wrapper, device, true
+	}
+	seams.get = func(string) interface{} {
+		panic("imported RGB Override request fell through to native lookup")
+	}
+	seams.call = func(string, string, ...interface{}) []reflect.Value {
+		panic("imported RGB Override request fell through to native reflection")
+	}
+}
 
-		response := rgbOverrideRequest(`{"deviceId":"openrgb-override-request-test","channelId":0,"subDeviceId":0,"enabled":true,"startColor":{"red":0,"green":1,"blue":2,"temperature":20},"middleColor":{"red":3,"green":4,"blue":5,"temperature":40},"endColor":{"red":6,"green":7,"blue":8,"temperature":60}}`)
-		if !called || response.Code != 200 || response.Status != 1 || response.Message != language.GetValue("txtRgbOverrideUpdated") {
-			t.Fatalf("OpenRGB success response = %#v, called %t", response, called)
+func TestOpenRGBOverrideRequestsAreRejectedWithoutNativeFallback(t *testing.T) {
+	t.Run("get", func(t *testing.T) {
+		seams := installRGBOverrideRequestSeams(t)
+		installImportedRGBOverrideTarget(t, seams)
+		response := rgbOverrideGetRequest(`{"deviceId":"openrgb-override-request-test","channelId":0,"subDeviceId":0}`)
+		if response.Code != 200 || response.Status != 0 || response.Data != language.GetValue("txtNoRgbOverride") {
+			t.Fatalf("imported get response = %#v", response)
 		}
 	})
 
-	for _, test := range []struct {
-		name    string
-		prepare func(*common.Device, *openrgbimport.Device, *rgbOverrideRequestSeams)
-		body    string
-	}{
-		{
-			name: "nonzero channel",
-			body: `{"deviceId":"openrgb-override-request-test","channelId":1,"subDeviceId":0,"speed":2}`,
-		},
-		{
-			name: "nonzero subdevice",
-			body: `{"deviceId":"openrgb-override-request-test","channelId":0,"subDeviceId":1,"speed":2}`,
-		},
-		{
-			name: "hidden wrapper",
-			body: `{"deviceId":"openrgb-override-request-test","channelId":0,"subDeviceId":0,"speed":2}`,
-			prepare: func(wrapper *common.Device, _ *openrgbimport.Device, _ *rgbOverrideRequestSeams) {
-				wrapper.Hidden = true
-			},
-		},
-		{
-			name: "unavailable wrapper",
-			body: `{"deviceId":"openrgb-override-request-test","channelId":0,"subDeviceId":0,"speed":2}`,
-			prepare: func(wrapper *common.Device, _ *openrgbimport.Device, _ *rgbOverrideRequestSeams) {
-				wrapper.Unavailable = true
-			},
-		},
-		{
-			name: "mismatched wrapper instance",
-			body: `{"deviceId":"openrgb-override-request-test","channelId":0,"subDeviceId":0,"speed":2}`,
-			prepare: func(wrapper *common.Device, _ *openrgbimport.Device, _ *rgbOverrideRequestSeams) {
-				wrapper.Instance = &openrgbimport.Device{Serial: rgbOverrideRequestSerial, IsOpenRGB: true}
-			},
-		},
-		{
-			name: "mismatched importer identity",
-			body: `{"deviceId":"openrgb-override-request-test","channelId":0,"subDeviceId":0,"speed":2}`,
-			prepare: func(_ *common.Device, device *openrgbimport.Device, _ *rgbOverrideRequestSeams) {
-				device.Serial = "openrgb-other-request-test"
-			},
-		},
-		{
-			name: "checked inactive importer failure",
-			body: `{"deviceId":"openrgb-override-request-test","channelId":0,"subDeviceId":0,"speed":2}`,
-			prepare: func(_ *common.Device, _ *openrgbimport.Device, seams *rgbOverrideRequestSeams) {
-				wantErr := errors.New("detached importer at /private/test/path")
-				seams.set = func(*openrgbimport.Device, string, int, int, bool, rgb.Color, rgb.Color, rgb.Color, *float64) error {
-					return wantErr
-				}
-				seams.log = func(err error) {
-					if err != wantErr {
-						t.Fatalf("logged OpenRGB override error = %v, want %v", err, wantErr)
-					}
-				}
-			},
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			seams := installRGBOverrideRequestSeams(t)
-			wrapper, device := validOpenRGBOverrideRequestTarget(seams)
-			if test.prepare != nil {
-				test.prepare(wrapper, device, seams)
-			}
-			seams.get = func(string) interface{} {
-				t.Fatal("rejected OpenRGB target fell through to native lookup")
-				return nil
-			}
-			seams.call = func(string, string, ...interface{}) []reflect.Value {
-				t.Fatal("rejected OpenRGB target fell through to reflection")
-				return nil
-			}
-
-			response := rgbOverrideRequest(test.body)
-			if response.Code != 200 || response.Status != 0 {
-				t.Fatalf("rejected OpenRGB response = %#v", response)
-			}
-			if strings.Contains(response.Message, "private") || strings.Contains(response.Message, "detached") || strings.Contains(response.Message, rgbOverrideRequestSerial) {
-				t.Fatalf("internal detail leaked in response %q", response.Message)
-			}
-		})
-	}
+	t.Run("set", func(t *testing.T) {
+		seams := installRGBOverrideRequestSeams(t)
+		installImportedRGBOverrideTarget(t, seams)
+		response := rgbOverrideSetRequest(`{"deviceId":"openrgb-override-request-test","channelId":0,"subDeviceId":0,"enabled":true,"speed":2}`)
+		if response.Code != 200 || response.Status != 0 || response.Message != language.GetValue("txtRgbOverrideFailed") {
+			t.Fatalf("imported set response = %#v", response)
+		}
+	})
 }
 
 func TestProcessSetRgbOverrideMalformedJSON(t *testing.T) {
@@ -204,7 +106,7 @@ func TestProcessSetRgbOverrideMalformedJSON(t *testing.T) {
 		t.Fatal("malformed request reached target lookup")
 		return nil, nil, false
 	}
-	response := rgbOverrideRequest(`{"deviceId":`)
+	response := rgbOverrideSetRequest(`{"deviceId":`)
 	if response.Code != 200 || response.Status != 0 || response.Message != language.GetValue("txtUnableToValidateRequest") {
 		t.Fatalf("malformed JSON response = %#v", response)
 	}
@@ -235,12 +137,8 @@ func TestProcessSetRgbOverrideNativeFallbackCompatibility(t *testing.T) {
 				calls = append(calls, rgbOverrideMethodCall{method: method, args: append([]interface{}(nil), args...)})
 				return []reflect.Value{reflect.ValueOf(result.value)}
 			}
-			seams.set = func(*openrgbimport.Device, string, int, int, bool, rgb.Color, rgb.Color, rgb.Color, *float64) error {
-				t.Fatal("native request entered OpenRGB setter")
-				return nil
-			}
 
-			response := rgbOverrideRequest(`{"deviceId":"native-device-test","channelId":4,"subDeviceId":-9,"enabled":true,"startColor":{"red":-1,"green":300,"blue":2},"middleColor":{"red":3,"green":4,"blue":5},"endColor":{"red":6,"green":7,"blue":8},"speed":2.5}`)
+			response := rgbOverrideSetRequest(`{"deviceId":"native-device-test","channelId":4,"subDeviceId":-9,"enabled":true,"startColor":{"red":-1,"green":300,"blue":2},"middleColor":{"red":3,"green":4,"blue":5},"endColor":{"red":6,"green":7,"blue":8},"speed":2.5}`)
 			if response.Code != 200 || response.Status != result.wantStatus {
 				t.Fatalf("native response = %#v, want status %d", response, result.wantStatus)
 			}
@@ -269,7 +167,7 @@ func TestProcessSetRgbOverrideNativeFallbackCompatibility(t *testing.T) {
 			return []reflect.Value{reflect.ValueOf(uint8(1))}
 		}
 
-		response := rgbOverrideRequest(`{"deviceId":"native-device-test","channelId":2,"subDeviceId":3,"enabled":false}`)
+		response := rgbOverrideSetRequest(`{"deviceId":"native-device-test","channelId":2,"subDeviceId":3,"enabled":false}`)
 		if response.Status != 1 || len(calls) != 2 || calls[0].method != "ProcessGetRgbOverride" || calls[1].method != "ProcessSetRgbOverride" {
 			t.Fatalf("native omitted-speed response/calls = %#v / %#v", response, calls)
 		}
@@ -277,4 +175,29 @@ func TestProcessSetRgbOverrideNativeFallbackCompatibility(t *testing.T) {
 			t.Fatalf("native preserved speed = %#v, want 4.25", got)
 		}
 	})
+}
+
+func TestProcessGetRgbOverrideNativeFallbackCompatibility(t *testing.T) {
+	seams := installRGBOverrideRequestSeams(t)
+	seams.get = func(serial string) interface{} {
+		if serial != "native-device-test" {
+			t.Fatalf("native get lookup serial = %q, want native-device-test", serial)
+		}
+		return struct{}{}
+	}
+	want := struct{ Enabled bool }{Enabled: true}
+	seams.call = func(serial, method string, args ...interface{}) []reflect.Value {
+		if serial != "native-device-test" {
+			t.Fatalf("native get dispatch serial = %q, want native-device-test", serial)
+		}
+		if method != "ProcessGetRgbOverride" || len(args) != 2 || args[0] != 2 || args[1] != 3 {
+			t.Fatalf("native get dispatch = %q %#v", method, args)
+		}
+		return []reflect.Value{reflect.ValueOf(want)}
+	}
+
+	response := rgbOverrideGetRequest(`{"deviceId":"native-device-test","channelId":2,"subDeviceId":3}`)
+	if response.Code != 200 || response.Status != 1 || !reflect.DeepEqual(response.Data, want) {
+		t.Fatalf("native get response = %#v", response)
+	}
 }

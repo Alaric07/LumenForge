@@ -22,6 +22,18 @@ import (
 
 const devicesPageHelperEnvironment = "LUMENFORGE_DEVICES_PAGE_TEST_HELPER"
 
+func TestOpenRGBLegacyTemplateOmitsRGBOverrideControl(t *testing.T) {
+	templateSource, err := os.ReadFile(filepath.Join("..", "..", "web", "openrgb.html"))
+	if err != nil {
+		t.Fatalf("read OpenRGB template: %v", err)
+	}
+	for _, obsolete := range []string{"txtRgbOverride", "rgbOverride"} {
+		if strings.Contains(string(templateSource), obsolete) {
+			t.Errorf("OpenRGB template still exposes RGB Override marker %q", obsolete)
+		}
+	}
+}
+
 func TestDevicesPageLightingViewAndOverview(t *testing.T) {
 	if os.Getenv(devicesPageHelperEnvironment) == "1" {
 		runDevicesPageRouteAssertions(t)
@@ -1060,8 +1072,6 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	visibleZoneOne := "Zone <One> & Main"
 	visibleZoneTwo := "Zone Two"
 	visibleBrightness := uint8(0)
-	black := rgb.Color{}
-	staticEnd := rgb.Color{Red: 20, Green: 30, Blue: 40, Brightness: 1}
 	visibleInstance := &openrgbimport.Device{
 		Product:            visibleProduct,
 		Serial:             visibleSerial,
@@ -1084,23 +1094,8 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 			RGBProfile:       "static",
 			BrightnessSlider: &visibleBrightness,
 			RGBCluster:       true,
-			RGBOverride: &openrgbimport.RGBOverride{
-				Enabled:        true,
-				RGBStartColor:  black,
-				RGBMiddleColor: rgb.Color{Red: 50, Green: 60, Blue: 70, Brightness: 1},
-				RGBEndColor:    rgb.Color{Red: 80, Green: 90, Blue: 100, Brightness: 1},
-				RgbModeSpeed:   0,
-			},
 		},
 		RGBModes: []string{"static", "wave", "cpu-temperature", "gradient", "rainbow", "off"},
-		Rgb: &rgb.RGB{Profiles: map[string]rgb.Profile{
-			"static":          {ProfileName: "Static <Effect> & More", StartColor: black, EndColor: staticEnd},
-			"wave":            {ProfileName: "Wave", StartColor: black, EndColor: staticEnd, Speed: 2},
-			"cpu-temperature": {ProfileName: "CPU Temperature"},
-			"gradient":        {ProfileName: "Gradient", Speed: 4},
-			"rainbow":         {ProfileName: "Rainbow", Speed: 5},
-			"off":             {ProfileName: "Off"},
-		}},
 	}
 	visible := &common.Device{
 		Product:     visibleProduct,
