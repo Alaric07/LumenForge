@@ -166,15 +166,15 @@ Generated as a read-only architecture inventory. This does not declare migration
 | `memory` | Y | Legacy | multi-channel + per-LED | Y | Y | Y |  | Y | Y | Y | led |
 | `mm700` | Y | Legacy | single-profile | Y | Y |  |  |  | Y | Y | mousepad |
 | `mm800` | Y | Legacy | single-profile | Y | Y |  |  |  | Y | Y | mousepad |
-| `motherboard` |  | Audit Required | weak-marker only |  |  |  |  |  |  |  |  |
+| `motherboard` |  | Not a lighting target | weak-marker only |  |  |  |  |  |  |  |  |
 | `nautilusLcd` | Y | Legacy | other lighting | Y |  |  |  |  |  |  |  |
-| `nexus` |  | Audit Required | weak-marker only |  |  |  |  |  |  |  |  |
+| `nexus` |  | Not a lighting target | weak-marker only |  |  |  |  |  |  |  |  |
 | `nightsabreW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `nightsabreWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `nightswordrgb` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `platinum` | Y | Legacy | multi-channel | Y | Y |  |  |  |  | Y | liquid-temperature |
-| `psudongle` |  | Audit Required | weak-marker only |  |  |  |  |  |  |  |  |
-| `psuhid` |  | Audit Required | weak-marker only |  |  |  |  |  |  |  |  |
+| `psudongle` |  | Not a lighting target | weak-marker only |  |  |  |  |  |  |  |  |
+| `psuhid` |  | Not a lighting target | weak-marker only |  |  |  |  |  |  |  |  |
 | `sabreprocs` | Y | Legacy | other lighting | Y |  |  |  |  |  |  |  |
 | `sabrergbpro` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `sabrergbproW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
@@ -193,7 +193,7 @@ Generated as a read-only architecture inventory. This does not declare migration
 | `scufenvisionproV2WU` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `scufenvisionproW` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `scufenvisionproWU` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
-| `slipstream` |  | Audit Required | weak-marker only |  |  |  |  |  |  |  |  |
+| `slipstream` |  | Not a lighting target | weak-marker only |  |  |  |  |  |  |  |  |
 | `st100` | Y | Legacy | single-profile | Y | Y |  |  |  | Y | Y | stand |
 | `strafergbmk2` | Y | Legacy | single-profile | Y | Y |  |  |  |  |  | keyboard |
 | `vanguard96` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
@@ -212,7 +212,30 @@ Generated as a read-only architecture inventory. This does not declare migration
 | `voidV2W` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `voideliteW` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `xc7` | Y | Legacy | single-profile | Y | Y |  |  |  |  |  | liquid-temperature |
-| `xeneonedge` |  | Audit Required | weak-marker only |  |  |  |  |  |  |  |  |
+| `xeneonedge` |  | Not a lighting target | weak-marker only |  |  |  |  |  |  |  |  |
+
+## Weak-marker audit
+
+The six weak-marker packages were inspected manually after the initial
+inventory. None owns a native RGB lighting implementation requiring canonical
+lighting migration:
+
+- `motherboard` manages motherboard fan/header behavior. Its `RgbOff` profile
+  field does not correspond to a package-owned RGB lighting engine.
+- `nexus` is an LCD/touch-screen target. RGB color values are used for display
+  presentation such as button and text colors, not native device lighting.
+- `psudongle` and `psuhid` manage PSU telemetry and fan behavior and do not own
+  RGB lighting implementations.
+- `xeneonedge` manages XENEON EDGE display widgets and does not own an RGB
+  lighting implementation.
+- `slipstream` is a transport/host for paired wireless devices rather than a
+  lighting target itself. Paired device packages remain independent native
+  lighting migration targets and must retain Slipstream operation during their
+  migrations.
+
+These packages are therefore classified as **Not a lighting target**. Their
+non-lighting behavior remains supported and must not be disturbed by native
+lighting migration work.
 
 ## Architectural signature groups
 
