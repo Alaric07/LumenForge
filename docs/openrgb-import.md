@@ -61,7 +61,11 @@ For each imported device, the saved configuration is the source of truth:
 - Routine rediscovery does not overwrite an existing saved layout.
 - Users can correct zone names and LED counts through the imported controller's LumenForge configuration interface.
 
-Device profiles and per-device RGB state are stored separately from this import store and are reused when the same preserved controller is reimported.
+Device profiles and canonical per-device lighting state are stored separately
+from this import store and are reused when the same preserved controller is
+reimported. Device profiles retain profile metadata and RGB Cluster membership;
+selected effect, Brightness, and per-effect lighting customization are owned by
+the canonical device-lighting persistence layer.
 
 ## Stable Identity, Removal, and Reimport
 
@@ -73,8 +77,8 @@ Removing an imported controller through Settings disables it and removes it from
 
 - Stable LumenForge identity
 - Zone layout
-- Device profiles
-- RGB state
+- Device profile metadata and RGB Cluster membership
+- Canonical device lighting state and per-effect customizations
 
 ## Incomplete and Zero-LED Metadata
 
@@ -104,7 +108,10 @@ If a full import-record reset is necessary:
 3. Remove the original file.
 4. Start LumenForge and explicitly discover and import the desired controllers again.
 
-Deleting the import store does not itself remove the separate device-profile or per-device RGB files. Do not assume, however, that those artifacts can be associated with a controller again after its saved identity record has been deleted.
+Deleting the import store does not itself remove separate device-profile or
+canonical lighting-state data. Do not assume, however, that those records can
+be associated with a controller again after its saved identity record has been
+deleted.
 
 ## Two OpenRGB Directions
 

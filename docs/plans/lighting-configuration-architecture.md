@@ -665,6 +665,14 @@ Speed or another genuine renderer-consumed setting.
     completed in `235941d0`, and the remaining legacy Cluster RGB/profile
     compatibility surface was removed in `0ccc2d3f`.
 13. Delete OpenRGB override code and legacy imported-device lighting controls.
+    Completed in `dc94df10`, which removed OpenRGB legacy/global RGB
+    compatibility and RGB Override support, and `d607182b`, which removed the
+    remaining profile-local lighting mirrors and duplicate legacy OpenRGB page
+    controls. Imported devices now use canonical device lighting state,
+    complete per-effect settings, the resolver, and `LightingSnapshot` for
+    lighting behavior and presentation. `DeviceProfile` retains only profile
+    metadata and RGB Cluster membership; membership persistence is intentionally
+    left for a later redesign.
 14. Migrate native target families separately.
 15. Remove `/rgb` after every remaining consumer has parity.
 16. Remove global mutations, target-local RGB copies, remaining override
