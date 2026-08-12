@@ -225,7 +225,6 @@ func TestSaveDeviceConfigRejectsInvalidLayoutWithoutSideEffects(t *testing.T) {
 		t.Fatalf("generated profile path unexpectedly exists before test: %v", statErr)
 	}
 
-	brightness := uint8(47)
 	device := testDevice(saved)
 	device.controllerId = 7
 	device.effect = "rainbow"
@@ -234,14 +233,11 @@ func TestSaveDeviceConfigRejectsInvalidLayoutWithoutSideEffects(t *testing.T) {
 	device.doneChan = make(chan struct{})
 	close(device.doneChan)
 	device.DeviceProfile = &DeviceProfile{
-		Active:           true,
-		Path:             profilePath,
-		Product:          saved.Product,
-		Serial:           serial,
-		RGBProfile:       "rainbow",
-		BrightnessSlider: &brightness,
-		ZoneColors:       buildZoneColorsFromConfig(&saved, device.lastColor),
-		RGBCluster:       true,
+		Active:     true,
+		Path:       profilePath,
+		Product:    saved.Product,
+		Serial:     serial,
+		RGBCluster: true,
 	}
 
 	configBefore := cloneDeviceConfig(device.Config)
@@ -361,10 +357,7 @@ func TestSaveDeviceConfigPreservesCallerAndValidBehavior(t *testing.T) {
 
 	device := testDevice(saved)
 	device.DeviceProfile = &DeviceProfile{
-		Active:           true,
-		RGBProfile:       "static",
-		BrightnessSlider: func() *uint8 { value := uint8(63); return &value }(),
-		ZoneColors:       buildZoneColorsFromConfig(&saved, device.lastColor),
+		Active: true,
 	}
 	input := DeviceConfig{
 		Serial:  serial,

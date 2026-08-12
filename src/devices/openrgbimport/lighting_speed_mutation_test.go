@@ -30,7 +30,6 @@ func newLightingSpeedMutationDevice(effect string, speed float64) *Device {
 	device := newLightingMutationDevice()
 	device.effect = effect
 	device.RGBModes = []string{effect, "static", "off"}
-	device.DeviceProfile.RGBProfile = effect
 	profile := rgb.Profile{
 		ProfileName: effect,
 		Speed:       speed,
@@ -85,7 +84,6 @@ func TestOpenRGBLightingSetEffectSpeedPersistenceSources(t *testing.T) {
 		installLightingSpeedPersistenceSeams(t)
 		device := newLightingMutationDevice()
 		device.effect = "rainbow"
-		device.DeviceProfile.RGBProfile = "rainbow"
 		device.RGBModes = []string{"rainbow", "static", "off"}
 		before, err := device.resolveLightingSettings("rainbow")
 		if err != nil || before.Customized {

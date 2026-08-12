@@ -19,9 +19,7 @@ func lightingTestDevice(effect string, modes []string, definitions map[string]rg
 		IsOpenRGB: true,
 		RGBModes:  append([]string(nil), modes...),
 		DeviceProfile: &DeviceProfile{
-			Active:           true,
-			RGBProfile:       effect,
-			BrightnessSlider: &brightness,
+			Active: true,
 		},
 	}
 	attachTestLightingRuntime(device)
@@ -352,8 +350,6 @@ func TestOpenRGBLightingSnapshotBrightnessAndCluster(t *testing.T) {
 
 	t.Run("legacy profile brightness ignored", func(t *testing.T) {
 		device := lightingTestDevice("static", []string{"static"}, map[string]rgb.Profile{"static": {}})
-		legacyBrightness := uint8(20)
-		device.DeviceProfile.BrightnessSlider = &legacyBrightness
 		device.brightness = 64
 		snapshot, _ := device.LightingSnapshot()
 		if !snapshot.HasBrightness || snapshot.Brightness != 64 {
@@ -419,10 +415,8 @@ func TestOpenRGBLightingSnapshotUnknownStates(t *testing.T) {
 }
 
 func TestOpenRGBLightingSnapshotCopiesOwnedValues(t *testing.T) {
-	brightness := uint8(22)
 	sourceProfile := rgb.Profile{ProfileName: "Wave", StartColor: lightingTestColor(1, 2, 3), EndColor: lightingTestColor(4, 5, 6), Speed: 7}
 	device := lightingTestDevice("wave", []string{"wave", "static"}, map[string]rgb.Profile{"wave": sourceProfile})
-	device.DeviceProfile.BrightnessSlider = &brightness
 
 	snapshot, ok := device.LightingSnapshot()
 	if !ok {
@@ -433,7 +427,6 @@ func TestOpenRGBLightingSnapshotCopiesOwnedValues(t *testing.T) {
 
 	device.mu.Lock()
 	device.RGBModes[0] = "changed"
-	brightness = 99
 	device.mu.Unlock()
 
 	if !reflect.DeepEqual(snapshot, want) {

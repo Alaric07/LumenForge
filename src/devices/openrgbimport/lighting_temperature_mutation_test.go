@@ -13,7 +13,6 @@ import (
 func newLightingTemperatureMutationDevice(effect string) *Device {
 	device := newLightingMutationDevice()
 	device.effect = effect
-	device.DeviceProfile.RGBProfile = effect
 	device.RGBModes = []string{"cpu-temperature", "gpu-temperature", "static", "wave", "rainbow", "gradient", "off"}
 	return device
 }

@@ -125,15 +125,10 @@ func newLightingMutationDevice() *Device {
 		controllerId: 7,
 		colorCount:   1,
 		brightness:   brightness,
-		lastColor:    []byte{100, 150, 200},
 		effect:       "off",
-		speed:        2,
 		RGBModes:     []string{"off", "static", "rainbow"},
 		DeviceProfile: &DeviceProfile{
-			Active:           true,
-			RGBProfile:       "off",
-			BrightnessSlider: &brightness,
-			ZoneColors:       map[int]ZoneColors{},
+			Active: true,
 		},
 	}
 	attachTestLightingRuntime(device)
@@ -213,20 +208,6 @@ func newCanonicalStaticTestDevice(brightness uint8) *Device {
 	device.ZoneAmount = 2
 	device.brightness = brightness
 	device.effect = "static"
-	device.DeviceProfile.RGBProfile = "static"
-	device.DeviceProfile.BrightnessSlider = &brightness
-	device.DeviceProfile.ZoneColors = map[int]ZoneColors{
-		0: {
-			Color:      &rgb.Color{Red: 90, Green: 30, Blue: 10, Brightness: 1},
-			ColorIndex: []int{0, 1, 2, 3, 4, 5},
-			Name:       "Front",
-		},
-		1: {
-			Color:      &rgb.Color{Red: 5, Green: 60, Blue: 120, Brightness: 1},
-			ColorIndex: []int{6, 7, 8},
-			Name:       "Rear",
-		},
-	}
 	return device
 }
 
@@ -339,9 +320,6 @@ func TestOpenRGBLightingBrightnessPersistenceAndOutputOrdering(t *testing.T) {
 		if got := device.GetBrightness(); got != 40 {
 			t.Fatalf("brightness = %d, want restored value 40", got)
 		}
-		if device.DeviceProfile.BrightnessSlider == nil || *device.DeviceProfile.BrightnessSlider != 40 {
-			t.Fatalf("profile brightness = %#v, want restored value 40", device.DeviceProfile.BrightnessSlider)
-		}
 		if _, found, _ := confirmed.Resolve(device.Serial); found {
 			t.Fatal("failed brightness mutation created target state")
 		}
@@ -390,7 +368,6 @@ func TestOpenRGBLightingBrightnessPersistenceAndOutputOrdering(t *testing.T) {
 		profileDir, calls := installLightingDeviceTestSeams(t)
 		device := newLightingMutationDevice()
 		device.DeviceProfile.RGBCluster = true
-		brightnessPointer := device.DeviceProfile.BrightnessSlider
 		controllerBefore := device.ControllerID()
 		detachedBefore := device.lifecycleDetached
 		activatingBefore := device.lifecycleActivating
@@ -400,9 +377,6 @@ func TestOpenRGBLightingBrightnessPersistenceAndOutputOrdering(t *testing.T) {
 		}
 		if got := device.GetBrightness(); got != 40 {
 			t.Fatalf("brightness = %d, want unchanged value 40", got)
-		}
-		if device.DeviceProfile.BrightnessSlider != brightnessPointer || *device.DeviceProfile.BrightnessSlider != 40 {
-			t.Fatalf("profile brightness = %#v, want unchanged pointer value 40", device.DeviceProfile.BrightnessSlider)
 		}
 		if calls.colors != 0 || calls.frames != 0 || calls.persistentFrames != 0 {
 			t.Fatalf("cluster-owned output calls = colors %d, frames %d, persistent %d, want none", calls.colors, calls.frames, calls.persistentFrames)
@@ -457,8 +431,8 @@ func TestOpenRGBLightingEffectPersistenceAndOutputOrdering(t *testing.T) {
 		if calls.colors != 0 || calls.frames != 0 {
 			t.Fatalf("output calls = colors %d, frames %d, want none", calls.colors, calls.frames)
 		}
-		if got := device.GetEffect(); got != "off" || device.DeviceProfile.RGBProfile != "off" {
-			t.Fatalf("effect state = %q/%q, want restored off/off", got, device.DeviceProfile.RGBProfile)
+		if got := device.GetEffect(); got != "off" {
+			t.Fatalf("effect state = %q, want restored off", got)
 		}
 		if !device.running || device.stopChan != stop {
 			t.Fatal("previous effect lifecycle was replaced after persistence failure")
@@ -480,8 +454,8 @@ func TestOpenRGBLightingEffectPersistenceAndOutputOrdering(t *testing.T) {
 		if calls.colors != 0 || calls.frames != 0 {
 			t.Fatalf("output calls = colors %d, frames %d, want none", calls.colors, calls.frames)
 		}
-		if got := device.GetEffect(); got != "off" || device.DeviceProfile.RGBProfile != "off" {
-			t.Fatalf("effect state = %q/%q, want off/off", got, device.DeviceProfile.RGBProfile)
+		if got := device.GetEffect(); got != "off" {
+			t.Fatalf("effect state = %q, want off", got)
 		}
 		if _, found, err := device.lightingState.Resolve(device.Serial); err != nil || found {
 			t.Fatalf("rejected effect changed target state: found=%t err=%v", found, err)
@@ -517,7 +491,6 @@ func TestOpenRGBLightingEffectTransitionSerialization(t *testing.T) {
 	_, calls := installLightingDeviceTestSeams(t)
 	device := newLightingMutationDevice()
 	device.effect = "rainbow"
-	device.DeviceProfile.RGBProfile = "rainbow"
 	oldStop := make(chan struct{})
 	oldDone := make(chan struct{})
 	device.running = true
@@ -567,11 +540,10 @@ func TestOpenRGBLightingEffectTransitionSerialization(t *testing.T) {
 
 	device.mu.Lock()
 	finalEffect := device.effect
-	finalProfileEffect := device.DeviceProfile.RGBProfile
 	workerActive := device.running || device.stopChan != nil || device.doneChan != nil
 	device.mu.Unlock()
-	if finalEffect != "static" || finalProfileEffect != "static" {
-		t.Fatalf("final effect state = %q/%q, want static/static", finalEffect, finalProfileEffect)
+	if finalEffect != "static" {
+		t.Fatalf("final effect state = %q, want static", finalEffect)
 	}
 	if workerActive {
 		t.Fatal("static transition left an animation worker or worker channels active")
@@ -626,7 +598,6 @@ func TestOpenRGBLightingEffectRevalidatesAfterStop(t *testing.T) {
 	_, calls := installLightingDeviceTestSeams(t)
 	device := newLightingMutationDevice()
 	device.effect = "rainbow"
-	device.DeviceProfile.RGBProfile = "rainbow"
 	oldStop := make(chan struct{})
 	oldDone := make(chan struct{})
 	device.running = true
@@ -661,11 +632,10 @@ func TestOpenRGBLightingEffectRevalidatesAfterStop(t *testing.T) {
 
 	device.mu.Lock()
 	desiredEffect := device.effect
-	desiredProfileEffect := device.DeviceProfile.RGBProfile
 	workerActive := device.running || device.stopChan != nil || device.doneChan != nil
 	device.mu.Unlock()
-	if desiredEffect != "static" || desiredProfileEffect != "static" {
-		t.Fatalf("desired effect state = %q/%q, want static/static", desiredEffect, desiredProfileEffect)
+	if desiredEffect != "static" {
+		t.Fatalf("desired effect state = %q, want static", desiredEffect)
 	}
 	if workerActive {
 		t.Fatal("failed transition left an animation worker or worker channels active")
@@ -720,7 +690,6 @@ func TestOpenRGBCanonicalStaticFrame(t *testing.T) {
 
 			profileBefore := cloneDeviceProfile(device.DeviceProfile)
 			configBefore := cloneDeviceConfig(device.Config)
-			lastColorBefore := append([]byte(nil), device.lastColor...)
 
 			frame := canonicalStaticFrame(t, device, test.brightness)
 			if !bytes.Equal(frame, test.expected) {
@@ -731,9 +700,6 @@ func TestOpenRGBCanonicalStaticFrame(t *testing.T) {
 			}
 			if !reflect.DeepEqual(device.Config, configBefore) {
 				t.Fatal("building the canonical Static frame changed the controller config")
-			}
-			if !bytes.Equal(device.lastColor, lastColorBefore) {
-				t.Fatal("building the canonical Static frame changed lastColor")
 			}
 			entries, err := os.ReadDir(profileDir)
 			if err != nil {
@@ -782,7 +748,6 @@ func newOpenRGBTemperatureMiddleColorDevice(t *testing.T, effect, serial string)
 	device.colorCount = 2
 	device.effect = "off"
 	device.RGBModes = []string{"off", "static", "cpu-temperature", "gpu-temperature", "colorpulse", "gradient"}
-	device.DeviceProfile.RGBProfile = "off"
 	settings, err := canonicalTestSettingsFromRGBProfile(effect, openRGBTemperatureMiddleColorProfile(effect))
 	if err != nil {
 		t.Fatalf("convert %q profile: %v", effect, err)

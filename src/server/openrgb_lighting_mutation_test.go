@@ -339,58 +339,6 @@ func TestOpenRGBLegacyStaticColorEndpointIsRetired(t *testing.T) {
 	}
 }
 
-func TestOpenRGBLightingLegacySpeedLookupErrorRedaction(t *testing.T) {
-	previousLookup := lookupOpenRGBImportLegacy
-	t.Cleanup(func() { lookupOpenRGBImportLegacy = previousLookup })
-	router := setRoutes()
-
-	for _, internalError := range []string{
-		"read /var/lib/lumenforge/database/profiles/private.json: permission denied",
-		"OpenRGB controller 7 rejected speed change",
-		"OpenRGB import lifecycle is detached",
-		"device is controlled by RGB cluster",
-		"arbitrary private lookup detail",
-	} {
-		t.Run(internalError, func(t *testing.T) {
-			lookupOpenRGBImportLegacy = func(string) (*openrgbimport.Device, error) {
-				return nil, errors.New(internalError)
-			}
-			recorder := requestOpenRGBLightingMutation(
-				t,
-				router,
-				http.MethodPost,
-				"/api/openrgbimport/speed",
-				`{"serial":"openrgb-lighting-test","speed":"fast"}`,
-			)
-			response := requireLightingMutationResponse(t, recorder, 0)
-			if response.Message != "OpenRGB device is not available" {
-				t.Fatalf("legacy speed lookup message = %q", response.Message)
-			}
-			if strings.Contains(recorder.Body.String(), internalError) {
-				t.Fatalf("legacy speed response exposed internal lookup error: %s", recorder.Body.String())
-			}
-		})
-	}
-
-	t.Run("successful categorical request remains compatible", func(t *testing.T) {
-		device := &openrgbimport.Device{}
-		lookupOpenRGBImportLegacy = func(string) (*openrgbimport.Device, error) {
-			return device, nil
-		}
-		recorder := requestOpenRGBLightingMutation(
-			t,
-			router,
-			http.MethodPost,
-			"/api/openrgbimport/speed",
-			`{"serial":"openrgb-lighting-test","speed":"slow"}`,
-		)
-		response := requireLightingMutationResponse(t, recorder, 1)
-		if response.Message != "Speed set" || device.GetSpeed() != "slow" {
-			t.Fatalf("legacy speed success response = %#v, device speed %q", response, device.GetSpeed())
-		}
-	})
-}
-
 func TestOpenRGBLightingSpeedTimeoutErrorRedaction(t *testing.T) {
 	_, _, calls := installLightingMutationTestSeams(t)
 	calls.setError = errors.Join(errors.New("wait for initial OpenRGB effect output"), context.DeadlineExceeded)
@@ -426,7 +374,7 @@ func TestOpenRGBLightingSpeedClusterOwnershipGuard(t *testing.T) {
 		setOpenRGBImportSpeedValue = previousSpeed
 	})
 
-	profile := &openrgbimport.DeviceProfile{Active: true, RGBProfile: "rainbow", RGBCluster: true}
+	profile := &openrgbimport.DeviceProfile{Active: true, RGBCluster: true}
 	device := &openrgbimport.Device{
 		Serial:        lightingMutationTestSerial,
 		IsOpenRGB:     true,
@@ -457,7 +405,7 @@ func TestOpenRGBLightingSpeedClusterOwnershipGuard(t *testing.T) {
 	if response.Message != "Unable to set speed" || strings.Contains(recorder.Body.String(), ownershipError) {
 		t.Fatalf("cluster-owned speed response = %s", recorder.Body.String())
 	}
-	if device.DeviceProfile != profile || profile.RGBProfile != "rainbow" {
+	if device.DeviceProfile != profile || !profile.RGBCluster {
 		t.Fatalf("cluster rejection changed fixture state: profile=%#v", profile)
 	}
 }
@@ -494,13 +442,10 @@ func TestOpenRGBLightingBrightnessClusterOwnershipGuard(t *testing.T) {
 		setOpenRGBImportBrightnessValue = previousBrightness
 	})
 
-	initialBrightness := uint8(0)
 	profile := &openrgbimport.DeviceProfile{
-		Active:           true,
-		Serial:           lightingMutationTestSerial,
-		RGBProfile:       "static",
-		BrightnessSlider: &initialBrightness,
-		RGBCluster:       true,
+		Active:     true,
+		Serial:     lightingMutationTestSerial,
+		RGBCluster: true,
 	}
 	device := &openrgbimport.Device{
 		Serial:        lightingMutationTestSerial,
@@ -517,7 +462,6 @@ func TestOpenRGBLightingBrightnessClusterOwnershipGuard(t *testing.T) {
 	}
 
 	initialDeviceBrightness := device.GetBrightness()
-	initialProfileBrightness := *profile.BrightnessSlider
 	const requestedBrightness = uint8(50)
 	if requestedBrightness == initialDeviceBrightness {
 		t.Fatal("cluster-ownership test requires a changed brightness value")
@@ -557,8 +501,8 @@ func TestOpenRGBLightingBrightnessClusterOwnershipGuard(t *testing.T) {
 	if got := device.GetBrightness(); got != initialDeviceBrightness {
 		t.Fatalf("device brightness = %d, want unchanged value %d", got, initialDeviceBrightness)
 	}
-	if device.DeviceProfile != profile || profile.BrightnessSlider == nil || *profile.BrightnessSlider != initialProfileBrightness {
-		t.Fatalf("active profile brightness = %#v, want unchanged value %d", profile.BrightnessSlider, initialProfileBrightness)
+	if device.DeviceProfile != profile || !profile.RGBCluster {
+		t.Fatalf("active profile membership changed: %#v", profile)
 	}
 }
 

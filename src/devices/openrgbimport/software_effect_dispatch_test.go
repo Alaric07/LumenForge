@@ -173,7 +173,7 @@ func TestOpenRGBSoftwareEffectEligibilityRejectsUnsupportedProfiles(t *testing.T
 			device := &Device{
 				effect:        effect,
 				RGBModes:      importerSoftwareEffectCatalogue(),
-				DeviceProfile: &DeviceProfile{RGBProfile: effect},
+				DeviceProfile: &DeviceProfile{},
 			}
 			runner := newSoftwareEffectDispatchRunner(4)
 			expected := newSoftwareEffectDispatchRunner(4)
@@ -186,8 +186,8 @@ func TestOpenRGBSoftwareEffectEligibilityRejectsUnsupportedProfiles(t *testing.T
 			if !bytes.Equal(runner.Output, expected.Output) {
 				t.Fatalf("dispatchEligibleSoftwareEffect(%q) output = %v, want Static output %v", effect, runner.Output, expected.Output)
 			}
-			if device.effect != effect || device.DeviceProfile.RGBProfile != effect {
-				t.Fatalf("unsupported profile changed: effect = %q, profile = %q, want %q", device.effect, device.DeviceProfile.RGBProfile, effect)
+			if device.effect != effect {
+				t.Fatalf("unsupported selected effect changed: effect = %q, want %q", device.effect, effect)
 			}
 			if !slices.Equal(device.RGBModes, catalogueBefore) {
 				t.Fatalf("device RGBModes changed: got %v, want %v", device.RGBModes, catalogueBefore)
@@ -206,10 +206,7 @@ func TestOpenRGBSoftwareEffectResumeUsesEligibilityBoundary(t *testing.T) {
 	device.RGBModes = importerSoftwareEffectCatalogue()
 	device.colorCount = 4
 	device.brightness = brightness
-	device.lastColor = []byte{12, 34, 56}
 	device.effect = "unknown"
-	device.DeviceProfile.RGBProfile = "unknown"
-	device.DeviceProfile.BrightnessSlider = &brightness
 
 	if err := device.resumeDesiredState(context.Background()); err == nil {
 		t.Fatal("resume accepted invalid authoritative effect state")
@@ -219,8 +216,8 @@ func TestOpenRGBSoftwareEffectResumeUsesEligibilityBoundary(t *testing.T) {
 		t.Fatalf("invalid authoritative effect produced fallback output: %v", frame)
 	default:
 	}
-	if device.effect != "unknown" || device.DeviceProfile.RGBProfile != "unknown" {
-		t.Fatalf("resumed unsupported profile changed: effect = %q, profile = %q", device.effect, device.DeviceProfile.RGBProfile)
+	if device.effect != "unknown" {
+		t.Fatalf("resumed unsupported selected effect changed: effect = %q", device.effect)
 	}
 }
 
@@ -231,10 +228,7 @@ func TestOpenRGBSoftwareEffectExpandedResumeUsesRenderer(t *testing.T) {
 	device.RGBModes = importerSoftwareEffectCatalogue()
 	device.colorCount = 4
 	device.brightness = brightness
-	device.lastColor = []byte{12, 34, 56}
 	device.effect = "arc"
-	device.DeviceProfile.RGBProfile = "arc"
-	device.DeviceProfile.BrightnessSlider = &brightness
 	settings, err := canonicalTestSettingsFromRGBProfile("arc", rgb.Profile{
 		ProfileName: "Arc",
 		StartColor:  rgb.Color{Red: 12, Green: 34, Blue: 56, Brightness: 1},
@@ -272,8 +266,8 @@ func TestOpenRGBSoftwareEffectExpandedResumeUsesRenderer(t *testing.T) {
 	if bytes.Equal(frame, staticRunner.Output) {
 		t.Fatalf("resumed Arc frame used the Static fallback: %v", frame)
 	}
-	if device.effect != "arc" || device.DeviceProfile.RGBProfile != "arc" {
-		t.Fatalf("resumed newly supported profile changed: effect = %q, profile = %q", device.effect, device.DeviceProfile.RGBProfile)
+	if device.effect != "arc" {
+		t.Fatalf("resumed newly supported selected effect changed: effect = %q", device.effect)
 	}
 	state, found, stateErr := device.lightingState.Resolve(device.Serial)
 	if stateErr != nil || !found || state.SelectedEffect != "arc" {

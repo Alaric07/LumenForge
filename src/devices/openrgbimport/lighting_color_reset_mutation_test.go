@@ -12,7 +12,6 @@ func newLightingColorMutationDevice(effect string, initialSpeed float64) *Device
 	device := newLightingMutationDevice()
 	device.effect = effect
 	device.RGBModes = []string{"static", "rotator", "rainbow"}
-	device.DeviceProfile.RGBProfile = effect
 	profiles := map[string]rgb.Profile{
 		"static":  {ProfileName: "Static"},
 		"rotator": {ProfileName: "Rotator", Speed: 4.25},

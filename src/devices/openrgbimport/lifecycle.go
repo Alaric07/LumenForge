@@ -662,9 +662,7 @@ func prepareImport(serial string, cfg DeviceConfig) (*preparedImport, error) {
 		controllerId:        -1,
 		colorCount:          colorCount,
 		brightness:          100,
-		lastColor:           []byte{99, 213, 255},
 		effect:              "static",
-		speed:               2,
 		Config:              cloneDeviceConfig(&cfg),
 		ZoneAmount:          len(cfg.Zones),
 		LEDCount:            colorCount,
@@ -684,15 +682,11 @@ func prepareImport(serial string, cfg DeviceConfig) (*preparedImport, error) {
 		return nil, err
 	}
 
-	defaultBrightness := uint8(100)
 	defaultProfile := &DeviceProfile{
-		Active:           true,
-		Path:             profilePath,
-		Product:          product,
-		Serial:           serial,
-		RGBProfile:       "static",
-		BrightnessSlider: &defaultBrightness,
-		ZoneColors:       buildZoneColorsFromConfig(&cfg, device.lastColor),
+		Active:  true,
+		Path:    profilePath,
+		Product: product,
+		Serial:  serial,
 	}
 	if err := loadPreservedProfiles(device, defaultProfile); err != nil {
 		return nil, err
@@ -717,10 +711,6 @@ func prepareImport(serial string, cfg DeviceConfig) (*preparedImport, error) {
 		device.DeviceProfile = defaultProfile
 		device.UserProfiles["default"] = defaultProfile
 	}
-	device.DeviceProfile.RGBProfile = device.effect
-	brightness := device.brightness
-	device.DeviceProfile.BrightnessSlider = &brightness
-
 	device.createDevice()
 	device.instance.Unavailable = true
 	return &preparedImport{
@@ -762,7 +752,7 @@ func loadPreservedProfiles(device *Device, defaultProfile *DeviceProfile) error 
 		if readErr != nil {
 			return fmt.Errorf("read preserved profile %q: %w", path, readErr)
 		}
-		profile := &DeviceProfile{ZoneColors: buildZoneColorsFromConfig(device.Config, device.lastColor)}
+		profile := &DeviceProfile{}
 		if err = json.Unmarshal(data, profile); err != nil {
 			return fmt.Errorf("decode preserved profile %q: %w", path, err)
 		}

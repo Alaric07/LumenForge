@@ -5,7 +5,6 @@
 
 <div class="container-fluid">
     {{ $device := .Device }}
-    {{ $rgbModes := .Device.RGBModes }}
     <div class="row">
         {{ template "sidebar" . }}
 
@@ -48,14 +47,6 @@
                                     {{ end }}
 
                                     <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">Brightness</span>
-                                        <div class="system-slider no-padding-top">
-                                            <input type="range" id="mbBrightnessSlider" min="0" max="100" value="{{ if .OpenRGBImportDevice }}{{ .OpenRGBImportBrightness }}{{ else }}100{{ end }}">
-                                            <div class="slider-value" id="mbBrightnessSliderValue">{{ if .OpenRGBImportDevice }}{{ .OpenRGBImportBrightness }}{{ else }}100{{ end }} %</div>
-                                        </div>
-                                    </div>
-
-                                    <div class="settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "txtCluster" }}</span>
                                         <label class="system-toggle compact">
                                             <input type="checkbox" id="toggleRgbCluster" class="toggleRgbCluster" {{ if .OpenRGBImportRGBCluster }} checked {{ end }}>
@@ -79,19 +70,6 @@
                                     <div class="settings-row d-none openrgbErrorRow">
                                         <span class="settings-label text-ellipsis" style="color: #ff5b5b;">Connection Error</span>
                                         <span class="meta-value openrgbErrorText" style="color: #ff5b5b; font-size: 11px; white-space: normal; word-break: break-word; text-align: right;"></span>
-                                    </div>
-
-                                    <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">RGB</span>
-                                        <select id="mbRgbProfile" class="form-select system-select compact auto-width">
-                                            {{ range $key, $mode := $rgbModes }}
-                                            {{ if eq $mode $.OpenRGBImportEffect }}
-                                            <option value="{{ $mode }}" selected>{{ $mode }}</option>
-                                            {{ else }}
-                                            <option value="{{ $mode }}">{{ $mode }}</option>
-                                            {{ end }}
-                                            {{ end }}
-                                        </select>
                                     </div>
 
                                     <!-- User profile -->
@@ -232,14 +210,6 @@
                                     {{ end }}
 
                                     <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">Brightness</span>
-                                        <div class="system-slider no-padding-top">
-                                            <input type="range" id="mbBrightnessSlider" min="0" max="100" value="{{ if .OpenRGBImportDevice }}{{ .OpenRGBImportBrightness }}{{ else }}100{{ end }}">
-                                            <div class="slider-value" id="mbBrightnessSliderValue">{{ if .OpenRGBImportDevice }}{{ .OpenRGBImportBrightness }}{{ else }}100{{ end }} %</div>
-                                        </div>
-                                    </div>
-
-                                    <div class="settings-row">
                                         <span class="settings-label text-ellipsis">OpenRGB Link</span>
                                         <label class="system-toggle compact">
                                             <input type="checkbox" id="openrgbToggleCheck" checked disabled>
@@ -255,28 +225,6 @@
                                     <div class="settings-row d-none openrgbErrorRow">
                                         <span class="settings-label text-ellipsis" style="color: #ff5b5b;">Connection Error</span>
                                         <span class="meta-value openrgbErrorText" style="color: #ff5b5b; font-size: 11px; white-space: normal; word-break: break-word; text-align: right;"></span>
-                                    </div>
-
-                                    <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">RGB</span>
-                                        <select id="mbRgbProfile" class="form-select system-select compact auto-width">
-                                            {{ range $key, $mode := $rgbModes }}
-                                            {{ if eq $mode $.OpenRGBImportEffect }}
-                                            <option value="{{ $mode }}" selected>{{ $mode }}</option>
-                                            {{ else }}
-                                            <option value="{{ $mode }}">{{ $mode }}</option>
-                                            {{ end }}
-                                            {{ end }}
-                                        </select>
-                                    </div>
-
-                                    <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">Speed</span>
-                                        <select id="mbSpeedProfile" class="form-select system-select compact auto-width">
-                                            <option value="slow" {{ if eq .OpenRGBImportSpeed "slow" }}selected{{ end }}>Slow</option>
-                                            <option value="normal" {{ if or (eq .OpenRGBImportSpeed "normal") (eq .OpenRGBImportSpeed "") }}selected{{ end }}>Normal</option>
-                                            <option value="fast" {{ if eq .OpenRGBImportSpeed "fast" }}selected{{ end }}>Fast</option>
-                                        </select>
                                     </div>
 
                                     <!-- User profile -->
@@ -401,62 +349,6 @@
 document.addEventListener('DOMContentLoaded', function () {
 
     const deviceSerial = '{{ .Device.Serial }}';
-    const slider = document.getElementById('mbBrightnessSlider');
-    const sliderValue = document.getElementById('mbBrightnessSliderValue');
-    const effectSelect = document.getElementById('mbRgbProfile');
-    const speedSelect = document.getElementById('mbSpeedProfile');
-
-    async function setBrightness(brightness) {
-        try {
-            const res = await fetch('/api/openrgbimport/brightness', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ serial: deviceSerial, brightness: Number(brightness) })
-            });
-
-            if (!res.ok) {
-                alert('Brightness failed: ' + res.status);
-            }
-        } catch (err) {
-            console.error(err);
-            alert('Brightness request failed');
-        }
-    }
-
-    async function setEffect(effect) {
-        try {
-            const res = await fetch('/api/openrgbimport/effect', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ serial: deviceSerial, effect })
-            });
-
-            if (!res.ok) {
-                alert('Effect failed: ' + res.status);
-            }
-        } catch (err) {
-            console.error(err);
-            alert('Effect request failed');
-        }
-    }
-
-    async function setSpeed(speed) {
-        try {
-            const res = await fetch('/api/openrgbimport/speed', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ serial: deviceSerial, speed })
-            });
-
-            if (!res.ok) {
-                alert('Speed failed: ' + res.status);
-            }
-        } catch (err) {
-            console.error(err);
-            alert('Speed request failed');
-        }
-    }
-
     async function saveZoneConfig() {
         const names = document.querySelectorAll('.configZoneName');
         const counts = document.querySelectorAll('.configZoneCount');
@@ -506,28 +398,6 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error(err);
             alert('Config save request failed');
         }
-    }
-
-    if (slider) {
-        slider.addEventListener('input', function () {
-            sliderValue.textContent = this.value + ' %';
-        });
-
-        slider.addEventListener('change', function () {
-            setBrightness(this.value);
-        });
-    }
-
-    if (effectSelect) {
-        effectSelect.addEventListener('change', function () {
-            setEffect(this.value);
-        });
-    }
-
-    if (speedSelect) {
-        speedSelect.addEventListener('change', function () {
-            setSpeed(this.value);
-        });
     }
 
     const saveZoneConfigBtn = document.getElementById('saveZoneConfig');

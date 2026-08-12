@@ -30,6 +30,8 @@ func TestOpenRGBLegacyRGBCompatibilitySurfaceRemoved(t *testing.T) {
 		"ProcessGetRgbOverride",
 		"SetRGBOverride",
 		"ProcessSetRgbOverride",
+		"SetSpeed",
+		"GetSpeed",
 	} {
 		if _, found := deviceType.MethodByName(method); found {
 			t.Errorf("OpenRGB Device still exposes legacy method %s", method)
@@ -41,12 +43,70 @@ func TestOpenRGBLegacyRGBCompatibilitySurfaceRemoved(t *testing.T) {
 		field  string
 	}{
 		{name: "Device", typeOf: reflect.TypeOf(Device{}), field: "Rgb"},
+		{name: "Device", typeOf: reflect.TypeOf(Device{}), field: "lastColor"},
+		{name: "Device", typeOf: reflect.TypeOf(Device{}), field: "speed"},
 		{name: "DeviceSnapshot", typeOf: reflect.TypeOf(DeviceSnapshot{}), field: "Rgb"},
+		{name: "DeviceSnapshot", typeOf: reflect.TypeOf(DeviceSnapshot{}), field: "RGBModes"},
+		{name: "DeviceSnapshot", typeOf: reflect.TypeOf(DeviceSnapshot{}), field: "Speed"},
 		{name: "DeviceProfile", typeOf: reflect.TypeOf(DeviceProfile{}), field: "RGBOverride"},
+		{name: "DeviceProfile", typeOf: reflect.TypeOf(DeviceProfile{}), field: "RGBProfile"},
+		{name: "DeviceProfile", typeOf: reflect.TypeOf(DeviceProfile{}), field: "BrightnessSlider"},
+		{name: "DeviceProfile", typeOf: reflect.TypeOf(DeviceProfile{}), field: "ZoneColors"},
 	} {
 		if _, found := target.typeOf.FieldByName(target.field); found {
 			t.Errorf("%s still exposes legacy field %s", target.name, target.field)
 		}
+	}
+
+	profileType := reflect.TypeOf(DeviceProfile{})
+	wantProfileFields := []string{"Active", "Path", "Product", "Serial", "RGBCluster"}
+	if profileType.NumField() != len(wantProfileFields) {
+		t.Fatalf("DeviceProfile has %d fields, want %d", profileType.NumField(), len(wantProfileFields))
+	}
+	for index, want := range wantProfileFields {
+		if got := profileType.Field(index).Name; got != want {
+			t.Fatalf("DeviceProfile field %d = %q, want %q", index, got, want)
+		}
+	}
+	if _, found := reflect.TypeOf(Device{}).FieldByName("RGBModes"); !found {
+		t.Error("OpenRGB Device no longer exposes canonical RGBModes")
+	}
+}
+
+func TestOpenRGBDeviceProfileSnapshotCloningRemainsIsolated(t *testing.T) {
+	active := &DeviceProfile{
+		Active:     true,
+		Path:       "/mutable/default.json",
+		Product:    "Snapshot Device",
+		Serial:     "openrgb-profile-snapshot",
+		RGBCluster: true,
+	}
+	secondary := &DeviceProfile{
+		Path:    "/mutable/secondary.json",
+		Product: active.Product,
+		Serial:  active.Serial,
+	}
+	device := &Device{
+		DeviceProfile: active,
+		UserProfiles: map[string]*DeviceProfile{
+			"default":   active,
+			"secondary": secondary,
+		},
+	}
+
+	snapshot := device.Snapshot()
+	if snapshot.DeviceProfile == active || snapshot.UserProfiles["default"] == active ||
+		snapshot.UserProfiles["secondary"] == secondary {
+		t.Fatal("snapshot retained live DeviceProfile pointers")
+	}
+	snapshot.DeviceProfile.Active = false
+	snapshot.DeviceProfile.RGBCluster = false
+	snapshot.UserProfiles["secondary"].Product = "caller mutation"
+	delete(snapshot.UserProfiles, "default")
+
+	if !active.Active || !active.RGBCluster || secondary.Product != "Snapshot Device" ||
+		device.UserProfiles["default"] != active {
+		t.Fatalf("snapshot mutation reached live profiles: active=%#v secondary=%#v profiles=%#v", active, secondary, device.UserProfiles)
 	}
 }
 
@@ -211,9 +271,8 @@ func testOfflineReconstruction(
 		if device.effect != want.SelectedEffect || device.brightness != want.Brightness {
 			t.Fatalf("configured device %q state = effect %q brightness %d, want %#v", serial, device.effect, device.brightness, want)
 		}
-		if device.DeviceProfile == nil || device.DeviceProfile.RGBProfile != want.SelectedEffect ||
-			device.DeviceProfile.BrightnessSlider == nil || *device.DeviceProfile.BrightnessSlider != want.Brightness {
-			t.Fatalf("configured device %q profile = %#v, want effect %q brightness %d", serial, device.DeviceProfile, want.SelectedEffect, want.Brightness)
+		if device.DeviceProfile == nil {
+			t.Fatalf("configured device %q profile is unavailable", serial)
 		}
 	}
 	for serial := range failures {
@@ -238,20 +297,15 @@ func newCutoverTestDevice(t *testing.T, serial string) (*Device, config.Paths) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	brightness := uint8(1)
 	device := &Device{
 		Product:      "Cutover Test Controller",
 		Serial:       serial,
 		IsOpenRGB:    true,
 		controllerId: 7,
 		colorCount:   1,
-		lastColor:    []byte{100, 150, 200},
 		RGBModes:     importerSoftwareEffectCatalogue(),
 		DeviceProfile: &DeviceProfile{
-			Active:           true,
-			RGBProfile:       "obsolete-legacy-effect",
-			BrightnessSlider: &brightness,
-			ZoneColors:       map[int]ZoneColors{},
+			Active: true,
 		},
 	}
 	if err = device.attachLightingRuntime(runtime); err != nil {
@@ -315,10 +369,7 @@ func TestSaveDeviceConfigRestoresPersistedLightingStateOnFailure(t *testing.T) {
 	device.effect = prior.SelectedEffect
 	device.brightness = prior.Brightness
 	device.DeviceProfile = &DeviceProfile{
-		Active:           true,
-		RGBProfile:       prior.SelectedEffect,
-		BrightnessSlider: func() *uint8 { value := prior.Brightness; return &value }(),
-		ZoneColors:       buildZoneColorsFromConfig(&saved, device.lastColor),
+		Active: true,
 	}
 
 	configurationSaveError := errors.New("injected configuration save failure")
@@ -339,9 +390,8 @@ func TestSaveDeviceConfigRestoresPersistedLightingStateOnFailure(t *testing.T) {
 	if !reflect.DeepEqual(device.Config, &saved) || device.effect != prior.SelectedEffect || device.brightness != prior.Brightness {
 		t.Fatalf("in-memory rollback = config %#v, effect %q, brightness %d", device.Config, device.effect, device.brightness)
 	}
-	if device.DeviceProfile == nil || device.DeviceProfile.RGBProfile != prior.SelectedEffect ||
-		device.DeviceProfile.BrightnessSlider == nil || *device.DeviceProfile.BrightnessSlider != prior.Brightness {
-		t.Fatalf("rolled-back profile presentation = %#v, want effect %q brightness %d", device.DeviceProfile, prior.SelectedEffect, prior.Brightness)
+	if device.DeviceProfile == nil || !device.DeviceProfile.Active {
+		t.Fatalf("rolled-back profile metadata = %#v", device.DeviceProfile)
 	}
 	persisted, found, err := store.Resolve(serial)
 	if err != nil || !found || persisted != prior {
@@ -388,9 +438,8 @@ func TestSaveDeviceConfigRemovesTemporaryLightingStateOnFailure(t *testing.T) {
 	if device.effect != wantDefault.SelectedEffect || device.brightness != wantDefault.Brightness || device.brightness == 0 {
 		t.Fatalf("rolled-back in-memory state = effect %q brightness %d, want %#v", device.effect, device.brightness, wantDefault)
 	}
-	if device.DeviceProfile == nil || device.DeviceProfile.RGBProfile != wantDefault.SelectedEffect ||
-		device.DeviceProfile.BrightnessSlider == nil || *device.DeviceProfile.BrightnessSlider != wantDefault.Brightness {
-		t.Fatalf("rolled-back profile presentation = %#v, want effect %q brightness %d", device.DeviceProfile, wantDefault.SelectedEffect, wantDefault.Brightness)
+	if device.DeviceProfile == nil {
+		t.Fatal("rolled-back profile metadata is unavailable")
 	}
 	if err = validateDeviceLightingState(DeviceLightingState{
 		SelectedEffect: device.effect,
@@ -453,9 +502,8 @@ func TestSaveDeviceConfigReportsLightingStateRollbackFailure(t *testing.T) {
 	if device.effect != temporary.SelectedEffect || device.brightness != temporary.Brightness {
 		t.Fatalf("in-memory state after failed rollback = effect %q brightness %d", device.effect, device.brightness)
 	}
-	if device.DeviceProfile == nil || device.DeviceProfile.RGBProfile != temporary.SelectedEffect ||
-		device.DeviceProfile.BrightnessSlider == nil || *device.DeviceProfile.BrightnessSlider != temporary.Brightness {
-		t.Fatalf("profile after failed rollback = %#v, want effect %q brightness %d", device.DeviceProfile, temporary.SelectedEffect, temporary.Brightness)
+	if device.DeviceProfile == nil {
+		t.Fatal("profile metadata is unavailable after failed rollback")
 	}
 }
 
@@ -651,11 +699,9 @@ func TestOpenRGBLightingReconnectRestoresCustomizedSpeedWithoutDuplicateWorker(t
 		IsOpenRGB:    true,
 		controllerId: 7,
 		colorCount:   1,
-		lastColor:    []byte{100, 150, 200},
 		RGBModes:     importerSoftwareEffectCatalogue(),
 		DeviceProfile: &DeviceProfile{
-			Active:     true,
-			ZoneColors: map[int]ZoneColors{},
+			Active: true,
 		},
 	}
 	runtime, err := loadDeviceLightingRuntime(paths)
@@ -889,9 +935,6 @@ func TestOpenRGBLightingSnapshotUsesAuthoritativeStateAndResolution(t *testing.T
 	}
 	device.effect = "rainbow"
 	device.brightness = 35
-	device.DeviceProfile.RGBProfile = "obsolete-legacy-effect"
-	legacyBrightness := uint8(1)
-	device.DeviceProfile.BrightnessSlider = &legacyBrightness
 
 	snapshot, ok := device.LightingSnapshot()
 	if !ok || snapshot.ConfiguredEffect != "rainbow" || !snapshot.HasBrightness || snapshot.Brightness != 35 {

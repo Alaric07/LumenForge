@@ -102,9 +102,7 @@ func testDevice(cfg DeviceConfig) *Device {
 		ZoneAmount:   len(cfg.Zones),
 		Config:       cloneDeviceConfig(&cfg),
 		brightness:   100,
-		lastColor:    []byte{99, 213, 255},
 		effect:       "static",
-		speed:        2,
 	}
 	attachTestLightingRuntime(d)
 	d.createDevice()
@@ -1269,9 +1267,8 @@ func TestSnapshotRemainsConsistentDuringReconciliation(t *testing.T) {
 				t.Fatal(err)
 			}
 			snapshot.Config.Zones[0].Name = "mutated"
-			snapshot.RGBModes[0] = "mutated"
 			next := device.Snapshot()
-			if next.Config.Zones[0].Name == "mutated" || next.RGBModes[0] == "mutated" {
+			if next.Config.Zones[0].Name == "mutated" {
 				t.Fatal("snapshot exposed mutable device slices")
 			}
 			return

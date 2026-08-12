@@ -1,6 +1,9 @@
 package openrgbimport
 
 import (
+	"LumenForge/src/cluster"
+	"LumenForge/src/common"
+	"LumenForge/src/config"
 	"LumenForge/src/lightingsettings"
 	"LumenForge/src/rgb"
 	"bytes"
@@ -42,16 +45,10 @@ func TestOpenRGBCanonicalStaticUniformTopologyAndBrightness(t *testing.T) {
 			device.ZoneAmount = len(test.zones)
 			device.colorCount = configLedCount(device.Config)
 			device.LEDCount = device.colorCount
-			device.lastColor = []byte{9, 8, 7}
-			device.DeviceProfile.ZoneColors = map[int]ZoneColors{
-				0: {Color: &rgb.Color{Red: 1, Green: 2, Blue: 3}, ColorIndex: []int{0, 1, 2}, Name: "legacy-a"},
-				1: {Color: &rgb.Color{Red: 250, Green: 240, Blue: 230}, ColorIndex: []int{3, 4, 5}, Name: "legacy-b"},
-			}
 			setCanonicalStaticColor(t, device, rgb.Color{Red: 201, Green: 101, Blue: 51})
 
 			profileBefore := cloneDeviceProfile(device.DeviceProfile)
 			configBefore := cloneDeviceConfig(device.Config)
-			lastColorBefore := append([]byte(nil), device.lastColor...)
 			store := canonicalTestDeviceStore(t, device)
 			settingsBefore, found, err := store.Get(device.Serial, defaultDeviceLightingEffect)
 			if err != nil || !found {
@@ -74,8 +71,8 @@ func TestOpenRGBCanonicalStaticUniformTopologyAndBrightness(t *testing.T) {
 			if len(calls.frameValues[0]) != configLedCount(device.Config)*3 {
 				t.Fatalf("Static frame length = %d, want %d", len(calls.frameValues[0]), configLedCount(device.Config)*3)
 			}
-			if !reflect.DeepEqual(device.Config, configBefore) || !reflect.DeepEqual(device.DeviceProfile, profileBefore) || !bytes.Equal(device.lastColor, lastColorBefore) {
-				t.Fatal("Static rendering mutated topology or legacy profile state")
+			if !reflect.DeepEqual(device.Config, configBefore) || !reflect.DeepEqual(device.DeviceProfile, profileBefore) {
+				t.Fatal("Static rendering mutated topology or profile metadata")
 			}
 			settingsAfter, found, err := store.Get(device.Serial, defaultDeviceLightingEffect)
 			if err != nil || !found || !reflect.DeepEqual(settingsAfter, settingsBefore) {
@@ -168,15 +165,20 @@ func TestOpenRGBCanonicalStaticProfileSwitchCannotChangeColor(t *testing.T) {
 	current := cloneDeviceProfile(device.DeviceProfile)
 	current.Active = true
 	current.Path = filepath.Join(profileDir, device.Serial+".json")
+	current.RGBCluster = true
 	other := cloneDeviceProfile(device.DeviceProfile)
 	other.Active = false
 	other.Path = filepath.Join(profileDir, device.Serial+"-other.json")
-	other.ZoneColors = map[int]ZoneColors{
-		0: {Color: &rgb.Color{Red: 1, Green: 2, Blue: 3}, ColorIndex: []int{0, 1, 2, 3, 4, 5}},
-		1: {Color: &rgb.Color{Red: 250, Green: 249, Blue: 248}, ColorIndex: []int{6, 7, 8}},
-	}
+	other.RGBCluster = false
 	device.DeviceProfile = current
 	device.UserProfiles = map[string]*DeviceProfile{"default": current, "other": other}
+	clusterDevice := &cluster.Device{Controllers: []*common.ClusterController{
+		{Serial: "sentinel"},
+		{Serial: device.Serial},
+	}}
+	previousGetCluster := getConfigCluster
+	getConfigCluster = func() *cluster.Device { return clusterDevice }
+	t.Cleanup(func() { getConfigCluster = previousGetCluster })
 
 	if result := device.ChangeDeviceProfile("other"); result != 1 {
 		t.Fatalf("ChangeDeviceProfile(other) = %d, want 1", result)
@@ -188,9 +190,66 @@ func TestOpenRGBCanonicalStaticProfileSwitchCannotChangeColor(t *testing.T) {
 	if device.brightness != 40 || device.effect != defaultDeviceLightingEffect {
 		t.Fatalf("profile switch changed target state: effect %q brightness %d", device.effect, device.brightness)
 	}
+	if clusterDevice.ControllerCount() != 1 || clusterDevice.Controllers[0].Serial != "sentinel" {
+		t.Fatalf("standalone profile did not remove Cluster membership: %#v", clusterDevice.Controllers)
+	}
 	settings, found, err := canonicalTestDeviceStore(t, device).Get(device.Serial, defaultDeviceLightingEffect)
 	if err != nil || !found || settings.SingleColor == nil || settings.SingleColor.Color != (lightingsettings.Color{Red: 120, Green: 80, Blue: 40}) {
 		t.Fatalf("profile switch changed canonical Static settings: %#v, %t, %v", settings, found, err)
+	}
+	if result := device.ChangeDeviceProfile("default"); result != 1 {
+		t.Fatalf("ChangeDeviceProfile(default) = %d, want 1", result)
+	}
+	if clusterDevice.ControllerCount() != 2 {
+		t.Fatalf("Cluster profile did not rebuild membership: %#v", clusterDevice.Controllers)
+	}
+	if device.brightness != 40 || device.effect != defaultDeviceLightingEffect {
+		t.Fatalf("Cluster profile switch changed target state: effect %q brightness %d", device.effect, device.brightness)
+	}
+}
+
+func TestOpenRGBSaveUserProfilePreservesMembershipOnly(t *testing.T) {
+	_, _ = installLightingDeviceTestSeams(t)
+	root := t.TempDir()
+	paths := config.GetPaths()
+	paths.MutableDataRoot = root
+	restorePaths := config.UsePathsForTest(paths)
+	t.Cleanup(restorePaths)
+	profileDir := filepath.Join(root, "database", "profiles")
+	if err := os.MkdirAll(profileDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	previousProfileDir := deviceProfileDir
+	deviceProfileDir = func() string { return profileDir }
+	t.Cleanup(func() { deviceProfileDir = previousProfileDir })
+
+	device := newCanonicalStaticTestDevice(37)
+	device.effect = "rainbow"
+	device.DeviceProfile.RGBCluster = true
+	if err := device.lightingState.Set(device.Serial, DeviceLightingState{SelectedEffect: "rainbow", Brightness: 37}); err != nil {
+		t.Fatal(err)
+	}
+	if result := device.SaveUserProfile("membership"); result != 1 {
+		t.Fatalf("SaveUserProfile(membership) = %d, want 1", result)
+	}
+
+	saved := device.UserProfiles["membership"]
+	if saved == nil || saved.Active || saved.Path != filepath.Join(profileDir, device.Serial+"-membership.json") ||
+		saved.Product != device.Product || saved.Serial != device.Serial || !saved.RGBCluster {
+		t.Fatalf("saved membership profile = %#v", saved)
+	}
+	data, err := os.ReadFile(saved.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, obsolete := range []string{"RGBProfile", "BrightnessSlider", "ZoneColors"} {
+		if bytes.Contains(data, []byte(obsolete)) {
+			t.Errorf("saved membership profile contains shadow lighting field %q: %s", obsolete, data)
+		}
+	}
+	state, found, err := device.lightingState.Resolve(device.Serial)
+	if err != nil || !found || state.SelectedEffect != "rainbow" || state.Brightness != 37 {
+		t.Fatalf("saving membership profile changed canonical state: %#v, %t, %v", state, found, err)
 	}
 }
 
@@ -224,14 +283,7 @@ func TestOpenRGBCanonicalStaticRestartReconnectAndCleanBreak(t *testing.T) {
 	if err = os.WriteFile(legacyRGBPath, legacyRGB, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := DeviceProfile{
-		Active:           true,
-		RGBProfile:       defaultDeviceLightingEffect,
-		BrightnessSlider: func() *uint8 { value := uint8(3); return &value }(),
-		ZoneColors: map[int]ZoneColors{
-			0: {Color: &rgb.Color{Red: 1, Green: 250, Blue: 2}, ColorIndex: []int{0, 1, 2}, Name: "legacy"},
-		},
-	}
+	profile := DeviceProfile{Active: true}
 	profileData, err := json.Marshal(profile)
 	if err != nil {
 		t.Fatal(err)
@@ -240,6 +292,9 @@ func TestOpenRGBCanonicalStaticRestartReconnectAndCleanBreak(t *testing.T) {
 	if err = json.Unmarshal(profileData, &legacyProfile); err != nil {
 		t.Fatal(err)
 	}
+	legacyProfile["RGBProfile"] = defaultDeviceLightingEffect
+	legacyProfile["BrightnessSlider"] = 3
+	legacyProfile["ZoneColors"] = map[string]interface{}{"0": map[string]interface{}{"Name": "legacy"}}
 	legacyProfile["RGBOverride"] = map[string]interface{}{"Enabled": true, "RGBStartColor": map[string]interface{}{"Red": 200}}
 	profileData, err = json.Marshal(legacyProfile)
 	if err != nil {
@@ -255,7 +310,6 @@ func TestOpenRGBCanonicalStaticRestartReconnectAndCleanBreak(t *testing.T) {
 	if err != nil {
 		t.Fatalf("offline reconstruction: %v", err)
 	}
-	device.lastColor = []byte{250, 3, 4}
 	device.controllerId = 7
 	stateBefore, err := os.ReadFile(paths.OpenRGBDeviceLightingFile)
 	if err != nil {

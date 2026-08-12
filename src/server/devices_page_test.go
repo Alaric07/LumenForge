@@ -22,12 +22,24 @@ import (
 
 const devicesPageHelperEnvironment = "LUMENFORGE_DEVICES_PAGE_TEST_HELPER"
 
-func TestOpenRGBLegacyTemplateOmitsRGBOverrideControl(t *testing.T) {
+func TestOpenRGBLegacyTemplateOmitsDuplicateLightingControls(t *testing.T) {
 	templateSource, err := os.ReadFile(filepath.Join("..", "..", "web", "openrgb.html"))
 	if err != nil {
 		t.Fatalf("read OpenRGB template: %v", err)
 	}
-	for _, obsolete := range []string{"txtRgbOverride", "rgbOverride"} {
+	for _, obsolete := range []string{
+		"txtRgbOverride",
+		"rgbOverride",
+		"mbBrightnessSlider",
+		"mbRgbProfile",
+		"mbSpeedProfile",
+		"OpenRGBImportEffect",
+		"OpenRGBImportSpeed",
+		"OpenRGBImportBrightness",
+		"function setBrightness(",
+		"function setEffect(",
+		"function setSpeed(",
+	} {
 		if strings.Contains(string(templateSource), obsolete) {
 			t.Errorf("OpenRGB template still exposes RGB Override marker %q", obsolete)
 		}
@@ -1071,7 +1083,6 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	visibleDescription := "Imported <Controller> & Lighting"
 	visibleZoneOne := "Zone <One> & Main"
 	visibleZoneTwo := "Zone Two"
-	visibleBrightness := uint8(0)
 	visibleInstance := &openrgbimport.Device{
 		Product:            visibleProduct,
 		Serial:             visibleSerial,
@@ -1090,10 +1101,8 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 			},
 		},
 		DeviceProfile: &openrgbimport.DeviceProfile{
-			Active:           true,
-			RGBProfile:       "static",
-			BrightnessSlider: &visibleBrightness,
-			RGBCluster:       true,
+			Active:     true,
+			RGBCluster: true,
 		},
 		RGBModes: []string{"static", "wave", "cpu-temperature", "gradient", "rainbow", "off"},
 	}

@@ -82,7 +82,6 @@ var (
 	}
 	refreshOpenRGBImports           = openrgbimport.RefreshManager
 	lookupOpenRGBImportForLighting  = devices.LookupOpenRGBImport
-	lookupOpenRGBImportLegacy       = getOpenRGBImportDeviceBySerial
 	setOpenRGBImportBrightnessValue = func(device *openrgbimport.Device, brightness uint8) error {
 		return device.SetBrightness(brightness)
 	}
@@ -2283,9 +2282,6 @@ func uiDeviceOverview(w http.ResponseWriter, r *http.Request) {
 		web.OpenRGBImportConfig = snapshot.Config
 		web.OpenRGBImportDisplaySerial = snapshot.DisplaySerial
 		web.OpenRGBImportDisplaySerialLabel = snapshot.DisplaySerialLabel
-		web.OpenRGBImportEffect = snapshot.Effect
-		web.OpenRGBImportSpeed = snapshot.Speed
-		web.OpenRGBImportBrightness = snapshot.Brightness
 		web.OpenRGBImportRGBCluster = snapshot.RGBCluster
 	} else {
 		web.Device = device
@@ -3410,33 +3406,8 @@ func setOpenRGBImportSpeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Preserve the legacy imported-device page's categorical compatibility
-	// request. The modern workspace always supplies an effect and numeric speed.
-	if req.Effect == nil {
-		var legacySpeed string
-		if json.Unmarshal(req.Speed, &legacySpeed) != nil {
-			(&Response{Code: http.StatusOK, Status: 0, Message: "Invalid speed request"}).Send(w)
-			return
-		}
-		serial := "openrgb-mobo-1"
-		if req.Serial != nil && *req.Serial != "" {
-			serial = *req.Serial
-		}
-		dev, err := lookupOpenRGBImportLegacy(serial)
-		if err != nil {
-			(&Response{Code: http.StatusOK, Status: 0, Message: "OpenRGB device is not available"}).Send(w)
-			return
-		}
-		if err = dev.SetSpeed(legacySpeed); err != nil {
-			(&Response{Code: http.StatusOK, Status: 0, Message: "Unable to set speed"}).Send(w)
-			return
-		}
-		(&Response{Code: http.StatusOK, Status: 1, Message: "Speed set"}).Send(w)
-		return
-	}
-
 	var speed float64
-	if req.Serial == nil || *req.Serial == "" || *req.Effect == "" || len(req.Speed) == 0 ||
+	if req.Serial == nil || *req.Serial == "" || req.Effect == nil || *req.Effect == "" || len(req.Speed) == 0 ||
 		json.Unmarshal(req.Speed, &speed) != nil || math.IsNaN(speed) || math.IsInf(speed, 0) {
 		(&Response{Code: http.StatusOK, Status: 0, Message: "Invalid speed request"}).Send(w)
 		return

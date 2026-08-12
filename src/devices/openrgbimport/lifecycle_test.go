@@ -276,7 +276,7 @@ func TestPrepareImportAddsInactiveDefaultBesidePreservedActiveProfile(t *testing
 	if err := os.MkdirAll(filepath.Dir(profilePath), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	custom := DeviceProfile{Active: true, RGBProfile: "rainbow", Serial: cfg.Serial}
+	custom := DeviceProfile{Active: true, Serial: cfg.Serial}
 	data, err := json.Marshal(custom)
 	if err != nil {
 		t.Fatal(err)
@@ -979,10 +979,9 @@ func TestDisabledZeroLEDDiscoveryReusesPreservedLayoutTransactionally(t *testing
 	}
 	rgbData := []byte(`{"device":"preserved-zero-layout","profiles":{}}`)
 	profileData, err := json.Marshal(DeviceProfile{
-		Active:     true,
-		Product:    saved.Product,
-		Serial:     serial,
-		RGBProfile: "static",
+		Active:  true,
+		Product: saved.Product,
+		Serial:  serial,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -1538,7 +1537,6 @@ func TestExternalIdentityReimportRefreshesPresentationWithoutDuplicates(t *testi
 	profileData, err := json.Marshal(DeviceProfile{
 		Active:     true,
 		Serial:     serial,
-		RGBProfile: "static",
 		RGBCluster: true,
 	})
 	if err != nil {
@@ -1691,7 +1689,6 @@ func TestLegacyExternalSerialCanonicalizationSurvivesImportRollback(t *testing.T
 				profileData, err := json.Marshal(DeviceProfile{
 					Active:     true,
 					Serial:     serial,
-					RGBProfile: "static",
 					RGBCluster: true,
 				})
 				if err != nil {
@@ -1850,8 +1847,7 @@ func TestLegacyExternalSerialCanonicalizationSurvivesRemovalRollback(t *testing.
 			if _, current, ok := registry.lookup(serial); !ok || current != device {
 				t.Fatal("removal rollback changed registry membership")
 			}
-			device.SetSpeed("fast")
-			if device.GetSpeed() != "fast" {
+			if device.SaveDeviceProfile("", false) != 1 {
 				t.Fatal("removal rollback did not reactivate exact device")
 			}
 			rgbAfter, _ := os.ReadFile(rgbPath)
@@ -2136,7 +2132,7 @@ func TestImportRollbackFailureSeamsAndPreservedFiles(t *testing.T) {
 				if err := os.MkdirAll(filepath.Dir(profilePath), 0o755); err != nil {
 					t.Fatal(err)
 				}
-				profile := DeviceProfile{Active: true, Serial: serial, RGBProfile: "static", RGBCluster: true}
+				profile := DeviceProfile{Active: true, Serial: serial, RGBCluster: true}
 				data, _ := json.Marshal(profile)
 				if err := os.WriteFile(profilePath, data, 0o644); err != nil {
 					t.Fatal(err)
@@ -2295,10 +2291,6 @@ func TestRemovalRollbackRestoresExactMembershipAndTargetModeAllowsRemoval(t *tes
 	if clusterHookCalls.Load() != 1 || clusterSends.Load() != 0 {
 		t.Fatalf("cluster detach hook calls=%d SDK sends=%d", clusterHookCalls.Load(), clusterSends.Load())
 	}
-	restored.SetSpeed("fast")
-	if restored.GetSpeed() != "fast" {
-		t.Fatal("rolled-back exact object remained immutable")
-	}
 	if restored.SaveDeviceProfile("", false) != 1 {
 		t.Fatal("rolled-back exact object could not persist a normal profile mutation")
 	}
@@ -2435,11 +2427,8 @@ func TestDetachForRemovalDisablesOutputAndPreservesDesiredState(t *testing.T) {
 	device := testDevice(cfg)
 	brightness := uint8(73)
 	profile := &DeviceProfile{
-		Active:           true,
-		RGBProfile:       "rainbow",
-		BrightnessSlider: &brightness,
-		RGBCluster:       true,
-		ZoneColors:       buildZoneColorsFromConfig(&cfg, []byte{1, 2, 3}),
+		Active:     true,
+		RGBCluster: true,
 	}
 	userProfiles := map[string]*DeviceProfile{"default": profile}
 	client, server := net.Pipe()
@@ -2501,15 +2490,11 @@ func TestDetachForRemovalDisablesOutputAndPreservesDesiredState(t *testing.T) {
 func TestLifecycleDetachWaitsForInFlightRegistrationAndFinallyUnregisters(t *testing.T) {
 	cfg := testConfig("openrgb-cluster-race", "Cluster Race")
 	device := testDevice(cfg)
-	brightness := uint8(100)
 	device.mu.Lock()
 	device.controllerId = 23
 	device.DeviceProfile = &DeviceProfile{
-		Active:           true,
-		RGBProfile:       "static",
-		BrightnessSlider: &brightness,
-		RGBCluster:       true,
-		ZoneColors:       buildZoneColorsFromConfig(&cfg, []byte{1, 2, 3}),
+		Active:     true,
+		RGBCluster: true,
 	}
 	controller := device.clusterControllerLocked()
 	device.mu.Unlock()
@@ -2619,9 +2604,7 @@ func TestLifecycleRemovalRollbackRestoresOneControllerAcrossRepeatedCycles(t *te
 	device.mu.Lock()
 	device.DeviceProfile = &DeviceProfile{
 		Active:     true,
-		RGBProfile: "static",
 		RGBCluster: true,
-		ZoneColors: buildZoneColorsFromConfig(&cfg, []byte{1, 2, 3}),
 	}
 	controller := device.clusterControllerLocked()
 	device.mu.Unlock()
@@ -2920,7 +2903,6 @@ func TestDetachedStaleObjectCannotMutateDisabledOrReimportedState(t *testing.T) 
 		oldDevice.ProcessSetRgbCluster(true) != 0 {
 		t.Fatal("detached stale object accepted a persistent or cluster mutation")
 	}
-	oldDevice.SetSpeed("fast")
 	if err = oldDevice.SetBrightness(50); err == nil {
 		t.Fatal("detached SetBrightness succeeded")
 	}
@@ -2971,12 +2953,8 @@ func TestSaveDeviceConfigPreservesPersistedDisabledMembership(t *testing.T) {
 		t.Fatal(err)
 	}
 	device := testDevice(stored)
-	brightness := uint8(100)
 	device.DeviceProfile = &DeviceProfile{
-		Active:           true,
-		RGBProfile:       "static",
-		BrightnessSlider: &brightness,
-		ZoneColors:       buildZoneColorsFromConfig(&stored, device.lastColor),
+		Active: true,
 	}
 	input := testConfig(serial, "Caller Product")
 	input.Disabled = false

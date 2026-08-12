@@ -105,7 +105,7 @@ func TestOpenRGBLightingColorMutationRequestValidation(t *testing.T) {
 			setOpenRGBImportColorValue = previousColor
 		}()
 
-		profile := &openrgbimport.DeviceProfile{Active: true, RGBProfile: "static", RGBCluster: true}
+		profile := &openrgbimport.DeviceProfile{Active: true, RGBCluster: true}
 		device := &openrgbimport.Device{
 			Serial:        lightingMutationTestSerial,
 			IsOpenRGB:     true,
@@ -293,7 +293,7 @@ func TestOpenRGBLightingResetMutationRequestValidation(t *testing.T) {
 			resetOpenRGBImportCustomizationValue = previousReset
 		}()
 
-		profile := &openrgbimport.DeviceProfile{Active: true, RGBProfile: "static", RGBCluster: true}
+		profile := &openrgbimport.DeviceProfile{Active: true, RGBCluster: true}
 		device := &openrgbimport.Device{
 			Serial:        lightingMutationTestSerial,
 			IsOpenRGB:     true,

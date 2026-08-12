@@ -31,7 +31,6 @@ func TestOpenRGBClusterOutputIgnoresMemberBrightness(t *testing.T) {
 
 	for _, brightness := range []uint8{0, 40, 100, 25} {
 		device.brightness = brightness
-		device.DeviceProfile.BrightnessSlider = &brightness
 		input := append([]byte(nil), completedClusterFrame...)
 
 		device.writeColorCluster(input, 0)
@@ -69,7 +68,6 @@ func TestOpenRGBIndependentOutputAppliesLocalBrightnessOnce(t *testing.T) {
 			_, calls := installLightingDeviceTestSeams(t)
 			device := newLightingMutationDevice()
 			device.brightness = test.brightness
-			device.DeviceProfile.BrightnessSlider = &test.brightness
 			setCanonicalStaticColor(t, device, rgb.Color{Red: 200, Green: 100, Blue: 50})
 			if err := device.SetEffect("static"); err != nil {
 				t.Fatalf("SetEffect(static) at %d%%: %v", test.brightness, err)
@@ -91,7 +89,6 @@ func TestOpenRGBLeavingClusterRestoresStoredLocalBrightness(t *testing.T) {
 	device := newLightingMutationDevice()
 	device.brightness = brightness
 	device.effect = ""
-	device.DeviceProfile.BrightnessSlider = &brightness
 	device.DeviceProfile.RGBCluster = true
 
 	device.writeColorCluster([]byte{200, 100, 50}, 0)
@@ -105,8 +102,8 @@ func TestOpenRGBLeavingClusterRestoresStoredLocalBrightness(t *testing.T) {
 	if device.DeviceProfile.RGBCluster {
 		t.Fatal("device remained cluster-controlled")
 	}
-	if device.brightness != brightness || device.DeviceProfile.BrightnessSlider == nil || *device.DeviceProfile.BrightnessSlider != brightness {
-		t.Fatalf("stored local brightness after leaving cluster = device %d, profile %#v, want %d", device.brightness, device.DeviceProfile.BrightnessSlider, brightness)
+	if device.brightness != brightness {
+		t.Fatalf("stored local brightness after leaving cluster = %d, want %d", device.brightness, brightness)
 	}
 
 	setCanonicalStaticColor(t, device, rgb.Color{Red: 200, Green: 100, Blue: 50})

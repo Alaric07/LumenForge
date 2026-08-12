@@ -202,8 +202,8 @@ func TestOpenRGBSoftwareEffectCatalogueMutationValidation(t *testing.T) {
 				t.Fatalf("SetEffect(%q): %v", effect, err)
 			}
 			t.Cleanup(device.Stop)
-			if device.effect != effect || device.DeviceProfile.RGBProfile != effect {
-				t.Fatalf("selected effect = %q, profile = %q, want %q", device.effect, device.DeviceProfile.RGBProfile, effect)
+			if device.effect != effect {
+				t.Fatalf("selected effect = %q, want %q", device.effect, effect)
 			}
 			state, found, stateErr := device.lightingState.Resolve(device.Serial)
 			if stateErr != nil || !found || state.SelectedEffect != effect {
@@ -222,8 +222,8 @@ func TestOpenRGBSoftwareEffectCatalogueMutationValidation(t *testing.T) {
 			if err := device.SetEffect(effect); err == nil {
 				t.Fatalf("SetEffect(%q) unexpectedly succeeded", effect)
 			}
-			if device.effect != "off" || device.DeviceProfile.RGBProfile != "off" {
-				t.Fatalf("rejected effect changed state: effect = %q, profile = %q", device.effect, device.DeviceProfile.RGBProfile)
+			if device.effect != "off" {
+				t.Fatalf("rejected effect changed state: effect = %q", device.effect)
 			}
 		})
 	}
@@ -234,7 +234,7 @@ func TestOpenRGBSoftwareEffectCatalogueMutationValidation(t *testing.T) {
 	if err := device.SetEffect("arc"); err == nil {
 		t.Fatal("cluster-owned SetEffect(arc) unexpectedly succeeded")
 	}
-	if device.effect != "off" || device.DeviceProfile.RGBProfile != "off" {
-		t.Fatalf("cluster rejection changed state: effect = %q, profile = %q", device.effect, device.DeviceProfile.RGBProfile)
+	if device.effect != "off" {
+		t.Fatalf("cluster rejection changed state: effect = %q", device.effect)
 	}
 }

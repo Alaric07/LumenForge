@@ -89,21 +89,12 @@ type DeviceConfig struct {
 	Disabled       bool         `json:"disabled,omitempty"`
 }
 
-type ZoneColors struct {
-	Color      *rgb.Color
-	ColorIndex []int
-	Name       string
-}
-
 type DeviceProfile struct {
-	Active           bool               `json:"Active"`
-	Path             string             `json:"Path"`
-	Product          string             `json:"Product"`
-	Serial           string             `json:"Serial"`
-	RGBProfile       string             `json:"-"`
-	BrightnessSlider *uint8             `json:"-"`
-	ZoneColors       map[int]ZoneColors `json:"ZoneColors"`
-	RGBCluster       bool               `json:"RGBCluster"`
+	Active     bool   `json:"Active"`
+	Path       string `json:"Path"`
+	Product    string `json:"Product"`
+	Serial     string `json:"Serial"`
+	RGBCluster bool   `json:"RGBCluster"`
 }
 
 type Device struct {
@@ -129,10 +120,8 @@ type Device struct {
 	lightingResolver   deviceLightingResolverAccess
 
 	brightness uint8
-	lastColor  []byte
 
 	effect      string
-	speed       float64
 	rgbRunner   *rgb.ActiveRGB
 	stopChan    chan struct{}
 	doneChan    chan struct{}
@@ -162,9 +151,7 @@ type DeviceSnapshot struct {
 	Config             *DeviceConfig
 	DeviceProfile      *DeviceProfile
 	UserProfiles       map[string]*DeviceProfile
-	RGBModes           []string
 	Effect             string `json:"-"`
-	Speed              string `json:"-"`
 	Brightness         uint8  `json:"-"`
 	RGBCluster         bool   `json:"-"`
 }
@@ -584,44 +571,6 @@ func resolveDeviceConfig(serial string, dc openrgb.DiscoveredController) *Device
 	return cfg
 }
 
-func buildZoneColorsFromConfig(cfg *DeviceConfig, defaultColor []byte) map[int]ZoneColors {
-	zoneColors := make(map[int]ZoneColors)
-
-	red := float64(99)
-	green := float64(213)
-	blue := float64(255)
-	if len(defaultColor) >= 3 {
-		red = float64(defaultColor[0])
-		green = float64(defaultColor[1])
-		blue = float64(defaultColor[2])
-	}
-
-	ledOffset := 0
-	for zoneIndex, zoneCfg := range cfg.Zones {
-		colorIndex := make([]int, 0, zoneCfg.LedCount*3)
-		for led := 0; led < zoneCfg.LedCount; led++ {
-			base := (ledOffset + led) * 3
-			colorIndex = append(colorIndex, base, base+1, base+2)
-		}
-
-		zoneColors[zoneIndex] = ZoneColors{
-			Color: &rgb.Color{
-				Red:        red,
-				Green:      green,
-				Blue:       blue,
-				Brightness: 1,
-				Hex:        fmt.Sprintf("#%02x%02x%02x", int(red), int(green), int(blue)),
-			},
-			ColorIndex: colorIndex,
-			Name:       zoneCfg.Name,
-		}
-
-		ledOffset += zoneCfg.LedCount
-	}
-
-	return zoneColors
-}
-
 func cloneDeviceConfig(cfg *DeviceConfig) *DeviceConfig {
 	if cfg == nil {
 		return nil
@@ -644,22 +593,6 @@ func cloneDeviceProfile(profile *DeviceProfile) *DeviceProfile {
 		return nil
 	}
 	cloned := *profile
-	if profile.BrightnessSlider != nil {
-		brightness := *profile.BrightnessSlider
-		cloned.BrightnessSlider = &brightness
-	}
-	if profile.ZoneColors != nil {
-		cloned.ZoneColors = make(map[int]ZoneColors, len(profile.ZoneColors))
-		for index, zone := range profile.ZoneColors {
-			zoneCopy := zone
-			if zone.Color != nil {
-				colorCopy := *zone.Color
-				zoneCopy.Color = &colorCopy
-			}
-			zoneCopy.ColorIndex = append([]int(nil), zone.ColorIndex...)
-			cloned.ZoneColors[index] = zoneCopy
-		}
-	}
 	return &cloned
 }
 
@@ -699,12 +632,7 @@ func (d *Device) applyConfigLocked(cfg *DeviceConfig, brightness uint8) {
 	d.Config = cloneDeviceConfig(cfg)
 	d.colorCount = configLedCount(cfg)
 	d.ZoneAmount = len(cfg.Zones)
-	d.DeviceProfile = &DeviceProfile{
-		RGBProfile:       defaultDeviceLightingEffect,
-		BrightnessSlider: &brightness,
-		ZoneColors:       buildZoneColorsFromConfig(cfg, d.lastColor),
-		RGBCluster:       wasCluster,
-	}
+	d.DeviceProfile = &DeviceProfile{RGBCluster: wasCluster}
 	d.effect = defaultDeviceLightingEffect
 }
 
@@ -826,11 +754,6 @@ func (d *Device) SaveDeviceConfig(cfg *DeviceConfig) error {
 		}
 		d.effect = state.SelectedEffect
 		d.brightness = state.Brightness
-		if d.DeviceProfile != nil {
-			d.DeviceProfile.RGBProfile = state.SelectedEffect
-			value := state.Brightness
-			d.DeviceProfile.BrightnessSlider = &value
-		}
 	}
 	rollback := func(cause error) error {
 		var rollbackErr error
@@ -916,9 +839,7 @@ func newOfflineDevice(serial string, cfg DeviceConfig, runtime *deviceLightingRu
 		controllerId:       -1,
 		colorCount:         colorCount,
 		brightness:         100,
-		lastColor:          []byte{99, 213, 255},
 		effect:             "static",
-		speed:              2.0,
 		stopChan:           nil,
 		doneChan:           nil,
 		running:            false,
@@ -932,19 +853,10 @@ func newOfflineDevice(serial string, cfg DeviceConfig, runtime *deviceLightingRu
 		return nil, err
 	}
 
-	defaultBrightness := uint8(100)
 	d.DeviceProfile = &DeviceProfile{
-		Active:           true,
-		RGBProfile:       "static",
-		BrightnessSlider: &defaultBrightness,
-		ZoneColors:       buildZoneColorsFromConfig(&cfg, d.lastColor),
+		Active: true,
 	}
 	d.loadDeviceProfiles()
-	if d.DeviceProfile != nil {
-		d.DeviceProfile.RGBProfile = d.effect
-		brightness := d.brightness
-		d.DeviceProfile.BrightnessSlider = &brightness
-	}
 	d.setupClusterController()
 
 	return d, nil
@@ -1168,20 +1080,6 @@ func (d *Device) Snapshot() DeviceSnapshot {
 	if effect == "" {
 		effect = "static"
 	}
-	resolvedSpeed := d.speed
-	if descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect); ok && descriptor.SupportsSpeed {
-		if profile := d.resolvedRendererProfile(effect); profile != nil {
-			resolvedSpeed = profile.Speed
-		}
-	}
-	speed := "normal"
-	switch resolvedSpeed {
-	case 4.0:
-		speed = "slow"
-	case 0.8:
-		speed = "fast"
-	}
-
 	var userProfiles map[string]*DeviceProfile
 	if d.UserProfiles != nil {
 		userProfiles = make(map[string]*DeviceProfile, len(d.UserProfiles))
@@ -1190,13 +1088,6 @@ func (d *Device) Snapshot() DeviceSnapshot {
 		}
 	}
 	rgbCluster := d.DeviceProfile != nil && d.DeviceProfile.RGBCluster
-
-	presentationProfile := cloneDeviceProfile(d.DeviceProfile)
-	if presentationProfile != nil {
-		presentationProfile.RGBProfile = effect
-		brightness := d.brightness
-		presentationProfile.BrightnessSlider = &brightness
-	}
 
 	return DeviceSnapshot{
 		Product:            d.Product,
@@ -1209,11 +1100,9 @@ func (d *Device) Snapshot() DeviceSnapshot {
 		Version:            d.Version,
 		Description:        d.Description,
 		Config:             cloneDeviceConfig(d.Config),
-		DeviceProfile:      presentationProfile,
+		DeviceProfile:      cloneDeviceProfile(d.DeviceProfile),
 		UserProfiles:       userProfiles,
-		RGBModes:           append([]string(nil), d.RGBModes...),
 		Effect:             effect,
-		Speed:              speed,
 		Brightness:         d.brightness,
 		RGBCluster:         rgbCluster,
 	}
@@ -1459,9 +1348,6 @@ func (d *Device) SetBrightness(brightness uint8) error {
 		return fmt.Errorf("save brightness: %w", err)
 	}
 	d.brightness = brightness
-	if d.DeviceProfile != nil {
-		d.DeviceProfile.BrightnessSlider = &brightness
-	}
 
 	// If an effect is running, let the effect loop pick up the new brightness.
 	if d.running {
@@ -1770,35 +1656,6 @@ func (d *Device) ResetEffectCustomization(expectedSerial, effect string) error {
 	return d.applyPersistedEffectTransitionLocked(context.Background(), effect, true, expectedSerial, true)
 }
 
-func (d *Device) SetSpeed(speed string) error {
-	value := 2.0
-	switch speed {
-	case "slow":
-		value = 4.0
-	case "fast":
-		value = 0.8
-	}
-	d.mu.Lock()
-	if d.lifecycleInactiveLocked() {
-		err := d.lifecycleMutationErrorLocked()
-		d.mu.Unlock()
-		return err
-	}
-	serial := d.Serial
-	effect := d.effect
-	d.mu.Unlock()
-	descriptor, supportsCanonicalSpeed := rgb.SoftwareEffectDescriptorByID(effect)
-	if supportsCanonicalSpeed && descriptor.SupportsSpeed {
-		if err := d.SetEffectSpeed(serial, effect, value); err != nil {
-			return err
-		}
-	}
-	d.mu.Lock()
-	d.speed = value
-	d.mu.Unlock()
-	return nil
-}
-
 func (d *Device) SetEffect(effect string) error {
 	return d.setEffectContext(context.Background(), effect, true, true, true)
 }
@@ -1857,9 +1714,6 @@ func (d *Device) setEffectContext(ctx context.Context, effect string, reportFail
 		}
 	}
 	d.effect = effect
-	if d.DeviceProfile != nil {
-		d.DeviceProfile.RGBProfile = effect
-	}
 
 	return d.applyPersistedEffectTransitionLocked(ctx, effect, reportFailure, expectedSerial, false)
 }
@@ -2172,25 +2026,6 @@ func (d *Device) GetEffect() string {
 	return d.effect
 }
 
-func (d *Device) GetSpeed() string {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	resolvedSpeed := d.speed
-	if descriptor, ok := rgb.SoftwareEffectDescriptorByID(d.effect); ok && descriptor.SupportsSpeed {
-		if profile := d.resolvedRendererProfile(d.effect); profile != nil {
-			resolvedSpeed = profile.Speed
-		}
-	}
-	switch resolvedSpeed {
-	case 4.0:
-		return "slow"
-	case 0.8:
-		return "fast"
-	default:
-		return "normal"
-	}
-}
-
 func (d *Device) GetBrightness() uint8 {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -2307,9 +2142,6 @@ func (d *Device) loadDeviceProfiles() {
 		}
 
 		pf := &DeviceProfile{}
-		if d.Config != nil {
-			pf.ZoneColors = buildZoneColorsFromConfig(d.Config, d.lastColor)
-		}
 		if err = json.NewDecoder(file).Decode(pf); err != nil {
 			logger.Log(logger.Fields{"error": err, "serial": d.Serial, "location": profileLocation}).Warn("Unable to decode profile")
 			file.Close()
@@ -2362,49 +2194,12 @@ func (d *Device) SaveUserProfile(profileName string) uint8 {
 		profileDir := filepath.Join(config.GetPaths().MutableDataRoot, "database", "profiles")
 		profilePath := filepath.Join(profileDir, d.Serial+"-"+profileName+".json")
 
-		// Deep copy ZoneColors map
-		copiedZoneColors := make(map[int]ZoneColors)
-		for k, v := range d.DeviceProfile.ZoneColors {
-			var copiedColor *rgb.Color
-			if v.Color != nil {
-				copiedColor = &rgb.Color{
-					Red:        v.Color.Red,
-					Green:      v.Color.Green,
-					Blue:       v.Color.Blue,
-					Brightness: v.Color.Brightness,
-					Hex:        v.Color.Hex,
-				}
-			}
-
-			var copiedColorIndex []int
-			if v.ColorIndex != nil {
-				copiedColorIndex = make([]int, len(v.ColorIndex))
-				copy(copiedColorIndex, v.ColorIndex)
-			}
-
-			copiedZoneColors[k] = ZoneColors{
-				Color:      copiedColor,
-				ColorIndex: copiedColorIndex,
-				Name:       v.Name,
-			}
-		}
-
-		// Deep copy BrightnessSlider pointer
-		var copiedBrightness *uint8
-		if d.DeviceProfile.BrightnessSlider != nil {
-			val := *d.DeviceProfile.BrightnessSlider
-			copiedBrightness = &val
-		}
-
 		newProfile := &DeviceProfile{
-			Active:           false,
-			Path:             profilePath,
-			Product:          d.Product,
-			Serial:           d.Serial,
-			RGBProfile:       d.DeviceProfile.RGBProfile,
-			BrightnessSlider: copiedBrightness,
-			ZoneColors:       copiedZoneColors,
-			RGBCluster:       d.DeviceProfile.RGBCluster,
+			Active:     false,
+			Path:       profilePath,
+			Product:    d.Product,
+			Serial:     d.Serial,
+			RGBCluster: d.DeviceProfile.RGBCluster,
 		}
 
 		buffer, err := json.MarshalIndent(newProfile, "", "  ")

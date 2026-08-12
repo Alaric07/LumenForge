@@ -12,7 +12,6 @@ import (
 func newLightingTwoColorMutationDevice(effect string) *Device {
 	device := newLightingMutationDevice()
 	device.effect = effect
-	device.DeviceProfile.RGBProfile = effect
 	device.RGBModes = []string{"wave", "arc", "static", "rainbow", "cpu-temperature", "gradient", "off"}
 	return device
 }

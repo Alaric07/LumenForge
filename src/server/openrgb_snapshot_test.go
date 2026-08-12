@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestSnapshotDeviceForResponsePreservesOpenRGBJSONShape(t *testing.T) {
+func TestSnapshotDeviceForResponsePreservesSupportedOpenRGBJSONShape(t *testing.T) {
 	config := &openrgbimport.DeviceConfig{
 		Serial:  "openrgb-import-api-snapshot",
 		Product: "API Snapshot Device",
@@ -48,13 +48,17 @@ func TestSnapshotDeviceForResponsePreservesOpenRGBJSONShape(t *testing.T) {
 	if err = json.Unmarshal(snapshotJSON, &snapshotFields); err != nil {
 		t.Fatal(err)
 	}
+	delete(liveFields, "RGBModes")
 	if !reflect.DeepEqual(liveFields, snapshotFields) {
 		t.Fatalf("snapshot JSON changed response shape:\nlive: %s\nsnapshot: %s", liveJSON, snapshotJSON)
+	}
+	if _, found := snapshotFields["RGBModes"]; found {
+		t.Fatal("response snapshot still exposes legacy RGBModes")
 	}
 
 	live.Config.Zones[0].Name = "mutated"
 	live.RGBModes[0] = "mutated"
-	if snapshot.Config.Zones[0].Name != "Zone 1" || snapshot.RGBModes[0] != "static" {
+	if snapshot.Config.Zones[0].Name != "Zone 1" {
 		t.Fatal("response snapshot shares mutable slices with the live device")
 	}
 
