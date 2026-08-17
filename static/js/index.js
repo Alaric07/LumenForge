@@ -1,4 +1,54 @@
 "use strict";
+
+const dashboardOpenRGBCard = (function () {
+    const markup = `
+        <div class="col-md-2">
+            <div class="card system-card">
+                <div class="card-header header-split">
+                    <span class="header-left" data-dashboard-openrgb-product></span>
+                    <span class="header-right" data-dashboard-openrgb-label></span>
+                </div>
+                <div class="card-body">
+                    <div class="settings-list">
+                        <div class="settings-row">
+                            <span class="settings-label text-ellipsis">Status</span>
+                            <span class="meta-value" style="color: #4CAF50;">Connected</span>
+                        </div>
+                        <div class="settings-row">
+                            <span class="settings-label text-ellipsis">Current Effect</span>
+                            <span class="meta-value text-capitalize" data-dashboard-openrgb-effect></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    function createView(device, label) {
+        return {
+            isOpenRGB: true,
+            product: device.Product || "OpenRGB Device",
+            label: label || "",
+            effect: device.DeviceProfile?.RGBCluster ? "Clustered" : (device.DeviceProfile?.RGBProfile || "None")
+        };
+    }
+
+    function createColumn(jquery, view) {
+        const column = jquery(markup.trim()).first();
+        column.find("[data-dashboard-openrgb-product]").text(view.product);
+        column.find("[data-dashboard-openrgb-label]").text(view.label);
+        column.find("[data-dashboard-openrgb-effect]").text(view.effect);
+        return column;
+    }
+
+    return {createColumn, createView};
+})();
+
+if (typeof module === "object" && module.exports) {
+    module.exports = dashboardOpenRGBCard;
+}
+
+if (typeof window !== "undefined" && window.document) {
 $(document).ready(function () {
     window.i18n = {
         locale: null,
@@ -127,7 +177,7 @@ $(document).ready(function () {
         let content;
 
         if (typeof view === "object" && view.isOpenRGB) {
-            const column = $(view.html.trim()).first();
+            const column = dashboardOpenRGBCard.createColumn($, view);
             columnClasses = column.attr("class") || columnClasses;
             content = column.contents();
         } else if (typeof view === "string") {
@@ -415,32 +465,7 @@ $(document).ready(function () {
                 </div>
             `;
             } else if (dev.device.IsOpenRGB) {
-                const productName = dev.device.Product || "OpenRGB Device";
-                return {
-                    isOpenRGB: true,
-                    html: `
-                <div class="col-md-2">
-                    <div class="card system-card">
-                        <div class="card-header header-split">
-                            <span class="header-left">${productName}</span>
-                            <span class="header-right">${label}</span>
-                        </div>
-                        <div class="card-body">
-                            <div class="settings-list">
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">Status</span>
-                                    <span class="meta-value" style="color: #4CAF50;">Connected</span>
-                                </div>
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">Current Effect</span>
-                                    <span class="meta-value text-capitalize">${dev.device.DeviceProfile?.RGBCluster ? "Clustered" : (dev.device.DeviceProfile?.RGBProfile || "None")}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                `
-                };
+                return dashboardOpenRGBCard.createView(dev.device, label);
             }
         } else if (dev.device.IsPSU) {
             $.each(dev.device.devices, function (_, device) {
@@ -847,3 +872,4 @@ $(document).ready(function () {
 
     loadDashboardSettings();
 });
+}
