@@ -670,7 +670,6 @@ func ResizeGifImage(g *gif.GIF, width, height int) []*image.Paletted {
 	scaleX := float64(width) / float64(origWidth)
 	scaleY := float64(height) / float64(origHeight)
 
-	composed := make([]*image.RGBA, frameCount)
 	prevCanvas := image.NewRGBA(image.Rect(0, 0, width, height))
 
 	for i, frame := range g.Image {
@@ -691,7 +690,9 @@ func ResizeGifImage(g *gif.GIF, width, height int) []*image.Paletted {
 
 		draw.Draw(frameCanvas, patch.Bounds().Add(image.Pt(offsetX, offsetY)), patch, image.Point{}, draw.Over)
 
-		composed[i] = frameCanvas
+		paletted := image.NewPaletted(frameCanvas.Bounds(), g.Image[i].Palette)
+		draw.FloydSteinberg.Draw(paletted, frameCanvas.Bounds(), frameCanvas, image.Point{})
+		frames[i] = paletted
 
 		switch g.Disposal[i] {
 		case gif.DisposalNone, gif.DisposalPrevious:
@@ -701,20 +702,6 @@ func ResizeGifImage(g *gif.GIF, width, height int) []*image.Paletted {
 				&image.Uniform{C: color.Transparent}, image.Point{}, draw.Src)
 		}
 	}
-
-	var wg sync.WaitGroup
-	wg.Add(frameCount)
-
-	for i, frameCanvas := range composed {
-		go func(i int, frameCanvas *image.RGBA) {
-			defer wg.Done()
-			paletted := image.NewPaletted(frameCanvas.Bounds(), g.Image[i].Palette)
-			draw.FloydSteinberg.Draw(paletted, frameCanvas.Bounds(), frameCanvas, image.Point{})
-			frames[i] = paletted
-		}(i, frameCanvas)
-	}
-
-	wg.Wait()
 	return frames
 }
 

@@ -12,6 +12,7 @@ import (
 	"LumenForge/src/rgb"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -64,6 +65,18 @@ const (
 	ImageFormatWebp = 2
 	ImageFormatGif  = 3
 )
+
+const (
+	// The shipped 480x480 animation has 60 frames. These limits allow more
+	// than twice its frames and four times its combined source/output pixel
+	// work while bounding GIF decode and LCD frame-processing resources.
+	maxLCDGIFLogicalDimension        = 2048
+	maxLCDGIFFrames                  = 128
+	maxLCDGIFPixelWork        uint64 = 128 * 1024 * 1024
+	lcdGIFOutputPixels        uint64 = 480 * 480
+)
+
+var errInvalidLCDImage = errors.New("invalid LCD image")
 
 var (
 	location      = ""
@@ -410,6 +423,165 @@ func interpolateColor(c1, c2 color.RGBA, t float64) color.RGBA {
 	}
 }
 
+type lcdGIFMetadata struct {
+	Width     int
+	Height    int
+	Frames    int
+	PixelWork uint64
+}
+
+func preflightLCDGIF(reader io.Reader) (lcdGIFMetadata, error) {
+	var metadata lcdGIFMetadata
+	var header [13]byte
+	if _, err := io.ReadFull(reader, header[:]); err != nil {
+		return metadata, fmt.Errorf("read GIF header: %w", err)
+	}
+	version := string(header[:6])
+	if version != "GIF87a" && version != "GIF89a" {
+		return metadata, fmt.Errorf("invalid GIF header %q", version)
+	}
+	metadata.Width = int(header[6]) | int(header[7])<<8
+	metadata.Height = int(header[8]) | int(header[9])<<8
+	if metadata.Width < 1 || metadata.Height < 1 ||
+		metadata.Width > maxLCDGIFLogicalDimension || metadata.Height > maxLCDGIFLogicalDimension {
+		return metadata, fmt.Errorf("GIF logical dimensions %dx%d exceed %dx%d limit",
+			metadata.Width, metadata.Height, maxLCDGIFLogicalDimension, maxLCDGIFLogicalDimension)
+	}
+	if header[10]&0x80 != 0 {
+		colorTableBytes := 3 * (1 << (1 + int(header[10]&0x07)))
+		if err := skipLCDGIFBytes(reader, colorTableBytes, "global color table"); err != nil {
+			return metadata, err
+		}
+	}
+
+	for {
+		blockType, err := readLCDGIFByte(reader, "block type")
+		if err != nil {
+			return metadata, err
+		}
+		switch blockType {
+		case 0x21:
+			if err = preflightLCDGIFExtension(reader); err != nil {
+				return metadata, err
+			}
+		case 0x2c:
+			var descriptor [9]byte
+			if _, err = io.ReadFull(reader, descriptor[:]); err != nil {
+				return metadata, fmt.Errorf("read GIF image descriptor: %w", err)
+			}
+			left := int(descriptor[0]) | int(descriptor[1])<<8
+			top := int(descriptor[2]) | int(descriptor[3])<<8
+			width := int(descriptor[4]) | int(descriptor[5])<<8
+			height := int(descriptor[6]) | int(descriptor[7])<<8
+			if width < 1 || height < 1 ||
+				uint32(left)+uint32(width) > uint32(metadata.Width) ||
+				uint32(top)+uint32(height) > uint32(metadata.Height) {
+				return metadata, fmt.Errorf("GIF frame bounds exceed logical dimensions")
+			}
+
+			metadata.Frames++
+			if metadata.Frames > maxLCDGIFFrames {
+				return metadata, fmt.Errorf("GIF frame count exceeds %d limit", maxLCDGIFFrames)
+			}
+			frameWork := uint64(width)*uint64(height) + lcdGIFOutputPixels
+			if frameWork > maxLCDGIFPixelWork || metadata.PixelWork > maxLCDGIFPixelWork-frameWork {
+				return metadata, fmt.Errorf("GIF pixel work exceeds %d limit", maxLCDGIFPixelWork)
+			}
+			metadata.PixelWork += frameWork
+
+			if descriptor[8]&0x80 != 0 {
+				colorTableBytes := 3 * (1 << (1 + int(descriptor[8]&0x07)))
+				if err = skipLCDGIFBytes(reader, colorTableBytes, "local color table"); err != nil {
+					return metadata, err
+				}
+			}
+			literalWidth, err := readLCDGIFByte(reader, "LZW code size")
+			if err != nil {
+				return metadata, err
+			}
+			if literalWidth < 2 || literalWidth > 8 {
+				return metadata, fmt.Errorf("GIF LZW code size %d is invalid", literalWidth)
+			}
+			if err = skipLCDGIFSubBlocks(reader, "image data"); err != nil {
+				return metadata, err
+			}
+		case 0x3b:
+			if metadata.Frames == 0 {
+				return metadata, fmt.Errorf("GIF has no image frames")
+			}
+			return metadata, nil
+		default:
+			return metadata, fmt.Errorf("unknown GIF block type 0x%02x", blockType)
+		}
+	}
+}
+
+func preflightLCDGIFExtension(reader io.Reader) error {
+	extension, err := readLCDGIFByte(reader, "extension type")
+	if err != nil {
+		return err
+	}
+	switch extension {
+	case 0x01:
+		if err = skipLCDGIFBytes(reader, 13, "plain text extension header"); err != nil {
+			return err
+		}
+		return skipLCDGIFSubBlocks(reader, "plain text extension")
+	case 0xf9:
+		var control [6]byte
+		if _, err = io.ReadFull(reader, control[:]); err != nil {
+			return fmt.Errorf("read GIF graphic control extension: %w", err)
+		}
+		if control[0] != 4 || control[5] != 0 {
+			return fmt.Errorf("invalid GIF graphic control extension")
+		}
+		return nil
+	case 0xfe:
+		return skipLCDGIFSubBlocks(reader, "comment extension")
+	case 0xff:
+		size, err := readLCDGIFByte(reader, "application extension size")
+		if err != nil {
+			return err
+		}
+		if err = skipLCDGIFBytes(reader, int(size), "application extension header"); err != nil {
+			return err
+		}
+		return skipLCDGIFSubBlocks(reader, "application extension")
+	default:
+		return fmt.Errorf("unknown GIF extension 0x%02x", extension)
+	}
+}
+
+func skipLCDGIFSubBlocks(reader io.Reader, description string) error {
+	for {
+		size, err := readLCDGIFByte(reader, description+" block size")
+		if err != nil {
+			return err
+		}
+		if size == 0 {
+			return nil
+		}
+		if err = skipLCDGIFBytes(reader, int(size), description); err != nil {
+			return err
+		}
+	}
+}
+
+func skipLCDGIFBytes(reader io.Reader, count int, description string) error {
+	if _, err := io.CopyN(io.Discard, reader, int64(count)); err != nil {
+		return fmt.Errorf("read GIF %s: %w", description, err)
+	}
+	return nil
+}
+
+func readLCDGIFByte(reader io.Reader, description string) (byte, error) {
+	var value [1]byte
+	if _, err := io.ReadFull(reader, value[:]); err != nil {
+		return 0, fmt.Errorf("read GIF %s: %w", description, err)
+	}
+	return value[0], nil
+}
+
 // PerformImageUpload will handle image upload
 func PerformImageUpload(w http.ResponseWriter, r *http.Request) {
 	const maxUploadSize = 5 * 1024 * 1024 // 5MB
@@ -454,7 +626,7 @@ func PerformImageUpload(w http.ResponseWriter, r *http.Request) {
 		".gif": {
 			mime: "image/gif",
 			decode: func(r io.Reader) error {
-				_, err := gif.Decode(r)
+				_, err := preflightLCDGIF(r)
 				return err
 			},
 			format: ImageFormatGif,
@@ -554,6 +726,11 @@ func PerformImageUpload(w http.ResponseWriter, r *http.Request) {
 		spec.format,
 		defaultLCDUploadTransactionOps(),
 	); err != nil {
+		if errors.Is(err, errInvalidLCDImage) {
+			logger.Log(logger.Fields{"error": err, "location": savePath}).Error("Corrupted or invalid image")
+			http.Error(w, "Corrupted or invalid image", http.StatusBadRequest)
+			return
+		}
 		logger.Log(logger.Fields{"error": err, "location": savePath}).Error("Failed to activate LCD upload")
 		http.Error(w, "Failed to activate image", http.StatusInternalServerError)
 		return
@@ -1632,9 +1809,15 @@ func decodeLCDImage(imagePath, fileName string, format uint8) (ImageData, error)
 	case ImageFormatGif: // Gif
 		{
 			var src *gif.GIF
+			if _, err = preflightLCDGIF(file); err != nil {
+				return ImageData{}, fmt.Errorf("%w: preflight GIF animation: %v", errInvalidLCDImage, err)
+			}
+			if _, err = file.Seek(0, io.SeekStart); err != nil {
+				return ImageData{}, fmt.Errorf("rewind GIF animation: %w", err)
+			}
 			src, err = gif.DecodeAll(file)
 			if err != nil {
-				return ImageData{}, fmt.Errorf("decode GIF animation: %w", err)
+				return ImageData{}, fmt.Errorf("%w: decode GIF animation: %v", errInvalidLCDImage, err)
 			}
 			imageBuffer = make([]Frames, len(src.Image))
 			paletted = common.ResizeGifImage(src, imgWidth, imgHeight)
