@@ -415,6 +415,13 @@ func TestRestoreValidationFailureLeavesLiveStateAndCleansStages(t *testing.T) {
 				{name: "config.json", data: []byte(`{"listenPort":28000}`)},
 			},
 		},
+		{
+			name: "invalid macro name",
+			entries: []testArchiveEntry{
+				{name: "database/macros/placed.json", data: []byte(`{"id":7,"name":"../../config","actions":{}}`)},
+				{name: "config.json", data: []byte(`{"listenPort":28000}`)},
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

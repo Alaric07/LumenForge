@@ -9,6 +9,7 @@ import (
 	"LumenForge/src/config"
 	"LumenForge/src/logger"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,6 +49,29 @@ var (
 	mutex    sync.Mutex
 )
 
+// IsValidName reports whether name follows the existing macro creation rule.
+func IsValidName(name string) bool {
+	return len(name) >= 3 && common.AlphanumericRegex.MatchString(name)
+}
+
+func profilePath(name string) (string, error) {
+	if !IsValidName(name) {
+		return "", fmt.Errorf("invalid macro name")
+	}
+
+	root := filepath.Clean(config.GetPaths().MutableMacrosRoot)
+	if !filepath.IsAbs(root) {
+		return "", fmt.Errorf("macro root is not absolute")
+	}
+	filename := strings.ToLower(name) + ".json"
+	target := filepath.Join(root, filename)
+	relative, err := filepath.Rel(root, target)
+	if err != nil || relative != filename || filepath.Dir(target) != root {
+		return "", fmt.Errorf("macro profile path is outside macro root")
+	}
+	return target, nil
+}
+
 // Init will load all available macro profiles
 func Init() {
 	pwd = config.GetPaths().MutableDataRoot
@@ -85,6 +109,10 @@ func Init() {
 			logger.Log(logger.Fields{"error": err, "location": profileLocation}).Error("Unable to decode macro profile")
 			continue
 		}
+		if !IsValidName(profile.Name) {
+			logger.Log(logger.Fields{"location": profileLocation}).Warn("Ignoring macro profile with invalid name")
+			continue
+		}
 		macros[profile.Id] = profile
 	}
 }
@@ -108,7 +136,10 @@ func DeleteMacroValue(macroId, macroIndex int) uint8 {
 	defer mutex.Unlock()
 
 	if val, ok := macros[macroId]; ok {
-		profile := filepath.Join(config.GetPaths().MutableMacrosRoot, strings.ToLower(val.Name)+".json")
+		profile, err := profilePath(val.Name)
+		if err != nil {
+			return 0
+		}
 		if _, ok := val.Actions[macroIndex]; ok {
 			delete(val.Actions, macroIndex)
 			macros[macroId] = val
@@ -147,7 +178,10 @@ func UpdateMacroValue(macroId, macroIndex int, macroAction *Actions) uint8 {
 	mutex.Lock()
 	defer mutex.Unlock()
 	if val, ok := macros[macroId]; ok {
-		profile := filepath.Join(config.GetPaths().MutableMacrosRoot, strings.ToLower(val.Name)+".json")
+		profile, err := profilePath(val.Name)
+		if err != nil {
+			return 0
+		}
 		if action, ok := val.Actions[macroIndex]; ok {
 			if macroAction.ActionHold {
 				if !validatePressAndHold(macroId) {
@@ -174,7 +208,10 @@ func UpdateMacroSettings(macroId, macroRepeat, macroDelay int) uint8 {
 	mutex.Lock()
 	defer mutex.Unlock()
 	if val, ok := macros[macroId]; ok {
-		profile := filepath.Join(config.GetPaths().MutableMacrosRoot, strings.ToLower(val.Name)+".json")
+		profile, err := profilePath(val.Name)
+		if err != nil {
+			return 0
+		}
 		val.Repeat = macroRepeat
 		val.RepeatDelay = macroDelay
 		macros[macroId] = val
@@ -190,7 +227,10 @@ func DeleteMacroProfile(macroId int) uint8 {
 	defer mutex.Unlock()
 
 	if val, ok := macros[macroId]; ok {
-		profile := filepath.Join(config.GetPaths().MutableMacrosRoot, strings.ToLower(val.Name)+".json")
+		profile, err := profilePath(val.Name)
+		if err != nil {
+			return 0
+		}
 		if common.FileExists(profile) {
 			err := os.Remove(profile)
 			if err != nil {
@@ -209,7 +249,10 @@ func NewMacroProfile(macroName string) uint8 {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	profile := filepath.Join(config.GetPaths().MutableMacrosRoot, strings.ToLower(macroName)+".json")
+	profile, err := profilePath(macroName)
+	if err != nil {
+		return 0
+	}
 	if common.FileExists(profile) {
 		return 0
 	}
@@ -241,7 +284,10 @@ func NewMacroProfileValue(macroId int, macroAction *Actions) uint8 {
 	defer mutex.Unlock()
 
 	if val, ok := macros[macroId]; ok {
-		profile := filepath.Join(config.GetPaths().MutableMacrosRoot, strings.ToLower(val.Name)+".json")
+		profile, err := profilePath(val.Name)
+		if err != nil {
+			return 0
+		}
 		if common.FileExists(profile) {
 			length := len(val.Actions)
 			val.Actions[length] = Actions{

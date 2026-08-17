@@ -2,6 +2,7 @@ package backup
 
 import (
 	"LumenForge/src/logger"
+	"LumenForge/src/macro"
 	"archive/zip"
 	"crypto/rand"
 	"crypto/sha256"
@@ -631,10 +632,27 @@ func validateStagedJSON(stage *restoreStage) error {
 			return newRestoreError(restoreStagingFailure, "inspect staged database: %w", walkErr)
 		}
 		if !info.IsDir() && strings.EqualFold(filepath.Ext(filePath), ".json") {
-			return validateJSONFile(filePath)
+			if err := validateJSONFile(filePath); err != nil {
+				return err
+			}
+			if filepath.Dir(filePath) == filepath.Join(stage.databaseDirectory, "macros") {
+				return validateStagedMacroProfile(filePath)
+			}
 		}
 		return nil
 	})
+}
+
+func validateStagedMacroProfile(filePath string) error {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return newRestoreError(restoreStagingFailure, "read staged macro profile: %w", err)
+	}
+	var profile macro.Macro
+	if err = json.Unmarshal(data, &profile); err != nil || !macro.IsValidName(profile.Name) {
+		return newRestoreError(restoreMalformedJSON, "staged macro profile has an invalid name")
+	}
+	return nil
 }
 
 func validateJSONFile(filePath string) error {
