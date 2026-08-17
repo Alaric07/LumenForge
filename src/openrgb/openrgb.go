@@ -36,20 +36,169 @@ const (
 const (
 	headerSize             = 16 // headerSize Header is 4 bytes magic ('ORGB') + 3 × uint32
 	protocolVersion uint32 = 4  // protocolVersion OpenRGB clients will ask for this protocol version.
+	// Normal local use needs one client; this leaves room for tools without permitting unbounded handlers.
+	maxTargetClients  = 16
+	maxClientNameSize = 4 * 1024
+	maxLEDUpdateSize  = 6 + maxLEDCount*4
 )
 
 var (
-	debug       = false // Debug mode
-	controllers []*common.OpenRGBController
-	mutex       sync.RWMutex
-	conn        net.Conn
-	listener    net.Listener
-	enabled     bool
+	debug                = false // Debug mode
+	controllers          []*common.OpenRGBController
+	mutex                sync.RWMutex
+	targetLifecycleMutex sync.Mutex
+	currentTargetServer  *targetServer
+	targetHeaderTimeout  = ioTimeout
+	targetPayloadTimeout = ioTimeout
+	targetWriteTimeout   = ioTimeout
+	// Keep persistent clients useful while ensuring abandoned connections eventually expire.
+	targetIdleTimeout = 5 * time.Minute
 )
+
+type targetClient struct {
+	conn      net.Conn
+	writeMu   sync.Mutex
+	closeOnce sync.Once
+}
+
+func (c *targetClient) close() {
+	c.closeOnce.Do(func() {
+		_ = c.conn.Close()
+	})
+}
+
+func (c *targetClient) writeResponse(deviceID, packetType uint32, payload []byte) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+
+	if err := c.conn.SetWriteDeadline(time.Now().Add(targetWriteTimeout)); err != nil {
+		return err
+	}
+
+	header := makeHeader(deviceID, packetType, uint32(len(payload)))
+	if err := writeAll(c.conn, header); err != nil {
+		return err
+	}
+	return writeAll(c.conn, payload)
+}
+
+type targetServer struct {
+	mu       sync.Mutex
+	listener net.Listener
+	clients  map[*targetClient]struct{}
+	latest   *targetClient
+	closed   bool
+	wg       sync.WaitGroup
+}
+
+func newTargetServer(listener net.Listener) *targetServer {
+	return &targetServer{
+		listener: listener,
+		clients:  make(map[*targetClient]struct{}),
+	}
+}
+
+func (s *targetServer) register(conn net.Conn) (*targetClient, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed || len(s.clients) >= maxTargetClients {
+		return nil, false
+	}
+
+	client := &targetClient{conn: conn}
+	s.clients[client] = struct{}{}
+	s.latest = client
+	s.wg.Add(1)
+	return client, true
+}
+
+func (s *targetServer) unregister(client *targetClient) {
+	s.mu.Lock()
+	delete(s.clients, client)
+	if s.latest == client {
+		s.latest = nil
+	}
+	s.mu.Unlock()
+	s.wg.Done()
+}
+
+func (s *targetServer) latestClient() *targetClient {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.latest
+}
+
+func (s *targetServer) serve() {
+	for {
+		accepted, err := s.listener.Accept()
+		if err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				return
+			}
+			logger.Log(logger.Fields{"error": err}).Error("Failed to accept connection")
+			continue
+		}
+
+		client, ok := s.register(accepted)
+		if !ok {
+			_ = accepted.Close()
+			continue
+		}
+		if debug {
+			logger.Log(logger.Fields{"address": accepted.RemoteAddr()}).Info("Accepting connection")
+		}
+		go func() {
+			defer s.unregister(client)
+			handleTargetClient(client)
+		}()
+	}
+}
+
+func (s *targetServer) close() {
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		s.wg.Wait()
+		return
+	}
+	s.closed = true
+	listener := s.listener
+	clients := make([]*targetClient, 0, len(s.clients))
+	for client := range s.clients {
+		clients = append(clients, client)
+	}
+	s.mu.Unlock()
+
+	if listener != nil {
+		_ = listener.Close()
+	}
+	for _, client := range clients {
+		client.close()
+	}
+	s.wg.Wait()
+}
+
+func targetEnabled() bool {
+	targetLifecycleMutex.Lock()
+	defer targetLifecycleMutex.Unlock()
+	return currentTargetServer != nil
+}
+
+func notifyTargetClient() {
+	targetLifecycleMutex.Lock()
+	server := currentTargetServer
+	targetLifecycleMutex.Unlock()
+	if server == nil {
+		return
+	}
+	if client := server.latestClient(); client != nil {
+		_ = client.writeResponse(0, OPCODE_DEVICE_LIST_UPDATED, nil)
+	}
+}
 
 // ClearDeviceControllers will clear device controller list
 func ClearDeviceControllers() {
-	if enabled {
+	if targetEnabled() {
 		mutex.Lock()
 		defer mutex.Unlock()
 
@@ -68,54 +217,46 @@ func AddDeviceController(controller *common.OpenRGBController) {
 
 // SendToOpenRGB will notify OpenRGB about device list change
 func SendToOpenRGB() {
-	if enabled {
-		mutex.Lock()
-		defer mutex.Unlock()
-		if conn != nil {
-			// Notify connect client about device change
-			sendHeader(conn, 0, OPCODE_DEVICE_LIST_UPDATED, 0)
-		}
+	if targetEnabled() {
+		// Notify connected client about device change.
+		notifyTargetClient()
 	}
 }
 
 // UpdateDeviceController will update existing OpenRGB Controller
 func UpdateDeviceController(serial string, ctrl *common.OpenRGBController) {
-	if enabled {
+	if targetEnabled() {
 		mutex.Lock()
-		defer mutex.Unlock()
 		for key, controller := range controllers {
 			if controller.Serial == serial {
 				controllers[key] = ctrl
 			}
 		}
+		mutex.Unlock()
 
-		if conn != nil {
-			sendHeader(conn, 0, OPCODE_DEVICE_LIST_UPDATED, 0)
-		}
+		notifyTargetClient()
 	}
 }
 
 // RemoveDeviceControllerBySerial removes a controller by its serial
 func RemoveDeviceControllerBySerial(serial string) {
-	if enabled {
+	if targetEnabled() {
 		mutex.Lock()
-		defer mutex.Unlock()
 
 		for i, c := range controllers {
 			if c.Serial == serial {
 				controllers = append(controllers[:i], controllers[i+1:]...)
 			}
 		}
+		mutex.Unlock()
 
-		if conn != nil {
-			sendHeader(conn, 0, OPCODE_DEVICE_LIST_UPDATED, 0)
-		}
+		notifyTargetClient()
 	}
 }
 
 // GetDeviceController will return existing OpenRGB Controller
 func GetDeviceController(serial string) *common.OpenRGBController {
-	if enabled {
+	if targetEnabled() {
 		mutex.RLock()
 		defer mutex.RUnlock()
 		for _, controller := range controllers {
@@ -130,64 +271,56 @@ func GetDeviceController(serial string) *common.OpenRGBController {
 
 // NotifyControllerChange will notify OpenRGB about controller change
 func NotifyControllerChange(serial string) {
-	if enabled {
-		mutex.Lock()
-		defer mutex.Unlock()
+	if currentTargetClient() == nil {
+		return
+	}
 
-		if conn != nil {
-			newControllers := controllers[:0]
-			for _, controller := range controllers {
-				if controller.Serial != serial {
-					newControllers = append(newControllers, controller)
-				}
-			}
-			controllers = newControllers
-
-			if conn != nil {
-				// Notify connected client about device change
-				sendHeader(conn, 0, OPCODE_DEVICE_LIST_UPDATED, 0)
-			}
+	mutex.Lock()
+	newControllers := controllers[:0]
+	for _, controller := range controllers {
+		if controller.Serial != serial {
+			newControllers = append(newControllers, controller)
 		}
 	}
+	controllers = newControllers
+	mutex.Unlock()
+
+	// Notify connected client about device change.
+	notifyTargetClient()
+}
+
+func currentTargetClient() *targetClient {
+	targetLifecycleMutex.Lock()
+	server := currentTargetServer
+	targetLifecycleMutex.Unlock()
+	if server == nil {
+		return nil
+	}
+	return server.latestClient()
 }
 
 // Init will initialize OpenRGB Client Target
 func Init() {
 	Close()
-	enabled = config.GetConfig().EnableOpenRGBTargetServer
-	if enabled {
-		debug = config.GetConfig().Debug
-		go func() {
-			address := targetListenAddress(config.GetConfig())
+	cfg := config.GetConfig()
+	if cfg.EnableOpenRGBTargetServer {
+		debug = cfg.Debug
+		address := targetListenAddress(cfg)
+		listener, err := net.Listen("tcp", address)
+		if err != nil {
+			logger.Log(logger.Fields{"error": err, "address": address}).Error("Failed to create listener, OpenRGB target server disabled")
+			return
+		}
 
-			var err error
-			listener, err = net.Listen("tcp", address)
-			if err != nil {
-				logger.Log(logger.Fields{"error": err, "address": address}).Fatal("Failed to create listener")
-			}
+		server := newTargetServer(listener)
+		targetLifecycleMutex.Lock()
+		currentTargetServer = server
+		targetLifecycleMutex.Unlock()
 
-			if debug {
-				logger.Log(logger.Fields{"address": address}).Info("OpenRGB-backend listening")
-			}
-
-			// Listen loop
-			for {
-				conn, err = listener.Accept()
-				if err != nil {
-					if errors.Is(err, net.ErrClosed) {
-						// Listener was closed → stop goroutine
-						return
-					}
-					logger.Log(logger.Fields{"error": err}).Error("Failed to accept connection")
-					continue
-				}
-
-				if debug {
-					logger.Log(logger.Fields{"address": conn.RemoteAddr()}).Info("Accepting connection")
-				}
-				go handleConn(conn)
-			}
-		}()
+		if debug {
+			logger.Log(logger.Fields{"address": address}).Info("OpenRGB-backend listening")
+		}
+		go server.serve()
 	}
 }
 
@@ -197,51 +330,33 @@ func targetListenAddress(cfg config.Configuration) string {
 
 // Close will close any active connections and listener
 func Close() {
-	if conn != nil {
-		err := conn.Close()
-		if err != nil {
-			logger.Log(logger.Fields{"err": err}).Error("Failed to close connection")
-			return
-		}
-		conn = nil
+	targetLifecycleMutex.Lock()
+	server := currentTargetServer
+	currentTargetServer = nil
+	targetLifecycleMutex.Unlock()
+	if server != nil {
+		server.close()
 	}
-
-	if listener != nil {
-		err := listener.Close()
-		if err != nil {
-			logger.Log(logger.Fields{"err": err}).Error("Failed to close listener")
-			return
-		}
-		listener = nil
-	}
-	time.Sleep(100 * time.Millisecond)
 }
 
 // handleConn will handle connections from OpenRGB Client
 func handleConn(conn net.Conn) {
+	handleTargetClient(&targetClient{conn: conn})
+}
+
+func handleTargetClient(client *targetClient) {
+	conn := client.conn
 	defer func() {
 		if debug {
 			logger.Log(logger.Fields{"address": conn.RemoteAddr()}).Info("Closing connection")
 		}
-		err := conn.Close()
-		if err != nil {
-			return
-		}
+		client.close()
 	}()
-
-	err := conn.SetDeadline(time.Time{})
-	if err != nil {
-		if debug {
-			logger.Log(logger.Fields{"error": err}).Error("Failed to set deadline")
-		}
-		return
-	}
 
 	var clientName = "lumenforge"
 	for {
-		// Read header (16 bytes)
-		header := make([]byte, headerSize)
-		if _, err = io.ReadFull(conn, header); err != nil {
+		header, err := readTargetHeader(conn)
+		if err != nil {
 			if err == io.EOF {
 				return
 			}
@@ -275,9 +390,19 @@ func handleConn(conn net.Conn) {
 			logger.Log(logger.Fields{"deviceID": deviceID, "pktType": packetType, "pktSize": packetSize}).Info("header packet received")
 		}
 
-		// Read payload if present
-		payload := make([]byte, packetSize)
+		if !validTargetPacketSize(packetType, packetSize) {
+			if debug {
+				logger.Log(logger.Fields{"pktType": packetType, "pktSize": packetSize}).Warn("Invalid OpenRGB target payload size")
+			}
+			return
+		}
+
+		// The protocol-wide limit is checked before conversion and allocation.
+		payload := make([]byte, int(packetSize))
 		if packetSize > 0 {
+			if err = conn.SetReadDeadline(time.Now().Add(targetPayloadTimeout)); err != nil {
+				return
+			}
 			if _, err = io.ReadFull(conn, payload); err != nil {
 				if debug {
 					logger.Log(logger.Fields{"error": err}).Error("Failed to read payload")
@@ -299,8 +424,7 @@ func handleConn(conn net.Conn) {
 			// send protocol version
 			buf := make([]byte, 4)
 			binary.LittleEndian.PutUint32(buf, protocolVersion)
-			sendHeader(conn, 0, OPCODE_REQUEST_PROTOCOL_VERSION, uint32(len(buf)))
-			if _, err = conn.Write(buf); err != nil {
+			if err = client.writeResponse(0, OPCODE_REQUEST_PROTOCOL_VERSION, buf); err != nil {
 				if debug {
 					logger.Log(logger.Fields{"error": err}).Error("Write protocol version failed")
 				}
@@ -316,8 +440,7 @@ func handleConn(conn net.Conn) {
 			mutex.RUnlock()
 			b := make([]byte, 4)
 			binary.LittleEndian.PutUint32(b, count)
-			sendHeader(conn, 0, OPCODE_REQUEST_CONTROLLER_COUNT, uint32(len(b)))
-			if _, err = conn.Write(b); err != nil {
+			if err = client.writeResponse(0, OPCODE_REQUEST_CONTROLLER_COUNT, b); err != nil {
 				if debug {
 					logger.Log(logger.Fields{"error": err}).Error("Write controller count failed")
 				}
@@ -335,12 +458,13 @@ func handleConn(conn net.Conn) {
 				if debug {
 					logger.Log(logger.Fields{"deviceID": deviceID}).Error("Invalid deviceID requested")
 				}
-				sendHeader(conn, deviceID, OPCODE_REQUEST_CONTROLLER_DATA, 0)
+				if err = client.writeResponse(deviceID, OPCODE_REQUEST_CONTROLLER_DATA, nil); err != nil {
+					return
+				}
 				continue
 			}
 			payload = buildDeviceDataPayload(deviceID)
-			sendHeader(conn, deviceID, OPCODE_REQUEST_CONTROLLER_DATA, uint32(len(payload)))
-			if _, err = conn.Write(payload); err != nil {
+			if err = client.writeResponse(deviceID, OPCODE_REQUEST_CONTROLLER_DATA, payload); err != nil {
 				if debug {
 					logger.Log(logger.Fields{"error": err}).Error("Write controller data failed")
 				}
@@ -412,8 +536,7 @@ func handleConn(conn net.Conn) {
 			buf := make([]byte, 8)
 			binary.LittleEndian.PutUint32(buf[0:4], uint32(len(buf)))
 			binary.LittleEndian.PutUint32(buf[4:8], 0)
-			sendHeader(conn, 0, OPCODE_REQUEST_PROFILE_LIST, uint32(len(buf)))
-			if _, err = conn.Write(buf); err != nil {
+			if err = client.writeResponse(0, OPCODE_REQUEST_PROFILE_LIST, buf); err != nil {
 				if debug {
 					logger.Log(logger.Fields{"error": err}).Error("Failed to send PROFILE LIST")
 				}
@@ -423,8 +546,7 @@ func handleConn(conn net.Conn) {
 			buf := make([]byte, 8)
 			binary.LittleEndian.PutUint32(buf[0:4], uint32(len(buf)))
 			binary.LittleEndian.PutUint32(buf[4:8], 0)
-			sendHeader(conn, 0, OPCODE_REQUEST_PLUGIN_LIST, uint32(len(buf)))
-			if _, err = conn.Write(buf); err != nil {
+			if err = client.writeResponse(0, OPCODE_REQUEST_PLUGIN_LIST, buf); err != nil {
 				if debug {
 					logger.Log(logger.Fields{"error": err}).Error("Failed to send PLUGIN LIST")
 				}
@@ -434,18 +556,65 @@ func handleConn(conn net.Conn) {
 	}
 }
 
-// sendHeader writes the 16-byte OpenRGB header (magic + deviceID + packetType + packetSize)
-func sendHeader(w io.Writer, deviceID, packetType, packetSize uint32) {
+func readTargetHeader(conn net.Conn) ([]byte, error) {
+	header := make([]byte, headerSize)
+	if err := conn.SetReadDeadline(time.Now().Add(targetIdleTimeout)); err != nil {
+		return nil, err
+	}
+	if _, err := io.ReadFull(conn, header[:1]); err != nil {
+		return nil, err
+	}
+	if err := conn.SetReadDeadline(time.Now().Add(targetHeaderTimeout)); err != nil {
+		return nil, err
+	}
+	if _, err := io.ReadFull(conn, header[1:]); err != nil {
+		return nil, err
+	}
+	return header, nil
+}
+
+func validTargetPayloadSize(packetType, packetSize uint32) bool {
+	switch packetType {
+	case OPCODE_REQUEST_CONTROLLER_COUNT, OPCODE_REQUEST_PROFILE_LIST, OPCODE_REQUEST_PLUGIN_LIST:
+		return packetSize == 0
+	case OPCODE_REQUEST_CONTROLLER_DATA, OPCODE_REQUEST_PROTOCOL_VERSION:
+		return packetSize == 0 || packetSize == 4
+	case OPCODE_SET_CLIENT_NAME:
+		return packetSize <= maxClientNameSize
+	case OPCODE_RGBCONTROLLER_UPDATELEDS:
+		return packetSize >= 6 && packetSize <= maxLEDUpdateSize
+	case OPCODE_UPDATE_MODE:
+		return packetSize >= 4
+	default:
+		return true
+	}
+}
+
+func validTargetPacketSize(packetType, packetSize uint32) bool {
+	return packetSize <= maxPayloadSize && validTargetPayloadSize(packetType, packetSize)
+}
+
+func writeAll(w io.Writer, data []byte) error {
+	for len(data) > 0 {
+		written, err := w.Write(data)
+		if err != nil {
+			return err
+		}
+		if written == 0 {
+			return io.ErrUnexpectedEOF
+		}
+		data = data[written:]
+	}
+	return nil
+}
+
+func makeHeader(deviceID, packetType, packetSize uint32) []byte {
 	header := make([]byte, headerSize)
 	copy(header[0:4], "ORGB")
 	binary.LittleEndian.PutUint32(header[4:8], deviceID)
 	binary.LittleEndian.PutUint32(header[8:12], packetType)
 	binary.LittleEndian.PutUint32(header[12:16], packetSize)
-	if _, err := w.Write(header); err != nil {
-		if debug {
-			logger.Log(logger.Fields{"error": err}).Error("sendHeader write error")
-		}
-	}
+	return header
 }
 
 func buildDeviceDataPayload(deviceID uint32) []byte {
