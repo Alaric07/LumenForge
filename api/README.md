@@ -14,6 +14,13 @@ require the process-local request proof in `X-LumenForge-Request-Proof`.
 LumenForge does not enable CORS, and remote web clients and cross-origin
 preflights are unsupported.
 
+These protections defend the local browser/API boundary; they are not
+authentication between separate local OS users. LumenForge's loopback
+management interface assumes a single-user or trusted-local-user system.
+Separate mutually untrusted local users are outside the currently supported
+security model and should be considered capable of accessing and controlling
+the service.
+
 The dashboard obtains and submits this proof automatically. A local
 command-line client must fetch it after each LumenForge restart and include it
 on every mutation. The helpers below are used by all mutation examples in this

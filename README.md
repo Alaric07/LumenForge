@@ -17,6 +17,13 @@ LumenForge-specific request proof; CORS and remote web clients are unsupported.
 See the [HTTP API guide](api/README.md#local-request-protection) before using a
 local command-line client for POST, PUT, PATCH, or DELETE requests.
 
+**Local-user trust boundary:** LumenForge's loopback management interface is
+intended for single-user or trusted-local-user systems. It does not provide
+isolation between separate local OS users. On shared or mutually untrusted
+multi-user systems, local users should be considered capable of accessing and
+controlling the LumenForge service. Such environments are not currently part
+of LumenForge's supported security model.
+
 ## Features
 
 - Web UI at `http://127.0.0.1:27003`
