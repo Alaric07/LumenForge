@@ -341,6 +341,7 @@ func TestNativeTrayStandaloneToggleUsesCanonicalOffAndRestore(t *testing.T) {
 		return "mouse"
 	}
 	canonicalEffect := "rainbow"
+	mutationResult := uint8(1)
 	mutations := []string{}
 	callTrayDeviceMethod = func(candidate, method string, args ...interface{}) []reflect.Value {
 		if candidate != serial {
@@ -361,8 +362,10 @@ func TestNativeTrayStandaloneToggleUsesCanonicalOffAndRestore(t *testing.T) {
 				t.Fatalf("canonical profile mutation effect = %#v", args[1])
 			}
 			mutations = append(mutations, effect)
-			canonicalEffect = effect
-			return []reflect.Value{reflect.ValueOf(uint8(1))}
+			if mutationResult == 1 {
+				canonicalEffect = effect
+			}
+			return []reflect.Value{reflect.ValueOf(mutationResult)}
 		default:
 			t.Fatalf("unexpected native tray method %q", method)
 			return nil
@@ -384,5 +387,21 @@ func TestNativeTrayStandaloneToggleUsesCanonicalOffAndRestore(t *testing.T) {
 	server.Event(999, "clicked", dbus.Variant{}, 0)
 	if canonicalEffect != "rainbow" || !reflect.DeepEqual(mutations, []string{"off", "rainbow"}) {
 		t.Fatalf("native standalone restore = effect %q calls %#v", canonicalEffect, mutations)
+	}
+
+	for _, rejected := range []uint8{4, 5} {
+		canonicalEffect = "rainbow"
+		mutationResult = rejected
+		mutations = nil
+		delete(deviceAnimationScrapbook, serial)
+		nonClusteredRgbOff = false
+
+		server.Event(999, "clicked", dbus.Variant{}, 0)
+		if canonicalEffect != "rainbow" || !reflect.DeepEqual(mutations, []string{"off"}) {
+			t.Fatalf("native rejected disable %d = effect %q calls %#v", rejected, canonicalEffect, mutations)
+		}
+		if _, found := deviceAnimationScrapbook[serial]; found {
+			t.Fatalf("native rejected disable %d stored a scrapbook entry", rejected)
+		}
 	}
 }

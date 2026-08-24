@@ -315,6 +315,79 @@ func TestScimitarUpdateRgbProfileRejectsLegacyMouseMode(t *testing.T) {
 	}
 }
 
+func TestScimitarBrightnessRestartUsesCanonicalSelectedEffect(t *testing.T) {
+	mutations := []struct {
+		name           string
+		apply          func(*Device) uint8
+		wantBrightness uint8
+	}{
+		{
+			name: "slider",
+			apply: func(device *Device) uint8 {
+				return device.ChangeDeviceBrightnessValue(40)
+			},
+			wantBrightness: 40,
+		},
+		{
+			name: "scheduler",
+			apply: func(device *Device) uint8 {
+				return device.SchedulerBrightness(0)
+			},
+			wantBrightness: 0,
+		},
+	}
+	effects := []struct {
+		name            string
+		canonicalEffect string
+		legacyEffect    string
+		wantRestarts    int
+	}{
+		{
+			name:            "canonical Static overrides legacy Rainbow",
+			canonicalEffect: "static",
+			legacyEffect:    "rainbow",
+			wantRestarts:    1,
+		},
+		{
+			name:            "canonical Rainbow ignores legacy Static",
+			canonicalEffect: "rainbow",
+			legacyEffect:    "static",
+			wantRestarts:    0,
+		},
+	}
+
+	for _, mutation := range mutations {
+		for _, effect := range effects {
+			t.Run(mutation.name+"/"+effect.name, func(t *testing.T) {
+				device, runtime := newScimitarCanonicalLightingTestDevice(t)
+				prepareScimitarCanonicalMutationDevice(device)
+				installScimitarProfilePersistenceTestRoot(t)
+				device.DeviceProfile.Active = true
+				device.DeviceProfile.RGBProfile = effect.legacyEffect
+				if err := runtime.State.Set(device.Serial, lightingsettings.IndependentDeviceLightingState{
+					SelectedEffect: effect.canonicalEffect,
+					Brightness:     100,
+				}); err != nil {
+					t.Fatal(err)
+				}
+				restarts := 0
+				device.lightingRestart = func() { restarts++ }
+
+				if result := mutation.apply(device); result != 1 {
+					t.Fatalf("brightness mutation result = %d, want 1", result)
+				}
+				if device.DeviceProfile.BrightnessSlider == nil || *device.DeviceProfile.BrightnessSlider != mutation.wantBrightness {
+					t.Fatalf("brightness after mutation = %v, want %d", device.DeviceProfile.BrightnessSlider, mutation.wantBrightness)
+				}
+				if restarts != effect.wantRestarts {
+					t.Fatalf("canonical %s with legacy %s restarted lighting %d times, want %d",
+						effect.canonicalEffect, effect.legacyEffect, restarts, effect.wantRestarts)
+				}
+			})
+		}
+	}
+}
+
 func prepareScimitarCanonicalMutationDevice(device *Device) {
 	brightness := uint8(100)
 	device.Connected = true
@@ -334,6 +407,18 @@ func prepareScimitarCanonicalMutationDevice(device *Device) {
 		"static":  {},
 	}}
 	device.Exit = true
+}
+
+func installScimitarProfilePersistenceTestRoot(t *testing.T) {
+	t.Helper()
+	previousPwd := pwd
+	pwd = t.TempDir()
+	if err := os.MkdirAll(filepath.Join(pwd, "database", "profiles"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		pwd = previousPwd
+	})
 }
 
 func newScimitarCanonicalLightingTestDevice(

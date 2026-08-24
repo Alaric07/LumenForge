@@ -233,8 +233,10 @@ func (m *MenuServer) Event(id int32, eventId string, data dbus.Variant, timestam
 					if currentProfile == "off" {
 						delete(deviceAnimationScrapbook, serial)
 					} else if currentProfile != "" {
-						deviceAnimationScrapbook[serial] = currentProfile
-						callTrayDeviceMethod(serial, "UpdateRgbProfile", -1, "off")
+						results := callTrayDeviceMethod(serial, "UpdateRgbProfile", -1, "off")
+						if len(results) > 0 && results[0].Uint() == 1 {
+							deviceAnimationScrapbook[serial] = currentProfile
+						}
 					}
 				}
 			}

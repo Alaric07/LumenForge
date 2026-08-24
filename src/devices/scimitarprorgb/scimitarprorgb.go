@@ -889,9 +889,8 @@ func (d *Device) ChangeDeviceBrightnessValue(value uint8) uint8 {
 	d.DeviceProfile.BrightnessSlider = &value
 	d.saveDeviceProfile()
 
-	if d.DeviceProfile.RGBProfile == "static" || d.DeviceProfile.RGBProfile == "mouse" {
-		d.stopLighting()
-		d.setDeviceColor()
+	if d.GetCurrentRgbProfile() == "static" {
+		d.restartCanonicalLighting()
 	}
 	return 1
 }
@@ -906,9 +905,8 @@ func (d *Device) SchedulerBrightness(value uint8) uint8 {
 	}
 
 	d.saveDeviceProfile()
-	if d.DeviceProfile.RGBProfile == "static" || d.DeviceProfile.RGBProfile == "mouse" {
-		d.stopLighting()
-		d.setDeviceColor()
+	if d.GetCurrentRgbProfile() == "static" {
+		d.restartCanonicalLighting()
 	}
 	return 1
 }
