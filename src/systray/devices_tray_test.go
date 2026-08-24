@@ -16,6 +16,7 @@ func installImportedTrayTestSeams(t *testing.T) (*openrgbimport.Device, *common.
 	t.Helper()
 	previousDevices := getTrayDevices
 	previousClusterStatus := getTrayDeviceClusterStatus
+	previousRgbProfile := getTrayDeviceRgbProfile
 	previousCall := callTrayDeviceMethod
 	previousLookup := lookupOpenRGBTrayDevice
 	previousSnapshot := snapshotOpenRGBTrayLighting
@@ -71,6 +72,7 @@ func installImportedTrayTestSeams(t *testing.T) (*openrgbimport.Device, *common.
 	t.Cleanup(func() {
 		getTrayDevices = previousDevices
 		getTrayDeviceClusterStatus = previousClusterStatus
+		getTrayDeviceRgbProfile = previousRgbProfile
 		callTrayDeviceMethod = previousCall
 		lookupOpenRGBTrayDevice = previousLookup
 		snapshotOpenRGBTrayLighting = previousSnapshot
@@ -306,5 +308,81 @@ func TestImportedDeviceTrayStandaloneToggleUsesCanonicalOffAndRestore(t *testing
 	}
 	if _, found := deviceAnimationScrapbook[importedTrayTestSerial]; found {
 		t.Fatal("already-Off imported device retained a stale scrapbook entry")
+	}
+}
+
+func TestNativeTrayStandaloneToggleUsesCanonicalOffAndRestore(t *testing.T) {
+	_, wrapper, _, _ := installImportedTrayTestSeams(t)
+	const serial = "native-canonical-tray-test"
+	wrapper.Serial = serial
+	wrapper.Product = "Native Canonical Tray Device"
+	wrapper.Instance = struct{}{}
+	getTrayDevices = func() map[string]*common.Device {
+		return map[string]*common.Device{serial: wrapper}
+	}
+	lookupOpenRGBTrayDevice = func(candidate string) (*common.Device, *openrgbimport.Device, bool) {
+		if candidate != serial {
+			t.Fatalf("native import lookup serial = %q, want %q", candidate, serial)
+		}
+		return nil, nil, false
+	}
+	getTrayDeviceClusterStatus = func(candidate string) bool {
+		if candidate != serial {
+			t.Fatalf("native cluster lookup serial = %q, want %q", candidate, serial)
+		}
+		return false
+	}
+	legacyLookups := 0
+	getTrayDeviceRgbProfile = func(candidate string) string {
+		legacyLookups++
+		if candidate != serial {
+			t.Fatalf("legacy profile lookup serial = %q, want %q", candidate, serial)
+		}
+		return "mouse"
+	}
+	canonicalEffect := "rainbow"
+	mutations := []string{}
+	callTrayDeviceMethod = func(candidate, method string, args ...interface{}) []reflect.Value {
+		if candidate != serial {
+			t.Fatalf("native tray method serial = %q, want %q", candidate, serial)
+		}
+		switch method {
+		case "GetCurrentRgbProfile":
+			if len(args) != 0 {
+				t.Fatalf("canonical profile lookup args = %#v", args)
+			}
+			return []reflect.Value{reflect.ValueOf(canonicalEffect)}
+		case "UpdateRgbProfile":
+			if len(args) != 2 || args[0] != -1 {
+				t.Fatalf("canonical profile mutation args = %#v", args)
+			}
+			effect, ok := args[1].(string)
+			if !ok {
+				t.Fatalf("canonical profile mutation effect = %#v", args[1])
+			}
+			mutations = append(mutations, effect)
+			canonicalEffect = effect
+			return []reflect.Value{reflect.ValueOf(uint8(1))}
+		default:
+			t.Fatalf("unexpected native tray method %q", method)
+			return nil
+		}
+	}
+
+	server := &MenuServer{}
+	server.Event(999, "clicked", dbus.Variant{}, 0)
+	if canonicalEffect != "off" || !reflect.DeepEqual(mutations, []string{"off"}) {
+		t.Fatalf("native standalone disable = effect %q calls %#v", canonicalEffect, mutations)
+	}
+	if saved := deviceAnimationScrapbook[serial]; saved != "rainbow" {
+		t.Fatalf("native tray scrapbook after disable = %q, want canonical rainbow", saved)
+	}
+	if legacyLookups != 0 {
+		t.Fatalf("native tray read legacy RGBProfile %d times", legacyLookups)
+	}
+
+	server.Event(999, "clicked", dbus.Variant{}, 0)
+	if canonicalEffect != "rainbow" || !reflect.DeepEqual(mutations, []string{"off", "rainbow"}) {
+		t.Fatalf("native standalone restore = effect %q calls %#v", canonicalEffect, mutations)
 	}
 }

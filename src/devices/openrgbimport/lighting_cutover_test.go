@@ -204,16 +204,16 @@ func testOfflineReconstruction(
 	if err != nil {
 		t.Fatal(err)
 	}
-	stateStore, ok := runtime.state.(*DeviceLightingStateStore)
+	stateStore, ok := runtime.State.(*DeviceLightingStateStore)
 	if !ok {
-		t.Fatalf("device lighting state store type = %T", runtime.state)
+		t.Fatalf("device lighting state store type = %T", runtime.State)
 	}
 	for serial, state := range states {
 		if err = stateStore.Set(serial, state); err != nil {
 			t.Fatalf("persist state for %q: %v", serial, err)
 		}
 	}
-	runtime.state = selectiveLightingStateResolutionFailure{
+	runtime.State = selectiveLightingStateResolutionFailure{
 		deviceLightingStateAccess: stateStore,
 		failures:                  failures,
 	}
@@ -322,7 +322,7 @@ func reconstructedDeviceLightingState(
 ) (*Device, DeviceLightingState, bool) {
 	t.Helper()
 
-	reloadedStore, err := LoadDeviceLightingStateStore(store.path)
+	reloadedStore, err := LoadDeviceLightingStateStore(store.Path())
 	if err != nil {
 		t.Fatalf("reload device lighting state: %v", err)
 	}
@@ -340,9 +340,9 @@ func reconstructedDeviceLightingState(
 	}
 	reconstructed := &Device{Serial: device.Serial}
 	if err = reconstructed.attachLightingRuntime(&deviceLightingRuntime{
-		state:    reloadedStore,
-		effects:  effects,
-		resolver: resolver,
+		State:    reloadedStore,
+		Effects:  effects,
+		Resolver: resolver,
 	}); err != nil {
 		t.Fatalf("attach reloaded device lighting runtime: %v", err)
 	}
@@ -910,7 +910,7 @@ func TestInitAllOfflineReconstructionSharedRuntimeFailureRemainsGlobal(t *testin
 	}
 	state, statusErr := openrgb.GetStatus()
 	if state != openrgb.StateOffline || statusErr == nil ||
-		!strings.Contains(statusErr.Error(), "load OpenRGB shipped lighting defaults") {
+		!strings.Contains(statusErr.Error(), "load independent-device shipped lighting defaults") {
 		t.Fatalf("OpenRGB status after shared runtime failure = %q, %v", state, statusErr)
 	}
 	assertOptionalFileUnchanged(t, configPath, configBefore)

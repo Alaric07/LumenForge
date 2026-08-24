@@ -3,7 +3,6 @@ package systray
 import (
 	"LumenForge/src/cluster"
 	"LumenForge/src/config"
-	"LumenForge/src/devices"
 	"LumenForge/src/lifecycle"
 	"LumenForge/src/logger"
 	"LumenForge/src/rgb"
@@ -166,11 +165,11 @@ func (m *MenuServer) Event(id int32, eventId string, data dbus.Variant, timestam
 				}
 				return nil
 			}
-			if devices.GetDeviceClusterStatus(serial) {
+			if getTrayDeviceClusterStatus(serial) {
 				return nil
 			}
 			var modes []string
-			modesResult := devices.CallDeviceMethod(serial, "GetRgbProfiles")
+			modesResult := callTrayDeviceMethod(serial, "GetRgbProfiles")
 			if len(modesResult) > 0 && modesResult[0].IsValid() {
 				if rgbData, ok := modesResult[0].Interface().(rgb.RGB); ok {
 					for modeName := range rgbData.Profiles {
@@ -182,7 +181,7 @@ func (m *MenuServer) Event(id int32, eventId string, data dbus.Variant, timestam
 
 			idx := actionOffset
 			if idx >= 0 && idx < len(modes) {
-				devices.CallDeviceMethod(serial, "UpdateRgbProfile", -1, modes[idx])
+				callTrayDeviceMethod(serial, "UpdateRgbProfile", -1, modes[idx])
 			}
 		}
 		return nil
@@ -229,11 +228,13 @@ func (m *MenuServer) Event(id int32, eventId string, data dbus.Variant, timestam
 					}
 					continue
 				}
-				if !devices.GetDeviceClusterStatus(serial) {
-					currentProfile := devices.GetDeviceRgbProfile(serial)
-					if currentProfile != "" {
+				if !getTrayDeviceClusterStatus(serial) {
+					currentProfile := nativeTraySelectedEffect(serial)
+					if currentProfile == "off" {
+						delete(deviceAnimationScrapbook, serial)
+					} else if currentProfile != "" {
 						deviceAnimationScrapbook[serial] = currentProfile
-						devices.CallDeviceMethod(serial, "UpdateRgbProfile", -1, "off")
+						callTrayDeviceMethod(serial, "UpdateRgbProfile", -1, "off")
 					}
 				}
 			}
@@ -256,7 +257,7 @@ func (m *MenuServer) Event(id int32, eventId string, data dbus.Variant, timestam
 					continue
 				}
 				if savedProfile != "" && savedProfile != "off" {
-					devices.CallDeviceMethod(serial, "UpdateRgbProfile", -1, savedProfile)
+					callTrayDeviceMethod(serial, "UpdateRgbProfile", -1, savedProfile)
 				}
 			}
 		}

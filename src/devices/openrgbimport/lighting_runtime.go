@@ -3,22 +3,18 @@ package openrgbimport
 import (
 	"fmt"
 	"path/filepath"
-	"sync"
 
 	"LumenForge/src/config"
 	"LumenForge/src/lightingsettings"
-	"LumenForge/src/rgb"
 )
 
-type deviceLightingRuntime struct {
-	state    deviceLightingStateAccess
-	effects  *lightingsettings.DeviceStore
-	resolver *lightingsettings.Resolver
-}
+const defaultDeviceLightingEffect = lightingsettings.DefaultIndependentDeviceEffect
+
+type deviceLightingRuntime = lightingsettings.IndependentDeviceRuntime
 
 type deviceLightingStateAccess interface {
-	Resolve(string) (DeviceLightingState, bool, error)
-	Set(string, DeviceLightingState) error
+	Resolve(string) (lightingsettings.IndependentDeviceLightingState, bool, error)
+	Set(string, lightingsettings.IndependentDeviceLightingState) error
 	Delete(string) (bool, error)
 }
 
@@ -31,38 +27,12 @@ type deviceLightingResolverAccess interface {
 	Resolve(lightingsettings.Target, string) (lightingsettings.Resolution, error)
 }
 
-var deviceLightingRuntimeCache = struct {
-	sync.Mutex
-	values map[string]*deviceLightingRuntime
-}{values: make(map[string]*deviceLightingRuntime)}
-
 func loadDeviceLightingRuntime(paths config.Paths) (*deviceLightingRuntime, error) {
-	key := paths.OpenRGBDeviceLightingFile + "\x00" + paths.DeviceEffectSettingsFile + "\x00" + paths.ShippedDatabaseRoot
-	deviceLightingRuntimeCache.Lock()
-	defer deviceLightingRuntimeCache.Unlock()
-	if runtime := deviceLightingRuntimeCache.values[key]; runtime != nil {
-		return runtime, nil
-	}
-
-	defaults, err := lightingsettings.LoadDefaultRepository(filepath.Join(paths.ShippedDatabaseRoot, "rgb.json"))
-	if err != nil {
-		return nil, fmt.Errorf("load OpenRGB shipped lighting defaults: %w", err)
-	}
-	state, err := LoadDeviceLightingStateStore(paths.OpenRGBDeviceLightingFile)
-	if err != nil {
-		return nil, err
-	}
-	effects, err := lightingsettings.LoadDeviceStore(paths.DeviceEffectSettingsFile)
-	if err != nil {
-		return nil, err
-	}
-	resolver, err := lightingsettings.NewDeviceResolver(defaults, effects)
-	if err != nil {
-		return nil, err
-	}
-	runtime := &deviceLightingRuntime{state: state, effects: effects, resolver: resolver}
-	deviceLightingRuntimeCache.values[key] = runtime
-	return runtime, nil
+	return lightingsettings.LoadIndependentDeviceRuntime(
+		paths.OpenRGBDeviceLightingFile,
+		paths.DeviceEffectSettingsFile,
+		filepath.Join(paths.ShippedDatabaseRoot, "rgb.json"),
+	)
 }
 
 func deviceLightingPathsForMutableRoot(root string) config.Paths {
@@ -77,16 +47,16 @@ func deviceLightingPathsForMutableRoot(root string) config.Paths {
 }
 
 func (d *Device) attachLightingRuntime(runtime *deviceLightingRuntime) error {
-	if d == nil || runtime == nil || runtime.state == nil || runtime.effects == nil || runtime.resolver == nil {
+	if d == nil || runtime == nil || runtime.State == nil || runtime.Effects == nil || runtime.Resolver == nil {
 		return fmt.Errorf("OpenRGB device lighting runtime is unavailable")
 	}
-	state, _, err := runtime.state.Resolve(d.Serial)
+	state, _, err := runtime.State.Resolve(d.Serial)
 	if err != nil {
 		return err
 	}
-	d.lightingState = runtime.state
-	d.lightingEffects = runtime.effects
-	d.lightingResolver = runtime.resolver
+	d.lightingState = runtime.State
+	d.lightingEffects = runtime.Effects
+	d.lightingResolver = runtime.Resolver
 	d.effect = state.SelectedEffect
 	d.brightness = state.Brightness
 	return nil
@@ -97,45 +67,4 @@ func (d *Device) resolveLightingSettings(effect string) (lightingsettings.Resolu
 		return lightingsettings.Resolution{}, fmt.Errorf("OpenRGB device lighting resolver is unavailable")
 	}
 	return d.lightingResolver.Resolve(lightingsettings.IndependentDevice(d.Serial), effect)
-}
-
-func rgbProfileFromLightingSettings(settings lightingsettings.EffectSettings) rgb.Profile {
-	profile := rgb.Profile{ProfileName: settings.EffectID, Brightness: 1}
-	if settings.Speed != nil {
-		profile.Speed = *settings.Speed
-	}
-	if settings.SingleColor != nil {
-		profile.StartColor = rgbColorFromLightingColor(settings.SingleColor.Color)
-	}
-	if settings.TwoColor != nil {
-		profile.StartColor = rgbColorFromLightingColor(settings.TwoColor.Start)
-		profile.EndColor = rgbColorFromLightingColor(settings.TwoColor.End)
-	}
-	if settings.Temperature != nil {
-		profile.StartColor = rgbTemperatureColor(settings.Temperature.Low)
-		profile.MiddleColor = rgbTemperatureColor(settings.Temperature.Middle)
-		profile.EndColor = rgbTemperatureColor(settings.Temperature.High)
-		profile.MinTemp = settings.Temperature.Low.Celsius
-		profile.MaxTemp = settings.Temperature.High.Celsius
-	}
-	if settings.Gradient != nil {
-		profile.Gradients = make(map[int]rgb.Color, len(settings.Gradient.Stops))
-		for index, stop := range settings.Gradient.Stops {
-			color := rgbColorFromLightingColor(stop.Color)
-			color.Position = stop.Position
-			color.Brightness = stop.Intensity
-			profile.Gradients[index] = color
-		}
-	}
-	return profile
-}
-
-func rgbColorFromLightingColor(color lightingsettings.Color) rgb.Color {
-	return rgb.Color{Red: color.Red, Green: color.Green, Blue: color.Blue, Brightness: 1}
-}
-
-func rgbTemperatureColor(point lightingsettings.TemperaturePoint) rgb.Color {
-	color := rgbColorFromLightingColor(point.Color)
-	color.Temperature = point.Celsius
-	return color
 }

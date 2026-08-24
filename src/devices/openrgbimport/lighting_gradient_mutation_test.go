@@ -54,7 +54,7 @@ func TestSetEffectGradient(t *testing.T) {
 		runner := device.rgbRunner
 		running := device.running
 		device.mu.Unlock()
-		profile := rgbProfileFromLightingSettings(after.Settings)
+		profile := lightingsettings.RendererProfileFromEffectSettings(after.Settings)
 		if runner == nil || len(profile.Gradients) != len(want) || !running || calls.persistentFrames == 0 {
 			t.Fatalf("Gradient runner = %#v running %t frames %d", runner, running, calls.persistentFrames)
 		}

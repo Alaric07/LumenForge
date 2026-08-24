@@ -1,6 +1,9 @@
 package rgb
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -240,6 +243,75 @@ func TestSoftwareEffectDescriptorMetadata(t *testing.T) {
 		}
 		if descriptor.SupportsSpeed != HasSpeedControl(descriptor.ID) {
 			t.Errorf("descriptor %q speed support disagrees with HasSpeedControl", descriptor.ID)
+		}
+	}
+}
+
+func TestSoftwareEffectDescriptorRendererSmoothness(t *testing.T) {
+	descriptors := SoftwareEffectDescriptors()
+	if len(softwareEffectRendererSmoothness) != len(descriptors) {
+		t.Fatalf(
+			"renderer Smoothness entry count = %d, want %d descriptors",
+			len(softwareEffectRendererSmoothness),
+			len(descriptors),
+		)
+	}
+	for _, descriptor := range descriptors {
+		smoothness, found := softwareEffectRendererSmoothness[descriptor.ID]
+		if !found {
+			t.Errorf("descriptor %q has no renderer Smoothness entry", descriptor.ID)
+			continue
+		}
+		if smoothness < 0 || smoothness > 100 {
+			t.Errorf("descriptor %q renderer Smoothness = %d", descriptor.ID, smoothness)
+		}
+		if descriptor.RendererSmoothness != smoothness {
+			t.Errorf(
+				"descriptor %q renderer Smoothness = %d, want explicit entry %d",
+				descriptor.ID,
+				descriptor.RendererSmoothness,
+				smoothness,
+			)
+		}
+	}
+	for effectID := range softwareEffectRendererSmoothness {
+		if _, found := SoftwareEffectDescriptorByID(effectID); !found {
+			t.Errorf("renderer Smoothness entry %q has no software effect descriptor", effectID)
+		}
+	}
+}
+
+func TestSoftwareEffectDescriptorRendererSmoothnessMatchesShippedProfiles(t *testing.T) {
+	file, err := os.Open(filepath.Join("..", "..", "database", "rgb.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	var shipped struct {
+		Profiles map[string]struct {
+			Smoothness int `json:"smoothness"`
+		} `json:"profiles"`
+	}
+	if err = json.NewDecoder(file).Decode(&shipped); err != nil {
+		t.Fatal(err)
+	}
+	for _, descriptor := range SoftwareEffectDescriptors() {
+		want := 0
+		if descriptor.ID != "off" {
+			profile, found := shipped.Profiles[descriptor.ID]
+			if !found {
+				t.Errorf("shipped RGB profile %q is missing", descriptor.ID)
+				continue
+			}
+			want = profile.Smoothness
+		}
+		if descriptor.RendererSmoothness != want {
+			t.Errorf(
+				"descriptor %q renderer Smoothness = %d, shipped profile = %d",
+				descriptor.ID,
+				descriptor.RendererSmoothness,
+				want,
+			)
 		}
 	}
 }

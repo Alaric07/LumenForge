@@ -263,7 +263,7 @@ func TestOpenRGBCanonicalStaticRestartReconnectAndCleanBreak(t *testing.T) {
 		t.Fatalf("load canonical lighting runtime: %v", err)
 	}
 	serial := "openrgb-static-clean-break"
-	if err = runtime.state.Set(serial, DeviceLightingState{SelectedEffect: defaultDeviceLightingEffect, Brightness: 50}); err != nil {
+	if err = runtime.State.Set(serial, DeviceLightingState{SelectedEffect: defaultDeviceLightingEffect, Brightness: 50}); err != nil {
 		t.Fatalf("seed target state: %v", err)
 	}
 	settings := lightingsettings.EffectSettings{
@@ -271,7 +271,7 @@ func TestOpenRGBCanonicalStaticRestartReconnectAndCleanBreak(t *testing.T) {
 		EffectID:      defaultDeviceLightingEffect,
 		SingleColor:   &lightingsettings.SingleColorSettings{Color: lightingsettings.Color{Red: 80, Green: 40, Blue: 20}},
 	}
-	if err = runtime.effects.Set(serial, defaultDeviceLightingEffect, settings); err != nil {
+	if err = runtime.Effects.Set(serial, defaultDeviceLightingEffect, settings); err != nil {
 		t.Fatalf("seed canonical Static customization: %v", err)
 	}
 

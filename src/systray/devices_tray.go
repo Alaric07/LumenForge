@@ -13,6 +13,7 @@ var (
 	deviceMap                   = make(map[int]string)
 	getTrayDevices              = devices.GetDevicesEx
 	getTrayDeviceClusterStatus  = devices.GetDeviceClusterStatus
+	getTrayDeviceRgbProfile     = devices.GetDeviceRgbProfile
 	callTrayDeviceMethod        = devices.CallDeviceMethod
 	lookupOpenRGBTrayDevice     = devices.LookupOpenRGBImport
 	snapshotOpenRGBTrayLighting = func(device *openrgbimport.Device) (openrgbimport.LightingSnapshot, bool) {
@@ -22,6 +23,16 @@ var (
 		return device.SetEffect(effect)
 	}
 )
+
+func nativeTraySelectedEffect(serial string) string {
+	result := callTrayDeviceMethod(serial, "GetCurrentRgbProfile")
+	if len(result) > 0 && result[0].IsValid() {
+		if effect, ok := result[0].Interface().(string); ok {
+			return effect
+		}
+	}
+	return getTrayDeviceRgbProfile(serial)
+}
 
 type importedDeviceTrayState struct {
 	device   *openrgbimport.Device

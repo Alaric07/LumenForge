@@ -75,6 +75,9 @@ type SoftwareEffectDescriptor struct {
 	TemperaturePoints SoftwareEffectTemperaturePointContract
 	MinimumLEDs       int
 	Icon              string
+	// RendererSmoothness preserves the shipped rgb.Profile implementation
+	// parameter without making it persisted, user-editable effect state.
+	RendererSmoothness int
 }
 
 type softwareEffectColorUsage uint8
@@ -95,18 +98,57 @@ func newSoftwareEffectDescriptor(
 	topology SoftwareEffectTopology,
 ) SoftwareEffectDescriptor {
 	return SoftwareEffectDescriptor{
-		ID:            id,
-		Label:         label,
-		Scope:         EffectScopeBoth,
-		PaletteKind:   palette,
-		UsesStart:     colors&softwareEffectUsesStart != 0,
-		UsesMiddle:    colors&softwareEffectUsesMiddle != 0,
-		UsesEnd:       colors&softwareEffectUsesEnd != 0,
-		SupportsSpeed: supportsSpeed,
-		Sensor:        sensor,
-		Topology:      topology,
-		Icon:          id + ".svg",
+		ID:                 id,
+		Label:              label,
+		Scope:              EffectScopeBoth,
+		PaletteKind:        palette,
+		UsesStart:          colors&softwareEffectUsesStart != 0,
+		UsesMiddle:         colors&softwareEffectUsesMiddle != 0,
+		UsesEnd:            colors&softwareEffectUsesEnd != 0,
+		SupportsSpeed:      supportsSpeed,
+		Sensor:             sensor,
+		Topology:           topology,
+		Icon:               id + ".svg",
+		RendererSmoothness: softwareEffectRendererSmoothness[id],
 	}
+}
+
+var softwareEffectRendererSmoothness = map[string]int{
+	"arc":                 0,
+	"aurora":              20,
+	"circle":              20,
+	"circleshift":         100,
+	"colorpulse":          40,
+	"colorshift":          50,
+	"colorwarp":           20,
+	"comet":               20,
+	"cpu-temperature":     40,
+	"cyberpunkglitch":     20,
+	"datastream":          20,
+	"flame":               20,
+	"flickering":          40,
+	"gpu-temperature":     40,
+	"gradient":            0,
+	"marquee":             0,
+	"nebula":              0,
+	"off":                 0,
+	"pastelrainbow":       0,
+	"pastelspiralrainbow": 0,
+	"plasmacore":          20,
+	"rain":                0,
+	"rainbow":             0,
+	"rotarystack":         0,
+	"rotator":             0,
+	"sequential":          0,
+	"spinner":             20,
+	"spiralrainbow":       0,
+	"stardust":            20,
+	"static":              20,
+	"storm":               20,
+	"tokyonight":          20,
+	"visor":               0,
+	"watercolor":          0,
+	"wave":                10,
 }
 
 func newTemperatureSoftwareEffectDescriptor(

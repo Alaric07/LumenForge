@@ -737,17 +737,17 @@ func (d *Device) SaveDeviceConfig(cfg *DeviceConfig) error {
 	}
 	previousEffectiveLightingState := previousPersistedLightingState
 	if !previousLightingStateFound {
-		previousEffectiveLightingState = DefaultDeviceLightingState()
+		previousEffectiveLightingState = lightingsettings.DefaultIndependentDeviceLightingState()
 	}
 	brightness := previousEffectiveLightingState.Brightness
-	temporaryLightingState := DeviceLightingState{
+	temporaryLightingState := lightingsettings.IndependentDeviceLightingState{
 		SelectedEffect: defaultDeviceLightingEffect,
 		Brightness:     brightness,
 	}
 	if err = d.lightingState.Set(d.Serial, temporaryLightingState); err != nil {
 		return fmt.Errorf("save Static effect selection for device configuration: %w", err)
 	}
-	restoreInMemory := func(state DeviceLightingState) {
+	restoreInMemory := func(state lightingsettings.IndependentDeviceLightingState) {
 		d.applyConfigLocked(previousCfg, state.Brightness)
 		if previousProfile != nil {
 			d.DeviceProfile = cloneDeviceProfile(previousProfile)
@@ -1341,7 +1341,7 @@ func (d *Device) SetBrightness(brightness uint8) error {
 		}
 	}
 
-	if err := d.lightingState.Set(d.Serial, DeviceLightingState{
+	if err := d.lightingState.Set(d.Serial, lightingsettings.IndependentDeviceLightingState{
 		SelectedEffect: d.effect,
 		Brightness:     brightness,
 	}); err != nil {
@@ -1705,7 +1705,7 @@ func (d *Device) setEffectContext(ctx context.Context, effect string, reportFail
 			d.mu.Unlock()
 			return fmt.Errorf("OpenRGB device lighting state is unavailable")
 		}
-		if err := d.lightingState.Set(d.Serial, DeviceLightingState{
+		if err := d.lightingState.Set(d.Serial, lightingsettings.IndependentDeviceLightingState{
 			SelectedEffect: effect,
 			Brightness:     d.brightness,
 		}); err != nil {
@@ -2554,6 +2554,6 @@ func (d *Device) resolvedRendererProfile(effect string) *rgb.Profile {
 	if err != nil {
 		return nil
 	}
-	resolved := rgbProfileFromLightingSettings(resolution.Settings)
+	resolved := lightingsettings.RendererProfileFromEffectSettings(resolution.Settings)
 	return &resolved
 }
