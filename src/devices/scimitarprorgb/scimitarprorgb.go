@@ -630,65 +630,50 @@ func (d *Device) UpdateLiftHeight(liftHeight int) uint8 {
 
 // ProcessNewGradientColor will create new gradient color
 func (d *Device) ProcessNewGradientColor(profileName string) (uint8, uint) {
+	d.rgbMutex.Lock()
+	defer d.rgbMutex.Unlock()
+
 	if d.GetRgbProfile(profileName) == nil {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profileName}).Warn("Non-existing RGB profile")
 		return 0, 0
 	}
 
-	pf := d.GetRgbProfile(profileName)
-	if pf == nil {
+	selected, status, index, err := d.addCanonicalGradientStop(profileName)
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "profile": profileName}).Error("Unable to add canonical Gradient color")
 		return 0, 0
 	}
-
-	if pf.Gradients == nil {
-		return 0, 0
+	if status != 1 {
+		return status, index
 	}
-
-	// find next available key
-	nextID := 0
-	for k := range pf.Gradients {
-		if k >= nextID {
-			nextID = k + 1
-		}
+	if selected && d.DeviceProfile != nil && !d.DeviceProfile.RGBCluster && !d.DeviceProfile.OpenRGBIntegration {
+		d.restartCanonicalLighting()
 	}
-	pf.Gradients[nextID] = rgb.Color{Red: 0, Green: 255, Blue: 255}
-
-	d.Rgb.Profiles[profileName] = *pf
-	d.saveRgbProfile()
-	d.stopLighting()
-	d.setDeviceColor()
-	return 1, uint(nextID)
+	return 1, index
 }
 
 // ProcessDeleteGradientColor will delete gradient color
 func (d *Device) ProcessDeleteGradientColor(profileName string) (uint8, uint) {
+	d.rgbMutex.Lock()
+	defer d.rgbMutex.Unlock()
+
 	if d.GetRgbProfile(profileName) == nil {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profileName}).Warn("Non-existing RGB profile")
 		return 0, 0
 	}
 
-	pf := d.GetRgbProfile(profileName)
-	if pf == nil {
+	selected, status, index, err := d.deleteCanonicalGradientStop(profileName)
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "profile": profileName}).Error("Unable to delete canonical Gradient color")
 		return 0, 0
 	}
-
-	if len(pf.Gradients) < 3 {
-		return 2, 0
+	if status != 1 {
+		return status, index
 	}
-
-	maxKey := -1
-	for k := range pf.Gradients {
-		if k > maxKey {
-			maxKey = k
-		}
+	if selected && d.DeviceProfile != nil && !d.DeviceProfile.RGBCluster && !d.DeviceProfile.OpenRGBIntegration {
+		d.restartCanonicalLighting()
 	}
-	delete(pf.Gradients, maxKey)
-
-	d.Rgb.Profiles[profileName] = *pf
-	d.saveRgbProfile()
-	d.stopLighting()
-	d.setDeviceColor()
-	return 1, uint(maxKey)
+	return 1, index
 }
 
 // UpdateRgbProfileData will update RGB profile data
