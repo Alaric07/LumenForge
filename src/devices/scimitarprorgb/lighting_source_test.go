@@ -782,6 +782,14 @@ func newScimitarCanonicalLightingTestDevice(
 	t *testing.T,
 ) (*Device, *lightingsettings.IndependentDeviceRuntime) {
 	t.Helper()
+	device, runtime, _ := newScimitarCanonicalLightingTestDeviceWithEffectPath(t)
+	return device, runtime
+}
+
+func newScimitarCanonicalLightingTestDeviceWithEffectPath(
+	t *testing.T,
+) (*Device, *lightingsettings.IndependentDeviceRuntime, string) {
+	t.Helper()
 	root := t.TempDir()
 	defaultsPath, err := filepath.Abs(filepath.Join("..", "..", "..", "database"))
 	if err != nil {
@@ -807,7 +815,7 @@ func newScimitarCanonicalLightingTestDevice(
 	if _, ok := device.lightingSource.(independentDeviceLightingSource); !ok {
 		t.Fatalf("Scimitar canonical source = %#v", device.lightingSource)
 	}
-	return device, runtime
+	return device, runtime, paths.DeviceEffectSettingsFile
 }
 
 func renderScimitarTemplateForTest(t *testing.T, device *Device) string {

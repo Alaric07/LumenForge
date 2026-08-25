@@ -49,8 +49,10 @@ func (override *scimitarSchedulerBrightnessOverride) effective(desired uint8) ui
 
 type scimitarLightingSource interface {
 	resolve() (scimitarResolvedLighting, error)
+	resolveEffectSettings(string) (lightingsettings.EffectSettings, error)
 	selectedEffect() (string, error)
 	setSelectedEffect(string) error
+	setEffectSettings(string, lightingsettings.EffectSettings) error
 	brightness() (uint8, error)
 	setBrightness(uint8) error
 }
@@ -64,9 +66,14 @@ type independentDeviceLightingResolver interface {
 	Resolve(lightingsettings.Target, string) (lightingsettings.Resolution, error)
 }
 
+type independentDeviceEffectSettingsAccess interface {
+	Set(string, string, lightingsettings.EffectSettings) error
+}
+
 type independentDeviceLightingSource struct {
 	deviceID string
 	state    independentDeviceLightingStateAccess
+	effects  independentDeviceEffectSettingsAccess
 	resolver independentDeviceLightingResolver
 }
 
@@ -119,6 +126,24 @@ func (source independentDeviceLightingSource) setBrightness(brightness uint8) er
 	return source.state.Set(source.deviceID, state)
 }
 
+func (source independentDeviceLightingSource) resolveEffectSettings(effect string) (lightingsettings.EffectSettings, error) {
+	if source.resolver == nil {
+		return lightingsettings.EffectSettings{}, fmt.Errorf("independent-device lighting runtime is unavailable")
+	}
+	resolution, err := source.resolver.Resolve(lightingsettings.IndependentDevice(source.deviceID), effect)
+	if err != nil {
+		return lightingsettings.EffectSettings{}, err
+	}
+	return resolution.Settings.Clone(), nil
+}
+
+func (source independentDeviceLightingSource) setEffectSettings(effect string, settings lightingsettings.EffectSettings) error {
+	if source.effects == nil {
+		return fmt.Errorf("independent-device effect customization store is unavailable")
+	}
+	return source.effects.Set(source.deviceID, effect, settings)
+}
+
 func (source independentDeviceLightingSource) resolve() (scimitarResolvedLighting, error) {
 	if source.state == nil || source.resolver == nil {
 		return scimitarResolvedLighting{}, fmt.Errorf("independent-device lighting runtime is unavailable")
@@ -157,12 +182,13 @@ func (d *Device) attachIndependentDeviceLightingRuntime(paths config.Paths) erro
 }
 
 func (d *Device) attachIndependentDeviceLightingSource(runtime *lightingsettings.IndependentDeviceRuntime) error {
-	if d == nil || runtime == nil || runtime.State == nil || runtime.Resolver == nil {
+	if d == nil || runtime == nil || runtime.State == nil || runtime.Effects == nil || runtime.Resolver == nil {
 		return fmt.Errorf("Scimitar Pro canonical lighting runtime is unavailable")
 	}
 	source := independentDeviceLightingSource{
 		deviceID: d.Serial,
 		state:    runtime.State,
+		effects:  runtime.Effects,
 		resolver: runtime.Resolver,
 	}
 	if _, err := source.resolve(); err != nil {
