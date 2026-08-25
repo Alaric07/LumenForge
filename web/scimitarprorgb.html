@@ -11,6 +11,7 @@
     {{ $temperatures := .Temperatures }}
     {{ $device := .Device }}
     {{ $selectedRgbProfile := $device.GetCurrentRgbProfile }}
+    {{ $selectedBrightness := $device.GetCurrentBrightness }}
     {{ $rgb := .Rgb }}
     {{ $profile := $device.DeviceProfile.Profile }}
     {{ $deviceProfile := .Device.DeviceProfile }}
@@ -69,9 +70,9 @@
                                     <span class="settings-label text-ellipsis">{{ .Lang "txtBrightness" }}</span>
                                     <div class="system-slider no-padding-top">
                                         <label for="brightnessSlider">
-                                            <input type="range" id="brightnessSlider" name="brightnessSlider" min="0" max="100" value="{{ $deviceProfile.BrightnessSlider }}" step="1">
+                                            <input type="range" id="brightnessSlider" name="brightnessSlider" min="0" max="100" value="{{ $selectedBrightness }}" step="1">
                                         </label>
-                                        <div class="slider-value" id="brightnessSliderValue">{{ $deviceProfile.BrightnessSlider }} %</div>
+                                        <div class="slider-value" id="brightnessSliderValue">{{ $selectedBrightness }} %</div>
                                     </div>
                                 </div>
 

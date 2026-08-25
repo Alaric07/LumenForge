@@ -36,14 +36,16 @@ type failingScimitarLightingState struct {
 	state    lightingsettings.IndependentDeviceLightingState
 	setError error
 	setCalls int
+	lastSet  lightingsettings.IndependentDeviceLightingState
 }
 
 func (state *failingScimitarLightingState) Resolve(string) (lightingsettings.IndependentDeviceLightingState, bool, error) {
 	return state.state, true, nil
 }
 
-func (state *failingScimitarLightingState) Set(string, lightingsettings.IndependentDeviceLightingState) error {
+func (state *failingScimitarLightingState) Set(_ string, value lightingsettings.IndependentDeviceLightingState) error {
 	state.setCalls++
+	state.lastSet = value
 	return state.setError
 }
 
@@ -56,6 +58,9 @@ func TestScimitarCanonicalLightingSourceRendersDefaultStatic(t *testing.T) {
 	}
 	if resolved.selectedEffect != "static" || resolved.brightness != 100 || resolved.settings.SingleColor == nil {
 		t.Fatalf("default canonical lighting = %#v", resolved)
+	}
+	if brightness := device.GetCurrentBrightness(); brightness != 100 {
+		t.Fatalf("default canonical brightness = %d, want 100", brightness)
 	}
 
 	profile := lightingsettings.RendererProfileFromEffectSettings(resolved.settings)
@@ -126,9 +131,11 @@ func TestScimitarTemplateUsesCanonicalSelectedEffect(t *testing.T) {
 	device, runtime := newScimitarCanonicalLightingTestDevice(t)
 	prepareScimitarCanonicalMutationDevice(device)
 	device.RGBModes = []string{"rainbow", "static"}
+	legacyBrightness := uint8(12)
+	device.DeviceProfile.BrightnessSlider = &legacyBrightness
 	if err := runtime.State.Set(device.Serial, lightingsettings.IndependentDeviceLightingState{
 		SelectedEffect: "rainbow",
-		Brightness:     100,
+		Brightness:     37,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -136,6 +143,13 @@ func TestScimitarTemplateUsesCanonicalSelectedEffect(t *testing.T) {
 	rendered := renderScimitarTemplateForTest(t, device)
 	if !strings.Contains(rendered, `<option value="0;rainbow" selected>rainbow</option>`) {
 		t.Fatalf("canonical Rainbow option was not selected:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, `id="brightnessSlider" name="brightnessSlider" min="0" max="100" value="37"`) ||
+		!strings.Contains(rendered, `id="brightnessSliderValue">37 %</div>`) {
+		t.Fatalf("canonical brightness was not rendered into the legacy page:\n%s", rendered)
+	}
+	if strings.Contains(rendered, `value="12"`) || strings.Contains(rendered, `>12 %</div>`) {
+		t.Fatalf("legacy BrightnessSlider leaked into the rendered page:\n%s", rendered)
 	}
 
 	device.DeviceProfile.RGBProfile = "static"
@@ -160,6 +174,10 @@ func TestScimitarTemplateResolvesUnstoredCanonicalDefault(t *testing.T) {
 	}
 	if strings.Contains(rendered, `<option value="0;rainbow" selected>rainbow</option>`) {
 		t.Fatalf("legacy Rainbow profile was rendered as selected:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, `id="brightnessSlider" name="brightnessSlider" min="0" max="100" value="100"`) ||
+		!strings.Contains(rendered, `id="brightnessSliderValue">100 %</div>`) {
+		t.Fatalf("unstored canonical brightness default was not rendered:\n%s", rendered)
 	}
 	if _, found, err := runtime.State.Resolve(device.Serial); err != nil || found {
 		t.Fatalf("template default resolution persisted state: found=%t err=%v", found, err)
@@ -315,76 +333,179 @@ func TestScimitarUpdateRgbProfileRejectsLegacyMouseMode(t *testing.T) {
 	}
 }
 
-func TestScimitarBrightnessRestartUsesCanonicalSelectedEffect(t *testing.T) {
-	mutations := []struct {
-		name           string
-		apply          func(*Device) uint8
-		wantBrightness uint8
-	}{
-		{
-			name: "slider",
-			apply: func(device *Device) uint8 {
-				return device.ChangeDeviceBrightnessValue(40)
-			},
-			wantBrightness: 40,
-		},
-		{
-			name: "scheduler",
-			apply: func(device *Device) uint8 {
-				return device.SchedulerBrightness(0)
-			},
-			wantBrightness: 0,
-		},
+func TestScimitarChangeDeviceBrightnessValuePersistsCanonicalStateAndRestartsLocalLighting(t *testing.T) {
+	for _, effect := range []string{"static", "rainbow"} {
+		t.Run(effect, func(t *testing.T) {
+			device, runtime := newScimitarCanonicalLightingTestDevice(t)
+			prepareScimitarCanonicalMutationDevice(device)
+			legacyBrightness := uint8(91)
+			device.DeviceProfile.BrightnessSlider = &legacyBrightness
+			if err := runtime.State.Set(device.Serial, lightingsettings.IndependentDeviceLightingState{
+				SelectedEffect: effect,
+				Brightness:     42,
+			}); err != nil {
+				t.Fatal(err)
+			}
+			restarts := 0
+			device.lightingRestart = func() { restarts++ }
+
+			if result := device.ChangeDeviceBrightnessValue(65); result != 1 {
+				t.Fatalf("ChangeDeviceBrightnessValue(65) = %d, want 1", result)
+			}
+			state, found, err := runtime.State.Resolve(device.Serial)
+			if err != nil || !found || state != (lightingsettings.IndependentDeviceLightingState{
+				SelectedEffect: effect,
+				Brightness:     65,
+			}) {
+				t.Fatalf("canonical state after brightness mutation = %#v, %t, %v", state, found, err)
+			}
+			if device.DeviceProfile.BrightnessSlider == nil || *device.DeviceProfile.BrightnessSlider != 91 {
+				t.Fatalf("legacy BrightnessSlider changed to %v, want 91", device.DeviceProfile.BrightnessSlider)
+			}
+			if restarts != 1 {
+				t.Fatalf("local %s restart count = %d, want 1", effect, restarts)
+			}
+
+			reloaded, err := lightingsettings.LoadIndependentDeviceStateStore(scimitarCanonicalStatePath(t, runtime))
+			if err != nil {
+				t.Fatal(err)
+			}
+			reloadedState, reloadedFound, err := reloaded.Resolve(device.Serial)
+			if err != nil || !reloadedFound || reloadedState != state {
+				t.Fatalf("reloaded brightness state = %#v, %t, %v; want %#v", reloadedState, reloadedFound, err, state)
+			}
+		})
 	}
-	effects := []struct {
+}
+
+func TestScimitarChangeDeviceBrightnessValueFailureDoesNotMutateOrRestart(t *testing.T) {
+	logger.Init()
+	device, runtime := newScimitarCanonicalLightingTestDevice(t)
+	prepareScimitarCanonicalMutationDevice(device)
+	legacyBrightness := uint8(91)
+	device.DeviceProfile.BrightnessSlider = &legacyBrightness
+	initial := lightingsettings.IndependentDeviceLightingState{SelectedEffect: "rainbow", Brightness: 42}
+	writeError := errors.New("injected canonical brightness write failure")
+	failingState := &failingScimitarLightingState{state: initial, setError: writeError}
+	device.lightingSource = independentDeviceLightingSource{
+		deviceID: device.Serial,
+		state:    failingState,
+		resolver: runtime.Resolver,
+	}
+	restarts := 0
+	device.lightingRestart = func() { restarts++ }
+	marker := &rgb.ActiveRGB{Exit: make(chan bool, 1)}
+	device.activeRgb = marker
+
+	if result := device.ChangeDeviceBrightnessValue(65); result != 0 {
+		t.Fatalf("ChangeDeviceBrightnessValue with persistence failure = %d, want 0", result)
+	}
+	if failingState.setCalls != 1 || failingState.lastSet != (lightingsettings.IndependentDeviceLightingState{
+		SelectedEffect: "rainbow",
+		Brightness:     65,
+	}) {
+		t.Fatalf("failed canonical Set = %#v after %d calls", failingState.lastSet, failingState.setCalls)
+	}
+	if failingState.state != initial {
+		t.Fatalf("failed persistence changed stored state to %#v, want %#v", failingState.state, initial)
+	}
+	if restarts != 0 || device.activeRgb != marker || len(marker.Exit) != 0 {
+		t.Fatal("persistence failure restarted or stopped active lighting")
+	}
+	if device.DeviceProfile.BrightnessSlider == nil || *device.DeviceProfile.BrightnessSlider != 91 {
+		t.Fatalf("persistence failure changed legacy BrightnessSlider to %v", device.DeviceProfile.BrightnessSlider)
+	}
+
+	failingState.setCalls = 0
+	if result := device.ChangeDeviceBrightnessValue(101); result != 0 {
+		t.Fatalf("ChangeDeviceBrightnessValue(101) = %d, want 0", result)
+	}
+	if failingState.setCalls != 0 || restarts != 0 {
+		t.Fatalf("invalid brightness reached persistence %d times or restarted %d times", failingState.setCalls, restarts)
+	}
+}
+
+func TestScimitarChangeDeviceBrightnessValuePreservesExternalOwnership(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		cluster bool
+		openRGB bool
+	}{
+		{name: "RGB Cluster", cluster: true},
+		{name: "legacy OpenRGB", openRGB: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			device, runtime := newScimitarCanonicalLightingTestDevice(t)
+			prepareScimitarCanonicalMutationDevice(device)
+			device.DeviceProfile.RGBCluster = test.cluster
+			device.DeviceProfile.OpenRGBIntegration = test.openRGB
+			legacyBrightness := uint8(91)
+			device.DeviceProfile.BrightnessSlider = &legacyBrightness
+			if err := runtime.State.Set(device.Serial, lightingsettings.IndependentDeviceLightingState{
+				SelectedEffect: "rainbow",
+				Brightness:     42,
+			}); err != nil {
+				t.Fatal(err)
+			}
+			restarts := 0
+			device.lightingRestart = func() { restarts++ }
+
+			if result := device.ChangeDeviceBrightnessValue(65); result != 1 {
+				t.Fatalf("externally owned brightness mutation = %d, want 1", result)
+			}
+			state, found, err := runtime.State.Resolve(device.Serial)
+			if err != nil || !found || state.SelectedEffect != "rainbow" || state.Brightness != 65 {
+				t.Fatalf("externally owned canonical state = %#v, %t, %v", state, found, err)
+			}
+			if restarts != 0 {
+				t.Fatalf("%s-owned brightness restarted local output %d times", test.name, restarts)
+			}
+			if device.DeviceProfile.BrightnessSlider == nil || *device.DeviceProfile.BrightnessSlider != 91 {
+				t.Fatalf("%s-owned mutation changed legacy BrightnessSlider to %v", test.name, device.DeviceProfile.BrightnessSlider)
+			}
+		})
+	}
+}
+
+func TestScimitarSchedulerBrightnessRemainsLegacyDuringPhaseOne(t *testing.T) {
+	for _, test := range []struct {
 		name            string
 		canonicalEffect string
 		legacyEffect    string
 		wantRestarts    int
 	}{
-		{
-			name:            "canonical Static overrides legacy Rainbow",
-			canonicalEffect: "static",
-			legacyEffect:    "rainbow",
-			wantRestarts:    1,
-		},
-		{
-			name:            "canonical Rainbow ignores legacy Static",
-			canonicalEffect: "rainbow",
-			legacyEffect:    "static",
-			wantRestarts:    0,
-		},
-	}
+		{name: "canonical Static", canonicalEffect: "static", legacyEffect: "rainbow", wantRestarts: 1},
+		{name: "canonical Rainbow", canonicalEffect: "rainbow", legacyEffect: "static", wantRestarts: 0},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			device, runtime := newScimitarCanonicalLightingTestDevice(t)
+			prepareScimitarCanonicalMutationDevice(device)
+			installScimitarProfilePersistenceTestRoot(t)
+			device.DeviceProfile.Active = true
+			device.DeviceProfile.RGBProfile = test.legacyEffect
+			if err := runtime.State.Set(device.Serial, lightingsettings.IndependentDeviceLightingState{
+				SelectedEffect: test.canonicalEffect,
+				Brightness:     100,
+			}); err != nil {
+				t.Fatal(err)
+			}
+			restarts := 0
+			device.lightingRestart = func() { restarts++ }
 
-	for _, mutation := range mutations {
-		for _, effect := range effects {
-			t.Run(mutation.name+"/"+effect.name, func(t *testing.T) {
-				device, runtime := newScimitarCanonicalLightingTestDevice(t)
-				prepareScimitarCanonicalMutationDevice(device)
-				installScimitarProfilePersistenceTestRoot(t)
-				device.DeviceProfile.Active = true
-				device.DeviceProfile.RGBProfile = effect.legacyEffect
-				if err := runtime.State.Set(device.Serial, lightingsettings.IndependentDeviceLightingState{
-					SelectedEffect: effect.canonicalEffect,
-					Brightness:     100,
-				}); err != nil {
-					t.Fatal(err)
-				}
-				restarts := 0
-				device.lightingRestart = func() { restarts++ }
-
-				if result := mutation.apply(device); result != 1 {
-					t.Fatalf("brightness mutation result = %d, want 1", result)
-				}
-				if device.DeviceProfile.BrightnessSlider == nil || *device.DeviceProfile.BrightnessSlider != mutation.wantBrightness {
-					t.Fatalf("brightness after mutation = %v, want %d", device.DeviceProfile.BrightnessSlider, mutation.wantBrightness)
-				}
-				if restarts != effect.wantRestarts {
-					t.Fatalf("canonical %s with legacy %s restarted lighting %d times, want %d",
-						effect.canonicalEffect, effect.legacyEffect, restarts, effect.wantRestarts)
-				}
-			})
-		}
+			if result := device.SchedulerBrightness(0); result != 1 {
+				t.Fatalf("SchedulerBrightness(0) = %d, want 1", result)
+			}
+			if device.DeviceProfile.BrightnessSlider == nil || *device.DeviceProfile.BrightnessSlider != 0 {
+				t.Fatalf("scheduler legacy brightness = %v, want 0", device.DeviceProfile.BrightnessSlider)
+			}
+			state, _, err := runtime.State.Resolve(device.Serial)
+			if err != nil || state.Brightness != 100 {
+				t.Fatalf("scheduler changed canonical brightness: %#v, %v", state, err)
+			}
+			if restarts != test.wantRestarts {
+				t.Fatalf("canonical %s scheduler restart count = %d, want %d", test.canonicalEffect, restarts, test.wantRestarts)
+			}
+		})
 	}
 }
 

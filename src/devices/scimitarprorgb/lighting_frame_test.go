@@ -330,6 +330,59 @@ func TestComposeScimitarClusterFrameDoesNotApplyLocalBrightness(t *testing.T) {
 	}
 }
 
+func TestComposeScimitarExternallyOwnedFramesUseBrightnessOnlyForDPI(t *testing.T) {
+	zoneColors, dpi := scimitarTestFrameLayout()
+	externalZones := []byte{
+		200, 100, 50,
+		180, 90, 30,
+		160, 80, 20,
+		140, 70, 10,
+	}
+	dpiBaseColor := rgb.Color{Red: 120, Green: 60, Blue: 6, Brightness: 0.37}
+	tests := []struct {
+		name       string
+		brightness uint8
+		wantDPI    []byte
+	}{
+		{name: "zero percent", brightness: 0, wantDPI: []byte{0, 0, 0}},
+		{name: "fifty percent", brightness: 50, wantDPI: []byte{60, 30, 3}},
+		{name: "one hundred percent", brightness: 100, wantDPI: []byte{120, 60, 6}},
+	}
+
+	for _, owner := range []string{"RGB Cluster", "legacy OpenRGB"} {
+		for _, test := range tests {
+			t.Run(owner+"/"+test.name, func(t *testing.T) {
+				zonesBefore := append([]byte(nil), externalZones...)
+				frame := composeScimitarExternallyOwnedColorFrame(
+					scimitarTestLEDChannels,
+					zoneColors,
+					dpi,
+					dpiBaseColor,
+					test.brightness,
+					externalZones,
+				)
+				want := []byte{
+					1, 200, 100, 50,
+					2, 140, 70, 10,
+					3, test.wantDPI[0], test.wantDPI[1], test.wantDPI[2],
+					4, 180, 90, 30,
+					5, 160, 80, 20,
+				}
+
+				if !bytes.Equal(frame, want) {
+					t.Fatalf("%s frame at %d%% brightness = %v, want %v", owner, test.brightness, frame, want)
+				}
+				if !bytes.Equal(externalZones, zonesBefore) {
+					t.Fatalf("%s source zones changed at %d%% brightness: %v, want %v", owner, test.brightness, externalZones, zonesBefore)
+				}
+				if dpiBaseColor != (rgb.Color{Red: 120, Green: 60, Blue: 6, Brightness: 0.37}) {
+					t.Fatalf("%s DPI source color changed at %d%% brightness: %#v", owner, test.brightness, dpiBaseColor)
+				}
+			})
+		}
+	}
+}
+
 func scimitarTestFrameLayout() (map[int]ZoneColors, DPIProfile) {
 	return map[int]ZoneColors{
 			0: {

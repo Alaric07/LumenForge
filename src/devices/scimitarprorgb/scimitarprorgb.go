@@ -762,6 +762,16 @@ func (d *Device) GetCurrentRgbProfile() string {
 	return profile
 }
 
+// GetCurrentBrightness returns the canonical desired device brightness for compatibility callers.
+func (d *Device) GetCurrentBrightness() uint8 {
+	brightness, err := d.currentCanonicalBrightness()
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to resolve canonical device brightness")
+		return 0
+	}
+	return brightness
+}
+
 // setupOpenRGBController will create Cluster Controller for RGB Cluster
 func (d *Device) setupClusterController() {
 	if d.DeviceProfile == nil {
@@ -886,12 +896,15 @@ func (d *Device) ChangeDeviceBrightnessValue(value uint8) uint8 {
 		return 0
 	}
 
-	d.DeviceProfile.BrightnessSlider = &value
-	d.saveDeviceProfile()
-
-	if d.GetCurrentRgbProfile() == "static" {
-		d.restartCanonicalLighting()
+	if err := d.setCanonicalBrightness(value); err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "brightness": value}).Error("Unable to update canonical device brightness")
+		return 0
 	}
+
+	if d.DeviceProfile != nil && (d.DeviceProfile.RGBCluster || d.DeviceProfile.OpenRGBIntegration) {
+		return 1
+	}
+	d.restartCanonicalLighting()
 	return 1
 }
 
@@ -1842,12 +1855,16 @@ func (d *Device) setDeviceColor() {
 			return
 		}
 
-		dpiColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
-		dpiColor = rgb.ModifyBrightness(*dpiColor)
+		brightness, err := d.currentCanonicalBrightness()
+		if err != nil {
+			logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to resolve canonical device brightness")
+			return
+		}
+		composedDPIColor := composeScimitarDPIColor(*dpiColor, brightness)
 
 		dpiLeds := d.DeviceProfile.Profiles[d.DeviceProfile.Profile]
 		adapter := newScimitarLightingAdapter(d.LEDChannels, d.DeviceProfile.ZoneColors, dpiLeds)
-		d.writeColor(adapter.composeScimitarHardwareFrame(scimitarLogicalFrame{}, *dpiColor))
+		d.writeColor(adapter.composeScimitarHardwareFrame(scimitarLogicalFrame{}, composedDPIColor))
 		logger.Log(logger.Fields{}).Info("Exiting setDeviceColor() due to OpenRGB client")
 		return
 	}
@@ -1874,8 +1891,7 @@ func (d *Device) setDeviceColor() {
 		return
 	}
 
-	dpiColor.Brightness = rgb.GetBrightnessValueFloat(canonical.brightness)
-	dpiColor = rgb.ModifyBrightness(*dpiColor)
+	composedDPIColor := composeScimitarDPIColor(*dpiColor, canonical.brightness)
 
 	dpiLeds := d.DeviceProfile.Profiles[d.DeviceProfile.Profile]
 	adapter := newScimitarLightingAdapter(d.LEDChannels, d.DeviceProfile.ZoneColors, dpiLeds)
@@ -1883,7 +1899,7 @@ func (d *Device) setDeviceColor() {
 
 	if canonical.selectedEffect == "static" {
 		logicalFrame := composeScimitarStaticLogicalFrame(profile, canonical.brightness)
-		controller.writeLocalFrame(logicalFrame, *dpiColor)
+		controller.writeLocalFrame(logicalFrame, composedDPIColor)
 		return
 	}
 
@@ -2064,7 +2080,7 @@ func (d *Device) setDeviceColor() {
 				}
 
 				logicalFrame := composeScimitarLogicalFrame(buff)
-				controller.writeLocalFrame(logicalFrame, *dpiColor)
+				controller.writeLocalFrame(logicalFrame, composedDPIColor)
 				time.Sleep(40 * time.Millisecond)
 			}
 		}
@@ -2412,6 +2428,11 @@ func (d *Device) startQueueWorker() {
 			if d.Exit {
 				return
 			}
+			brightness, err := d.currentCanonicalBrightness()
+			if err != nil {
+				logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to resolve canonical device brightness")
+				continue
+			}
 			d.deviceLock.Lock()
 			dpiColor := d.DeviceProfile.Profiles[d.DeviceProfile.Profile].Color
 			if d.SniperMode {
@@ -2422,21 +2443,19 @@ func (d *Device) startQueueWorker() {
 				return
 			}
 
-			dpiColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
-			dpiColor = rgb.ModifyBrightness(*dpiColor)
-
 			dpiLeds := d.DeviceProfile.Profiles[d.DeviceProfile.Profile]
-			buf := composeScimitarColorFrame(
+			buf := composeScimitarExternallyOwnedColorFrame(
 				d.LEDChannels,
 				d.DeviceProfile.ZoneColors,
 				dpiLeds,
 				*dpiColor,
+				brightness,
 				data,
 			)
 
 			buffer := make([]byte, len(buf)+headerWriteSize)
 			copy(buffer, buf)
-			_, err := d.transfer(cmdWrite, cmdWriteColor, buffer)
+			_, err = d.transfer(cmdWrite, cmdWriteColor, buffer)
 			if err != nil {
 				logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to write to color endpoint")
 			}
@@ -2474,21 +2493,25 @@ func (d *Device) writeColorCluster(data []byte, _ int) {
 		return
 	}
 
-	dpiColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
-	dpiColor = rgb.ModifyBrightness(*dpiColor)
+	brightness, err := d.currentCanonicalBrightness()
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to resolve canonical device brightness")
+		return
+	}
 
 	dpiLeds := d.DeviceProfile.Profiles[d.DeviceProfile.Profile]
-	buf := composeScimitarColorFrame(
+	buf := composeScimitarExternallyOwnedColorFrame(
 		d.LEDChannels,
 		d.DeviceProfile.ZoneColors,
 		dpiLeds,
 		*dpiColor,
+		brightness,
 		data,
 	)
 
 	buffer := make([]byte, len(buf)+headerWriteSize)
 	copy(buffer, buf)
-	_, err := d.transfer(cmdWrite, cmdWriteColor, buffer)
+	_, err = d.transfer(cmdWrite, cmdWriteColor, buffer)
 	if err != nil {
 		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to write to color endpoint")
 	}

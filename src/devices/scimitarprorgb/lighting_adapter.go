@@ -108,6 +108,28 @@ func composeScimitarStaticLogicalFrame(profile rgb.Profile, brightness uint8) sc
 	return composeScimitarUniformLogicalFrame(*color)
 }
 
+func composeScimitarDPIColor(color rgb.Color, brightness uint8) rgb.Color {
+	color.Brightness = rgb.GetBrightnessValueFloat(brightness)
+	return *rgb.ModifyBrightness(color)
+}
+
+func composeScimitarExternallyOwnedColorFrame(
+	ledChannels int,
+	zoneColors map[int]ZoneColors,
+	dpiLeds DPIProfile,
+	dpiColor rgb.Color,
+	brightness uint8,
+	data []byte,
+) []byte {
+	return composeScimitarColorFrame(
+		ledChannels,
+		zoneColors,
+		dpiLeds,
+		composeScimitarDPIColor(dpiColor, brightness),
+		data,
+	)
+}
+
 func composeScimitarColorFrame(
 	ledChannels int,
 	zoneColors map[int]ZoneColors,
