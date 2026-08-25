@@ -21,7 +21,6 @@ import (
 	"math/bits"
 	"os"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -298,16 +297,20 @@ func (d *Device) createDevice() {
 
 // GetRgbProfiles will return RGB profiles for a target device
 func (d *Device) GetRgbProfiles() interface{} {
-	tmp := *d.Rgb
-
-	// Filter unsupported modes out
-	profiles := make(map[string]rgb.Profile, len(tmp.Profiles))
-	for key, value := range tmp.Profiles {
-		if slices.Contains(rgbModes, key) {
-			profiles[key] = value
+	tmp := rgb.RGB{Device: d.Product, Profiles: make(map[string]rgb.Profile, len(rgbModes))}
+	if d.Rgb != nil {
+		tmp.Device = d.Rgb.Device
+		tmp.DefaultColor = d.Rgb.DefaultColor
+	}
+	if tmp.Device == "" {
+		tmp.Device = d.Product
+	}
+	for _, effect := range rgbModes {
+		profile := d.GetRgbProfile(effect)
+		if profile != nil {
+			tmp.Profiles[effect] = *profile
 		}
 	}
-	tmp.Profiles = profiles
 	return tmp
 }
 
@@ -421,7 +424,7 @@ func (d *Device) loadRgb() {
 func (d *Device) upgradeRgbProfile(path string, profiles []string) {
 	save := false
 	for _, profile := range profiles {
-		pf := d.GetRgbProfile(profile)
+		pf := d.legacyRgbProfile(profile)
 		if pf == nil {
 			save = true
 			logger.Log(logger.Fields{"profile": profile}).Info("Upgrading RGB profile")
@@ -452,8 +455,9 @@ func (d *Device) upgradeRgbProfile(path string, profiles []string) {
 	}
 }
 
-// GetRgbProfile will return rgb.Profile struct
-func (d *Device) GetRgbProfile(profile string) *rgb.Profile {
+// legacyRgbProfile is used only by Scimitar's retained RGB-file loading and
+// upgrade compatibility path. It is not canonical lighting authority.
+func (d *Device) legacyRgbProfile(profile string) *rgb.Profile {
 	if d.Rgb == nil {
 		return nil
 	}
@@ -462,6 +466,28 @@ func (d *Device) GetRgbProfile(profile string) *rgb.Profile {
 		return &val
 	}
 	return nil
+}
+
+// GetRgbProfile returns canonical lighting settings in the legacy-shaped RGB
+// presentation contract expected by the existing server and RGB UI.
+func (d *Device) GetRgbProfile(profile string) *rgb.Profile {
+	if d == nil || d.lightingSource == nil {
+		return nil
+	}
+	if _, ok := scimitarCanonicalEffectDescriptor(profile); !ok {
+		return nil
+	}
+	settings, err := d.lightingSource.resolveEffectSettings(profile)
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "profile": profile}).Error("Unable to resolve canonical RGB profile presentation")
+		return nil
+	}
+	presentation, err := scimitarRGBProfileFromCanonicalSettings(profile, settings)
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "profile": profile}).Error("Unable to present canonical RGB profile")
+		return nil
+	}
+	return presentation
 }
 
 // GetDeviceTemplate will return device template name
@@ -633,7 +659,7 @@ func (d *Device) ProcessNewGradientColor(profileName string) (uint8, uint) {
 	d.rgbMutex.Lock()
 	defer d.rgbMutex.Unlock()
 
-	if d.GetRgbProfile(profileName) == nil {
+	if _, ok := scimitarCanonicalEffectDescriptor(profileName); !ok {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profileName}).Warn("Non-existing RGB profile")
 		return 0, 0
 	}
@@ -657,7 +683,7 @@ func (d *Device) ProcessDeleteGradientColor(profileName string) (uint8, uint) {
 	d.rgbMutex.Lock()
 	defer d.rgbMutex.Unlock()
 
-	if d.GetRgbProfile(profileName) == nil {
+	if _, ok := scimitarCanonicalEffectDescriptor(profileName); !ok {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profileName}).Warn("Non-existing RGB profile")
 		return 0, 0
 	}
@@ -681,7 +707,7 @@ func (d *Device) UpdateRgbProfileData(profileName string, profile rgb.Profile) u
 	d.rgbMutex.Lock()
 	defer d.rgbMutex.Unlock()
 
-	if d.GetRgbProfile(profileName) == nil {
+	if _, ok := scimitarCanonicalEffectDescriptor(profileName); !ok {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
 		return 0
 	}
@@ -699,7 +725,11 @@ func (d *Device) UpdateRgbProfileData(profileName string, profile rgb.Profile) u
 
 // UpdateRgbProfile will update device RGB profile
 func (d *Device) UpdateRgbProfile(_ int, profile string) uint8 {
-	if profile == "mouse" || d.GetRgbProfile(profile) == nil {
+	if profile == "mouse" {
+		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
+		return 0
+	}
+	if _, ok := scimitarCanonicalEffectDescriptor(profile); !ok {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
 		return 0
 	}

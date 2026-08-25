@@ -2,10 +2,86 @@ package scimitarprorgb
 
 import (
 	"fmt"
+	"slices"
 
 	"LumenForge/src/lightingsettings"
 	"LumenForge/src/rgb"
 )
+
+func scimitarCanonicalEffectDescriptor(effect string) (rgb.SoftwareEffectDescriptor, bool) {
+	descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect)
+	if !ok || !descriptor.Scope.Includes(rgb.EffectScopeDevice) || !slices.Contains(rgbModes, effect) {
+		return rgb.SoftwareEffectDescriptor{}, false
+	}
+	return descriptor, true
+}
+
+// scimitarRGBProfileFromCanonicalSettings adapts a resolved canonical effect
+// into the legacy-shaped presentation contract used by the existing RGB UI.
+// It does not expose or restore legacy profile authority.
+func scimitarRGBProfileFromCanonicalSettings(
+	effect string,
+	settings lightingsettings.EffectSettings,
+) (*rgb.Profile, error) {
+	descriptor, ok := scimitarCanonicalEffectDescriptor(effect)
+	if !ok {
+		return nil, fmt.Errorf("unsupported Scimitar Pro effect %q", effect)
+	}
+	if settings.EffectID != effect {
+		return nil, fmt.Errorf("resolved Scimitar Pro effect settings do not match %q", effect)
+	}
+
+	profile := &rgb.Profile{}
+	if descriptor.SupportsSpeed {
+		if settings.Speed == nil {
+			return nil, fmt.Errorf("Scimitar Pro effect %q is missing Speed", effect)
+		}
+		profile.Speed = *settings.Speed
+	}
+
+	color := func(value lightingsettings.Color) rgb.Color {
+		return rgb.Color{Red: value.Red, Green: value.Green, Blue: value.Blue}
+	}
+	switch descriptor.PaletteKind {
+	case rgb.LightingPaletteNone, rgb.LightingPaletteGenerated:
+	case rgb.LightingPaletteStaticSingle:
+		if settings.SingleColor == nil {
+			return nil, fmt.Errorf("Scimitar Pro effect %q is missing its single color", effect)
+		}
+		profile.StartColor = color(settings.SingleColor.Color)
+	case rgb.LightingPaletteTwoColor:
+		if settings.TwoColor == nil {
+			return nil, fmt.Errorf("Scimitar Pro effect %q is missing its two colors", effect)
+		}
+		profile.StartColor = color(settings.TwoColor.Start)
+		profile.EndColor = color(settings.TwoColor.End)
+	case rgb.LightingPaletteTemperatureThree:
+		if settings.Temperature == nil {
+			return nil, fmt.Errorf("Scimitar Pro effect %q is missing its temperature colors", effect)
+		}
+		profile.StartColor = color(settings.Temperature.Low.Color)
+		profile.StartColor.Temperature = settings.Temperature.Low.Celsius
+		profile.MiddleColor = color(settings.Temperature.Middle.Color)
+		profile.MiddleColor.Temperature = settings.Temperature.Middle.Celsius
+		profile.EndColor = color(settings.Temperature.High.Color)
+		profile.EndColor.Temperature = settings.Temperature.High.Celsius
+	case rgb.LightingPaletteGradient:
+		if settings.Gradient == nil {
+			return nil, fmt.Errorf("Scimitar Pro effect %q is missing its Gradient stops", effect)
+		}
+		profile.Gradients = make(map[int]rgb.Color, len(settings.Gradient.Stops))
+		for index, stop := range settings.Gradient.Stops {
+			gradient := color(stop.Color)
+			gradient.Position = stop.Position
+			gradient.Brightness = stop.Intensity
+			profile.Gradients[index] = gradient
+		}
+	default:
+		return nil, fmt.Errorf("unsupported Scimitar Pro effect palette %q", descriptor.PaletteKind)
+	}
+
+	return profile, nil
+}
 
 // replaceCanonicalEffectSettings converts the complete legacy editor payload
 // into canonical effect settings and persists it before reporting whether the
