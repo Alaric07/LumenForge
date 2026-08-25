@@ -9,6 +9,27 @@ import (
 
 type registryTestDevice struct{}
 
+type schedulerReplayTestDevice struct {
+	brightness []uint8
+}
+
+func (device *schedulerReplayTestDevice) SchedulerBrightness(value uint8) {
+	device.brightness = append(device.brightness, value)
+}
+
+func isolateScheduledBrightnessForTest(t *testing.T) {
+	t.Helper()
+	schedulerMutex.Lock()
+	previousBrightness := scheduledBrightness
+	scheduledBrightness = nil
+	schedulerMutex.Unlock()
+	t.Cleanup(func() {
+		schedulerMutex.Lock()
+		scheduledBrightness = previousBrightness
+		schedulerMutex.Unlock()
+	})
+}
+
 type legacyRGBBoundaryTestDevice struct {
 	profileLists        int
 	controls            int
@@ -86,6 +107,33 @@ func TestGetDevicesReturnsWrapperSnapshot(t *testing.T) {
 	}
 }
 
+func TestLateDeviceReceivesCurrentScheduledBrightness(t *testing.T) {
+	isolateScheduledBrightnessForTest(t)
+	mutex.Lock()
+	previousDevices := devices
+	devices = make(map[string]*common.Device)
+	mutex.Unlock()
+	t.Cleanup(func() {
+		mutex.Lock()
+		devices = previousDevices
+		mutex.Unlock()
+	})
+
+	ScheduleDeviceBrightness(0)
+	late := &schedulerReplayTestDevice{}
+	addDevice(&common.Device{Serial: "late-lights-out-device", Instance: late})
+	if len(late.brightness) != 1 || late.brightness[0] != 0 {
+		t.Fatalf("late device scheduler brightness = %v, want [0]", late.brightness)
+	}
+
+	ScheduleDeviceBrightness(1)
+	later := &schedulerReplayTestDevice{}
+	addDevice(&common.Device{Serial: "late-restored-device", Instance: later})
+	if len(later.brightness) != 1 || later.brightness[0] != 1 {
+		t.Fatalf("later device scheduler brightness = %v, want [1]", later.brightness)
+	}
+}
+
 func TestOpenRGBImportRegistryHelpersUseExactInstance(t *testing.T) {
 	mutex.Lock()
 	previousDevices := devices
@@ -152,6 +200,7 @@ func TestOpenRGBImportRegistryHelpersUseExactInstance(t *testing.T) {
 }
 
 func TestLegacyGlobalRGBHelpersSkipClusterAndOpenRGBImports(t *testing.T) {
+	isolateScheduledBrightnessForTest(t)
 	native := &legacyRGBBoundaryTestDevice{}
 	cluster := &legacyRGBBoundaryTestDevice{}
 	imported := &openrgbimport.Device{Serial: "imported", IsOpenRGB: true}

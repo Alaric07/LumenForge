@@ -3,6 +3,7 @@ package scimitarprorgb
 import (
 	"fmt"
 	"path/filepath"
+	"sync"
 
 	"LumenForge/src/config"
 	"LumenForge/src/lightingsettings"
@@ -12,6 +13,38 @@ type scimitarResolvedLighting struct {
 	selectedEffect string
 	brightness     uint8
 	settings       lightingsettings.EffectSettings
+}
+
+type scimitarSchedulerBrightnessOverride struct {
+	mu    sync.RWMutex
+	value *uint8
+}
+
+func (override *scimitarSchedulerBrightnessOverride) set(value *uint8) bool {
+	override.mu.Lock()
+	defer override.mu.Unlock()
+	if override.value == nil && value == nil {
+		return false
+	}
+	if override.value != nil && value != nil && *override.value == *value {
+		return false
+	}
+	if value == nil {
+		override.value = nil
+		return true
+	}
+	copy := *value
+	override.value = &copy
+	return true
+}
+
+func (override *scimitarSchedulerBrightnessOverride) effective(desired uint8) uint8 {
+	override.mu.RLock()
+	defer override.mu.RUnlock()
+	if override.value == nil {
+		return desired
+	}
+	return *override.value
 }
 
 type scimitarLightingSource interface {
@@ -158,6 +191,23 @@ func (d *Device) currentCanonicalBrightness() (uint8, error) {
 		return 0, fmt.Errorf("Scimitar Pro canonical lighting source is unavailable")
 	}
 	return d.lightingSource.brightness()
+}
+
+func (d *Device) effectiveBrightness() (uint8, error) {
+	brightness, err := d.currentCanonicalBrightness()
+	if err != nil {
+		return 0, err
+	}
+	return d.schedulerBrightnessOverride.effective(brightness), nil
+}
+
+func (d *Device) resolveEffectiveCanonicalLighting() (scimitarResolvedLighting, error) {
+	resolved, err := d.resolveCanonicalLighting()
+	if err != nil {
+		return scimitarResolvedLighting{}, err
+	}
+	resolved.brightness = d.schedulerBrightnessOverride.effective(resolved.brightness)
+	return resolved, nil
 }
 
 func (d *Device) setCanonicalSelectedEffect(effect string) error {

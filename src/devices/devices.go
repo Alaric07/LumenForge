@@ -167,6 +167,7 @@ type Product struct {
 
 var (
 	mutex               sync.RWMutex
+	schedulerMutex      sync.RWMutex
 	cls                 *cluster.Device
 	expectedPermissions                             = []os.FileMode{os.FileMode(0600), os.FileMode(0660)}
 	vendorId                                        = uint16(6940)  // Corsair
@@ -176,6 +177,7 @@ var (
 	deviceList                                      = make(map[string]Device)
 	legacyDevices                                   = []uint16{3080, 3081, 3082, 3090, 3091, 3093, 7168}
 	Dispatch            dispatcher.DeviceDispatcher = CallDeviceMethod
+	scheduledBrightness *uint8
 )
 
 // Stop will stop all active devices
@@ -274,6 +276,10 @@ func eligibleForLegacyGlobalRGB(device *common.Device) bool {
 
 // ScheduleDeviceBrightness will change device brightness level based on scheduler
 func ScheduleDeviceBrightness(mode uint8) {
+	schedulerMutex.Lock()
+	copy := mode
+	scheduledBrightness = &copy
+	schedulerMutex.Unlock()
 	for _, device := range GetDevices() {
 		CallDeviceMethod(device.Serial, "SchedulerBrightness", mode)
 	}
@@ -407,6 +413,20 @@ func addDevice(device *common.Device) {
 	mutex.Unlock()
 
 	CallDeviceMethod(device.Serial, "SetDispatcher", Dispatch)
+	reconcileScheduledBrightness(device.Serial)
+}
+
+func reconcileScheduledBrightness(serial string) {
+	schedulerMutex.RLock()
+	mode := scheduledBrightness
+	if mode != nil {
+		copy := *mode
+		mode = &copy
+	}
+	schedulerMutex.RUnlock()
+	if mode != nil {
+		CallDeviceMethod(serial, "SchedulerBrightness", *mode)
+	}
 }
 
 // CallDeviceMethod will call device method based on method name and arguments

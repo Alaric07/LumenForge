@@ -2,6 +2,7 @@ package scimitarprorgb
 
 import (
 	"sort"
+	"sync"
 
 	"LumenForge/src/rgb"
 )
@@ -21,6 +22,51 @@ const (
 
 type scimitarLogicalFrame struct {
 	zones [scimitarEffectZoneCount][scimitarRGBChannelsPerZone]byte
+}
+
+type scimitarExternalFrameOwner uint8
+
+const (
+	scimitarExternalFrameNone scimitarExternalFrameOwner = iota
+	scimitarExternalFrameOpenRGB
+	scimitarExternalFrameCluster
+)
+
+type scimitarExternalFrameCache struct {
+	mu    sync.RWMutex
+	owner scimitarExternalFrameOwner
+	frame scimitarLogicalFrame
+	valid bool
+}
+
+func (cache *scimitarExternalFrameCache) store(owner scimitarExternalFrameOwner, data []byte) bool {
+	if owner == scimitarExternalFrameNone || len(data) < scimitarEffectZoneCount*scimitarRGBChannelsPerZone {
+		return false
+	}
+	frame := composeScimitarLogicalFrame(data)
+	cache.mu.Lock()
+	cache.owner = owner
+	cache.frame = frame
+	cache.valid = true
+	cache.mu.Unlock()
+	return true
+}
+
+func (cache *scimitarExternalFrameCache) load(owner scimitarExternalFrameOwner) (scimitarLogicalFrame, bool) {
+	cache.mu.RLock()
+	defer cache.mu.RUnlock()
+	if !cache.valid || cache.owner != owner {
+		return scimitarLogicalFrame{}, false
+	}
+	return cache.frame, true
+}
+
+func (cache *scimitarExternalFrameCache) clear() {
+	cache.mu.Lock()
+	cache.owner = scimitarExternalFrameNone
+	cache.frame = scimitarLogicalFrame{}
+	cache.valid = false
+	cache.mu.Unlock()
 }
 
 type scimitarLightingAdapter struct {

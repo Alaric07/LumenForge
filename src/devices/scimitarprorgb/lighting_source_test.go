@@ -467,45 +467,281 @@ func TestScimitarChangeDeviceBrightnessValuePreservesExternalOwnership(t *testin
 	}
 }
 
-func TestScimitarSchedulerBrightnessRemainsLegacyDuringPhaseOne(t *testing.T) {
-	for _, test := range []struct {
-		name            string
-		canonicalEffect string
-		legacyEffect    string
-		wantRestarts    int
-	}{
-		{name: "canonical Static", canonicalEffect: "static", legacyEffect: "rainbow", wantRestarts: 1},
-		{name: "canonical Rainbow", canonicalEffect: "rainbow", legacyEffect: "static", wantRestarts: 0},
-	} {
-		t.Run(test.name, func(t *testing.T) {
+func TestScimitarSchedulerBrightnessUsesTransientEffectiveOverride(t *testing.T) {
+	for _, effect := range []string{"static", "rainbow"} {
+		t.Run(effect, func(t *testing.T) {
 			device, runtime := newScimitarCanonicalLightingTestDevice(t)
 			prepareScimitarCanonicalMutationDevice(device)
-			installScimitarProfilePersistenceTestRoot(t)
-			device.DeviceProfile.Active = true
-			device.DeviceProfile.RGBProfile = test.legacyEffect
-			if err := runtime.State.Set(device.Serial, lightingsettings.IndependentDeviceLightingState{
-				SelectedEffect: test.canonicalEffect,
+			legacyBrightness := uint8(91)
+			device.DeviceProfile.BrightnessSlider = &legacyBrightness
+			device.DeviceProfile.OriginalBrightness = 73
+			state := lightingsettings.IndependentDeviceLightingState{
+				SelectedEffect: effect,
 				Brightness:     100,
-			}); err != nil {
+			}
+			if err := runtime.State.Set(device.Serial, state); err != nil {
+				t.Fatal(err)
+			}
+			statePath := scimitarCanonicalStatePath(t, runtime)
+			persistedBefore, err := os.ReadFile(statePath)
+			if err != nil {
 				t.Fatal(err)
 			}
 			restarts := 0
 			device.lightingRestart = func() { restarts++ }
 
+			if brightness, err := device.effectiveBrightness(); err != nil || brightness != 100 {
+				t.Fatalf("effective brightness before scheduler = %d, %v; want 100", brightness, err)
+			}
 			if result := device.SchedulerBrightness(0); result != 1 {
 				t.Fatalf("SchedulerBrightness(0) = %d, want 1", result)
 			}
-			if device.DeviceProfile.BrightnessSlider == nil || *device.DeviceProfile.BrightnessSlider != 0 {
-				t.Fatalf("scheduler legacy brightness = %v, want 0", device.DeviceProfile.BrightnessSlider)
+			resolved, err := device.resolveEffectiveCanonicalLighting()
+			if err != nil || resolved.brightness != 0 {
+				t.Fatalf("effective lighting under scheduler override = %#v, %v", resolved, err)
 			}
-			state, _, err := runtime.State.Resolve(device.Serial)
-			if err != nil || state.Brightness != 100 {
-				t.Fatalf("scheduler changed canonical brightness: %#v, %v", state, err)
+			if effect == "static" {
+				profile := lightingsettings.RendererProfileFromEffectSettings(resolved.settings)
+				if frame := composeScimitarStaticLogicalFrame(profile, resolved.brightness); frame != (scimitarLogicalFrame{}) {
+					t.Fatalf("Static logical frame under scheduler override = %#v, want black", frame)
+				}
 			}
-			if restarts != test.wantRestarts {
-				t.Fatalf("canonical %s scheduler restart count = %d, want %d", test.canonicalEffect, restarts, test.wantRestarts)
+			if desired := device.GetCurrentBrightness(); desired != 100 {
+				t.Fatalf("canonical desired brightness while scheduled dark = %d, want 100", desired)
+			}
+			if restarts != 1 {
+				t.Fatalf("local %s scheduler-off restart count = %d, want 1", effect, restarts)
+			}
+			if result := device.SchedulerBrightness(0); result != 1 || restarts != 1 {
+				t.Fatalf("repeated scheduler-off result/restarts = %d/%d, want 1/1", result, restarts)
+			}
+
+			if result := device.SchedulerBrightness(1); result != 1 {
+				t.Fatalf("SchedulerBrightness(1) = %d, want 1", result)
+			}
+			if brightness, err := device.effectiveBrightness(); err != nil || brightness != 100 {
+				t.Fatalf("effective brightness after scheduler restore = %d, %v; want 100", brightness, err)
+			}
+			if restarts != 2 {
+				t.Fatalf("local %s scheduler-restore restart count = %d, want 2", effect, restarts)
+			}
+			persistedAfter, err := os.ReadFile(statePath)
+			if err != nil || !bytes.Equal(persistedAfter, persistedBefore) {
+				t.Fatalf("scheduler override changed canonical persistence: %v", err)
+			}
+			if device.DeviceProfile.BrightnessSlider == nil || *device.DeviceProfile.BrightnessSlider != 91 ||
+				device.DeviceProfile.OriginalBrightness != 73 {
+				t.Fatalf("scheduler changed legacy brightness fields: slider=%v original=%d",
+					device.DeviceProfile.BrightnessSlider, device.DeviceProfile.OriginalBrightness)
 			}
 		})
+	}
+}
+
+func TestScimitarManualBrightnessWhileScheduledDarkUpdatesDesiredOnly(t *testing.T) {
+	device, runtime := newScimitarCanonicalLightingTestDevice(t)
+	prepareScimitarCanonicalMutationDevice(device)
+	device.RGBModes = []string{"static"}
+	if err := runtime.State.Set(device.Serial, lightingsettings.IndependentDeviceLightingState{
+		SelectedEffect: "static",
+		Brightness:     100,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	restarts := 0
+	device.lightingRestart = func() { restarts++ }
+
+	device.SchedulerBrightness(0)
+	if result := device.ChangeDeviceBrightnessValue(40); result != 1 {
+		t.Fatalf("ChangeDeviceBrightnessValue(40) while dark = %d, want 1", result)
+	}
+	state, found, err := runtime.State.Resolve(device.Serial)
+	if err != nil || !found || state.Brightness != 40 || state.SelectedEffect != "static" {
+		t.Fatalf("canonical state after manual change while dark = %#v, %t, %v", state, found, err)
+	}
+	if desired := device.GetCurrentBrightness(); desired != 40 {
+		t.Fatalf("desired brightness while dark = %d, want 40", desired)
+	}
+	if effective, err := device.effectiveBrightness(); err != nil || effective != 0 {
+		t.Fatalf("effective brightness after manual change while dark = %d, %v; want 0", effective, err)
+	}
+	if restarts != 2 {
+		t.Fatalf("scheduler-off plus manual-change restart count = %d, want 2", restarts)
+	}
+	rendered := renderScimitarTemplateForTest(t, device)
+	if !strings.Contains(rendered, `id="brightnessSlider" name="brightnessSlider" min="0" max="100" value="40"`) ||
+		strings.Contains(rendered, `id="brightnessSlider" name="brightnessSlider" min="0" max="100" value="0"`) {
+		t.Fatalf("template did not preserve desired brightness while effective output was dark:\n%s", rendered)
+	}
+
+	device.SchedulerBrightness(1)
+	if effective, err := device.effectiveBrightness(); err != nil || effective != 40 {
+		t.Fatalf("effective brightness after scheduler restore = %d, %v; want 40", effective, err)
+	}
+	if restarts != 3 {
+		t.Fatalf("scheduler restore restart count = %d, want 3", restarts)
+	}
+}
+
+func TestScimitarSchedulerBrightnessPreservesExternalZoneOwnership(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		cluster bool
+		openRGB bool
+	}{
+		{name: "RGB Cluster", cluster: true},
+		{name: "legacy OpenRGB", openRGB: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			device, runtime := newScimitarCanonicalLightingTestDevice(t)
+			prepareScimitarCanonicalMutationDevice(device)
+			device.Exit = false
+			device.DeviceProfile.RGBCluster = test.cluster
+			device.DeviceProfile.OpenRGBIntegration = test.openRGB
+			zoneColors, dpi := scimitarTestFrameLayout()
+			dpi.Color = &rgb.Color{Red: 120, Green: 60, Blue: 6}
+			device.LEDChannels = scimitarTestLEDChannels
+			device.DeviceProfile.ZoneColors = zoneColors
+			device.DeviceProfile.Profiles = map[int]DPIProfile{0: dpi}
+			if err := runtime.State.Set(device.Serial, lightingsettings.IndependentDeviceLightingState{
+				SelectedEffect: "rainbow",
+				Brightness:     75,
+			}); err != nil {
+				t.Fatal(err)
+			}
+			restarts := 0
+			device.lightingRestart = func() { restarts++ }
+			var writes [][]byte
+			device.lightingFrameWrite = func(frame []byte) {
+				writes = append(writes, append([]byte(nil), frame...))
+			}
+			owner := scimitarExternalFrameOpenRGB
+			if test.cluster {
+				owner = scimitarExternalFrameCluster
+			}
+			externalZones := []byte{200, 100, 50, 180, 90, 30, 160, 80, 20, 140, 70, 10}
+			initialFrame, ok := device.composeAndCacheExternallyOwnedFrame(owner, externalZones, 75)
+			if !ok {
+				t.Fatalf("%s external frame was not accepted", test.name)
+			}
+			dpiBytes := scimitarTestBrightnessBytes(rgb.Color{Red: 120, Green: 60, Blue: 6}, 75)
+			wantInitial := []byte{
+				1, 200, 100, 50,
+				2, 140, 70, 10,
+				3, dpiBytes[0], dpiBytes[1], dpiBytes[2],
+				4, 180, 90, 30,
+				5, 160, 80, 20,
+			}
+			if !bytes.Equal(initialFrame, wantInitial) {
+				t.Fatalf("%s initial external frame = %v, want %v", test.name, initialFrame, wantInitial)
+			}
+			externalZones[0] = 1
+
+			device.SchedulerBrightness(0)
+			effective, err := device.effectiveBrightness()
+			if err != nil || effective != 0 {
+				t.Fatalf("%s effective brightness while dark = %d, %v", test.name, effective, err)
+			}
+			if len(writes) != 1 {
+				t.Fatalf("%s immediate scheduler-off write count = %d, want 1", test.name, len(writes))
+			}
+			wantDark := []byte{
+				1, 200, 100, 50,
+				2, 140, 70, 10,
+				3, 0, 0, 0,
+				4, 180, 90, 30,
+				5, 160, 80, 20,
+			}
+			if !bytes.Equal(writes[0], wantDark) {
+				t.Fatalf("%s immediate dark frame = %v, want %v", test.name, writes[0], wantDark)
+			}
+			if restarts != 0 {
+				t.Fatalf("%s scheduler transition restarted local output %d times", test.name, restarts)
+			}
+
+			device.SchedulerBrightness(1)
+			if effective, err = device.effectiveBrightness(); err != nil || effective != 75 {
+				t.Fatalf("%s effective brightness after restore = %d, %v; want 75", test.name, effective, err)
+			}
+			if len(writes) != 2 {
+				t.Fatalf("%s immediate scheduler-restore write count = %d, want 2", test.name, len(writes))
+			}
+			wantRestored := append([]byte(nil), wantDark...)
+			copy(wantRestored[9:12], dpiBytes)
+			if !bytes.Equal(writes[1], wantRestored) {
+				t.Fatalf("%s immediate restored frame = %v, want %v", test.name, writes[1], wantRestored)
+			}
+			if restarts != 0 {
+				t.Fatalf("%s scheduler restore restarted local output %d times", test.name, restarts)
+			}
+			state, found, err := runtime.State.Resolve(device.Serial)
+			if err != nil || !found || state.Brightness != 75 {
+				t.Fatalf("%s scheduler refresh changed canonical state: %#v, %t, %v", test.name, state, found, err)
+			}
+		})
+	}
+}
+
+func TestScimitarSchedulerBrightnessDoesNotInventExternalFrame(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		cluster bool
+		openRGB bool
+	}{
+		{name: "RGB Cluster", cluster: true},
+		{name: "legacy OpenRGB", openRGB: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			device, runtime := newScimitarCanonicalLightingTestDevice(t)
+			prepareScimitarCanonicalMutationDevice(device)
+			device.Exit = false
+			device.DeviceProfile.RGBCluster = test.cluster
+			device.DeviceProfile.OpenRGBIntegration = test.openRGB
+			if err := runtime.State.Set(device.Serial, lightingsettings.IndependentDeviceLightingState{
+				SelectedEffect: "static",
+				Brightness:     100,
+			}); err != nil {
+				t.Fatal(err)
+			}
+			writes := 0
+			device.lightingFrameWrite = func([]byte) { writes++ }
+
+			device.SchedulerBrightness(0)
+			device.SchedulerBrightness(1)
+			if writes != 0 {
+				t.Fatalf("%s scheduler transition without cache wrote %d frames", test.name, writes)
+			}
+		})
+	}
+}
+
+func TestScimitarExternalFrameCacheDoesNotCrossOwnership(t *testing.T) {
+	device, runtime := newScimitarCanonicalLightingTestDevice(t)
+	prepareScimitarCanonicalMutationDevice(device)
+	device.Exit = false
+	device.DeviceProfile.OpenRGBIntegration = false
+	device.DeviceProfile.RGBCluster = true
+	if err := runtime.State.Set(device.Serial, lightingsettings.IndependentDeviceLightingState{
+		SelectedEffect: "static",
+		Brightness:     100,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !device.externalFrameCache.store(scimitarExternalFrameOpenRGB, []byte{
+		1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+	}) {
+		t.Fatal("OpenRGB frame was not cached")
+	}
+	writes := 0
+	device.lightingFrameWrite = func([]byte) { writes++ }
+
+	device.SchedulerBrightness(0)
+	if writes != 0 {
+		t.Fatalf("Cluster ownership replayed stale OpenRGB cache %d times", writes)
+	}
+	device.externalFrameCache.clear()
+	if _, ok := device.externalFrameCache.load(scimitarExternalFrameOpenRGB); ok {
+		t.Fatal("cleared external frame cache remained available")
 	}
 }
 

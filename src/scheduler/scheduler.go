@@ -25,14 +25,17 @@ type Scheduler struct {
 }
 
 var (
-	location    = ""
-	scheduler   Scheduler
-	upgrade     = map[string]any{"lcdControl": false}
-	layout      = "15:04"
-	mu          sync.Mutex
-	timer       *time.Ticker
-	stopChan    chan struct{}
-	refreshTime = 5000
+	location                    = ""
+	scheduler                   Scheduler
+	upgrade                     = map[string]any{"lcdControl": false}
+	layout                      = "15:04"
+	mu                          sync.Mutex
+	timer                       *time.Ticker
+	stopChan                    chan struct{}
+	refreshTime                 = 5000
+	scheduleDeviceBrightness    = devices.ScheduleDeviceBrightness
+	scheduleDeviceLcdBrightness = devices.ScheduleDeviceLcdBrightness
+	saveSchedulerSettings       = SaveSchedulerSettings
 )
 
 // Schedule represents a specific time to execute a task
@@ -103,14 +106,21 @@ func UpdateRgbSettings(enabled bool, start, end string, lcdControl bool) uint8 {
 	scheduler.RGBOn = rgbOn.Format(layout)
 	scheduler.RGBControl = enabled
 	scheduler.LCDControl = lcdControl
+	if !enabled {
+		scheduler.LightsOut = false
+	}
 	current := scheduler
 	mu.Unlock()
 
-	SaveSchedulerSettings(current)
+	saveSchedulerSettings(current)
 	if current.RGBControl {
 		startTasks()
 	} else {
 		stopTasks()
+		scheduleDeviceBrightness(1)
+		if current.LCDControl {
+			scheduleDeviceLcdBrightness(1)
+		}
 	}
 
 	return 1
@@ -219,39 +229,7 @@ func startTasks() {
 		// not blocked for the duration of the sleep.
 		time.Sleep(time.Duration(refreshTime) * time.Millisecond)
 		timeNow := time.Now()
-		if isInOffRange(timeNow, scheduledTimeOff, scheduledTimeOn) {
-			mu.Lock()
-			if !scheduler.LightsOut {
-				scheduler.LightsOut = true
-				lcdControl := scheduler.LCDControl
-				current := scheduler
-				mu.Unlock()
-
-				devices.ScheduleDeviceBrightness(0)
-				if lcdControl {
-					devices.ScheduleDeviceLcdBrightness(0)
-				}
-				SaveSchedulerSettings(current)
-			} else {
-				mu.Unlock()
-			}
-		} else {
-			mu.Lock()
-			if scheduler.LightsOut {
-				scheduler.LightsOut = false
-				lcdControl := scheduler.LCDControl
-				current := scheduler
-				mu.Unlock()
-
-				devices.ScheduleDeviceBrightness(1)
-				if lcdControl {
-					devices.ScheduleDeviceLcdBrightness(1)
-				}
-				SaveSchedulerSettings(current)
-			} else {
-				mu.Unlock()
-			}
-		}
+		reconcileScheduledBrightness(isInOffRange(timeNow, scheduledTimeOff, scheduledTimeOn))
 
 		for {
 			select {
@@ -266,6 +244,27 @@ func startTasks() {
 			}
 		}
 	}(localTimer, localStop)
+}
+
+func reconcileScheduledBrightness(lightsOut bool) {
+	mu.Lock()
+	changed := scheduler.LightsOut != lightsOut
+	scheduler.LightsOut = lightsOut
+	lcdControl := scheduler.LCDControl
+	current := scheduler
+	mu.Unlock()
+
+	mode := uint8(1)
+	if lightsOut {
+		mode = 0
+	}
+	scheduleDeviceBrightness(mode)
+	if lcdControl {
+		scheduleDeviceLcdBrightness(mode)
+	}
+	if changed {
+		saveSchedulerSettings(current)
+	}
 }
 
 // upgradeFile will perform json file upgrade or create initial file
