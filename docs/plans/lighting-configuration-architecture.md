@@ -7,12 +7,13 @@ configuration. It covers:
 
 - OpenRGB-imported device software lighting;
 - RGB Cluster software lighting;
-- eventual migration of native RGB-capable device families away from the
-  standalone RGB editor.
+- migration of native RGB-capable device families away from the standalone RGB
+  editor, beginning with Scimitar Pro RGB.
 
 This is a deliberate clean break for alpha software. Compatibility with old
-lighting customization data is not required. The first production work remains
-focused on OpenRGB-imported devices and RGB Cluster. Native device families
+lighting customization data is not required. OpenRGB-imported devices and RGB
+Cluster established the canonical model first; native-device migration is now
+underway with Scimitar Pro RGB as the first proof. Native device families still
 migrate separately and only after their hardware-specific behavior and required
 controls are understood; they are not part of one broad migration milestone.
 
@@ -20,6 +21,49 @@ The architecture describes the intended final system. Current global RGB
 editing, RGB Override, heterogeneous Static zone colors, and
 base/override/effective presentation are temporary legacy structures, not
 features to reproduce under new names.
+
+### First native proof: Scimitar Pro RGB
+
+Scimitar Pro RGB is the first native package using the shared canonical
+independent-device lighting runtime.
+
+Canonical state is now authoritative for:
+
+- selected software effect;
+- desired device Brightness;
+- complete per-effect customization;
+- ordered Gradient customization;
+- renderer input and native hardware-frame composition;
+- transient scheduler/lights-out Brightness;
+- retained legacy `/rgb` effect presentation.
+
+The native hardware boundary remains device-owned. Scimitar Pro keeps its
+existing USB/HID packet and LED-layout behavior. Its four ordinary
+software-effect zones are Front, Scroll, Side, and Logo; the DPI indicator is
+device-owned and remains outside the generic effect buffer.
+
+When RGB Cluster or retained OpenRGB integration owns physical output, desired
+local canonical state remains stored independently. Effect customization may be
+persisted without restarting or replacing externally owned ordinary-zone
+output. Cluster frames are not rescaled by local device Brightness, while the
+device-owned DPI indicator follows the effective native Brightness contract.
+
+`4e37de16` changed retained Scimitar `/rgb` presentation to resolve from
+canonical settings. Legacy `d.Rgb` data remains only for startup file
+load/upgrade compatibility and is not a fallback source for selected effect,
+Brightness, effect customization, Gradient customization, rendering,
+validation, or server-facing effect presentation.
+
+`d58cb007` added an immutable canonical Scimitar Lighting snapshot and exposed
+Scimitar Pro RGB in the modern Devices -> Lighting workspace. Native Scimitar
+controls are intentionally read-only at this checkpoint so they cannot
+accidentally route through OpenRGB-import mutation endpoints.
+
+Remaining Scimitar work is to add the native mutation contract used by the
+modern Device Lighting controls, including selected-effect Reset, and only then
+retire its legacy `/rgb` editing dependency and retained RGB startup
+compatibility machinery. Other native packages remain on their existing legacy
+paths until migrated individually.
 
 ## 2. Product goals
 

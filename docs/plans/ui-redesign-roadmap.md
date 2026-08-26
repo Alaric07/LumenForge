@@ -433,13 +433,41 @@ remain intact.
 
 ### Native-device migration
 
-- [ ] Migrate one native device family at a time.
-- [ ] Preserve each family's protocol, packet, topology, lifecycle, firmware,
-  and hardware-specific output behavior.
-- [ ] Provide every renderer-consumed control and Reset before removing that
-  family's legacy dependency.
+- [~] Migrate one native device family at a time. Scimitar Pro RGB is the first
+  active native proof; other native packages remain on their existing legacy
+  paths.
+- [x] Extract the shared independent-device lighting runtime and move Scimitar
+  Pro selected effect to canonical state (`d833da87`, with canonical-read fixes
+  in `4aa688a2`).
+- [x] Move Scimitar Pro desired Brightness to canonical independent-device
+  state (`35b7bb3f`).
+- [x] Make Scimitar Pro scheduler/lights-out Brightness transient, preserve the
+  latest desired Brightness, and immediately replay externally owned ordinary
+  zones with the device-owned DPI indicator recomputed from effective
+  Brightness (`5c7763c7`).
+- [x] Move Scimitar Pro complete per-effect customization to canonical
+  `EffectSettings` persistence (`90a4b003`).
+- [x] Move Scimitar Pro ordered Gradient add/delete mutations to canonical
+  settings (`b1fb390f`).
+- [x] Synthesize retained Scimitar `/rgb` presentation from canonical resolved
+  settings and remove legacy `d.Rgb` from effect-presentation authority
+  (`4e37de16`).
+- [x] Add an immutable canonical Scimitar Lighting snapshot and expose Scimitar
+  Pro in the modern Devices -> Lighting workspace as a read-only native
+  presentation (`d58cb007`).
+- [ ] Add a reusable native Device Lighting mutation contract for effect,
+  Brightness, Speed, supported palette settings, and selected-effect Reset.
+- [ ] Make Scimitar Pro modern Device Lighting interactive through that native
+  contract without routing native devices through `/api/openrgbimport/*`.
+- [ ] Remove Scimitar Pro from the legacy `/rgb` editing path only after every
+  renderer-consumed modern control and Reset reaches parity.
+- [ ] Remove Scimitar Pro's retained legacy RGB file load/upgrade compatibility
+  after no active behavior or presentation depends on it.
+- [ ] Preserve each later family's protocol, packet, topology, lifecycle,
+  firmware, device-specific lighting modes, and hardware-specific output
+  behavior while repeating migration one family at a time.
 - [ ] Remove shared override/global-editor infrastructure only after every
-  proven consumer reaches parity.
+  proven remaining consumer reaches parity.
 
 ### Final cleanup
 

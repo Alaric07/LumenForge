@@ -19,6 +19,9 @@ are safe to migrate together.
   have been documented.
 - **Migration Ready** — canonical replacement behavior and validation
   requirements are defined.
+- **Migrating** — canonical lighting is authoritative for part of the package,
+  but replacement UI or retained legacy compatibility dependencies still
+  prevent the package from being considered fully migrated.
 - **Migrated** — the package/family uses canonical lighting and no longer
   participates in the corresponding legacy lighting path.
 - **Validated** — automated parity has passed and hardware testing has been
@@ -50,6 +53,36 @@ must be accounted for, including:
 
 The legacy `/rgb` editor and remaining global RGB mutation infrastructure stay
 available for unmigrated packages until every remaining consumer has parity.
+
+### Active native proof: Scimitar Pro RGB
+
+`scimitarprorgb` is the first native-device proof for the canonical independent
+lighting architecture. It is intentionally tracked as **Migrating**, not
+**Migrated**, because its canonical backend and presentation cutovers are
+complete while interactive modern Device Lighting mutations and final legacy
+compatibility teardown remain outstanding.
+
+Completed Scimitar Pro RGB work includes:
+
+- shared independent-device canonical selected-effect state and effect-settings
+  resolution (`d833da87`);
+- canonical desired Brightness (`35b7bb3f`);
+- transient scheduler Brightness without overwriting desired state, including
+  externally owned DPI replay behavior (`5c7763c7`);
+- canonical complete per-effect customization (`90a4b003`);
+- canonical ordered Gradient add/delete mutation (`b1fb390f`);
+- legacy `/rgb` presentation synthesized from canonical resolved settings
+  rather than legacy profile values (`4e37de16`);
+- modern Devices -> Lighting presentation from an immutable canonical snapshot,
+  currently read-only for native Scimitar mutations (`d58cb007`).
+
+The retained Scimitar `d.Rgb` file load/upgrade path is startup compatibility
+only. It is not authoritative for selected effect, desired Brightness, effect
+customization, Gradient customization, rendering, validation, or server-facing
+RGB effect presentation.
+
+The other Scimitar packages remain separate **Legacy** migration targets.
+No parity is inferred from their similar package names or zoned-mouse shape.
 
 ---
 
@@ -186,7 +219,7 @@ Generated as a read-only architecture inventory. This does not declare migration
 | `scimitarSEWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `scimitarW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `scimitarWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `scimitarprorgb` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
+| `scimitarprorgb` | Y | Migrating | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `scimitarrgb` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `scimitarrgbelite` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `scufenvisionproV2W` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |

@@ -44,12 +44,30 @@ written with mode `0600`.
 
 Mutable database content includes:
 
-- `profiles/` for device and cluster profiles;
-- `rgb/` for per-device RGB state;
+- `profiles/` for device profiles and retained legacy profile data;
+- `rgb/` for legacy per-device RGB files still used by unmigrated native
+  packages and retained compatibility loaders;
+- `lighting/openrgb-device-state.json` for canonical independent-device
+  selected effect and desired Brightness state. The filename is historical;
+  the shared independent-device runtime is also used by migrated native
+  devices;
+- `lighting/independent-device-effects.json` for complete canonical per-device,
+  per-effect customizations;
+- `lighting/rgb-cluster-state.json` for canonical RGB Cluster selected effect
+  and Brightness;
+- `lighting/rgb-cluster-effects.json` for complete canonical RGB Cluster
+  per-effect customizations;
+- `rgb-cluster-layout.json` for ordered RGB Cluster member layout, separate
+  from device-owned membership;
 - `temperatures/` for cooling and temperature profiles;
 - `macros/`, `key-assignments/`, and `led/`;
 - `lcd/` for editable LCD modes and `lcd/images/` for uploads;
 - `audio.json`, `scheduler.json`, and `openrgbimport-zones.json`.
+
+Canonical lighting persistence does not fall back to legacy `rgb/` or profile
+lighting fields when canonical state is absent. Missing independent-device
+state resolves clean defaults, while missing per-effect customization resolves
+immutable shipped defaults from the installed application database.
 
 Dashboard and display state live at the mutable data root. Bundled LCD media is
 read from the application tree, while uploaded media with the same name takes
