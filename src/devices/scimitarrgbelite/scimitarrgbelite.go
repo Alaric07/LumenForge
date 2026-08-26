@@ -9,6 +9,7 @@ import (
 	"LumenForge/src/common"
 	"LumenForge/src/config"
 	"LumenForge/src/inputmanager"
+	"LumenForge/src/lightingsettings"
 	"LumenForge/src/logger"
 	"LumenForge/src/macro"
 	"LumenForge/src/openrgb"
@@ -20,7 +21,6 @@ import (
 	"math/bits"
 	"os"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -74,62 +74,67 @@ type DPIProfile struct {
 }
 
 type Device struct {
-	Debug                 bool
-	dev                   *hid.Device
-	listener              *hid.Device
-	Manufacturer          string `json:"manufacturer"`
-	Product               string `json:"product"`
-	Serial                string `json:"serial"`
-	Path                  string `json:"path"`
-	Firmware              string `json:"firmware"`
-	activeRgb             *rgb.ActiveRGB
-	UserProfiles          map[string]*DeviceProfile `json:"userProfiles"`
-	ProfileOrder          []string                  `json:"profileOrder"`
-	Devices               map[int]string            `json:"devices"`
-	DeviceProfile         *DeviceProfile
-	OriginalProfile       *DeviceProfile
-	Template              string
-	VendorId              uint16
-	ProductId             uint16
-	Brightness            map[int]string
-	PollingRates          map[int]string
-	SwitchModes           map[int]string
-	KeyAssignmentTypes    map[int]string
-	LEDChannels           int
-	ChangeableLedChannels int
-	CpuTemp               float32
-	GpuTemp               float32
-	Layouts               []string
-	Rgb                   *rgb.RGB
-	rgbMutex              sync.RWMutex
-	SleepModes            map[int]string
-	LiftHeights           map[int]string
-	mutex                 sync.Mutex
-	deviceLock            sync.Mutex
-	timerKeepAlive        *time.Ticker
-	keepAliveChan         chan struct{}
-	timer                 *time.Ticker
-	autoRefreshChan       chan struct{}
-	Exit                  bool
-	KeyAssignment         map[int]inputmanager.KeyAssignment
-	InputActions          map[uint16]inputmanager.InputAction
-	PressLoop             bool
-	keyAssignmentFile     string
-	KeyAssignmentData     *inputmanager.KeyAssignment
-	ModifierIndex         uint32
-	SniperMode            bool
-	MacroTracker          map[int]uint16
-	RGBModes              []string
-	queue                 chan []byte
-	instance              *common.Device
-	Usb                   bool
-	Connected             bool
-	MinDPI                int
-	MaxDPI                int
-	ZoneAmount            int
-	DPIAmount             int
-	stopRepeat            chan struct{}
-	stopRepeatMutex       sync.Mutex
+	Debug                       bool
+	dev                         *hid.Device
+	listener                    *hid.Device
+	Manufacturer                string `json:"manufacturer"`
+	Product                     string `json:"product"`
+	Serial                      string `json:"serial"`
+	Path                        string `json:"path"`
+	Firmware                    string `json:"firmware"`
+	activeRgb                   *rgb.ActiveRGB
+	lightingSource              scimitarEliteLightingSource
+	lightingRestart             func()
+	lightingFrameWrite          func([]byte)
+	schedulerBrightnessOverride scimitarEliteSchedulerBrightnessOverride
+	externalFrameCache          scimitarEliteExternalFrameCache
+	UserProfiles                map[string]*DeviceProfile `json:"userProfiles"`
+	ProfileOrder                []string                  `json:"profileOrder"`
+	Devices                     map[int]string            `json:"devices"`
+	DeviceProfile               *DeviceProfile
+	OriginalProfile             *DeviceProfile
+	Template                    string
+	VendorId                    uint16
+	ProductId                   uint16
+	Brightness                  map[int]string
+	PollingRates                map[int]string
+	SwitchModes                 map[int]string
+	KeyAssignmentTypes          map[int]string
+	LEDChannels                 int
+	ChangeableLedChannels       int
+	CpuTemp                     float32
+	GpuTemp                     float32
+	Layouts                     []string
+	Rgb                         *rgb.RGB
+	rgbMutex                    sync.RWMutex
+	SleepModes                  map[int]string
+	LiftHeights                 map[int]string
+	mutex                       sync.Mutex
+	deviceLock                  sync.Mutex
+	timerKeepAlive              *time.Ticker
+	keepAliveChan               chan struct{}
+	timer                       *time.Ticker
+	autoRefreshChan             chan struct{}
+	Exit                        bool
+	KeyAssignment               map[int]inputmanager.KeyAssignment
+	InputActions                map[uint16]inputmanager.InputAction
+	PressLoop                   bool
+	keyAssignmentFile           string
+	KeyAssignmentData           *inputmanager.KeyAssignment
+	ModifierIndex               uint32
+	SniperMode                  bool
+	MacroTracker                map[int]uint16
+	RGBModes                    []string
+	queue                       chan []byte
+	instance                    *common.Device
+	Usb                         bool
+	Connected                   bool
+	MinDPI                      int
+	MaxDPI                      int
+	ZoneAmount                  int
+	DPIAmount                   int
+	stopRepeat                  chan struct{}
+	stopRepeatMutex             sync.Mutex
 }
 
 var (
@@ -253,9 +258,14 @@ func Init(vendorId, productId uint16, _, path string) *common.Device {
 		DPIAmount:         6,
 	}
 
-	d.getDebugMode()           // Debug mode
-	d.getManufacturer()        // Manufacturer
-	d.getSerial()              // Serial
+	d.getDebugMode()    // Debug mode
+	d.getManufacturer() // Manufacturer
+	d.getSerial()       // Serial
+	if err = d.attachIndependentDeviceLightingRuntime(config.GetPaths()); err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to attach canonical device lighting runtime")
+		_ = dev.Close()
+		return nil
+	}
 	d.loadRgb()                // Load RGB
 	d.loadDeviceProfiles()     // Load all device profiles
 	d.saveDeviceProfile()      // Save profile
@@ -292,29 +302,34 @@ func (d *Device) createDevice() {
 
 // GetRgbProfiles will return RGB profiles for a target device
 func (d *Device) GetRgbProfiles() interface{} {
-	tmp := *d.Rgb
-
-	// Filter unsupported modes out
-	profiles := make(map[string]rgb.Profile, len(tmp.Profiles))
-	for key, value := range tmp.Profiles {
-		if slices.Contains(rgbModes, key) {
-			profiles[key] = value
+	tmp := rgb.RGB{Device: d.Product, Profiles: make(map[string]rgb.Profile, len(rgbModes))}
+	if d.Rgb != nil {
+		tmp.Device = d.Rgb.Device
+		tmp.DefaultColor = d.Rgb.DefaultColor
+	}
+	if tmp.Device == "" {
+		tmp.Device = d.Product
+	}
+	for _, effect := range rgbModes {
+		profile := d.GetRgbProfile(effect)
+		if profile != nil {
+			tmp.Profiles[effect] = *profile
 		}
 	}
-	tmp.Profiles = profiles
 	return tmp
 }
 
 // Stop will stop all device operations and switch a device back to hardware mode
 func (d *Device) Stop() {
 	d.Exit = true
+	d.externalFrameCache.clear()
 	logger.Log(logger.Fields{"serial": d.Serial, "product": d.Product}).Info("Stopping device...")
 	if d.activeRgb != nil {
 		d.activeRgb.Stop()
 	}
 
-	d.timerKeepAlive.Stop()
 	d.timer.Stop()
+	d.timerKeepAlive.Stop()
 	var once sync.Once
 	go func() {
 		once.Do(func() {
@@ -345,8 +360,8 @@ func (d *Device) StopDirty() uint8 {
 		d.activeRgb.Stop()
 	}
 
-	d.timerKeepAlive.Stop()
 	d.timer.Stop()
+	d.timerKeepAlive.Stop()
 	var once sync.Once
 	go func() {
 		once.Do(func() {
@@ -422,7 +437,7 @@ func (d *Device) loadRgb() {
 func (d *Device) upgradeRgbProfile(path string, profiles []string) {
 	save := false
 	for _, profile := range profiles {
-		pf := d.GetRgbProfile(profile)
+		pf := d.legacyRgbProfile(profile)
 		if pf == nil {
 			save = true
 			logger.Log(logger.Fields{"profile": profile}).Info("Upgrading RGB profile")
@@ -453,8 +468,9 @@ func (d *Device) upgradeRgbProfile(path string, profiles []string) {
 	}
 }
 
-// GetRgbProfile will return rgb.Profile struct
-func (d *Device) GetRgbProfile(profile string) *rgb.Profile {
+// legacyRgbProfile is used only by Scimitar's retained RGB-file loading and
+// upgrade compatibility path. It is not canonical lighting authority.
+func (d *Device) legacyRgbProfile(profile string) *rgb.Profile {
 	if d.Rgb == nil {
 		return nil
 	}
@@ -463,6 +479,28 @@ func (d *Device) GetRgbProfile(profile string) *rgb.Profile {
 		return &val
 	}
 	return nil
+}
+
+// GetRgbProfile returns canonical lighting settings in the legacy-shaped RGB
+// presentation contract expected by the existing server and RGB UI.
+func (d *Device) GetRgbProfile(profile string) *rgb.Profile {
+	if d == nil || d.lightingSource == nil {
+		return nil
+	}
+	if _, ok := scimitarEliteCanonicalEffectDescriptor(profile); !ok {
+		return nil
+	}
+	settings, err := d.lightingSource.resolveEffectSettings(profile)
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "profile": profile}).Error("Unable to resolve canonical RGB profile presentation")
+		return nil
+	}
+	presentation, err := scimitarEliteRGBProfileFromCanonicalSettings(profile, settings)
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "profile": profile}).Error("Unable to present canonical RGB profile")
+		return nil
+	}
+	return presentation
 }
 
 // GetDeviceTemplate will return device template name
@@ -479,10 +517,7 @@ func (d *Device) ChangeDeviceProfile(profileName string) uint8 {
 		d.saveDeviceProfile()
 
 		// RGB reset
-		if d.activeRgb != nil {
-			d.activeRgb.Exit <- true
-			d.activeRgb = nil
-		}
+		d.stopLighting()
 
 		newProfile := profile
 		newProfile.Active = true
@@ -580,10 +615,7 @@ func (d *Device) UpdatePollingRate(pullingRate int) uint8 {
 			return 0
 		}
 		d.Exit = true
-		if d.activeRgb != nil {
-			d.activeRgb.Exit <- true
-			d.activeRgb = nil
-		}
+		d.stopLighting()
 		time.Sleep(40 * time.Millisecond)
 
 		d.DeviceProfile.PollingRate = pullingRate
@@ -637,71 +669,50 @@ func (d *Device) UpdateLiftHeight(liftHeight int) uint8 {
 
 // ProcessNewGradientColor will create new gradient color
 func (d *Device) ProcessNewGradientColor(profileName string) (uint8, uint) {
-	if d.GetRgbProfile(profileName) == nil {
+	d.rgbMutex.Lock()
+	defer d.rgbMutex.Unlock()
+
+	if _, ok := scimitarEliteCanonicalEffectDescriptor(profileName); !ok {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profileName}).Warn("Non-existing RGB profile")
 		return 0, 0
 	}
 
-	pf := d.GetRgbProfile(profileName)
-	if pf == nil {
+	selected, status, index, err := d.addCanonicalGradientStop(profileName)
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "profile": profileName}).Error("Unable to add canonical Gradient color")
 		return 0, 0
 	}
-
-	if pf.Gradients == nil {
-		return 0, 0
+	if status != 1 {
+		return status, index
 	}
-
-	// find next available key
-	nextID := 0
-	for k := range pf.Gradients {
-		if k >= nextID {
-			nextID = k + 1
-		}
+	if selected && d.DeviceProfile != nil && !d.DeviceProfile.RGBCluster && !d.DeviceProfile.OpenRGBIntegration {
+		d.restartCanonicalLighting()
 	}
-	pf.Gradients[nextID] = rgb.Color{Red: 0, Green: 255, Blue: 255}
-
-	d.Rgb.Profiles[profileName] = *pf
-	d.saveRgbProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
-	d.setDeviceColor()
-	return 1, uint(nextID)
+	return 1, index
 }
 
 // ProcessDeleteGradientColor will delete gradient color
 func (d *Device) ProcessDeleteGradientColor(profileName string) (uint8, uint) {
-	if d.GetRgbProfile(profileName) == nil {
+	d.rgbMutex.Lock()
+	defer d.rgbMutex.Unlock()
+
+	if _, ok := scimitarEliteCanonicalEffectDescriptor(profileName); !ok {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profileName}).Warn("Non-existing RGB profile")
 		return 0, 0
 	}
 
-	pf := d.GetRgbProfile(profileName)
-	if pf == nil {
+	selected, status, index, err := d.deleteCanonicalGradientStop(profileName)
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "profile": profileName}).Error("Unable to delete canonical Gradient color")
 		return 0, 0
 	}
-
-	if len(pf.Gradients) < 3 {
-		return 2, 0
+	if status != 1 {
+		return status, index
 	}
-
-	maxKey := -1
-	for k := range pf.Gradients {
-		if k > maxKey {
-			maxKey = k
-		}
+	if selected && d.DeviceProfile != nil && !d.DeviceProfile.RGBCluster && !d.DeviceProfile.OpenRGBIntegration {
+		d.restartCanonicalLighting()
 	}
-	delete(pf.Gradients, maxKey)
-
-	d.Rgb.Profiles[profileName] = *pf
-	d.saveRgbProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
-	d.setDeviceColor()
-	return 1, uint(maxKey)
+	return 1, index
 }
 
 // UpdateRgbProfileData will update RGB profile data
@@ -709,50 +720,25 @@ func (d *Device) UpdateRgbProfileData(profileName string, profile rgb.Profile) u
 	d.rgbMutex.Lock()
 	defer d.rgbMutex.Unlock()
 
-	if d.GetRgbProfile(profileName) == nil {
+	if _, ok := scimitarEliteCanonicalEffectDescriptor(profileName); !ok {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
 		return 0
 	}
 
-	pf := d.GetRgbProfile(profileName)
-	if pf == nil {
+	selected, err := d.replaceCanonicalEffectSettings(profileName, profile)
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "profile": profileName}).Error("Unable to update canonical RGB profile settings")
 		return 0
 	}
-
-	if profile.StartColor.Temperature < 0 || profile.StartColor.Temperature > 105 {
-		return 0
+	if selected && d.DeviceProfile != nil && !d.DeviceProfile.RGBCluster && !d.DeviceProfile.OpenRGBIntegration {
+		d.restartCanonicalLighting()
 	}
-
-	if profile.MiddleColor.Temperature < 0 || profile.MiddleColor.Temperature > 105 {
-		return 0
-	}
-
-	if profile.EndColor.Temperature < 0 || profile.EndColor.Temperature > 105 {
-		return 0
-	}
-
-	profile.StartColor.Brightness = pf.StartColor.Brightness
-	profile.EndColor.Brightness = pf.EndColor.Brightness
-	profile.MiddleColor.Brightness = pf.MiddleColor.Brightness
-	pf.StartColor = profile.StartColor
-	pf.EndColor = profile.EndColor
-	pf.MiddleColor = profile.MiddleColor
-	pf.Speed = profile.Speed
-	pf.Gradients = profile.Gradients
-
-	d.Rgb.Profiles[profileName] = *pf
-	d.saveRgbProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
-	d.setDeviceColor()
 	return 1
 }
 
 // UpdateRgbProfile will update device RGB profile
 func (d *Device) UpdateRgbProfile(_ int, profile string) uint8 {
-	if d.GetRgbProfile(profile) == nil {
+	if !d.SupportsLightingEffect(profile) {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
 		return 0
 	}
@@ -764,14 +750,32 @@ func (d *Device) UpdateRgbProfile(_ int, profile string) uint8 {
 		return 4
 	}
 
-	d.DeviceProfile.RGBProfile = profile // Set profile
-	d.saveDeviceProfile()                // Save profile
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
+	if err := d.setCanonicalSelectedEffect(profile); err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "profile": profile}).Error("Unable to update canonical RGB profile")
+		return 0
 	}
-	d.setDeviceColor()
+	d.restartCanonicalLighting()
 	return 1
+}
+
+// GetCurrentRgbProfile returns the canonical selected effect for compatibility callers.
+func (d *Device) GetCurrentRgbProfile() string {
+	profile, err := d.currentCanonicalSelectedEffect()
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to resolve canonical RGB profile")
+		return ""
+	}
+	return profile
+}
+
+// GetCurrentBrightness returns the canonical desired device brightness for compatibility callers.
+func (d *Device) GetCurrentBrightness() uint8 {
+	brightness, err := d.currentCanonicalBrightness()
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to resolve canonical device brightness")
+		return 0
+	}
+	return brightness
 }
 
 // setupOpenRGBController will create Cluster Controller for RGB Cluster
@@ -847,12 +851,10 @@ func (d *Device) ProcessSetOpenRgbIntegration(enabled bool) uint8 {
 	}
 
 	d.clearQueue()
+	d.externalFrameCache.clear()
 	d.DeviceProfile.OpenRGBIntegration = enabled
 	d.saveDeviceProfile() // Save profile
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
+	d.stopLighting()
 	d.setDeviceColor()
 	return 1
 }
@@ -866,12 +868,10 @@ func (d *Device) ProcessSetRgbCluster(enabled bool) uint8 {
 		return 2
 	}
 
+	d.externalFrameCache.clear()
 	d.DeviceProfile.RGBCluster = enabled
 	d.saveDeviceProfile() // Save profile
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
+	d.stopLighting()
 	d.setDeviceColor()
 
 	if enabled {
@@ -893,10 +893,7 @@ func (d *Device) ProcessSetRgbCluster(enabled bool) uint8 {
 func (d *Device) ChangeDeviceBrightness(mode uint8) uint8 {
 	d.DeviceProfile.Brightness = mode
 	d.saveDeviceProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
+	d.stopLighting()
 	d.setDeviceColor()
 	return 1
 }
@@ -907,35 +904,32 @@ func (d *Device) ChangeDeviceBrightnessValue(value uint8) uint8 {
 		return 0
 	}
 
-	d.DeviceProfile.BrightnessSlider = &value
-	d.saveDeviceProfile()
-
-	if d.DeviceProfile.RGBProfile == "static" || d.DeviceProfile.RGBProfile == "mouse" {
-		if d.activeRgb != nil {
-			d.activeRgb.Exit <- true
-			d.activeRgb = nil
-		}
-		d.setDeviceColor()
+	if err := d.setCanonicalBrightness(value); err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "brightness": value}).Error("Unable to update canonical device brightness")
+		return 0
 	}
+
+	if d.DeviceProfile != nil && (d.DeviceProfile.RGBCluster || d.DeviceProfile.OpenRGBIntegration) {
+		return 1
+	}
+	d.restartCanonicalLighting()
 	return 1
 }
 
 // SchedulerBrightness will change device brightness via scheduler
 func (d *Device) SchedulerBrightness(value uint8) uint8 {
+	var override *uint8
 	if value == 0 {
-		d.DeviceProfile.OriginalBrightness = *d.DeviceProfile.BrightnessSlider
-		d.DeviceProfile.BrightnessSlider = &value
-	} else {
-		d.DeviceProfile.BrightnessSlider = &d.DeviceProfile.OriginalBrightness
+		overrideValue := uint8(0)
+		override = &overrideValue
 	}
-
-	d.saveDeviceProfile()
-	if d.DeviceProfile.RGBProfile == "static" || d.DeviceProfile.RGBProfile == "mouse" {
-		if d.activeRgb != nil {
-			d.activeRgb.Exit <- true
-			d.activeRgb = nil
-		}
-		d.setDeviceColor()
+	if !d.schedulerBrightnessOverride.set(override) {
+		return 1
+	}
+	if d.DeviceProfile != nil && !d.DeviceProfile.RGBCluster && !d.DeviceProfile.OpenRGBIntegration {
+		d.restartCanonicalLighting()
+	} else {
+		d.refreshExternallyOwnedDPI()
 	}
 	return 1
 }
@@ -1091,10 +1085,7 @@ func (d *Device) SaveMouseDpiColors(dpi rgb.Color, dpiColors map[int]rgb.Color) 
 
 	if i > 0 {
 		d.saveDeviceProfile()
-		if d.activeRgb != nil {
-			d.activeRgb.Exit <- true
-			d.activeRgb = nil
-		}
+		d.stopLighting()
 		d.setDeviceColor()
 		return 1
 	}
@@ -1129,11 +1120,10 @@ func (d *Device) SaveMouseZoneColors(_ rgb.Color, zoneColors map[int]rgb.Color) 
 
 	if i > 0 {
 		d.saveDeviceProfile()
-		if d.activeRgb != nil {
-			d.activeRgb.Exit <- true
-			d.activeRgb = nil
+		if !d.DeviceProfile.RGBCluster && !d.DeviceProfile.OpenRGBIntegration {
+			d.stopLighting()
+			d.setDeviceColor()
 		}
-		d.setDeviceColor()
 		return 1
 	}
 	return 0
@@ -1320,10 +1310,10 @@ func (d *Device) saveDeviceProfile() {
 				},
 				Color: &rgb.Color{
 					Red:        255,
-					Green:      165,
-					Blue:       0,
+					Green:      255,
+					Blue:       255,
 					Brightness: 1,
-					Hex:        fmt.Sprintf("#%02x%02x%02x", 255, 165, 0),
+					Hex:        fmt.Sprintf("#%02x%02x%02x", 255, 255, 255),
 				},
 			},
 			2: {
@@ -1336,11 +1326,11 @@ func (d *Device) saveDeviceProfile() {
 					0: {9, 10, 11},
 				},
 				Color: &rgb.Color{
-					Red:        255,
+					Red:        0,
 					Green:      255,
 					Blue:       0,
 					Brightness: 1,
-					Hex:        fmt.Sprintf("#%02x%02x%02x", 255, 255, 0),
+					Hex:        fmt.Sprintf("#%02x%02x%02x", 0, 255, 0),
 				},
 			},
 			3: {
@@ -1353,11 +1343,11 @@ func (d *Device) saveDeviceProfile() {
 					0: {9, 10, 11},
 				},
 				Color: &rgb.Color{
-					Red:        0,
+					Red:        255,
 					Green:      255,
 					Blue:       0,
 					Brightness: 1,
-					Hex:        fmt.Sprintf("#%02x%02x%02x", 0, 255, 0),
+					Hex:        fmt.Sprintf("#%02x%02x%02x", 255, 255, 0),
 				},
 			},
 			4: {
@@ -1379,7 +1369,7 @@ func (d *Device) saveDeviceProfile() {
 			},
 			5: {
 				Name:             "Sniper",
-				Value:            200,
+				Value:            400,
 				PackerIndex:      3,
 				LEDIndex:         3,
 				LEDIndexPosition: 8,
@@ -1387,11 +1377,11 @@ func (d *Device) saveDeviceProfile() {
 					0: {9, 10, 11},
 				},
 				Color: &rgb.Color{
-					Red:        255,
-					Green:      255,
-					Blue:       0,
+					Red:        0,
+					Green:      128,
+					Blue:       128,
 					Brightness: 1,
-					Hex:        fmt.Sprintf("#%02x%02x%02x", 255, 255, 0),
+					Hex:        fmt.Sprintf("#%02x%02x%02x", 0, 128, 128),
 				},
 				Sniper: true,
 			},
@@ -1839,6 +1829,11 @@ func (d *Device) getSniperColor() *rgb.Color {
 	return nil
 }
 
+func (d *Device) stopLighting() {
+	controller := scimitarEliteLightingController{activeRGB: &d.activeRgb}
+	controller.stop()
+}
+
 // ControlDeviceRgb will change device brightness via schedulerSchedulerBrightness
 func (d *Device) ControlDeviceRgb(value bool) {
 	if d.DeviceProfile == nil {
@@ -1848,20 +1843,19 @@ func (d *Device) ControlDeviceRgb(value bool) {
 	d.DeviceProfile.RgbOff = value
 	d.saveDeviceProfile()
 
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
+	d.stopLighting()
 	d.setDeviceColor()
 }
 
 // setDeviceColor will activate and set device RGB
 func (d *Device) setDeviceColor() {
-	buf := make([]byte, (d.LEDChannels*3)+5) // Append 5 additional places for each LED packet index
-
 	if d.DeviceProfile == nil {
 		logger.Log(logger.Fields{"serial": d.Serial}).Error("Unable to set color. DeviceProfile is null!")
 		return
+	}
+	lightingOwner := scimitarEliteLightingOwner(d.DeviceProfile)
+	if !d.DeviceProfile.OpenRGBIntegration && lightingOwner != scimitarEliteLightingCluster {
+		d.externalFrameCache.clear()
 	}
 
 	// OpenRGB
@@ -1876,50 +1870,61 @@ func (d *Device) setDeviceColor() {
 			return
 		}
 
-		dpiColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
-		dpiColor = rgb.ModifyBrightness(*dpiColor)
+		brightness, err := d.effectiveBrightness()
+		if err != nil {
+			logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to resolve canonical device brightness")
+			return
+		}
+		composedDPIColor := composeScimitarEliteDPIColor(*dpiColor, brightness)
 
 		dpiLeds := d.DeviceProfile.Profiles[d.DeviceProfile.Profile]
-		buf[dpiLeds.LEDIndexPosition] = byte(dpiLeds.LEDIndex)
-		for i := 0; i < len(dpiLeds.ColorIndex); i++ {
-			dpiColorIndexRange := dpiLeds.ColorIndex[i]
-			for key, dpiColorIndex := range dpiColorIndexRange {
-				switch key {
-				case 0: // Red
-					buf[dpiColorIndex] = byte(dpiColor.Red)
-				case 1: // Green
-					buf[dpiColorIndex] = byte(dpiColor.Green)
-				case 2: // Blue
-					buf[dpiColorIndex] = byte(dpiColor.Blue)
-				}
-			}
-		}
-
-		zoneKeys := make([]int, 0, len(d.DeviceProfile.ZoneColors))
-		for key := range d.DeviceProfile.ZoneColors {
-			zoneKeys = append(zoneKeys, key)
-		}
-		sort.Ints(zoneKeys)
-
-		m := 0
-		for _, key := range zoneKeys {
-			zoneColor := d.DeviceProfile.ZoneColors[key]
-			buf[zoneColor.LEDIndexPosition] = byte(zoneColor.LEDIndex)
-			for _, zoneColorIndex := range zoneColor.ColorIndex {
-				buf[zoneColorIndex] = 0x00
-				m++
-			}
-		}
-		d.writeColor(buf)
+		adapter := newScimitarEliteLightingAdapter(d.LEDChannels, d.DeviceProfile.ZoneColors, dpiLeds)
+		d.writeColor(adapter.composeScimitarEliteHardwareFrame(scimitarEliteLogicalFrame{}, composedDPIColor))
 		logger.Log(logger.Fields{}).Info("Exiting setDeviceColor() due to OpenRGB client")
 		return
 	}
 
 	// RGB Cluster
-	if d.DeviceProfile.RGBCluster {
+	if lightingOwner == scimitarEliteLightingCluster {
 		logger.Log(logger.Fields{}).Info("Exiting setDeviceColor() due to RGB Cluster")
 		return
 	}
+	if selected, err := d.currentCanonicalSelectedEffect(); err == nil && selected == "mouse" {
+		brightness, err := d.effectiveBrightness()
+		if err != nil {
+			logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to resolve canonical device brightness")
+			return
+		}
+		dpiColor := d.DeviceProfile.Profiles[d.DeviceProfile.Profile].Color
+		if d.SniperMode {
+			dpiColor = d.getSniperColor()
+		}
+		if dpiColor == nil {
+			return
+		}
+		var colors [scimitarEliteEffectZoneCount]*rgb.Color
+		keys := make([]int, 0, len(d.DeviceProfile.ZoneColors))
+		for key := range d.DeviceProfile.ZoneColors {
+			keys = append(keys, key)
+		}
+		sort.Ints(keys)
+		for index, key := range keys {
+			if index >= len(colors) {
+				break
+			}
+			colors[index] = d.DeviceProfile.ZoneColors[key].Color
+		}
+		adapter := newScimitarEliteLightingAdapter(d.LEDChannels, d.DeviceProfile.ZoneColors, d.DeviceProfile.Profiles[d.DeviceProfile.Profile])
+		controller := newScimitarEliteLightingController(adapter, lightingOwner, d.writeColor, &d.activeRgb)
+		controller.writeLocalFrame(composeScimitarEliteZoneColorLogicalFrame(colors, brightness), composeScimitarEliteDPIColor(*dpiColor, brightness))
+		return
+	}
+	canonical, err := d.resolveEffectiveCanonicalLighting()
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to resolve canonical device lighting")
+		return
+	}
+	profile := lightingsettings.RendererProfileFromEffectSettings(canonical.settings)
 
 	// DPI
 	dpiColor := d.DeviceProfile.Profiles[d.DeviceProfile.Profile].Color
@@ -1931,92 +1936,34 @@ func (d *Device) setDeviceColor() {
 		return
 	}
 
-	dpiColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
-	dpiColor = rgb.ModifyBrightness(*dpiColor)
+	composedDPIColor := composeScimitarEliteDPIColor(*dpiColor, canonical.brightness)
 
 	dpiLeds := d.DeviceProfile.Profiles[d.DeviceProfile.Profile]
-	buf[dpiLeds.LEDIndexPosition] = byte(dpiLeds.LEDIndex)
-	for i := 0; i < len(dpiLeds.ColorIndex); i++ {
-		dpiColorIndexRange := dpiLeds.ColorIndex[i]
-		for key, dpiColorIndex := range dpiColorIndexRange {
-			switch key {
-			case 0: // Red
-				buf[dpiColorIndex] = byte(dpiColor.Red)
-			case 1: // Green
-				buf[dpiColorIndex] = byte(dpiColor.Green)
-			case 2: // Blue
-				buf[dpiColorIndex] = byte(dpiColor.Blue)
-			}
-		}
-	}
+	adapter := newScimitarEliteLightingAdapter(d.LEDChannels, d.DeviceProfile.ZoneColors, dpiLeds)
+	controller := newScimitarEliteLightingController(adapter, lightingOwner, d.writeColor, &d.activeRgb)
 
-	if d.DeviceProfile.RGBProfile == "mouse" {
-		for _, zoneColor := range d.DeviceProfile.ZoneColors {
-			zoneColor.Color.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
-			zoneColor.Color = rgb.ModifyBrightness(*zoneColor.Color)
-			zoneColorIndexRange := zoneColor.ColorIndex
-			buf[zoneColor.LEDIndexPosition] = byte(zoneColor.LEDIndex)
-			for key, zoneColorIndex := range zoneColorIndexRange {
-				switch key {
-				case 0: // Red
-					buf[zoneColorIndex] = byte(zoneColor.Color.Red)
-				case 1: // Green
-					buf[zoneColorIndex] = byte(zoneColor.Color.Green)
-				case 2: // Blue
-					buf[zoneColorIndex] = byte(zoneColor.Color.Blue)
-				}
-			}
-		}
-		d.writeColor(buf)
+	if canonical.selectedEffect == "static" {
+		logicalFrame := composeScimitarEliteStaticLogicalFrame(profile, canonical.brightness)
+		controller.writeLocalFrame(logicalFrame, composedDPIColor)
 		return
 	}
 
-	if d.DeviceProfile.RGBProfile == "static" {
-		profile := d.GetRgbProfile("static")
-		if profile == nil {
-			return
-		}
-
-		profile.StartColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
-		profileColor := rgb.ModifyBrightness(profile.StartColor)
-
-		for _, zoneColor := range d.DeviceProfile.ZoneColors {
-			buf[zoneColor.LEDIndexPosition] = byte(zoneColor.LEDIndex)
-			zoneColorIndexRange := zoneColor.ColorIndex
-			for key, zoneColorIndex := range zoneColorIndexRange {
-				switch key {
-				case 0: // Red
-					buf[zoneColorIndex] = byte(profileColor.Red)
-				case 1: // Green
-					buf[zoneColorIndex] = byte(profileColor.Green)
-				case 2: // Blue
-					buf[zoneColorIndex] = byte(profileColor.Blue)
-				}
-			}
-		}
-		d.writeColor(buf)
-		return
-	}
-
-	go func(lightChannels int) {
+	go func(lightChannels int, effect string, brightness uint8, resolvedProfile rgb.Profile) {
 		startTime := time.Now()
-		d.activeRgb = rgb.Exit()
+		activeRgb := controller.start()
 
 		// Generate random colors
-		d.activeRgb.RGBStartColor = rgb.GenerateRandomColor(1)
-		d.activeRgb.RGBEndColor = rgb.GenerateRandomColor(1)
+		activeRgb.RGBStartColor = rgb.GenerateRandomColor(1)
+		activeRgb.RGBEndColor = rgb.GenerateRandomColor(1)
 
 		for {
 			select {
-			case <-d.activeRgb.Exit:
+			case <-activeRgb.Exit:
 				return
 			default:
 				buff := make([]byte, 0)
 				rgbCustomColor := true
-				profile := d.GetRgbProfile(d.DeviceProfile.RGBProfile)
-				if profile == nil {
-					continue
-				}
+				profile := resolvedProfile
 				rgbModeSpeed := common.FClamp(profile.Speed, 0.1, 10)
 				// Check if we have custom colors
 				if (rgb.Color{}) == profile.StartColor || (rgb.Color{}) == profile.EndColor {
@@ -2039,9 +1986,9 @@ func (d *Device) setDeviceColor() {
 					r.RGBEndColor = &profile.EndColor
 					r.RGBMiddleColor = &profile.MiddleColor
 				} else {
-					r.RGBStartColor = d.activeRgb.RGBStartColor
-					r.RGBEndColor = d.activeRgb.RGBEndColor
-					r.RGBMiddleColor = d.activeRgb.RGBMiddleColor
+					r.RGBStartColor = activeRgb.RGBStartColor
+					r.RGBEndColor = activeRgb.RGBEndColor
+					r.RGBMiddleColor = activeRgb.RGBMiddleColor
 				}
 
 				if r.RGBMiddleColor == nil {
@@ -2049,12 +1996,12 @@ func (d *Device) setDeviceColor() {
 				}
 
 				// Brightness
-				r.RGBBrightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
+				r.RGBBrightness = rgb.GetBrightnessValueFloat(brightness)
 				r.RGBStartColor.Brightness = r.RGBBrightness
 				r.RGBEndColor.Brightness = r.RGBBrightness
 				r.RGBMiddleColor.Brightness = r.RGBBrightness
 
-				switch d.DeviceProfile.RGBProfile {
+				switch effect {
 				case "off":
 					{
 						for n := 0; n < d.ChangeableLedChannels; n++ {
@@ -2152,7 +2099,7 @@ func (d *Device) setDeviceColor() {
 					}
 				case "colorshift":
 					{
-						r.Colorshift(&startTime, d.activeRgb)
+						r.Colorshift(&startTime, activeRgb)
 						buff = append(buff, r.Output...)
 					}
 				case "circleshift":
@@ -2172,34 +2119,17 @@ func (d *Device) setDeviceColor() {
 					}
 				case "colorwarp":
 					{
-						r.Colorwarp(&startTime, d.activeRgb)
+						r.Colorwarp(&startTime, activeRgb)
 						buff = append(buff, r.Output...)
 					}
 				}
-				zoneKeys := make([]int, 0, len(d.DeviceProfile.ZoneColors))
-				for key := range d.DeviceProfile.ZoneColors {
-					zoneKeys = append(zoneKeys, key)
-				}
-				sort.Ints(zoneKeys)
 
-				m := 0
-				for _, key := range zoneKeys {
-					zoneColor := d.DeviceProfile.ZoneColors[key]
-					buf[zoneColor.LEDIndexPosition] = byte(zoneColor.LEDIndex)
-					for _, zoneColorIndex := range zoneColor.ColorIndex {
-						if m >= len(buff) {
-							break
-						}
-						buf[zoneColorIndex] = buff[m]
-						m++
-					}
-				}
-
-				d.writeColor(buf)
+				logicalFrame := composeScimitarEliteLogicalFrame(buff)
+				controller.writeLocalFrame(logicalFrame, composedDPIColor)
 				time.Sleep(40 * time.Millisecond)
 			}
 		}
-	}(d.ChangeableLedChannels)
+	}(d.ChangeableLedChannels, canonical.selectedEffect, canonical.brightness, profile)
 }
 
 // setupKeyAssignment will setup mouse keys
@@ -2464,10 +2394,7 @@ func (d *Device) sniperMode(active bool) {
 				}
 				d.deviceLock.Unlock()
 
-				if d.activeRgb != nil {
-					d.activeRgb.Exit <- true
-					d.activeRgb = nil
-				}
+				d.stopLighting()
 				d.setDeviceColor()
 			}
 		}
@@ -2502,10 +2429,7 @@ func (d *Device) toggleDPI() {
 		}
 		d.deviceLock.Unlock()
 
-		if d.activeRgb != nil {
-			d.activeRgb.Exit <- true
-			d.activeRgb = nil
-		}
+		d.stopLighting()
 		d.setDeviceColor()
 	}
 }
@@ -2549,58 +2473,24 @@ func (d *Device) startQueueWorker() {
 			if d.Exit {
 				return
 			}
+			if d.DeviceProfile == nil || !d.DeviceProfile.OpenRGBIntegration {
+				continue
+			}
+			brightness, err := d.effectiveBrightness()
+			if err != nil {
+				logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to resolve canonical device brightness")
+				continue
+			}
 			d.deviceLock.Lock()
-			buf := make([]byte, (d.LEDChannels*3)+5) // Append 5 additional places for each LED packet index
-			dpiColor := d.DeviceProfile.Profiles[d.DeviceProfile.Profile].Color
-			if d.SniperMode {
-				dpiColor = d.getSniperColor()
-			}
-
-			if dpiColor == nil {
-				return
-			}
-
-			dpiColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
-			dpiColor = rgb.ModifyBrightness(*dpiColor)
-
-			dpiLeds := d.DeviceProfile.Profiles[d.DeviceProfile.Profile]
-			buf[dpiLeds.LEDIndexPosition] = byte(dpiLeds.LEDIndex)
-			for i := 0; i < len(dpiLeds.ColorIndex); i++ {
-				dpiColorIndexRange := dpiLeds.ColorIndex[i]
-				for key, dpiColorIndex := range dpiColorIndexRange {
-					switch key {
-					case 0: // Red
-						buf[dpiColorIndex] = byte(dpiColor.Red)
-					case 1: // Green
-						buf[dpiColorIndex] = byte(dpiColor.Green)
-					case 2: // Blue
-						buf[dpiColorIndex] = byte(dpiColor.Blue)
-					}
-				}
-			}
-
-			zoneKeys := make([]int, 0, len(d.DeviceProfile.ZoneColors))
-			for key := range d.DeviceProfile.ZoneColors {
-				zoneKeys = append(zoneKeys, key)
-			}
-			sort.Ints(zoneKeys)
-
-			m := 0
-			for _, key := range zoneKeys {
-				zoneColor := d.DeviceProfile.ZoneColors[key]
-				buf[zoneColor.LEDIndexPosition] = byte(zoneColor.LEDIndex)
-				for _, zoneColorIndex := range zoneColor.ColorIndex {
-					if m >= len(data) {
-						break
-					}
-					buf[zoneColorIndex] = data[m]
-					m++
-				}
+			buf, ok := d.composeAndCacheExternallyOwnedFrame(scimitarEliteExternalFrameOpenRGB, data, brightness)
+			if !ok {
+				d.deviceLock.Unlock()
+				continue
 			}
 
 			buffer := make([]byte, len(buf)+headerWriteSize)
 			copy(buffer, buf)
-			_, err := d.transfer(cmdWrite, cmdWriteColor, buffer)
+			_, err = d.transfer(cmdWrite, cmdWriteColor, buffer)
 			if err != nil {
 				logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to write to color endpoint")
 			}
@@ -2623,66 +2513,95 @@ func (d *Device) writeColorCluster(data []byte, _ int) {
 		return
 	}
 
-	buf := make([]byte, (d.LEDChannels*3)+5) // Append 5 additional places for each LED packet index
 	if d.DeviceProfile == nil {
 		logger.Log(logger.Fields{"serial": d.Serial}).Error("Unable to set color. DeviceProfile is null!")
 		return
 	}
-
-	// DPI
-	dpiColor := d.DeviceProfile.Profiles[d.DeviceProfile.Profile].Color
-	if d.SniperMode {
-		dpiColor = d.getSniperColor()
-	}
-
-	if dpiColor == nil {
+	brightness, err := d.effectiveBrightness()
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to resolve canonical device brightness")
 		return
 	}
-
-	dpiColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
-	dpiColor = rgb.ModifyBrightness(*dpiColor)
-
-	dpiLeds := d.DeviceProfile.Profiles[d.DeviceProfile.Profile]
-	buf[dpiLeds.LEDIndexPosition] = byte(dpiLeds.LEDIndex)
-	for i := 0; i < len(dpiLeds.ColorIndex); i++ {
-		dpiColorIndexRange := dpiLeds.ColorIndex[i]
-		for key, dpiColorIndex := range dpiColorIndexRange {
-			switch key {
-			case 0: // Red
-				buf[dpiColorIndex] = byte(dpiColor.Red)
-			case 1: // Green
-				buf[dpiColorIndex] = byte(dpiColor.Green)
-			case 2: // Blue
-				buf[dpiColorIndex] = byte(dpiColor.Blue)
-			}
-		}
-	}
-
-	zoneKeys := make([]int, 0, len(d.DeviceProfile.ZoneColors))
-	for key := range d.DeviceProfile.ZoneColors {
-		zoneKeys = append(zoneKeys, key)
-	}
-	sort.Ints(zoneKeys)
-
-	m := 0
-	for _, key := range zoneKeys {
-		zoneColor := d.DeviceProfile.ZoneColors[key]
-		buf[zoneColor.LEDIndexPosition] = byte(zoneColor.LEDIndex)
-		for _, zoneColorIndex := range zoneColor.ColorIndex {
-			if m >= len(data) {
-				break
-			}
-			buf[zoneColorIndex] = data[m]
-			m++
-		}
+	buf, ok := d.composeAndCacheExternallyOwnedFrame(scimitarEliteExternalFrameCluster, data, brightness)
+	if !ok {
+		return
 	}
 
 	buffer := make([]byte, len(buf)+headerWriteSize)
 	copy(buffer, buf)
-	_, err := d.transfer(cmdWrite, cmdWriteColor, buffer)
+	_, err = d.transfer(cmdWrite, cmdWriteColor, buffer)
 	if err != nil {
 		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to write to color endpoint")
 	}
+}
+
+func (d *Device) composeAndCacheExternallyOwnedFrame(
+	owner scimitarEliteExternalFrameOwner,
+	data []byte,
+	brightness uint8,
+) ([]byte, bool) {
+	dpiColor := d.DeviceProfile.Profiles[d.DeviceProfile.Profile].Color
+	if d.SniperMode {
+		dpiColor = d.getSniperColor()
+	}
+	if dpiColor == nil {
+		return nil, false
+	}
+
+	d.externalFrameCache.store(owner, data)
+	dpiLeds := d.DeviceProfile.Profiles[d.DeviceProfile.Profile]
+	return composeScimitarEliteExternallyOwnedColorFrame(
+		d.LEDChannels,
+		d.DeviceProfile.ZoneColors,
+		dpiLeds,
+		*dpiColor,
+		brightness,
+		data,
+	), true
+}
+
+func (d *Device) refreshExternallyOwnedDPI() bool {
+	if d.DeviceProfile == nil || d.Exit {
+		return false
+	}
+	owner := scimitarEliteExternalFrameNone
+	if d.DeviceProfile.OpenRGBIntegration {
+		owner = scimitarEliteExternalFrameOpenRGB
+	} else if d.DeviceProfile.RGBCluster {
+		owner = scimitarEliteExternalFrameCluster
+	}
+	logicalFrame, ok := d.externalFrameCache.load(owner)
+	if !ok {
+		return false
+	}
+	brightness, err := d.effectiveBrightness()
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to resolve canonical device brightness")
+		return false
+	}
+	dpiColor := d.DeviceProfile.Profiles[d.DeviceProfile.Profile].Color
+	if d.SniperMode {
+		dpiColor = d.getSniperColor()
+	}
+	if dpiColor == nil {
+		return false
+	}
+	dpiLeds := d.DeviceProfile.Profiles[d.DeviceProfile.Profile]
+	adapter := newScimitarEliteLightingAdapter(d.LEDChannels, d.DeviceProfile.ZoneColors, dpiLeds)
+	frame := adapter.composeScimitarEliteHardwareFrame(
+		logicalFrame,
+		composeScimitarEliteDPIColor(*dpiColor, brightness),
+	)
+	d.writeLightingFrame(frame)
+	return true
+}
+
+func (d *Device) writeLightingFrame(frame []byte) {
+	if d.lightingFrameWrite != nil {
+		d.lightingFrameWrite(append([]byte(nil), frame...))
+		return
+	}
+	d.writeColor(frame)
 }
 
 // writeColor will write color data to the device
