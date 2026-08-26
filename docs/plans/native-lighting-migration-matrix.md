@@ -54,12 +54,12 @@ must be accounted for, including:
 The legacy `/rgb` editor and remaining global RGB mutation infrastructure stay
 available for unmigrated packages until every remaining consumer has parity.
 
-### Active native migration
+### Completed native migration proofs
 
-`scimitarprorgb`, `scimitarrgbelite`, and `mm800` are active canonical native
-lighting migrations. They remain tracked as **Migrating**, not **Migrated**,
-because retained legacy `/rgb` and startup compatibility surfaces have not yet
-been removed completely.
+`scimitarprorgb`, `scimitarrgbelite`, and `mm800` are now tracked as
+**Migrated**. Canonical Device Lighting is authoritative and these packages no
+longer participate in retained legacy `/rgb` lighting persistence or mutation
+paths (`2ef84b50`, `564cf8c8`).
 
 Completed shared native work includes:
 
@@ -206,7 +206,7 @@ Generated as a read-only architecture inventory. This does not declare migration
 | `makr75WU` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
 | `memory` | Y | Legacy | multi-channel + per-LED | Y | Y | Y |  | Y | Y | Y | led |
 | `mm700` | Y | Legacy | single-profile | Y | Y |  |  |  | Y | Y | mousepad |
-| `mm800` | Y | Migrating | single-profile | Y | Y |  |  |  | Y | Y | mousepad |
+| `mm800` | Y | Migrated | single-profile |  | Y |  |  |  | Y | Y | mousepad |
 | `motherboard` |  | Not a lighting target | weak-marker only |  |  |  |  |  |  |  |  |
 | `nautilusLcd` | Y | Legacy | other lighting | Y |  |  |  |  |  |  |  |
 | `nexus` |  | Not a lighting target | weak-marker only |  |  |  |  |  |  |  |  |
@@ -227,9 +227,9 @@ Generated as a read-only architecture inventory. This does not declare migration
 | `scimitarSEWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `scimitarW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `scimitarWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `scimitarprorgb` | Y | Migrating | zoned | Y | Y |  | Y |  | Y | Y | mouse |
+| `scimitarprorgb` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
 | `scimitarrgb` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `scimitarrgbelite` | Y | Migrating | zoned | Y | Y |  | Y |  | Y | Y | mouse |
+| `scimitarrgbelite` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
 | `scufenvisionproV2W` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `scufenvisionproV2WU` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `scufenvisionproW` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |

@@ -433,10 +433,10 @@ remain intact.
 
 ### Native-device migration
 
-- [~] Migrate one native device family at a time. Scimitar Pro RGB established
-  the shared canonical proof; Scimitar RGB Elite and MM800 now use the same
-  canonical Device Lighting model while their retained legacy compatibility
-  surfaces remain to be removed.
+- [x] Complete the first native Device Lighting migration set. Scimitar Pro RGB
+  established the shared canonical proof, and Scimitar RGB Elite and MM800 now
+  use the same canonical Device Lighting model without participating in retained
+  legacy `/rgb` lighting persistence or mutation paths (`2ef84b50`, `564cf8c8`).
 - [x] Extract the shared independent-device lighting runtime and move Scimitar
   Pro selected effect to canonical state (`d833da87`, with canonical-read fixes
   in `4aa688a2`).
@@ -478,9 +478,9 @@ remain intact.
   overlapping legacy geometry; Scimitar RGB Elite presents Front, Scroll,
   Side, and Logo while keeping DPI outside the authored-zone editor
   (`ce890f75`).
-- [ ] Remove Scimitar Pro, Scimitar RGB Elite, and MM800 from retained legacy
-  `/rgb` editing and startup compatibility only after no active behavior or
-  presentation depends on those paths.
+- [x] Remove Scimitar Pro, Scimitar RGB Elite, and MM800 from retained legacy
+  `/rgb` editing and startup compatibility after eliminating their remaining
+  legacy RGB persistence and mutation dependencies (`2ef84b50`, `564cf8c8`).
 - [ ] Preserve each later family's protocol, packet, topology, lifecycle,
   firmware, device-specific lighting modes, and hardware-specific output
   behavior while repeating migration one family at a time.
@@ -787,8 +787,9 @@ roadmap does not promise that every duplicate will be deleted.
 after OpenRGB parity.
 23. [~] Migrate native-device families one at a time without changing their
 hardware-specific output behavior. Scimitar Pro RGB, Scimitar RGB Elite, and
-MM800 now use the canonical Device Lighting model; retained legacy
-compatibility cleanup remains.
+MM800 are fully migrated to the canonical Device Lighting model and no longer
+participate in legacy `/rgb` lighting persistence or mutation paths
+(`2ef84b50`, `564cf8c8`). Remaining native families are still pending.
 24. [x] Add the generic native authored-zone presentation and mutation contract
 for device-owned modes (`ce890f75`).
 25. [ ] Remove `/rgb`, global mutations, remaining target-local RGB copies,

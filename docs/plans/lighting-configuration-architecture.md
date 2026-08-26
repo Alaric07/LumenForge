@@ -12,10 +12,11 @@ configuration. It covers:
 
 This is a deliberate clean break for alpha software. Compatibility with old
 lighting customization data is not required. OpenRGB-imported devices and RGB
-Cluster established the canonical model first; native-device migration is now
-underway with Scimitar Pro RGB as the first proof. Native device families still
-migrate separately and only after their hardware-specific behavior and required
-controls are understood; they are not part of one broad migration milestone.
+Cluster established the canonical model first. Scimitar Pro RGB, Scimitar RGB
+Elite, and MM800 now form the first completed native migration set. Remaining
+native device families still migrate separately and only after their
+hardware-specific behavior and required controls are understood; they are not
+part of one broad migration milestone.
 
 The architecture describes the intended final system. Current global RGB
 editing, RGB Override, heterogeneous Static zone colors, and
@@ -68,11 +69,11 @@ Brightness, Speed, supported palette settings, selected-effect Reset, and
 authored-zone mutations without routing native devices through
 `/api/openrgbimport/*`.
 
-Retained legacy `/rgb` and startup compatibility paths may remain temporarily
-for migrated native packages, but they are not authoritative for canonical
-selected effect, desired Brightness, generic effect customization, or modern
-Devices -> Lighting presentation. They are removed only after no active
-behavior or presentation depends on them.
+Scimitar Pro RGB, Scimitar RGB Elite, and MM800 no longer retain legacy
+`/rgb` lighting persistence or mutation compatibility. Their canonical selected
+effect, desired Brightness, generic effect customization, authored-zone state,
+and modern Devices -> Lighting presentation remain authoritative. Other native
+families continue using the legacy path until migrated individually.
 
 ## 2. Product goals
 
@@ -623,11 +624,13 @@ not promise immediate deletion of shared native-device infrastructure.
 
 ## 14. Native-device boundary
 
-The standalone RGB editor currently serves native-device families as well as
-OpenRGB-imported devices and RGB Cluster. Therefore:
+The standalone RGB editor now serves only native-device families that have not
+yet completed canonical Device Lighting migration. OpenRGB-imported devices,
+RGB Cluster, Scimitar Pro RGB, Scimitar RGB Elite, and MM800 no longer depend
+on it for lighting configuration. Therefore:
 
-- OpenRGB may cut over independently;
-- RGB Cluster may cut over independently;
+- OpenRGB has cut over independently;
+- RGB Cluster has cut over independently;
 - native families migrate one at a time;
 - `/rgb` is removed only when every still-supported target it serves has
   equivalent renderer-consumed controls and Reset behavior;
