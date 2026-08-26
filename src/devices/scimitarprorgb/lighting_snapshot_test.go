@@ -10,7 +10,6 @@ import (
 func TestScimitarLightingSnapshotUsesCanonicalDesiredStateAndSettings(t *testing.T) {
 	device, runtime := newScimitarCanonicalLightingTestDevice(t)
 	prepareScimitarCanonicalMutationDevice(device)
-	device.Rgb.Profiles["static"] = rgb.Profile{StartColor: rgb.Color{Red: 1}}
 	device.DeviceProfile.RGBProfile = "rainbow"
 	if err := runtime.State.Set(device.Serial, lightingsettings.IndependentDeviceLightingState{SelectedEffect: "static", Brightness: 36}); err != nil {
 		t.Fatal(err)

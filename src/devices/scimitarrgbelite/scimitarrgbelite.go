@@ -105,7 +105,6 @@ type Device struct {
 	CpuTemp                     float32
 	GpuTemp                     float32
 	Layouts                     []string
-	Rgb                         *rgb.RGB
 	rgbMutex                    sync.RWMutex
 	SleepModes                  map[int]string
 	LiftHeights                 map[int]string
@@ -160,7 +159,6 @@ var (
 	minDpiValue                          = 100
 	maxDpiValue                          = 18000
 	deviceRefreshInterval                = 1000
-	rgbProfileUpgrade                    = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch", "tokyonight"}
 	rgbModes                             = []string{
 		"colorpulse",
 		"colorshift",
@@ -267,7 +265,6 @@ func Init(vendorId, productId uint16, _, path string) *common.Device {
 		_ = dev.Close()
 		return nil
 	}
-	d.loadRgb()                // Load RGB
 	d.loadDeviceProfiles()     // Load all device profiles
 	d.saveDeviceProfile()      // Save profile
 	d.getDeviceFirmware()      // Firmware
@@ -299,25 +296,6 @@ func (d *Device) createDevice() {
 		Instance:    d,
 		DeviceType:  common.DeviceTypeMouse,
 	}
-}
-
-// GetRgbProfiles will return RGB profiles for a target device
-func (d *Device) GetRgbProfiles() interface{} {
-	tmp := rgb.RGB{Device: d.Product, Profiles: make(map[string]rgb.Profile, len(rgbModes))}
-	if d.Rgb != nil {
-		tmp.Device = d.Rgb.Device
-		tmp.DefaultColor = d.Rgb.DefaultColor
-	}
-	if tmp.Device == "" {
-		tmp.Device = d.Product
-	}
-	for _, effect := range rgbModes {
-		profile := d.GetRgbProfile(effect)
-		if profile != nil {
-			tmp.Profiles[effect] = *profile
-		}
-	}
-	return tmp
 }
 
 // Stop will stop all device operations and switch a device back to hardware mode
@@ -395,113 +373,6 @@ func (d *Device) getSerial() {
 		logger.Log(logger.Fields{"error": err}).Fatal("Unable to get device serial number")
 	}
 	d.Serial = serial
-}
-
-// loadRgb will load RGB file if found, or create the default.
-func (d *Device) loadRgb() {
-	rgbDirectory := pwd + "/database/rgb/"
-	rgbFilename := rgbDirectory + d.Serial + ".json"
-
-	// Check if filename has .json extension
-	if !common.IsValidExtension(rgbFilename, ".json") {
-		return
-	}
-
-	if !common.FileExists(rgbFilename) {
-		profile := rgb.GetRGB()
-		profile.Device = d.Product
-
-		if err := common.SaveJsonData(rgbFilename, profile); err != nil {
-			logger.Log(logger.Fields{"error": err, "location": rgbFilename}).Error("Unable to write rgb profile data")
-			return
-		}
-	}
-
-	file, err := os.Open(rgbFilename)
-	if err != nil {
-		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "location": rgbFilename}).Warn("Unable to load RGB")
-		return
-	}
-	if err = json.NewDecoder(file).Decode(&d.Rgb); err != nil {
-		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "location": rgbFilename}).Warn("Unable to decode profile")
-		return
-	}
-	err = file.Close()
-	if err != nil {
-		logger.Log(logger.Fields{"location": rgbFilename, "serial": d.Serial}).Warn("Failed to close file handle")
-	}
-
-	d.upgradeRgbProfile(rgbFilename, rgbProfileUpgrade)
-}
-
-// upgradeRgbProfile will upgrade current rgb profile list
-func (d *Device) upgradeRgbProfile(path string, profiles []string) {
-	save := false
-	for _, profile := range profiles {
-		pf := d.legacyRgbProfile(profile)
-		if pf == nil {
-			save = true
-			logger.Log(logger.Fields{"profile": profile}).Info("Upgrading RGB profile")
-			template := rgb.GetRgbProfile(profile)
-			if template == nil {
-				d.Rgb.Profiles[profile] = rgb.Profile{}
-			} else {
-				d.Rgb.Profiles[profile] = *template
-			}
-		}
-	}
-	for key, val := range d.Rgb.Profiles {
-		template := rgb.GetRgbProfile(key)
-		if template == nil {
-			continue
-		}
-
-		if val.Version != template.Version {
-			d.Rgb.Profiles[key] = *template
-			save = true
-		}
-	}
-	if save {
-		if err := common.SaveJsonData(path, d.Rgb); err != nil {
-			logger.Log(logger.Fields{"error": err, "location": path}).Error("Unable to upgrade rgb profile data")
-			return
-		}
-	}
-}
-
-// legacyRgbProfile is used only by Scimitar's retained RGB-file loading and
-// upgrade compatibility path. It is not canonical lighting authority.
-func (d *Device) legacyRgbProfile(profile string) *rgb.Profile {
-	if d.Rgb == nil {
-		return nil
-	}
-
-	if val, ok := d.Rgb.Profiles[profile]; ok {
-		return &val
-	}
-	return nil
-}
-
-// GetRgbProfile returns canonical lighting settings in the legacy-shaped RGB
-// presentation contract expected by the existing server and RGB UI.
-func (d *Device) GetRgbProfile(profile string) *rgb.Profile {
-	if d == nil || d.lightingSource == nil {
-		return nil
-	}
-	if _, ok := scimitarEliteCanonicalEffectDescriptor(profile); !ok {
-		return nil
-	}
-	settings, err := d.lightingSource.resolveEffectSettings(profile)
-	if err != nil {
-		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "profile": profile}).Error("Unable to resolve canonical RGB profile presentation")
-		return nil
-	}
-	presentation, err := scimitarEliteRGBProfileFromCanonicalSettings(profile, settings)
-	if err != nil {
-		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "profile": profile}).Error("Unable to present canonical RGB profile")
-		return nil
-	}
-	return presentation
 }
 
 // GetDeviceTemplate will return device template name
@@ -595,18 +466,6 @@ func (d *Device) rotateDeviceProfile() {
 
 	d.ChangeDeviceProfile(next)
 	return
-}
-
-// saveRgbProfile will save rgb profile data
-func (d *Device) saveRgbProfile() {
-	rgbDirectory := pwd + "/database/rgb/"
-	rgbFilename := rgbDirectory + d.Serial + ".json"
-	if common.FileExists(rgbFilename) {
-		if err := common.SaveJsonData(rgbFilename, d.Rgb); err != nil {
-			logger.Log(logger.Fields{"error": err, "location": rgbFilename}).Error("Unable to write rgb profile data")
-			return
-		}
-	}
 }
 
 // UpdatePollingRate will set device polling rate
@@ -714,59 +573,6 @@ func (d *Device) ProcessDeleteGradientColor(profileName string) (uint8, uint) {
 		d.restartCanonicalLighting()
 	}
 	return 1, index
-}
-
-// UpdateRgbProfileData will update RGB profile data
-func (d *Device) UpdateRgbProfileData(profileName string, profile rgb.Profile) uint8 {
-	d.rgbMutex.Lock()
-	defer d.rgbMutex.Unlock()
-
-	if _, ok := scimitarEliteCanonicalEffectDescriptor(profileName); !ok {
-		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
-		return 0
-	}
-
-	selected, err := d.replaceCanonicalEffectSettings(profileName, profile)
-	if err != nil {
-		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "profile": profileName}).Error("Unable to update canonical RGB profile settings")
-		return 0
-	}
-	if selected && d.DeviceProfile != nil && !d.DeviceProfile.RGBCluster && !d.DeviceProfile.OpenRGBIntegration {
-		d.restartCanonicalLighting()
-	}
-	return 1
-}
-
-// UpdateRgbProfile will update device RGB profile
-func (d *Device) UpdateRgbProfile(_ int, profile string) uint8 {
-	if !d.SupportsLightingEffect(profile) {
-		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
-		return 0
-	}
-
-	if d.DeviceProfile.RGBCluster {
-		return 5
-	}
-	if d.DeviceProfile.OpenRGBIntegration {
-		return 4
-	}
-
-	if err := d.setCanonicalSelectedEffect(profile); err != nil {
-		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "profile": profile}).Error("Unable to update canonical RGB profile")
-		return 0
-	}
-	d.restartCanonicalLighting()
-	return 1
-}
-
-// GetCurrentRgbProfile returns the canonical selected effect for compatibility callers.
-func (d *Device) GetCurrentRgbProfile() string {
-	profile, err := d.currentCanonicalSelectedEffect()
-	if err != nil {
-		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to resolve canonical RGB profile")
-		return ""
-	}
-	return profile
 }
 
 // GetCurrentBrightness returns the canonical desired device brightness for compatibility callers.

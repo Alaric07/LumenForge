@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -47,7 +46,6 @@ type Device struct {
 	LEDChannels                 int
 	CpuTemp                     float32
 	GpuTemp                     float32
-	Rgb                         *rgb.RGB
 	rgbMutex                    sync.RWMutex
 	Exit                        bool
 	timer                       *time.Ticker
@@ -116,7 +114,6 @@ var (
 	cmdWriteColor                = []byte{0x22, 0x14, 0x00}
 	cmdActivateLed               = []byte{0x05, 0x02, 0x00, 0x04}
 	reloadMM800ProfilesAfterSave = func(d *Device) { d.loadDeviceProfiles() }
-	rgbProfileUpgrade            = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch", "tokyonight"}
 	rgbModes                     = []string{
 		"circle",
 		"circleshift",
@@ -183,7 +180,6 @@ func Init(vendorId, productId uint16, serial, path string) *common.Device {
 		_ = d.dev.Close()
 		return nil
 	}
-	d.loadRgb()                // Load RGB
 	d.setSoftwareMode()        // Activate software mode
 	d.getDeviceFirmware()      // Firmware
 	d.loadDeviceProfiles()     // Load all device profiles
@@ -265,21 +261,6 @@ func (d *Device) saveLedProfile() {
 	led.SaveProfile(d.Serial, device)
 }
 
-// GetRgbProfiles will return RGB profiles for a target device
-func (d *Device) GetRgbProfiles() interface{} {
-	tmp := *d.Rgb
-
-	// Filter unsupported modes out
-	profiles := make(map[string]rgb.Profile, len(tmp.Profiles))
-	for key, value := range tmp.Profiles {
-		if slices.Contains(rgbModes, key) {
-			profiles[key] = value
-		}
-	}
-	tmp.Profiles = profiles
-	return tmp
-}
-
 // GetZoneColors will return current device zone colors
 func (d *Device) GetZoneColors() interface{} {
 	if d.DeviceProfile == nil {
@@ -351,90 +332,6 @@ func (d *Device) UpdateDeviceMetrics() {
 		Firmware: d.Firmware,
 	}
 	metrics.Populate(header)
-}
-
-// loadRgb will load RGB file if found, or create the default.
-func (d *Device) loadRgb() {
-	rgbDirectory := pwd + "/database/rgb/"
-	rgbFilename := rgbDirectory + d.Serial + ".json"
-
-	// Check if filename has .json extension
-	if !common.IsValidExtension(rgbFilename, ".json") {
-		return
-	}
-
-	if !common.FileExists(rgbFilename) {
-		profile := rgb.GetRGB()
-		profile.Device = d.Product
-
-		if err := common.SaveJsonData(rgbFilename, profile); err != nil {
-			logger.Log(logger.Fields{"error": err, "location": rgbFilename}).Error("Unable to write rgb profile data")
-			return
-		}
-	}
-
-	file, err := os.Open(rgbFilename)
-	if err != nil {
-		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "location": rgbFilename}).Warn("Unable to load RGB")
-		return
-	}
-	if err = json.NewDecoder(file).Decode(&d.Rgb); err != nil {
-		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "location": rgbFilename}).Warn("Unable to decode profile")
-		return
-	}
-	err = file.Close()
-	if err != nil {
-		logger.Log(logger.Fields{"location": rgbFilename, "serial": d.Serial}).Warn("Failed to close file handle")
-	}
-
-	d.upgradeRgbProfile(rgbFilename, rgbProfileUpgrade)
-}
-
-// upgradeRgbProfile will upgrade current rgb profile list
-func (d *Device) upgradeRgbProfile(path string, profiles []string) {
-	save := false
-	for _, profile := range profiles {
-		pf := d.GetRgbProfile(profile)
-		if pf == nil {
-			save = true
-			logger.Log(logger.Fields{"profile": profile}).Info("Upgrading RGB profile")
-			template := rgb.GetRgbProfile(profile)
-			if template == nil {
-				d.Rgb.Profiles[profile] = rgb.Profile{}
-			} else {
-				d.Rgb.Profiles[profile] = *template
-			}
-		}
-	}
-	for key, val := range d.Rgb.Profiles {
-		template := rgb.GetRgbProfile(key)
-		if template == nil {
-			continue
-		}
-
-		if val.Version != template.Version {
-			d.Rgb.Profiles[key] = *template
-			save = true
-		}
-	}
-	if save {
-		if err := common.SaveJsonData(path, d.Rgb); err != nil {
-			logger.Log(logger.Fields{"error": err, "location": path}).Error("Unable to upgrade rgb profile data")
-			return
-		}
-	}
-}
-
-// GetRgbProfile will return rgb.Profile struct
-func (d *Device) GetRgbProfile(profile string) *rgb.Profile {
-	if d.Rgb == nil {
-		return nil
-	}
-
-	if val, ok := d.Rgb.Profiles[profile]; ok {
-		return &val
-	}
-	return nil
 }
 
 // GetDeviceTemplate will return device template name
@@ -712,158 +609,6 @@ func (d *Device) getDeviceProfile() {
 // SaveDeviceProfile will save a new device profile
 func (d *Device) SaveDeviceProfile(_ string, _ bool) uint8 {
 	d.saveDeviceProfile()
-	return 1
-}
-
-// saveRgbProfile will save rgb profile data
-func (d *Device) saveRgbProfile() {
-	rgbDirectory := pwd + "/database/rgb/"
-	rgbFilename := rgbDirectory + d.Serial + ".json"
-	if common.FileExists(rgbFilename) {
-		if err := common.SaveJsonData(rgbFilename, d.Rgb); err != nil {
-			logger.Log(logger.Fields{"error": err, "location": rgbFilename}).Error("Unable to write rgb profile data")
-			return
-		}
-	}
-}
-
-// ProcessNewGradientColor will create new gradient color
-func (d *Device) ProcessNewGradientColor(profileName string) (uint8, uint) {
-	if d.GetRgbProfile(profileName) == nil {
-		logger.Log(logger.Fields{"serial": d.Serial, "profile": profileName}).Warn("Non-existing RGB profile")
-		return 0, 0
-	}
-
-	pf := d.GetRgbProfile(profileName)
-	if pf == nil {
-		return 0, 0
-	}
-
-	if pf.Gradients == nil {
-		return 0, 0
-	}
-
-	// find next available key
-	nextID := 0
-	for k := range pf.Gradients {
-		if k >= nextID {
-			nextID = k + 1
-		}
-	}
-	pf.Gradients[nextID] = rgb.Color{Red: 0, Green: 255, Blue: 255}
-
-	d.Rgb.Profiles[profileName] = *pf
-	d.saveRgbProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
-	d.setDeviceColor()
-	return 1, uint(nextID)
-}
-
-// ProcessDeleteGradientColor will delete gradient color
-func (d *Device) ProcessDeleteGradientColor(profileName string) (uint8, uint) {
-	if d.GetRgbProfile(profileName) == nil {
-		logger.Log(logger.Fields{"serial": d.Serial, "profile": profileName}).Warn("Non-existing RGB profile")
-		return 0, 0
-	}
-
-	pf := d.GetRgbProfile(profileName)
-	if pf == nil {
-		return 0, 0
-	}
-
-	if len(pf.Gradients) < 3 {
-		return 2, 0
-	}
-
-	maxKey := -1
-	for k := range pf.Gradients {
-		if k > maxKey {
-			maxKey = k
-		}
-	}
-	delete(pf.Gradients, maxKey)
-
-	d.Rgb.Profiles[profileName] = *pf
-	d.saveRgbProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
-	d.setDeviceColor()
-	return 1, uint(maxKey)
-}
-
-// UpdateRgbProfileData will update RGB profile data
-func (d *Device) UpdateRgbProfileData(profileName string, profile rgb.Profile) uint8 {
-	d.rgbMutex.Lock()
-	defer d.rgbMutex.Unlock()
-
-	if d.GetRgbProfile(profileName) == nil {
-		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
-		return 0
-	}
-
-	pf := d.GetRgbProfile(profileName)
-	if pf == nil {
-		return 0
-	}
-
-	if profile.StartColor.Temperature < 0 || profile.StartColor.Temperature > 105 {
-		return 0
-	}
-
-	if profile.MiddleColor.Temperature < 0 || profile.MiddleColor.Temperature > 105 {
-		return 0
-	}
-
-	if profile.EndColor.Temperature < 0 || profile.EndColor.Temperature > 105 {
-		return 0
-	}
-
-	profile.StartColor.Brightness = pf.StartColor.Brightness
-	profile.EndColor.Brightness = pf.EndColor.Brightness
-	profile.MiddleColor.Brightness = pf.MiddleColor.Brightness
-	pf.StartColor = profile.StartColor
-	pf.EndColor = profile.EndColor
-	pf.MiddleColor = profile.MiddleColor
-	pf.Speed = profile.Speed
-	pf.Gradients = profile.Gradients
-
-	d.Rgb.Profiles[profileName] = *pf
-	d.saveRgbProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
-	d.setDeviceColor()
-	return 1
-}
-
-// UpdateRgbProfile will update device RGB profile
-func (d *Device) UpdateRgbProfile(_ int, profile string) uint8 {
-	if d.DeviceProfile == nil {
-		return 0
-	}
-
-	if !d.SupportsLightingEffect(profile) {
-		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
-		return 0
-	}
-
-	if d.DeviceProfile.RGBCluster {
-		return 5
-	}
-	if d.DeviceProfile.OpenRGBIntegration {
-		return 4
-	}
-
-	if err := d.SetLightingEffect(profile); err != nil {
-		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "profile": profile}).Error("Unable to update canonical RGB profile")
-		return 0
-	}
 	return 1
 }
 

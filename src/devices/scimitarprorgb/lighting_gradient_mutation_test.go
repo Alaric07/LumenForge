@@ -10,11 +10,28 @@ import (
 	"LumenForge/src/rgb"
 )
 
+type failingScimitarEffectSettingsStore struct {
+	err      error
+	setCalls int
+	deviceID string
+	effect   string
+	settings lightingsettings.EffectSettings
+}
+
+func (store *failingScimitarEffectSettingsStore) Set(
+	deviceID string,
+	effect string,
+	settings lightingsettings.EffectSettings,
+) error {
+	store.setCalls++
+	store.deviceID = deviceID
+	store.effect = effect
+	store.settings = settings.Clone()
+	return store.err
+}
+
 func prepareScimitarCanonicalGradientMutationDevice(device *Device) {
 	prepareScimitarCanonicalMutationDevice(device)
-	device.Rgb.Profiles["gradient"] = rgb.Profile{Gradients: map[int]rgb.Color{
-		0: {Red: 9, Green: 8, Blue: 7, Position: 0, Brightness: 1},
-	}}
 }
 
 func setScimitarCanonicalGradientState(
@@ -48,7 +65,6 @@ func TestScimitarProcessNewGradientColorPersistsCanonicalOrderedStop(t *testing.
 	if err = runtime.Effects.Set(device.Serial, "static", static); err != nil {
 		t.Fatal(err)
 	}
-	legacyBefore := device.Rgb.Profiles["gradient"]
 	restarts := 0
 	device.lightingRestart = func() { restarts++ }
 
@@ -97,10 +113,6 @@ func TestScimitarProcessNewGradientColorPersistsCanonicalOrderedStop(t *testing.
 	if err != nil || !staticFound || !reflect.DeepEqual(storedStatic, static) {
 		t.Fatalf("unrelated Static customization = %#v, %t, %v", storedStatic, staticFound, err)
 	}
-	if legacyAfter := device.Rgb.Profiles["gradient"]; !reflect.DeepEqual(legacyAfter, legacyBefore) {
-		t.Fatalf("legacy Gradient changed from %#v to %#v", legacyBefore, legacyAfter)
-	}
-
 	reloaded, err := lightingsettings.LoadDeviceStore(effectsPath)
 	if err != nil {
 		t.Fatal(err)
@@ -123,7 +135,6 @@ func TestScimitarProcessDeleteGradientColorPersistsCanonicalStopRemoval(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	legacyBefore := device.Rgb.Profiles["gradient"]
 	restarts := 0
 	device.lightingRestart = func() { restarts++ }
 
@@ -139,9 +150,6 @@ func TestScimitarProcessDeleteGradientColorPersistsCanonicalStopRemoval(t *testi
 	want.Gradient.Stops = append([]lightingsettings.GradientStop(nil), defaults.Gradient.Stops[:len(defaults.Gradient.Stops)-1]...)
 	if err != nil || !found || !reflect.DeepEqual(stored, want) {
 		t.Fatalf("stored canonical Gradient after delete = %#v, %t, %v; want %#v", stored, found, err, want)
-	}
-	if legacyAfter := device.Rgb.Profiles["gradient"]; !reflect.DeepEqual(legacyAfter, legacyBefore) {
-		t.Fatalf("legacy Gradient changed from %#v to %#v", legacyBefore, legacyAfter)
 	}
 }
 
@@ -227,7 +235,6 @@ func TestScimitarGradientMutationPersistenceFailureDoesNotMutateOrRestart(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	legacyBefore := device.Rgb.Profiles["gradient"]
 	failingStore := &failingScimitarEffectSettingsStore{err: errors.New("injected canonical Gradient write failure")}
 	source := device.lightingSource.(independentDeviceLightingSource)
 	source.effects = failingStore
@@ -252,8 +259,5 @@ func TestScimitarGradientMutationPersistenceFailureDoesNotMutateOrRestart(t *tes
 	}
 	if restarts != 0 || device.activeRgb != marker || len(marker.Exit) != 0 {
 		t.Fatal("persistence failure restarted or stopped active lighting")
-	}
-	if legacyAfter := device.Rgb.Profiles["gradient"]; !reflect.DeepEqual(legacyAfter, legacyBefore) {
-		t.Fatalf("persistence failure changed legacy Gradient from %#v to %#v", legacyBefore, legacyAfter)
 	}
 }
