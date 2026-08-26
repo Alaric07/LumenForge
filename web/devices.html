@@ -542,6 +542,20 @@
                                             </section>
                                         {{ end }}
 
+                                        {{ with .AuthoredZoneEditor }}
+                                            <section class="lf-color-control lf-authored-zone-control" data-lf-authored-zone-control data-lf-device-serial="{{ $.Device.Serial }}" data-lf-lighting-target="{{ $.Device.Lighting.TargetKind }}" data-lf-effect="{{ .EffectID }}" data-lf-cluster-controlled="{{ $.Device.Lighting.ClusterControlled }}" data-lf-status-id="lf-lighting-authored-zone-status">
+                                                <div class="lf-color-control-header"><div><h3>Authored zones</h3><p>{{ if .HasGroups }}Select one or more zones, choose a color, then apply it to the selected zones, their group, or all zones.{{ else }}Select one or more zones, choose a color, then apply it to the selected zones or all zones.{{ end }}</p></div></div>
+                                                <div class="lf-authored-zone-list{{ if .HasGeometry }} lf-authored-zone-list-geometric{{ end }}" data-lf-authored-zone-list{{ if .HasGeometry }} style="--lf-authored-zone-layout-width: {{ .LayoutWidth }}; --lf-authored-zone-layout-height: {{ .LayoutHeight }};"{{ end }}>
+                                                    {{ range .Zones }}
+                                                        <button type="button" class="lf-button lf-button-secondary lf-authored-zone" data-lf-authored-zone data-lf-zone-id="{{ .ID }}" data-lf-group-id="{{ .GroupID }}" aria-pressed="false" style="{{ if .HasGeometry }}--lf-authored-zone-left: {{ .Left }}; --lf-authored-zone-top: {{ .Top }}; --lf-authored-zone-width: {{ .Width }}; --lf-authored-zone-height: {{ .Height }};{{ end }}" {{ if or $.Device.Lighting.ClusterControlled $.Device.Lighting.ReadOnly }}disabled{{ end }}><span>{{ .Label }}</span><span style="background-color: {{ .ColorHex }};">{{ .ColorHex }}</span></button>
+                                                    {{ end }}
+                                                </div>
+                                                <div class="lf-authored-zone-selection-management"><button class="lf-button lf-button-secondary" type="button" data-lf-authored-zone-clear disabled>Clear selection</button></div>
+                                                <div class="lf-authored-zone-color-row"><label class="lf-color-control-label" for="lf-lighting-authored-zone-color">Color</label><div class="lf-color-control-inputs"><input class="lf-color-control-input" id="lf-lighting-authored-zone-color" type="color" value="{{ with (index .Zones 0) }}{{ .ColorHex }}{{ end }}" data-lf-authored-zone-color {{ if or $.Device.Lighting.ClusterControlled $.Device.Lighting.ReadOnly }}disabled{{ end }}><input class="lf-color-control-hex" type="text" value="{{ with (index .Zones 0) }}{{ .ColorHex }}{{ end }}" pattern="#[0-9a-fA-F]{6}" maxlength="7" data-lf-authored-zone-hex {{ if or $.Device.Lighting.ClusterControlled $.Device.Lighting.ReadOnly }}disabled{{ end }}></div></div>
+                                                <div class="lf-gradient-actions"><button class="lf-button lf-button-primary" type="button" data-lf-authored-zone-apply="zones" disabled>Selected zones</button>{{ if .HasGroups }}<button class="lf-button lf-button-secondary" type="button" data-lf-authored-zone-apply="group" disabled>Selected group</button>{{ end }}<button class="lf-button lf-button-secondary" type="button" data-lf-authored-zone-apply="all" {{ if or $.Device.Lighting.ClusterControlled $.Device.Lighting.ReadOnly }}disabled{{ end }}>All zones</button></div><p class="lf-color-control-status" id="lf-lighting-authored-zone-status" aria-live="polite"></p>
+                                            </section>
+                                        {{ end }}
+
                                         {{ if or (not .ClusterControlled) .ReadOnly }}
                                             <div
                                                 class="lf-reset-control"

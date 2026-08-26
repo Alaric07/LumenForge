@@ -2,6 +2,7 @@ package mm800
 
 import (
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"LumenForge/src/lightingsettings"
@@ -62,6 +63,40 @@ func TestMM800LightingSnapshotMousepadHasNoSharedEffectSettings(t *testing.T) {
 	}
 }
 
+func TestMM800LightingSnapshotPresentsAuthoredMousepadZonesDeterministically(t *testing.T) {
+	device, runtime := newMM800CanonicalLightingTestDevice(t)
+	device.DeviceProfile.Mousepad = &Mousepad{Row: map[int]Row{
+		2: {Zones: map[int]Zones{15: {Name: "Fifteen", Left: 15, Top: 2, Width: 3, Height: 4, PacketIndex: []int{9}, Color: rgb.Color{Red: 1}}, 2: {Name: "Two", Left: 2, Top: 2, Width: 3, Height: 4, PacketIndex: []int{8}, Color: rgb.Color{Green: 2}}}},
+		1: {Zones: map[int]Zones{1: {Name: "One", Left: 1, Top: 1, Width: 3, Height: 4, PacketIndex: []int{7}, Color: rgb.Color{Blue: 3}}}},
+	}}
+	for index := 3; index <= 14; index++ {
+		device.DeviceProfile.Mousepad.Row[2].Zones[index] = Zones{Name: "Zone", Left: index, Top: 2, Width: 3, Height: 4, PacketIndex: []int{index}, Color: rgb.Color{Red: float64(index)}}
+	}
+	if err := runtime.State.Set(device.Serial, lightingsettings.IndependentDeviceLightingState{SelectedEffect: "mousepad", Brightness: 100}); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, ok := device.LightingSnapshot()
+	if !ok || snapshot.AuthoredZoneEditor == nil || snapshot.AuthoredZoneEditor.HasGroups || len(snapshot.AuthoredZoneEditor.Zones) != 15 {
+		t.Fatalf("authored snapshot = %#v", snapshot)
+	}
+	for index, zone := range snapshot.AuthoredZoneEditor.Zones {
+		zoneID := index + 1
+		if zone.ID != strconv.Itoa(zoneID) || zone.GroupID != "" || zone.GroupLabel != "" || zone.HasGeometry || zone.Left != 0 || zone.Top != 0 || zone.Width != 0 || zone.Height != 0 {
+			t.Fatalf("presented zone %d = %#v", zoneID, zone)
+		}
+	}
+	if snapshot.AuthoredZoneEditor.Zones[0].Label != "One" || snapshot.AuthoredZoneEditor.Zones[14].Label != "Fifteen" {
+		t.Fatalf("presented labels = %#v", snapshot.AuthoredZoneEditor.Zones)
+	}
+	snapshot.AuthoredZoneEditor.Zones[0].ColorHex = "#ffffff"
+	if len(device.DeviceProfile.Mousepad.Row) != 2 || len(device.DeviceProfile.Mousepad.Row[1].Zones) != 1 || len(device.DeviceProfile.Mousepad.Row[2].Zones) != 14 {
+		t.Fatal("snapshot changed Mousepad row structure")
+	}
+	if device.DeviceProfile.Mousepad.Row[1].Zones[1].Color.Blue != 3 || device.DeviceProfile.Mousepad.Row[1].Zones[1].Left != 1 || device.DeviceProfile.Mousepad.Row[1].Zones[1].Top != 1 || device.DeviceProfile.Mousepad.Row[1].Zones[1].Width != 3 || device.DeviceProfile.Mousepad.Row[1].Zones[1].Height != 4 || device.DeviceProfile.Mousepad.Row[2].Zones[15].Left != 15 || device.DeviceProfile.Mousepad.Row[2].Zones[15].Top != 2 || device.DeviceProfile.Mousepad.Row[2].Zones[15].Width != 3 || device.DeviceProfile.Mousepad.Row[2].Zones[15].Height != 4 {
+		t.Fatal("snapshot changed authored profile state")
+	}
+}
+
 func TestMM800LightingSnapshotOwnershipFlags(t *testing.T) {
 	for _, test := range []struct {
 		name     string
@@ -87,9 +122,9 @@ func TestMM800LightingSnapshotOwnershipFlags(t *testing.T) {
 func TestMM800LightingSnapshotPresentsSharedPaletteShapesAndCopies(t *testing.T) {
 	device, runtime := newMM800CanonicalLightingTestDevice(t)
 	settings := map[string]lightingsettings.EffectSettings{
-		"wave": {SchemaVersion: lightingsettings.SchemaVersion, EffectID: "wave", Speed: mm800Float64Pointer(4), TwoColor: &lightingsettings.TwoColorSettings{Start: lightingsettings.Color{Red: 1}, End: lightingsettings.Color{Blue: 2}}},
+		"wave":            {SchemaVersion: lightingsettings.SchemaVersion, EffectID: "wave", Speed: mm800Float64Pointer(4), TwoColor: &lightingsettings.TwoColorSettings{Start: lightingsettings.Color{Red: 1}, End: lightingsettings.Color{Blue: 2}}},
 		"cpu-temperature": {SchemaVersion: lightingsettings.SchemaVersion, EffectID: "cpu-temperature", Temperature: &lightingsettings.TemperatureSettings{Low: lightingsettings.TemperaturePoint{Color: lightingsettings.Color{Green: 1}, Celsius: 20}, Middle: lightingsettings.TemperaturePoint{Color: lightingsettings.Color{Red: 2, Green: 2}, Celsius: 50}, High: lightingsettings.TemperaturePoint{Color: lightingsettings.Color{Blue: 3}, Celsius: 90}}},
-		"gradient": {SchemaVersion: lightingsettings.SchemaVersion, EffectID: "gradient", Speed: mm800Float64Pointer(3), Gradient: &lightingsettings.GradientSettings{Stops: []lightingsettings.GradientStop{{Position: 0.2, Color: lightingsettings.Color{Red: 4}, Intensity: 0.4}, {Position: 0.8, Color: lightingsettings.Color{Blue: 5}, Intensity: 0.9}}}},
+		"gradient":        {SchemaVersion: lightingsettings.SchemaVersion, EffectID: "gradient", Speed: mm800Float64Pointer(3), Gradient: &lightingsettings.GradientSettings{Stops: []lightingsettings.GradientStop{{Position: 0.2, Color: lightingsettings.Color{Red: 4}, Intensity: 0.4}, {Position: 0.8, Color: lightingsettings.Color{Blue: 5}, Intensity: 0.9}}}},
 	}
 	for effect, settings := range settings {
 		if err := runtime.Effects.Set(device.Serial, effect, settings); err != nil {
@@ -101,10 +136,18 @@ func TestMM800LightingSnapshotPresentsSharedPaletteShapesAndCopies(t *testing.T)
 		effect string
 		check  func(LightingSnapshot) bool
 	}{
-		{"wave", func(value LightingSnapshot) bool { return value.HasSpeed && value.Speed == 4 && value.TwoColorStartHex == "#010000" && value.TwoColorEndHex == "#000002" && value.Customized }},
-		{"cpu-temperature", func(value LightingSnapshot) bool { return value.HasTemperature && value.TemperatureLow.Celsius == 20 && value.TemperatureMiddle.ColorHex == "#020200" && value.TemperatureHigh.Celsius == 90 && value.Customized }},
-		{"gradient", func(value LightingSnapshot) bool { return value.HasSpeed && value.HasGradient && len(value.GradientStops) == 2 && value.GradientStops[0].Position == 0.2 && value.GradientStops[0].Intensity == 0.4 && value.GradientStops[1].ColorHex == "#000005" && value.Customized }},
-		{"rainbow", func(value LightingSnapshot) bool { return value.EffectSupported && value.PaletteKind == string(rgb.LightingPaletteGenerated) && !value.HasGradient && value.SingleColorHex == "" && !value.Customized }},
+		{"wave", func(value LightingSnapshot) bool {
+			return value.HasSpeed && value.Speed == 4 && value.TwoColorStartHex == "#010000" && value.TwoColorEndHex == "#000002" && value.Customized
+		}},
+		{"cpu-temperature", func(value LightingSnapshot) bool {
+			return value.HasTemperature && value.TemperatureLow.Celsius == 20 && value.TemperatureMiddle.ColorHex == "#020200" && value.TemperatureHigh.Celsius == 90 && value.Customized
+		}},
+		{"gradient", func(value LightingSnapshot) bool {
+			return value.HasSpeed && value.HasGradient && len(value.GradientStops) == 2 && value.GradientStops[0].Position == 0.2 && value.GradientStops[0].Intensity == 0.4 && value.GradientStops[1].ColorHex == "#000005" && value.Customized
+		}},
+		{"rainbow", func(value LightingSnapshot) bool {
+			return value.EffectSupported && value.PaletteKind == string(rgb.LightingPaletteGenerated) && !value.HasGradient && value.SingleColorHex == "" && !value.Customized
+		}},
 	} {
 		if err := runtime.State.Set(device.Serial, lightingsettings.IndependentDeviceLightingState{SelectedEffect: test.effect, Brightness: 70}); err != nil {
 			t.Fatal(err)

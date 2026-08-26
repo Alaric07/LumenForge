@@ -21,6 +21,30 @@ type GradientStop struct {
 	Intensity float64
 }
 
+// AuthoredZoneEditor describes a device-owned authored-color mode without
+// making it a shared software effect setting.
+type AuthoredZoneEditor struct {
+	EffectID string
+	HasGroups bool
+	Zones    []AuthoredZone
+}
+
+// AuthoredZone is an immutable presentation copy of one authored lighting
+// zone. Group and geometry fields are optional so simple devices need not
+// manufacture layout metadata.
+type AuthoredZone struct {
+	ID          string
+	Label       string
+	ColorHex    string
+	GroupID     string
+	GroupLabel  string
+	HasGeometry bool
+	Left        int
+	Top         int
+	Width       int
+	Height      int
+}
+
 // Snapshot is an immutable presentation/configuration view of one individual
 // device's canonical lighting state. It does not claim current hardware output.
 // TargetKind identifies the corresponding Devices lighting mutation target.
@@ -46,4 +70,5 @@ type Snapshot struct {
 	HasGradient        bool
 	GradientStops      []GradientStop
 	Customized         bool
+	AuthoredZoneEditor *AuthoredZoneEditor
 }

@@ -148,6 +148,61 @@ func TestDevicesLightingPresentationModel(t *testing.T) {
 	}
 }
 
+func TestDevicesLightingAuthoredZoneEditorPresentation(t *testing.T) {
+	initializeDevicesPageTestProcess(t)
+
+	without := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "static", EffectSupported: true}))
+	if strings.Contains(without, "data-lf-authored-zone-control") {
+		t.Fatal("authored-zone editor rendered without snapshot data")
+	}
+
+	nonGeometric := lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "mouse", EffectSupported: true,
+		AuthoredZoneEditor: &lightingpresentation.AuthoredZoneEditor{EffectID: "mouse", Zones: []lightingpresentation.AuthoredZone{{ID: "front", Label: "Front", ColorHex: "#102030"}}}}
+	nonGeometricBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(nonGeometric))
+	for _, want := range []string{`data-lf-authored-zone-control`, `data-lf-effect="mouse"`, `data-lf-zone-id="front"`, `aria-pressed="false"`, `#102030`, `Clear selection`, `data-lf-authored-zone-clear`, `Selected zones`, `data-lf-authored-zone-apply="zones"`, `data-lf-authored-zone-apply="all"`, `selected zones or all zones`} {
+		if !strings.Contains(nonGeometricBody, want) {
+			t.Errorf("non-geometric editor omitted %q", want)
+		}
+	}
+	clearAt := strings.Index(nonGeometricBody, `data-lf-authored-zone-clear`)
+	if clearAt < 0 {
+		t.Fatal("authored-zone clear selection control is missing")
+	}
+	clearEnd := strings.Index(nonGeometricBody[clearAt:], ">")
+	if clearEnd < 0 || !strings.Contains(nonGeometricBody[clearAt:clearAt+clearEnd], "disabled") {
+		t.Fatal("authored-zone clear selection control is not initially disabled")
+	}
+	if strings.Contains(nonGeometricBody, `data-lf-authored-zone-apply="group"`) || strings.Contains(nonGeometricBody, "--lf-authored-zone-left") {
+		t.Fatalf("non-geometric editor manufactured group/geometry metadata:\n%s", nonGeometricBody)
+	}
+
+	geometric := lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "mousepad", EffectSupported: true,
+		AuthoredZoneEditor: &lightingpresentation.AuthoredZoneEditor{EffectID: "mousepad", HasGroups: true, Zones: []lightingpresentation.AuthoredZone{{ID: "1", Label: "One", ColorHex: "#aabbcc", GroupID: "row-1", GroupLabel: "Row 1", HasGeometry: true, Left: 1, Top: 2, Width: 3, Height: 4}}}}
+	geometricBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(geometric))
+	for _, want := range []string{`lf-authored-zone-list-geometric`, `--lf-authored-zone-layout-width: 4`, `--lf-authored-zone-layout-height: 6`, `data-lf-zone-id="1"`, `data-lf-group-id="row-1"`, `--lf-authored-zone-left: 1`, `--lf-authored-zone-top: 2`, `--lf-authored-zone-width: 3`, `--lf-authored-zone-height: 4`, `Selected group`, `data-lf-authored-zone-apply="group"`, `selected zones, their group, or all zones`, `#aabbcc`} {
+		if !strings.Contains(geometricBody, want) {
+			t.Errorf("geometric editor omitted %q", want)
+		}
+	}
+	if strings.Contains(strings.ToLower(geometricBody), "mm800") || strings.Contains(strings.ToLower(geometricBody), "scimitar") {
+		t.Fatal("authored-zone template contains product-specific rendering")
+	}
+
+	readOnly := geometric
+	readOnly.ClusterControlled = true
+	readOnlyBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(readOnly))
+	for _, marker := range []string{`<button type="button" class="lf-button lf-button-secondary lf-authored-zone" data-lf-authored-zone `, `data-lf-authored-zone-clear`, `data-lf-authored-zone-color`, `data-lf-authored-zone-apply="zones"`} {
+		at := strings.Index(readOnlyBody, marker)
+		if at < 0 {
+			t.Fatalf("read-only editor omitted %q", marker)
+		}
+		end := strings.Index(readOnlyBody[at:], ">")
+		if end < 0 || !strings.Contains(readOnlyBody[at:at+end], "disabled") {
+			t.Errorf("read-only authored control %q is not disabled", marker)
+		}
+	}
+}
+
 func TestDevicesWorkspaceAddsWritableNativeScimitarLightingOnly(t *testing.T) {
 	if os.Getenv(devicesPageHelperEnvironment) == "scimitar-native" {
 		initializeDevicesPageTestProcess(t)

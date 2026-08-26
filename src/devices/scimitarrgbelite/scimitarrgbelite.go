@@ -138,29 +138,30 @@ type Device struct {
 }
 
 var (
-	pwd                   = ""
-	cmdSoftwareMode       = []byte{0x04, 0x02}
-	cmdHardwareMode       = []byte{0x04, 0x01}
-	cmdWriteColor         = []byte{0x22, 0x05, 0x01}
-	cmdSetDpi             = []byte{0x13, 0x02, 0x00}
-	cmdSaveDpi            = []byte{0x13}
-	cmdWrite              = byte(0x07)
-	cmdRead               = byte(0x0e)
-	cmdWriteKeyAssignment = byte(0x40)
-	cmdFirmware           = byte(0x01)
-	cmdSetPollingRate     = []byte{0x0a, 0x00, 0x00}
-	cmdAngleSnapping      = map[int][]byte{0: {0x13, 0x04, 0x00}, 1: {0x13, 0x04, 0x01}}
-	cmdLiftHeight         = []byte{0x13, 0x03, 0x00}
-	bufferSize            = 64
-	keyAmount             = 17
-	readBufferSize        = 16
-	bufferSizeWrite       = bufferSize + 1
-	headerWriteSize       = 1
-	minDpiValue           = 100
-	maxDpiValue           = 18000
-	deviceRefreshInterval = 1000
-	rgbProfileUpgrade     = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch", "tokyonight"}
-	rgbModes              = []string{
+	pwd                                  = ""
+	cmdSoftwareMode                      = []byte{0x04, 0x02}
+	cmdHardwareMode                      = []byte{0x04, 0x01}
+	cmdWriteColor                        = []byte{0x22, 0x05, 0x01}
+	cmdSetDpi                            = []byte{0x13, 0x02, 0x00}
+	cmdSaveDpi                           = []byte{0x13}
+	cmdWrite                             = byte(0x07)
+	cmdRead                              = byte(0x0e)
+	cmdWriteKeyAssignment                = byte(0x40)
+	cmdFirmware                          = byte(0x01)
+	cmdSetPollingRate                    = []byte{0x0a, 0x00, 0x00}
+	cmdAngleSnapping                     = map[int][]byte{0: {0x13, 0x04, 0x00}, 1: {0x13, 0x04, 0x01}}
+	cmdLiftHeight                        = []byte{0x13, 0x03, 0x00}
+	reloadScimitarEliteProfilesAfterSave = func(d *Device) { d.loadDeviceProfiles() }
+	bufferSize                           = 64
+	keyAmount                            = 17
+	readBufferSize                       = 16
+	bufferSizeWrite                      = bufferSize + 1
+	headerWriteSize                      = 1
+	minDpiValue                          = 100
+	maxDpiValue                          = 18000
+	deviceRefreshInterval                = 1000
+	rgbProfileUpgrade                    = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch", "tokyonight"}
+	rgbModes                             = []string{
 		"colorpulse",
 		"colorshift",
 		"colorwarp",
@@ -1450,7 +1451,7 @@ func (d *Device) saveDeviceProfile() {
 		return
 	}
 
-	d.loadDeviceProfiles()
+	reloadScimitarEliteProfilesAfterSave(d)
 }
 
 // upgradeDpiProfiles will perform upgrade of DPI profiles in needed

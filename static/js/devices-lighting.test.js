@@ -267,6 +267,181 @@ function speedBrowserFixture(fetchImplementation, overrides) {
     return {browser, numberHandlers, numberInput, readouts, resetControl, status};
 }
 
+function authoredZoneFixture(grouped) {
+    function zone(id, groupID, color) {
+        const handlers = {};
+        const attributes = {"aria-pressed": "false"};
+        const classes = new Set();
+        const swatch = {textContent: color, style: {backgroundColor: color}};
+        const value = {
+            dataset: {lfZoneId: id, lfGroupId: groupID || ""},
+            addEventListener: function (event, handler) { handlers[event] = handler; },
+            click: function () { handlers.click(); },
+            classList: {toggle: function (name, active) { if (active) classes.add(name); else classes.delete(name); }, contains: function (name) { return classes.has(name); }},
+            getAttribute: function (name) { return attributes[name]; },
+            setAttribute: function (name, value) { attributes[name] = value; },
+            querySelector: function (selector) { assert.equal(selector, "span:last-child"); return swatch; },
+            handlers
+        };
+        value.swatch = swatch;
+        return value;
+    }
+    function action(scope) {
+        const handlers = {};
+        const value = {dataset: {lfAuthoredZoneApply: scope}, disabled: false, addEventListener: function (event, handler) { handlers[event] = handler; }, handlers};
+        return value;
+    }
+    const zones = [zone("zone-1", grouped ? "row-a" : "", "#102030"), zone("zone-2", grouped ? "row-a" : "", "#405060")];
+    let colorValue = "#102030";
+    const colorInput = {disabled: false, addEventListener: function () {}, get value() { return colorValue; }, set value(value) { colorValue = String(value).toLowerCase(); }};
+    const hexInput = {disabled: false, value: "#102030", addEventListener: function () {}};
+    const actions = [action("zones")];
+    if (grouped) actions.push(action("group"));
+    actions.push(action("all"));
+    const clearSelection = {disabled: true, handlers: {}, addEventListener: function (event, handler) { this.handlers[event] = handler; }};
+    const control = {
+        dataset: {lfClusterControlled: "false", lfDeviceSerial: "native-authored-device", lfLightingTarget: "native", lfEffect: "authored", lfStatusId: "authored-status"},
+        querySelector: function (selector) { if (selector === "[data-lf-authored-zone-color]") return colorInput; if (selector === "[data-lf-authored-zone-hex]") return hexInput; if (selector === "[data-lf-authored-zone-clear]") return clearSelection; assert.fail("unexpected selector " + selector); },
+        querySelectorAll: function (selector) { if (selector === "[data-lf-authored-zone]") return zones; if (selector === "[data-lf-authored-zone-apply]") return actions; assert.fail("unexpected selector " + selector); }
+    };
+    return {actions, clearSelection, colorInput, control, hexInput, zones};
+}
+
+function authoredZoneBrowser(fetchImplementation, control) {
+    const status = {textContent: ""};
+    let reloads = 0;
+    return {browser: {AbortController, clearTimeout, setTimeout, fetch: fetchImplementation, location: {reload: function () { reloads++; }}, document: {
+        getElementById: function (id) { assert.equal(id, "authored-status"); return status; },
+        querySelectorAll: function (selector) { return selector === "[data-lf-authored-zone-control]" ? [control] : []; }
+    }}, reloads: function () { return reloads; }, status};
+}
+
+test("native authored-zone endpoint is selected through generic lighting target metadata", function () {
+    const control = authoredZoneFixture(false).control;
+    assert.equal(lighting.lightingTarget(control).endpoints.zones, "/api/devices/lighting/zones");
+    assert.doesNotMatch(lighting.bindAuthoredZoneControl.toString(), /MM800|Scimitar/i);
+});
+
+test("authored-zone control submits generic non-group scopes and normalized payloads", async function () {
+    const fixture = authoredZoneFixture(false);
+    const requests = [];
+    const browser = authoredZoneBrowser(async function (url, options) { requests.push({url, payload: JSON.parse(options.body)}); return {ok: true, json: async function () { return {status: 1}; }}; }, fixture.control);
+    lighting.bindAuthoredZoneControl(browser.browser, fixture.control);
+    fixture.zones[1].click();
+    fixture.colorInput.value = "#A1B2C3";
+    await fixture.actions[0].handlers.click();
+    assert.deepEqual(requests[0], {url: "/api/devices/lighting/zones", payload: {serial: "native-authored-device", effect: "authored", scope: "zones", color: "#a1b2c3", zoneIds: ["zone-2"]}});
+    assert.equal(fixture.zones[1].getAttribute("aria-pressed"), "true");
+    assert.equal(fixture.zones[1].classList.contains("lf-authored-zone-selected"), true);
+    assert.equal(fixture.zones[1].swatch.textContent, "#a1b2c3");
+    assert.equal(fixture.zones[1].swatch.style.backgroundColor, "#a1b2c3");
+    assert.equal(fixture.actions[0].disabled, false);
+    assert.equal(browser.reloads(), 0);
+    await fixture.actions[1].handlers.click();
+    assert.deepEqual(requests[1], {url: "/api/devices/lighting/zones", payload: {serial: "native-authored-device", effect: "authored", scope: "all", color: "#a1b2c3"}});
+    assert.equal(fixture.zones[1].getAttribute("aria-pressed"), "true");
+    assert.equal(fixture.zones[1].classList.contains("lf-authored-zone-selected"), true);
+    assert.equal(fixture.zones[0].swatch.textContent, "#a1b2c3");
+    assert.equal(fixture.zones[1].swatch.textContent, "#a1b2c3");
+    assert.equal(fixture.actions[0].disabled, false);
+    assert.equal(browser.reloads(), 0);
+    assert.equal(fixture.actions.some(function (value) { return value.dataset.lfAuthoredZoneApply === "group"; }), false);
+});
+
+test("authored-zone control submits selected group and all scopes from generic geometry metadata", async function () {
+    const fixture = authoredZoneFixture(true);
+    const requests = [];
+    const browser = authoredZoneBrowser(async function (url, options) { requests.push({url, payload: JSON.parse(options.body)}); return {ok: true, json: async function () { return {status: 1}; }}; }, fixture.control);
+    lighting.bindAuthoredZoneControl(browser.browser, fixture.control);
+    fixture.zones[1].click();
+    await fixture.actions[0].handlers.click();
+    assert.deepEqual(requests[0].payload.zoneIds, ["zone-2"]);
+    const groupFixture = authoredZoneFixture(true);
+    const groupBrowser = authoredZoneBrowser(async function (url, options) { requests.push({url, payload: JSON.parse(options.body)}); return {ok: true, json: async function () { return {status: 1}; }}; }, groupFixture.control);
+    lighting.bindAuthoredZoneControl(groupBrowser.browser, groupFixture.control);
+    groupFixture.zones[1].click();
+    await groupFixture.actions[1].handlers.click();
+    const allFixture = authoredZoneFixture(true);
+    const allBrowser = authoredZoneBrowser(async function (url, options) { requests.push({url, payload: JSON.parse(options.body)}); return {ok: true, json: async function () { return {status: 1}; }}; }, allFixture.control);
+    lighting.bindAuthoredZoneControl(allBrowser.browser, allFixture.control);
+    allFixture.zones[1].click();
+    await allFixture.actions[2].handlers.click();
+    assert.deepEqual(requests[1].payload, {serial: "native-authored-device", effect: "authored", scope: "group", color: "#405060", groupId: "row-a"});
+    assert.deepEqual(requests[2].payload, {serial: "native-authored-device", effect: "authored", scope: "all", color: "#405060"});
+});
+
+test("authored-zone selection is persistent, toggles, and derives action availability", function () {
+    const fixture = authoredZoneFixture(true);
+    let requests = 0;
+    const browser = authoredZoneBrowser(async function () { requests++; assert.fail("selection submitted a request"); }, fixture.control);
+    lighting.bindAuthoredZoneControl(browser.browser, fixture.control);
+    assert.equal(fixture.actions[0].disabled, true);
+    assert.equal(fixture.actions[1].disabled, true);
+    assert.equal(fixture.actions[2].disabled, false);
+    assert.equal(fixture.clearSelection.disabled, true);
+    fixture.zones[0].click();
+    assert.equal(fixture.clearSelection.disabled, false);
+    fixture.zones[1].click();
+    assert.equal(fixture.zones[0].getAttribute("aria-pressed"), "true");
+    assert.equal(fixture.zones[1].classList.contains("lf-authored-zone-selected"), true);
+    assert.equal(fixture.actions[0].disabled, false);
+    assert.equal(fixture.actions[1].disabled, false);
+    assert.equal(fixture.clearSelection.disabled, false);
+    const color = fixture.colorInput.value;
+    const hex = fixture.hexInput.value;
+    fixture.clearSelection.handlers.click();
+    assert.equal(requests, 0);
+    assert.equal(fixture.zones[0].getAttribute("aria-pressed"), "false");
+    assert.equal(fixture.zones[1].getAttribute("aria-pressed"), "false");
+    assert.equal(fixture.zones[0].classList.contains("lf-authored-zone-selected"), false);
+    assert.equal(fixture.zones[1].classList.contains("lf-authored-zone-selected"), false);
+    assert.equal(fixture.actions[0].disabled, true);
+    assert.equal(fixture.actions[1].disabled, true);
+    assert.equal(fixture.clearSelection.disabled, true);
+    assert.equal(fixture.colorInput.value, color);
+    assert.equal(fixture.hexInput.value, hex);
+    fixture.zones[0].click();
+    assert.equal(fixture.actions[0].disabled, false);
+    assert.equal(fixture.clearSelection.disabled, false);
+});
+
+test("authored-zone group action is disabled for a mixed-group selection", function () {
+    const fixture = authoredZoneFixture(true);
+    fixture.zones[1].dataset.lfGroupId = "row-b";
+    const browser = authoredZoneBrowser(async function () { assert.fail("selection submitted a request"); }, fixture.control);
+    lighting.bindAuthoredZoneControl(browser.browser, fixture.control);
+    fixture.zones[0].click();
+    fixture.zones[1].click();
+    assert.equal(fixture.actions[0].disabled, false);
+    assert.equal(fixture.actions[1].disabled, true);
+});
+
+test("authored-zone failures re-enable controls without corrupting selection", async function () {
+    const fixture = authoredZoneFixture(true);
+    const browser = authoredZoneBrowser(async function () { return {ok: true, json: async function () { return {status: 0}; }}; }, fixture.control);
+    lighting.bindAuthoredZoneControl(browser.browser, fixture.control);
+    fixture.zones[1].click();
+    await fixture.actions[0].handlers.click();
+    assert.equal(fixture.actions.every(function (action) { return action.disabled === false; }), true);
+    assert.equal(fixture.zones[1].getAttribute("aria-pressed"), "true");
+    assert.equal(fixture.colorInput.value, "#405060");
+    assert.equal(fixture.zones[1].swatch.textContent, "#405060");
+    assert.equal(browser.reloads(), 0);
+    assert.equal(browser.status.textContent, "Unable to apply authored color. Try again.");
+});
+
+test("read-only authored-zone controls are not bound and cannot submit", function () {
+    const fixture = authoredZoneFixture(false);
+    let requests = 0;
+    fixture.control.closest = function (selector) { assert.equal(selector, "[data-lf-lighting-read-only]"); return {dataset: {lfLightingReadOnly: "true"}}; };
+    const browser = authoredZoneBrowser(async function () { requests++; return {ok: true, json: async function () { return {status: 1}; }}; }, fixture.control);
+    lighting.init(browser.browser);
+    assert.equal(fixture.actions[0].handlers.click, undefined);
+    assert.equal(fixture.clearSelection.handlers.click, undefined);
+    assert.equal(fixture.clearSelection.disabled, true);
+    assert.equal(requests, 0);
+});
+
 test("effect selector sends the established protected mutation contract and reloads", async function () {
     let request;
     const timers = timerFixture();
@@ -1171,6 +1346,7 @@ test("multiple brightness controls keep transient success timers isolated", asyn
         if (selector === "[data-lf-temperature-control]") return [];
         if (selector === "[data-lf-gradient-control]") return [];
         if (selector === "[data-lf-reset-button]") return [];
+        if (selector === "[data-lf-authored-zone-control]") return [];
         assert.equal(selector, "[data-lf-brightness-readout]");
         return [];
     };
@@ -1971,7 +2147,7 @@ test("Lighting initialization tolerates pages without interactive controls", fun
 
     lighting.init(browser);
 
-    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-two-color-control]", "[data-lf-temperature-control]", "[data-lf-gradient-control]", "[data-lf-reset-button]"]);
+    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-two-color-control]", "[data-lf-temperature-control]", "[data-lf-gradient-control]", "[data-lf-reset-button]", "[data-lf-authored-zone-control]"]);
 });
 
 test("Lighting initialization supports isolated and combined interactive controls", function () {
@@ -3099,7 +3275,8 @@ test("native lighting target uses serial-bearing native mutation routes", functi
         twoColor: "/api/devices/lighting/two-color",
         temperature: "/api/devices/lighting/temperature",
         gradient: "/api/devices/lighting/gradient",
-        reset: "/api/devices/lighting/effect-reset"
+        reset: "/api/devices/lighting/effect-reset",
+        zones: "/api/devices/lighting/zones"
     });
     assert.deepEqual(lighting.lightingPayload(target, {effect: "wave", speed: 3}), {
         serial: "scimitar-native", effect: "wave", speed: 3

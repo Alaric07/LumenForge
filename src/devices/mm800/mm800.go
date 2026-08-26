@@ -36,6 +36,7 @@ type Device struct {
 	Path                        string `json:"path"`
 	Firmware                    string `json:"firmware"`
 	activeRgb                   *rgb.ActiveRGB
+	lightingRestart             func()
 	ledProfile                  *led.Device
 	DeviceProfile               *DeviceProfile
 	UserProfiles                map[string]*DeviceProfile `json:"userProfiles"`
@@ -103,19 +104,20 @@ type Zones struct {
 }
 
 var (
-	pwd                   = ""
-	bufferSize            = 64
-	bufferSizeWrite       = bufferSize + 1
-	headerSize            = 2
-	deviceRefreshInterval = 1000
-	cmdWrite              = byte(0x07)
-	cmdGetFirmware        = byte(0x0e)
-	cmdSoftwareMode       = []byte{0x04, 0x02}
-	cmdHardwareMode       = []byte{0x04, 0x01}
-	cmdWriteColor         = []byte{0x22, 0x14, 0x00}
-	cmdActivateLed        = []byte{0x05, 0x02, 0x00, 0x04}
-	rgbProfileUpgrade     = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch", "tokyonight"}
-	rgbModes              = []string{
+	pwd                          = ""
+	bufferSize                   = 64
+	bufferSizeWrite              = bufferSize + 1
+	headerSize                   = 2
+	deviceRefreshInterval        = 1000
+	cmdWrite                     = byte(0x07)
+	cmdGetFirmware               = byte(0x0e)
+	cmdSoftwareMode              = []byte{0x04, 0x02}
+	cmdHardwareMode              = []byte{0x04, 0x01}
+	cmdWriteColor                = []byte{0x22, 0x14, 0x00}
+	cmdActivateLed               = []byte{0x05, 0x02, 0x00, 0x04}
+	reloadMM800ProfilesAfterSave = func(d *Device) { d.loadDeviceProfiles() }
+	rgbProfileUpgrade            = []string{"gradient", "pastelrainbow", "pastelspiralrainbow", "flame", "aurora", "cyberpunkglitch", "tokyonight"}
+	rgbModes                     = []string{
 		"circle",
 		"circleshift",
 		"colorpulse",
@@ -629,7 +631,7 @@ func (d *Device) saveDeviceProfile() {
 		return
 	}
 
-	d.loadDeviceProfiles()
+	reloadMM800ProfilesAfterSave(d)
 }
 
 // loadDeviceProfiles will load custom user profiles

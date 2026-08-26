@@ -133,6 +133,17 @@ type nativeDeviceLightingTarget interface {
 	ResetLightingEffectSettings(string) error
 }
 
+type nativeDeviceAuthoredZoneLightingTarget interface {
+	nativeDeviceLightingTarget
+	SetLightingZoneColor(string, string, string, string, rgb.Color) error
+}
+
+type nativeDeviceAuthoredZoneLightingMultiTarget interface {
+	SetLightingZoneColors(string, []string, rgb.Color) error
+}
+
+var lookupNativeDeviceLightingWrapper = devices.LookupDevice
+
 func openRGBImportRegistryHooks() openrgbimport.RegistryHooks {
 	return openrgbimport.RegistryHooks{
 		Register: devices.RegisterOpenRGBImport,
@@ -2404,6 +2415,20 @@ type devicesLightingWorkspaceSummary struct {
 	HasGradient             bool
 	GradientStops           []devicesLightingGradientStopSummary
 	Customized              bool
+	AuthoredZoneEditor      *devicesLightingAuthoredZoneEditorSummary
+}
+
+type devicesLightingAuthoredZoneEditorSummary struct {
+	EffectID                  string
+	HasGroups, HasGeometry    bool
+	LayoutWidth, LayoutHeight int
+	Zones                     []devicesLightingAuthoredZoneSummary
+}
+
+type devicesLightingAuthoredZoneSummary struct {
+	ID, Label, ColorHex, GroupID, GroupLabel string
+	HasGeometry                              bool
+	Left, Top, Width, Height                 int
 }
 
 type devicesLightingTemperaturePointSummary struct {
@@ -2537,6 +2562,21 @@ func devicesLightingWorkspaceSummaryFromSnapshot(snapshot lightingpresentation.S
 			summary.GradientStops[index] = devicesLightingGradientStopSummary{
 				Number: index + 1, Position: strconv.FormatFloat(stop.Position, 'f', -1, 64),
 				ColorHex: stop.ColorHex, Intensity: strconv.FormatFloat(stop.Intensity, 'f', -1, 64),
+			}
+		}
+	}
+	if editor := snapshot.AuthoredZoneEditor; editor != nil {
+		summary.AuthoredZoneEditor = &devicesLightingAuthoredZoneEditorSummary{EffectID: editor.EffectID, HasGroups: editor.HasGroups, Zones: make([]devicesLightingAuthoredZoneSummary, len(editor.Zones))}
+		for index, zone := range editor.Zones {
+			summary.AuthoredZoneEditor.Zones[index] = devicesLightingAuthoredZoneSummary{ID: zone.ID, Label: zone.Label, ColorHex: zone.ColorHex, GroupID: zone.GroupID, GroupLabel: zone.GroupLabel, HasGeometry: zone.HasGeometry, Left: zone.Left, Top: zone.Top, Width: zone.Width, Height: zone.Height}
+			if zone.HasGeometry {
+				summary.AuthoredZoneEditor.HasGeometry = true
+				if right := zone.Left + zone.Width; right > summary.AuthoredZoneEditor.LayoutWidth {
+					summary.AuthoredZoneEditor.LayoutWidth = right
+				}
+				if bottom := zone.Top + zone.Height; bottom > summary.AuthoredZoneEditor.LayoutHeight {
+					summary.AuthoredZoneEditor.LayoutHeight = bottom
+				}
 			}
 		}
 	}
@@ -3061,7 +3101,7 @@ func getNativeDeviceLightingTarget(serial string) (nativeDeviceLightingTarget, e
 	if serial == "" || !common.AlphanumericDashRegex.MatchString(serial) {
 		return nil, fmt.Errorf("invalid native device serial")
 	}
-	wrapper, ok := devices.LookupDevice(serial)
+	wrapper, ok := lookupNativeDeviceLightingWrapper(serial)
 	if !ok || wrapper == nil || wrapper.Hidden || wrapper.Unavailable || wrapper.Serial != serial {
 		return nil, fmt.Errorf("native device is not available")
 	}
@@ -3107,6 +3147,18 @@ func nativeDeviceLightingTargetForEffect(serial, effect string) (nativeDeviceLig
 		return nil, err
 	}
 	return target, nil
+}
+
+func nativeDeviceAuthoredZoneLightingTargetForEffect(serial, effect string) (nativeDeviceAuthoredZoneLightingTarget, error) {
+	target, err := getNativeDeviceLightingTarget(serial)
+	if err != nil {
+		return nil, err
+	}
+	authored, ok := target.(nativeDeviceAuthoredZoneLightingTarget)
+	if !ok || authored == nil || !authored.SupportsLightingEffect(effect) {
+		return nil, fmt.Errorf("native authored-zone lighting is not available")
+	}
+	return authored, nil
 }
 
 func nativeDeviceLightingFailure(w http.ResponseWriter, message string) {
@@ -3311,6 +3363,91 @@ func resetNativeDeviceLightingEffectSettings(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	(&Response{Code: http.StatusOK, Status: 1, Message: "Reset successfully"}).Send(w)
+}
+
+func setNativeDeviceLightingZones(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Serial  *string   `json:"serial"`
+		Effect  *string   `json:"effect"`
+		Scope   *string   `json:"scope"`
+		ZoneID  *string   `json:"zoneId"`
+		ZoneIDs *[]string `json:"zoneIds"`
+		GroupID *string   `json:"groupId"`
+		Color   *string   `json:"color"`
+	}
+	if !decodeNativeDeviceLightingRequest(w, r, &req) {
+		return
+	}
+	if req.Serial == nil || req.Effect == nil || req.Scope == nil || req.Color == nil || *req.Serial == "" || *req.Effect == "" || *req.Color == "" {
+		nativeDeviceLightingFailure(w, "Invalid authored-zone request")
+		return
+	}
+	zoneID, groupID := "", ""
+	if req.ZoneID != nil {
+		zoneID = *req.ZoneID
+	}
+	if req.GroupID != nil {
+		groupID = *req.GroupID
+	}
+	switch *req.Scope {
+	case "zone":
+		if zoneID == "" || groupID != "" {
+			nativeDeviceLightingFailure(w, "Invalid authored-zone request")
+			return
+		}
+	case "group":
+		if groupID == "" || zoneID != "" {
+			nativeDeviceLightingFailure(w, "Invalid authored-zone request")
+			return
+		}
+	case "all":
+		if zoneID != "" || groupID != "" {
+			nativeDeviceLightingFailure(w, "Invalid authored-zone request")
+			return
+		}
+	case "zones":
+		if req.ZoneIDs == nil || len(*req.ZoneIDs) == 0 || zoneID != "" || groupID != "" {
+			nativeDeviceLightingFailure(w, "Invalid authored-zone request")
+			return
+		}
+		seen := make(map[string]struct{}, len(*req.ZoneIDs))
+		for _, id := range *req.ZoneIDs {
+			if id == "" {
+				nativeDeviceLightingFailure(w, "Invalid authored-zone request")
+				return
+			}
+			if _, exists := seen[id]; exists {
+				nativeDeviceLightingFailure(w, "Invalid authored-zone request")
+				return
+			}
+			seen[id] = struct{}{}
+		}
+	default:
+		nativeDeviceLightingFailure(w, "Invalid authored-zone request")
+		return
+	}
+	color, colorErr := parseHexColor(*req.Color)
+	target, targetErr := nativeDeviceAuthoredZoneLightingTargetForEffect(*req.Serial, *req.Effect)
+	if colorErr != nil || targetErr != nil {
+		nativeDeviceLightingFailure(w, "Invalid authored-zone request")
+		return
+	}
+	mutationErr := error(nil)
+	if *req.Scope == "zones" {
+		multi, ok := target.(nativeDeviceAuthoredZoneLightingMultiTarget)
+		if !ok || multi == nil {
+			mutationErr = fmt.Errorf("native authored-zone multi-selection is not available")
+		} else {
+			mutationErr = multi.SetLightingZoneColors(*req.Effect, *req.ZoneIDs, rgb.Color{Red: color.Red, Green: color.Green, Blue: color.Blue, Hex: *req.Color})
+		}
+	} else {
+		mutationErr = target.SetLightingZoneColor(*req.Effect, *req.Scope, zoneID, groupID, rgb.Color{Red: color.Red, Green: color.Green, Blue: color.Blue, Hex: *req.Color})
+	}
+	if mutationErr != nil {
+		nativeDeviceLightingFailure(w, "Invalid authored-zone request")
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Applied successfully"}).Send(w)
 }
 
 func discoverOpenRGBImportControllers(w http.ResponseWriter, r *http.Request) {
@@ -3862,6 +3999,7 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/devices/lighting/temperature", http.MethodPost, setNativeDeviceLightingTemperature)
 	handleFunc(r, "/api/devices/lighting/gradient", http.MethodPost, setNativeDeviceLightingGradient)
 	handleFunc(r, "/api/devices/lighting/effect-reset", http.MethodPost, resetNativeDeviceLightingEffectSettings)
+	handleFunc(r, "/api/devices/lighting/zones", http.MethodPost, setNativeDeviceLightingZones)
 	handleFunc(r, "/api/cluster/lighting/effect", http.MethodPost, setRGBClusterLightingEffect)
 	handleFunc(r, "/api/cluster/lighting/effect-reset", http.MethodPost, resetRGBClusterLightingEffect)
 	handleFunc(r, "/api/cluster/lighting/brightness", http.MethodPost, setRGBClusterLightingBrightness)

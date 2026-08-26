@@ -2,6 +2,8 @@ package scimitarrgbelite
 
 import (
 	"fmt"
+	"sort"
+	"strconv"
 
 	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/lightingsettings"
@@ -62,6 +64,7 @@ func (d *Device) LightingSnapshot() (lightingpresentation.Snapshot, bool) {
 
 	if effect == "mouse" {
 		snapshot.EffectSupported = true
+		snapshot.AuthoredZoneEditor = scimitarEliteAuthoredZoneEditor(d.DeviceProfile)
 		return snapshot, true
 	}
 	descriptor, supported := scimitarEliteCanonicalEffectDescriptor(effect)
@@ -108,4 +111,27 @@ func (d *Device) LightingSnapshot() (lightingpresentation.Snapshot, bool) {
 		}
 	}
 	return snapshot, true
+}
+
+func scimitarEliteAuthoredZoneEditor(profile *DeviceProfile) *lightingpresentation.AuthoredZoneEditor {
+	if profile == nil || len(profile.ZoneColors) == 0 {
+		return nil
+	}
+	keys := make([]int, 0, len(profile.ZoneColors))
+	for key := range profile.ZoneColors {
+		keys = append(keys, key)
+	}
+	sort.Ints(keys)
+	editor := &lightingpresentation.AuthoredZoneEditor{EffectID: "mouse", Zones: make([]lightingpresentation.AuthoredZone, 0, len(keys))}
+	for _, key := range keys {
+		zone := profile.ZoneColors[key]
+		if zone.Color == nil {
+			continue
+		}
+		editor.Zones = append(editor.Zones, lightingpresentation.AuthoredZone{
+			ID: strconv.Itoa(key), Label: zone.Name,
+			ColorHex: fmt.Sprintf("#%02x%02x%02x", uint8(zone.Color.Red), uint8(zone.Color.Green), uint8(zone.Color.Blue)),
+		})
+	}
+	return editor
 }

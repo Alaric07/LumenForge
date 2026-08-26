@@ -2,8 +2,10 @@ package scimitarrgbelite
 
 import (
 	"fmt"
+	"strconv"
 
 	"LumenForge/src/lightingsettings"
+	"LumenForge/src/rgb"
 )
 
 // LightingDeviceID identifies this device in the independent-device lighting
@@ -13,6 +15,103 @@ func (d *Device) LightingDeviceID() string {
 		return ""
 	}
 	return d.Serial
+}
+
+// SetLightingZoneColor updates device-owned authored colors for Mouse without
+// treating them as shared EffectSettings.
+func (d *Device) SetLightingZoneColor(effect, scope, zoneID, groupID string, color rgb.Color) error {
+	if d == nil || d.DeviceProfile == nil || effect != "mouse" || !d.SupportsLightingEffect(effect) {
+		return fmt.Errorf("Scimitar RGB Elite authored lighting is unavailable")
+	}
+	if color.Red < 0 || color.Red > 255 || color.Green < 0 || color.Green > 255 || color.Blue < 0 || color.Blue > 255 {
+		return fmt.Errorf("invalid authored zone color")
+	}
+	d.rgbMutex.Lock()
+	defer d.rgbMutex.Unlock()
+	apply := func(zone ZoneColors) ZoneColors {
+		if zone.Color == nil {
+			zone.Color = &rgb.Color{}
+		}
+		zone.Color.Red, zone.Color.Green, zone.Color.Blue = color.Red, color.Green, color.Blue
+		zone.Color.Hex = fmt.Sprintf("#%02x%02x%02x", uint8(color.Red), uint8(color.Green), uint8(color.Blue))
+		return zone
+	}
+	switch scope {
+	case "zone":
+		key, err := strconv.Atoi(zoneID)
+		if err != nil || groupID != "" {
+			return fmt.Errorf("invalid authored zone selection")
+		}
+		zone, ok := d.DeviceProfile.ZoneColors[key]
+		if !ok {
+			return fmt.Errorf("unknown authored zone")
+		}
+		d.DeviceProfile.ZoneColors[key] = apply(zone)
+	case "all":
+		if zoneID != "" || groupID != "" || len(d.DeviceProfile.ZoneColors) == 0 {
+			return fmt.Errorf("invalid authored zone selection")
+		}
+		for key, zone := range d.DeviceProfile.ZoneColors {
+			d.DeviceProfile.ZoneColors[key] = apply(zone)
+		}
+	default:
+		return fmt.Errorf("unsupported authored zone scope")
+	}
+	d.saveDeviceProfile()
+	selected, err := d.currentCanonicalSelectedEffect()
+	if err == nil && selected == effect && !d.DeviceProfile.RGBCluster && !d.DeviceProfile.OpenRGBIntegration {
+		if d.lightingRestart != nil {
+			d.lightingRestart()
+		} else {
+			d.restartCanonicalLighting()
+		}
+	}
+	return nil
+}
+
+func (d *Device) SetLightingZoneColors(effect string, zoneIDs []string, color rgb.Color) error {
+	if d == nil || d.DeviceProfile == nil || effect != "mouse" || !d.SupportsLightingEffect(effect) || len(zoneIDs) == 0 {
+		return fmt.Errorf("Scimitar RGB Elite authored lighting is unavailable")
+	}
+	if color.Red < 0 || color.Red > 255 || color.Green < 0 || color.Green > 255 || color.Blue < 0 || color.Blue > 255 {
+		return fmt.Errorf("invalid authored zone color")
+	}
+	d.rgbMutex.Lock()
+	defer d.rgbMutex.Unlock()
+	keys := make([]int, 0, len(zoneIDs))
+	seen := map[int]struct{}{}
+	for _, id := range zoneIDs {
+		key, err := strconv.Atoi(id)
+		if err != nil {
+			return fmt.Errorf("invalid authored zone selection")
+		}
+		if _, exists := seen[key]; exists {
+			return fmt.Errorf("duplicate authored zone")
+		}
+		if _, ok := d.DeviceProfile.ZoneColors[key]; !ok {
+			return fmt.Errorf("unknown authored zone")
+		}
+		seen[key] = struct{}{}
+		keys = append(keys, key)
+	}
+	for _, key := range keys {
+		zone := d.DeviceProfile.ZoneColors[key]
+		if zone.Color == nil {
+			zone.Color = &rgb.Color{}
+		}
+		zone.Color.Red, zone.Color.Green, zone.Color.Blue, zone.Color.Hex = color.Red, color.Green, color.Blue, fmt.Sprintf("#%02x%02x%02x", uint8(color.Red), uint8(color.Green), uint8(color.Blue))
+		d.DeviceProfile.ZoneColors[key] = zone
+	}
+	d.saveDeviceProfile()
+	selected, err := d.currentCanonicalSelectedEffect()
+	if err == nil && selected == effect && !d.DeviceProfile.RGBCluster && !d.DeviceProfile.OpenRGBIntegration {
+		if d.lightingRestart != nil {
+			d.lightingRestart()
+		} else {
+			d.restartCanonicalLighting()
+		}
+	}
+	return nil
 }
 
 func (d *Device) SupportsLightingEffect(effect string) bool {

@@ -43,7 +43,8 @@
         twoColor: "/api/devices/lighting/two-color",
         temperature: "/api/devices/lighting/temperature",
         gradient: "/api/devices/lighting/gradient",
-        reset: "/api/devices/lighting/effect-reset"
+        reset: "/api/devices/lighting/effect-reset",
+        zones: "/api/devices/lighting/zones"
     });
     const effectEndpoint = openRGBLightingEndpoints.effect;
     const effectTimeoutMilliseconds = 10000;
@@ -1409,6 +1410,94 @@
         return handleClick;
     }
 
+    function bindAuthoredZoneControl(browser, control) {
+        const clusterControlled = control.dataset.lfClusterControlled === "true";
+        const status = browser.document.getElementById(control.dataset.lfStatusId);
+        const colorInput = control.querySelector("[data-lf-authored-zone-color]");
+        const hexInput = control.querySelector("[data-lf-authored-zone-hex]");
+        const zones = control.querySelectorAll("[data-lf-authored-zone]");
+        const actions = control.querySelectorAll("[data-lf-authored-zone-apply]");
+        const clearSelection = control.querySelector("[data-lf-authored-zone-clear]");
+        if (clusterControlled || !status || !colorInput || !hexInput || !clearSelection || zones.length === 0) return null;
+        const selected = new Set();
+        let inFlight = false;
+        const target = lightingTarget(control);
+        const setStatus = createStatusController(browser, status, colorSuccessMilliseconds);
+        function selectedZones() { return Array.from(selected); }
+        function selectedGroup() {
+            const values = selectedZones();
+            if (values.length === 0) return "";
+            const groupID = values[0].dataset.lfGroupId;
+            return groupID && values.every(function (zone) { return zone.dataset.lfGroupId === groupID; }) ? groupID : "";
+        }
+        function updateActions() {
+            const count = selected.size;
+            const groupID = selectedGroup();
+            clearSelection.disabled = inFlight || count === 0;
+            for (const action of actions) {
+                if (inFlight) { action.disabled = true; continue; }
+                const scope = action.dataset.lfAuthoredZoneApply;
+                action.disabled = (scope === "zones" && count === 0) || (scope === "group" && !groupID);
+            }
+        }
+        function toggle(zone) {
+            if (selected.has(zone)) selected.delete(zone); else selected.add(zone);
+            const isSelected = selected.has(zone);
+            zone.classList.toggle("lf-authored-zone-selected", isSelected);
+            zone.setAttribute("aria-pressed", String(isSelected));
+            const swatch = zone.querySelector("span:last-child");
+            const value = swatch && swatch.textContent;
+            if (isSelected && selected.size === 1 && /^#[0-9a-fA-F]{6}$/.test(value || "")) { colorInput.value = value; hexInput.value = value; }
+            updateActions();
+        }
+        for (const zone of zones) zone.addEventListener("click", function () { toggle(zone); });
+        clearSelection.addEventListener("click", function () {
+            if (inFlight || selected.size === 0) return;
+            selected.clear();
+            for (const zone of zones) {
+                zone.classList.toggle("lf-authored-zone-selected", false);
+                zone.setAttribute("aria-pressed", "false");
+            }
+            updateActions();
+        });
+        colorInput.addEventListener("input", function () { hexInput.value = colorInput.value; });
+        hexInput.addEventListener("change", function () { if (/^#[0-9a-fA-F]{6}$/.test(hexInput.value)) colorInput.value = hexInput.value; });
+        for (const action of actions) action.addEventListener("click", async function () {
+            if (inFlight || !/^#[0-9a-fA-F]{6}$/.test(colorInput.value)) return;
+            const scope = action.dataset.lfAuthoredZoneApply;
+            const selectedValues = selectedZones();
+            const groupID = selectedGroup();
+            if ((scope === "zones" && selectedValues.length === 0) || (scope === "group" && !groupID)) return;
+            inFlight = true;
+            clearSelection.disabled = true;
+            for (const button of actions) button.disabled = true;
+            setStatus("Applying color…", false);
+            try {
+                const color = colorInput.value.toLowerCase();
+                const values = {effect: control.dataset.lfEffect, scope: scope, color: color};
+                if (scope === "zones") values.zoneIds = selectedValues.map(function (zone) { return zone.dataset.lfZoneId; });
+                if (scope === "group") values.groupId = groupID;
+                await submitLightingMutation(browser, target.endpoints.zones, lightingPayload(target, values), colorTimeoutMilliseconds, "authored-zone request failed", "authored-zone mutation was rejected");
+                const affectedZones = scope === "zones" ? selectedValues : scope === "group" ? Array.from(zones).filter(function (zone) { return zone.dataset.lfGroupId === groupID; }) : Array.from(zones);
+                for (const zone of affectedZones) {
+                    const swatch = zone.querySelector("span:last-child");
+                    if (!swatch) continue;
+                    swatch.textContent = color;
+                    if (swatch.style) swatch.style.backgroundColor = color;
+                }
+                setStatus("Color applied.", true);
+                inFlight = false;
+                updateActions();
+            } catch (_) {
+                setStatus("Unable to apply authored color. Try again.", false);
+                inFlight = false;
+                updateActions();
+            }
+        });
+        updateActions();
+        return {toggle: toggle};
+    }
+
     function init(browser) {
         function isReadOnly(control) {
             if (typeof control.closest !== "function") {
@@ -1465,6 +1554,11 @@
                 bindResetButton(browser, button);
             }
         }
+
+        const authoredZoneControls = browser.document.querySelectorAll("[data-lf-authored-zone-control]");
+        for (const control of authoredZoneControls) {
+            if (!isReadOnly(control)) bindAuthoredZoneControl(browser, control);
+        }
     }
 
     return {
@@ -1476,6 +1570,7 @@
         bindTemperatureControl,
         bindGradientControl,
         bindResetButton,
+        bindAuthoredZoneControl,
         lightingTarget,
         lightingPayload,
         revealEffectReset,

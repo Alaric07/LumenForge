@@ -2,6 +2,8 @@ package mm800
 
 import (
 	"fmt"
+	"sort"
+	"strconv"
 
 	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/lightingsettings"
@@ -63,6 +65,7 @@ func (d *Device) LightingSnapshot() (lightingpresentation.Snapshot, bool) {
 
 	if state.SelectedEffect == "mousepad" {
 		snapshot.EffectSupported = true
+		snapshot.AuthoredZoneEditor = mm800AuthoredZoneEditor(d.DeviceProfile)
 		return snapshot, true
 	}
 	descriptor, supported := rgb.SoftwareEffectDescriptorByID(state.SelectedEffect)
@@ -112,4 +115,29 @@ func (d *Device) LightingSnapshot() (lightingpresentation.Snapshot, bool) {
 	}
 
 	return snapshot, true
+}
+
+func mm800AuthoredZoneEditor(profile *DeviceProfile) *lightingpresentation.AuthoredZoneEditor {
+	if profile == nil || profile.Mousepad == nil || len(profile.Mousepad.Row) == 0 {
+		return nil
+	}
+	type authoredZone struct {
+		id   int
+		zone Zones
+	}
+	zones := make([]authoredZone, 0)
+	for _, row := range profile.Mousepad.Row {
+		for zoneID, zone := range row.Zones {
+			zones = append(zones, authoredZone{id: zoneID, zone: zone})
+		}
+	}
+	sort.Slice(zones, func(left, right int) bool { return zones[left].id < zones[right].id })
+	editor := &lightingpresentation.AuthoredZoneEditor{EffectID: "mousepad"}
+	for _, value := range zones {
+		editor.Zones = append(editor.Zones, lightingpresentation.AuthoredZone{
+			ID: strconv.Itoa(value.id), Label: value.zone.Name,
+			ColorHex: fmt.Sprintf("#%02x%02x%02x", uint8(value.zone.Color.Red), uint8(value.zone.Color.Green), uint8(value.zone.Color.Blue)),
+		})
+	}
+	return editor
 }
