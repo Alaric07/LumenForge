@@ -3,6 +3,7 @@ package devices
 import (
 	"LumenForge/src/common"
 	"LumenForge/src/devices/openrgbimport"
+	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/rgb"
 	"testing"
 )
@@ -36,6 +37,16 @@ type legacyRGBBoundaryTestDevice struct {
 	profileSelections   int
 	profileUpdates      int
 	schedulerBrightness int
+}
+
+type canonicalLightingProviderTestDevice struct{}
+
+func (*canonicalLightingProviderTestDevice) LightingDeviceID() string {
+	return "canonical"
+}
+
+func (*canonicalLightingProviderTestDevice) LightingSnapshot() (lightingpresentation.Snapshot, bool) {
+	return lightingpresentation.Snapshot{}, true
 }
 
 func (d *legacyRGBBoundaryTestDevice) GetRgbProfiles() interface{} {
@@ -260,5 +271,42 @@ func TestLegacyGlobalRGBHelpersSkipClusterAndOpenRGBImports(t *testing.T) {
 	ScheduleDeviceBrightness(0)
 	if native.schedulerBrightness != 1 || cluster.schedulerBrightness != 1 {
 		t.Fatalf("scheduler Brightness calls = native %d Cluster %d", native.schedulerBrightness, cluster.schedulerBrightness)
+	}
+}
+
+func TestEligibleForLegacyGlobalRGB(t *testing.T) {
+	tests := []struct {
+		name   string
+		device *common.Device
+		want   bool
+	}{
+		{
+			name:   "canonical native lighting provider",
+			device: &common.Device{Instance: &canonicalLightingProviderTestDevice{}},
+			want:   false,
+		},
+		{
+			name:   "ordinary native device",
+			device: &common.Device{Instance: &legacyRGBBoundaryTestDevice{}},
+			want:   true,
+		},
+		{
+			name:   "OpenRGB imported device",
+			device: &common.Device{Instance: &openrgbimport.Device{}},
+			want:   false,
+		},
+		{
+			name:   "Cluster device",
+			device: &common.Device{ProductType: common.ProductTypeCluster, Instance: &legacyRGBBoundaryTestDevice{}},
+			want:   false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := eligibleForLegacyGlobalRGB(test.device); got != test.want {
+				t.Fatalf("eligibleForLegacyGlobalRGB() = %t, want %t", got, test.want)
+			}
+		})
 	}
 }

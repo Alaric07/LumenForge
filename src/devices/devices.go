@@ -89,6 +89,7 @@ import (
 	"LumenForge/src/devices/nightsabreWU"
 	"LumenForge/src/devices/nightswordrgb"
 	"LumenForge/src/devices/openrgbimport"
+	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/devices/platinum"
 	"LumenForge/src/devices/psudongle"
 	"LumenForge/src/devices/psuhid"
@@ -266,12 +267,22 @@ func GetRgbProfiles() map[string]interface{} {
 	return profiles
 }
 
+// canonicalLightingPresentationProvider identifies native devices whose
+// lighting is presented through the shared Devices lighting contract.
+type canonicalLightingPresentationProvider interface {
+	LightingDeviceID() string
+	LightingSnapshot() (lightingpresentation.Snapshot, bool)
+}
+
 func eligibleForLegacyGlobalRGB(device *common.Device) bool {
 	if device == nil || device.ProductType == common.ProductTypeCluster {
 		return false
 	}
-	_, imported := device.Instance.(*openrgbimport.Device)
-	return !imported
+	if _, imported := device.Instance.(*openrgbimport.Device); imported {
+		return false
+	}
+	_, canonical := device.Instance.(canonicalLightingPresentationProvider)
+	return !canonical
 }
 
 // ScheduleDeviceBrightness will change device brightness level based on scheduler

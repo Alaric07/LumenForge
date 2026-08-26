@@ -240,12 +240,6 @@ func (d *Device) setupLedProfile() {
 // saveLedProfile will save new LED profile
 func (d *Device) saveLedProfile() {
 	// Default profile
-	profile := d.GetRgbProfile("static")
-	if profile == nil {
-		logger.Log(logger.Fields{"serial": d.Serial, "product": d.Product}).Error("Unable to load static rgb profile")
-		return
-	}
-
 	// Init
 	device := led.Device{
 		Serial:     d.Serial,
