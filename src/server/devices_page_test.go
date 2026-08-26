@@ -143,22 +143,22 @@ func TestDevicesLightingPresentationModel(t *testing.T) {
 	}
 }
 
-func TestDevicesWorkspaceAddsReadOnlyScimitarLightingOnly(t *testing.T) {
-	if os.Getenv(devicesPageHelperEnvironment) == "scimitar-read-only" {
+func TestDevicesWorkspaceAddsWritableNativeScimitarLightingOnly(t *testing.T) {
+	if os.Getenv(devicesPageHelperEnvironment) == "scimitar-native" {
 		initializeDevicesPageTestProcess(t)
-		runDevicesWorkspaceAddsReadOnlyScimitarLightingOnlyAssertions(t)
+		runDevicesWorkspaceAddsWritableNativeScimitarLightingOnlyAssertions(t)
 		return
 	}
 
-	command := exec.Command(os.Args[0], "-test.run=^TestDevicesWorkspaceAddsReadOnlyScimitarLightingOnly$")
-	command.Env = append(os.Environ(), devicesPageHelperEnvironment+"=scimitar-read-only")
+	command := exec.Command(os.Args[0], "-test.run=^TestDevicesWorkspaceAddsWritableNativeScimitarLightingOnly$")
+	command.Env = append(os.Environ(), devicesPageHelperEnvironment+"=scimitar-native")
 	output, err := command.CombinedOutput()
 	if err != nil {
-		t.Fatalf("Scimitar read-only Lighting helper process failed: %v\n%s", err, output)
+		t.Fatalf("Scimitar native Lighting helper process failed: %v\n%s", err, output)
 	}
 }
 
-func runDevicesWorkspaceAddsReadOnlyScimitarLightingOnlyAssertions(t *testing.T) {
+func runDevicesWorkspaceAddsWritableNativeScimitarLightingOnlyAssertions(t *testing.T) {
 	scimitarSerial := "scimitar-presentation"
 	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{
 		scimitarSerial: {
@@ -171,12 +171,16 @@ func runDevicesWorkspaceAddsReadOnlyScimitarLightingOnlyAssertions(t *testing.T)
 			}},
 		},
 	}, map[string]stats.BatteryStats{}, scimitarSerial)
-	if !ok || summary == nil || summary.Lighting == nil || !summary.Lighting.ReadOnly || summary.Lighting.ConfiguredEffect != "gradient" {
+	if !ok || summary == nil || summary.Lighting == nil || summary.Lighting.ReadOnly ||
+		summary.Lighting.TargetKind != "native" || summary.Lighting.ConfiguredEffect != "gradient" ||
+		!summary.Lighting.HasBrightness || summary.Lighting.Brightness != 64 ||
+		summary.Lighting.PaletteKind != string(rgb.LightingPaletteGradient) || !summary.Lighting.HasGradient ||
+		len(summary.Lighting.GradientStops) != 1 || summary.Lighting.GradientStops[0].ColorHex != "#102030" {
 		t.Fatalf("Scimitar Devices summary = %#v, ok=%t", summary, ok)
 	}
 	body := renderDevicesLightingView(t, summary.Lighting)
-	if !strings.Contains(body, `data-lf-lighting-read-only="true"`) || strings.Contains(body, `data-lf-lighting-read-only="false"`) {
-		t.Fatalf("Scimitar Lighting markup is not marked read-only:\n%s", body)
+	if !strings.Contains(body, `data-lf-lighting-read-only="false"`) || !strings.Contains(body, `data-lf-lighting-target="native"`) {
+		t.Fatalf("Scimitar Lighting markup is not marked writable native:\n%s", body)
 	}
 	for _, control := range []string{"lf-lighting-effect-selector", "lf-lighting-brightness-slider", "lf-lighting-gradient-add", "lf-lighting-gradient-save"} {
 		start := strings.Index(body, `id="`+control+`"`)
@@ -184,8 +188,8 @@ func runDevicesWorkspaceAddsReadOnlyScimitarLightingOnlyAssertions(t *testing.T)
 			t.Fatalf("Scimitar Lighting markup omitted %s", control)
 		}
 		end := strings.Index(body[start:], ">")
-		if end < 0 || !strings.Contains(body[start:start+end], "disabled") {
-			t.Errorf("Scimitar Lighting control %s remains active", control)
+		if end < 0 || strings.Contains(body[start:start+end], "disabled") {
+			t.Errorf("Scimitar Lighting control %s is disabled", control)
 		}
 	}
 

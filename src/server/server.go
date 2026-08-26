@@ -2379,6 +2379,7 @@ type devicesLightingEffectSummary struct {
 }
 
 type devicesLightingWorkspaceSummary struct {
+	TargetKind              string
 	ConfiguredEffect        string
 	ConfiguredEffectLabel   string
 	ConfiguredEffectIconURL string
@@ -2497,6 +2498,7 @@ func openRGBLightingEffectIconURL(id string) string {
 
 func openRGBLightingWorkspaceSummaryFromSnapshot(snapshot openrgbimport.LightingSnapshot) *openRGBLightingWorkspaceSummary {
 	summary := &openRGBLightingWorkspaceSummary{
+		TargetKind:        "openrgb",
 		ConfiguredEffect:  snapshot.ConfiguredEffect,
 		EffectSupported:   snapshot.EffectSupported,
 		HasBrightness:     snapshot.HasBrightness,
@@ -2568,13 +2570,14 @@ func openRGBLightingWorkspaceSummaryFromSnapshot(snapshot openrgbimport.Lighting
 
 func scimitarLightingWorkspaceSummaryFromSnapshot(snapshot scimitarprorgb.LightingSnapshot) *devicesLightingWorkspaceSummary {
 	summary := &devicesLightingWorkspaceSummary{
+		TargetKind:         "native",
 		ConfiguredEffect:   snapshot.ConfiguredEffect,
 		EffectSupported:    snapshot.EffectSupported,
 		HasBrightness:      snapshot.HasBrightness,
 		Brightness:         snapshot.Brightness,
 		ClusterControlled:  snapshot.ClusterControlled,
 		ExternalControlled: snapshot.ExternalControlled,
-		ReadOnly:           true,
+		ReadOnly:           false,
 		SupportedEffects:   make([]devicesLightingEffectSummary, len(snapshot.SupportedEffects)),
 		PaletteKind:        snapshot.PaletteKind,
 		SingleColorHex:     snapshot.SingleColorHex,

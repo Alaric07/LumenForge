@@ -3083,6 +3083,29 @@ test("shared lighting controls use dedicated serial-free RGB Cluster mutations",
     }
 });
 
+test("native lighting target uses serial-bearing native mutation routes", function() {
+    const target = lighting.lightingTarget({dataset: {
+        lfLightingTarget: "native",
+        lfDeviceSerial: "scimitar-native"
+    }});
+
+    assert.equal(target.kind, "native");
+    assert.equal(target.serial, "scimitar-native");
+    assert.deepEqual(target.endpoints, {
+        effect: "/api/devices/lighting/effect",
+        brightness: "/api/devices/lighting/brightness",
+        speed: "/api/devices/lighting/speed",
+        color: "/api/devices/lighting/single-color",
+        twoColor: "/api/devices/lighting/two-color",
+        temperature: "/api/devices/lighting/temperature",
+        gradient: "/api/devices/lighting/gradient",
+        reset: "/api/devices/lighting/effect-reset"
+    });
+    assert.deepEqual(lighting.lightingPayload(target, {effect: "wave", speed: 3}), {
+        serial: "scimitar-native", effect: "wave", speed: 3
+    });
+});
+
 test("RGB Cluster Brightness failure rolls back and cluster-owned device Reset remains unavailable", async function() {
     const timers = timerFixture();
     let requests = 0;

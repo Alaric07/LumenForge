@@ -35,6 +35,16 @@
         gradient: "/api/cluster/lighting/gradient",
         reset: "/api/cluster/lighting/effect-reset"
     });
+    const nativeLightingEndpoints = Object.freeze({
+        effect: "/api/devices/lighting/effect",
+        brightness: "/api/devices/lighting/brightness",
+        speed: "/api/devices/lighting/speed",
+        color: "/api/devices/lighting/single-color",
+        twoColor: "/api/devices/lighting/two-color",
+        temperature: "/api/devices/lighting/temperature",
+        gradient: "/api/devices/lighting/gradient",
+        reset: "/api/devices/lighting/effect-reset"
+    });
     const effectEndpoint = openRGBLightingEndpoints.effect;
     const effectTimeoutMilliseconds = 10000;
     const failureMessage = "Unable to change effect. Try again.";
@@ -279,10 +289,12 @@
     }
 
     function lightingTarget(element) {
-        const cluster = element && element.dataset && element.dataset.lfLightingTarget === "cluster";
+        const targetKind = element && element.dataset && element.dataset.lfLightingTarget || "openrgb";
+        const cluster = targetKind === "cluster";
+        const native = targetKind === "native";
         return {
-            endpoints: cluster ? clusterLightingEndpoints : openRGBLightingEndpoints,
-            kind: cluster ? "cluster" : "openrgb",
+            endpoints: cluster ? clusterLightingEndpoints : native ? nativeLightingEndpoints : openRGBLightingEndpoints,
+            kind: cluster ? "cluster" : native ? "native" : "openrgb",
             serial: cluster ? "" : element.dataset.lfDeviceSerial
         };
     }
@@ -1464,6 +1476,8 @@
         bindTemperatureControl,
         bindGradientControl,
         bindResetButton,
+        lightingTarget,
+        lightingPayload,
         revealEffectReset,
         brightnessEndpoint,
         effectEndpoint,

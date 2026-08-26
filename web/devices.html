@@ -159,7 +159,7 @@
 
                 {{ if eq .Device.View "lighting" }}
                     {{ with .Device.Lighting }}
-                        <section class="lf-lighting-workspace" aria-labelledby="lf-lighting-title" data-lf-lighting-read-only="{{ .ReadOnly }}">
+                        <section class="lf-lighting-workspace" aria-labelledby="lf-lighting-title" data-lf-lighting-read-only="{{ .ReadOnly }}" data-lf-lighting-target="{{ .TargetKind }}">
                             <div class="lf-lighting-layout">
                                 <div class="lf-lighting-main">
                                     <section class="lf-lighting-primary" aria-labelledby="lf-lighting-title">
@@ -186,6 +186,7 @@
                                                         id="lf-lighting-effect-selector"
                                                         data-lf-effect-selector
                                                         data-lf-device-serial="{{ $.Device.Serial }}"
+														data-lf-lighting-target="{{ .TargetKind }}"
                                                         data-lf-current-effect="{{ .ConfiguredEffect }}"
                                                         data-lf-cluster-controlled="{{ .ClusterControlled }}"
                                                         data-lf-status-id="lf-lighting-effect-status"
@@ -250,6 +251,7 @@
                                                     data-lf-brightness-slider
                                                     data-lf-current-brightness="{{ .Brightness }}"
                                                     data-lf-device-serial="{{ $.Device.Serial }}"
+														data-lf-lighting-target="{{ .TargetKind }}"
                                                     data-lf-cluster-controlled="{{ .ClusterControlled }}"
                                                     data-lf-number-id="lf-lighting-brightness-number"
                                                     data-lf-status-id="lf-lighting-brightness-status"
@@ -303,6 +305,7 @@
 													data-lf-speed-slider
 													data-lf-current-stored-speed="{{ .Speed }}"
 													data-lf-device-serial="{{ $.Device.Serial }}"
+													data-lf-lighting-target="{{ .TargetKind }}"
 													data-lf-effect="{{ .ConfiguredEffect }}"
 													data-lf-speed-control-mode="software"
 													data-lf-cluster-controlled="{{ .ClusterControlled }}"
@@ -334,6 +337,7 @@
                                                         data-lf-color-input
                                                         data-lf-current-color="{{ .SingleColorHex }}"
                                                         data-lf-device-serial="{{ $.Device.Serial }}"
+														data-lf-lighting-target="{{ .TargetKind }}"
                                                         data-lf-effect="{{ .ConfiguredEffect }}"
                                                         data-lf-cluster-controlled="{{ .ClusterControlled }}"
                                                         data-lf-hex-id="lf-lighting-color-hex"
@@ -366,6 +370,7 @@
                                                 class="lf-color-control lf-two-color-control"
                                                 data-lf-two-color-control
                                                 data-lf-device-serial="{{ $.Device.Serial }}"
+												data-lf-lighting-target="{{ .TargetKind }}"
                                                 data-lf-effect="{{ .ConfiguredEffect }}"
                                                 data-lf-cluster-controlled="{{ .ClusterControlled }}"
                                                 data-lf-current-start="{{ .TwoColorStartHex }}"
@@ -442,6 +447,7 @@
                                                 class="lf-color-control lf-temperature-control"
                                                 data-lf-temperature-control
                                                 data-lf-device-serial="{{ $.Device.Serial }}"
+												data-lf-lighting-target="{{ .TargetKind }}"
                                                 data-lf-effect="{{ .ConfiguredEffect }}"
                                                 data-lf-cluster-controlled="{{ .ClusterControlled }}"
                                                 data-lf-low-color-id="lf-lighting-temperature-low-color"
@@ -483,6 +489,7 @@
                                                 class="lf-color-control lf-gradient-control"
                                                 data-lf-gradient-control
                                                 data-lf-device-serial="{{ $.Device.Serial }}"
+												data-lf-lighting-target="{{ .TargetKind }}"
                                                 data-lf-effect="{{ .ConfiguredEffect }}"
                                                 data-lf-cluster-controlled="{{ .ClusterControlled }}"
                                                 data-lf-rows-id="lf-lighting-gradient-stops"
@@ -540,6 +547,7 @@
                                                 class="lf-reset-control"
                                                 data-lf-reset-control
                                                 data-lf-device-serial="{{ $.Device.Serial }}"
+												data-lf-lighting-target="{{ .TargetKind }}"
                                                 data-lf-effect="{{ .ConfiguredEffect }}"
                                                 {{ if not .Customized }}hidden{{ end }}
                                             >
@@ -548,6 +556,7 @@
                                                     type="button"
                                                     data-lf-reset-button
                                                     data-lf-device-serial="{{ $.Device.Serial }}"
+													data-lf-lighting-target="{{ .TargetKind }}"
                                                     data-lf-effect="{{ .ConfiguredEffect }}"
                                                     data-lf-status-id="lf-lighting-reset-status"
                                                     {{ if .ReadOnly }}disabled{{ end }}
