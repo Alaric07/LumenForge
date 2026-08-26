@@ -221,7 +221,7 @@ func (store *IndependentDeviceStateStore) persist(devices map[string]Independent
 // record without reading or writing persistence.
 func ValidateIndependentDeviceLightingState(state IndependentDeviceLightingState) error {
 	descriptor, ok := rgb.SoftwareEffectDescriptorByID(state.SelectedEffect)
-	if !independentDeviceEffectDescriptor(descriptor, ok) {
+	if !independentDeviceEffectDescriptor(descriptor, ok) && !specialIndependentDeviceEffectID(state.SelectedEffect) {
 		return fmt.Errorf("selected effect %q is not valid for an independent device", state.SelectedEffect)
 	}
 	if state.Brightness > 100 {
@@ -232,6 +232,12 @@ func ValidateIndependentDeviceLightingState(state IndependentDeviceLightingState
 
 func independentDeviceEffectDescriptor(descriptor rgb.SoftwareEffectDescriptor, found bool) bool {
 	return found && descriptor.Scope.Includes(rgb.EffectScopeDevice)
+}
+
+func specialIndependentDeviceEffectID(effect string) bool {
+	// Device-specific effects are selected through the independent-device state
+	// store but deliberately have no shared software-effect descriptor/settings.
+	return effect == "mousepad"
 }
 
 func validateIndependentDeviceIdentity(deviceID string) error {

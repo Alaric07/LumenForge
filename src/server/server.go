@@ -3131,8 +3131,7 @@ func getNativeDeviceLightingTarget(serial string) (nativeDeviceLightingTarget, e
 }
 
 func validateNativeDeviceLightingEffect(target nativeDeviceLightingTarget, effect string) error {
-	descriptor, known := rgb.SoftwareEffectDescriptorByID(effect)
-	if !known || !descriptor.Scope.Includes(rgb.EffectScopeDevice) || !target.SupportsLightingEffect(effect) {
+	if !target.SupportsLightingEffect(effect) {
 		return fmt.Errorf("unsupported effect")
 	}
 	return nil

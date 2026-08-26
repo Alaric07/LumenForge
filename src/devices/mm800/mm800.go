@@ -9,6 +9,7 @@ import (
 	"LumenForge/src/common"
 	"LumenForge/src/config"
 	"LumenForge/src/led"
+	"LumenForge/src/lightingsettings"
 	"LumenForge/src/logger"
 	"LumenForge/src/metrics"
 	"LumenForge/src/openrgb"
@@ -27,36 +28,38 @@ import (
 )
 
 type Device struct {
-	Debug           bool
-	dev             *hid.Device
-	Manufacturer    string `json:"manufacturer"`
-	Product         string `json:"product"`
-	Serial          string `json:"serial"`
-	Path            string `json:"path"`
-	Firmware        string `json:"firmware"`
-	activeRgb       *rgb.ActiveRGB
-	ledProfile      *led.Device
-	DeviceProfile   *DeviceProfile
-	UserProfiles    map[string]*DeviceProfile `json:"userProfiles"`
-	Brightness      map[int]string
-	Template        string
-	VendorId        uint16
-	ProductId       uint16
-	LEDChannels     int
-	CpuTemp         float32
-	GpuTemp         float32
-	Rgb             *rgb.RGB
-	rgbMutex        sync.RWMutex
-	Exit            bool
-	timer           *time.Ticker
-	timerKeepAlive  *time.Ticker
-	mutex           sync.Mutex
-	autoRefreshChan chan struct{}
-	keepAliveChan   chan struct{}
-	LEDs            int
-	RGBModes        []string
-	queue           chan []byte
-	instance        *common.Device
+	Debug                       bool
+	dev                         *hid.Device
+	Manufacturer                string `json:"manufacturer"`
+	Product                     string `json:"product"`
+	Serial                      string `json:"serial"`
+	Path                        string `json:"path"`
+	Firmware                    string `json:"firmware"`
+	activeRgb                   *rgb.ActiveRGB
+	ledProfile                  *led.Device
+	DeviceProfile               *DeviceProfile
+	UserProfiles                map[string]*DeviceProfile `json:"userProfiles"`
+	Brightness                  map[int]string
+	Template                    string
+	VendorId                    uint16
+	ProductId                   uint16
+	LEDChannels                 int
+	CpuTemp                     float32
+	GpuTemp                     float32
+	Rgb                         *rgb.RGB
+	rgbMutex                    sync.RWMutex
+	Exit                        bool
+	timer                       *time.Ticker
+	timerKeepAlive              *time.Ticker
+	mutex                       sync.Mutex
+	autoRefreshChan             chan struct{}
+	keepAliveChan               chan struct{}
+	LEDs                        int
+	RGBModes                    []string
+	queue                       chan []byte
+	instance                    *common.Device
+	lightingRuntime             *lightingsettings.IndependentDeviceRuntime
+	schedulerBrightnessOverride mm800SchedulerBrightnessOverride
 }
 
 type ZoneColor struct {
@@ -170,9 +173,14 @@ func Init(vendorId, productId uint16, serial, path string) *common.Device {
 		LEDs:            15,
 	}
 
-	d.getDebugMode()           // Debug mode
-	d.getManufacturer()        // Manufacturer
-	d.getSerial()              // Serial
+	d.getDebugMode()    // Debug mode
+	d.getManufacturer() // Manufacturer
+	d.getSerial()       // Serial
+	if err = d.attachIndependentDeviceLightingRuntime(config.GetPaths()); err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to attach canonical device lighting runtime")
+		_ = d.dev.Close()
+		return nil
+	}
 	d.loadRgb()                // Load RGB
 	d.setSoftwareMode()        // Activate software mode
 	d.getDeviceFirmware()      // Firmware
@@ -844,7 +852,7 @@ func (d *Device) UpdateRgbProfile(_ int, profile string) uint8 {
 		return 0
 	}
 
-	if d.GetRgbProfile(profile) == nil {
+	if !d.SupportsLightingEffect(profile) {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
 		return 0
 	}
@@ -856,13 +864,10 @@ func (d *Device) UpdateRgbProfile(_ int, profile string) uint8 {
 		return 4
 	}
 
-	d.DeviceProfile.RGBProfile = profile // Set profile
-	d.saveDeviceProfile()                // Save profile
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
+	if err := d.SetLightingEffect(profile); err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "profile": profile}).Error("Unable to update canonical RGB profile")
+		return 0
 	}
-	d.setDeviceColor()
 	return 1
 }
 
@@ -1065,35 +1070,25 @@ func (d *Device) ChangeDeviceBrightnessValue(value uint8) uint8 {
 	if value < 0 || value > 100 {
 		return 0
 	}
-
-	d.DeviceProfile.BrightnessSlider = &value
-	d.saveDeviceProfile()
-
-	if d.DeviceProfile.RGBProfile == "static" || d.DeviceProfile.RGBProfile == "mousepad" {
-		if d.activeRgb != nil {
-			d.activeRgb.Exit <- true
-			d.activeRgb = nil
-		}
-		d.setDeviceColor()
+	if err := d.SetLightingBrightness(value); err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to update canonical device brightness")
+		return 0
 	}
 	return 1
 }
 
 // SchedulerBrightness will change device brightness via scheduler
 func (d *Device) SchedulerBrightness(value uint8) uint8 {
+	var override *uint8
 	if value == 0 {
-		d.DeviceProfile.OriginalBrightness = *d.DeviceProfile.BrightnessSlider
-		d.DeviceProfile.BrightnessSlider = &value
-	} else {
-		d.DeviceProfile.BrightnessSlider = &d.DeviceProfile.OriginalBrightness
+		overrideValue := uint8(0)
+		override = &overrideValue
 	}
-
-	d.saveDeviceProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
+	if d.schedulerBrightnessOverride.set(override) && d.locallyOwnsLighting() {
+		d.rgbMutex.Lock()
+		d.restartCanonicalLighting()
+		d.rgbMutex.Unlock()
 	}
-	d.setDeviceColor()
 	return 1
 }
 
@@ -1202,14 +1197,6 @@ func (d *Device) ControlDeviceRgb(value bool) {
 
 // setDeviceColor will activate and set device RGB
 func (d *Device) setDeviceColor() {
-	// Reset
-	var buf = make([]byte, d.LEDChannels)
-	//var buffer []byte
-	for i := 0; i < d.LEDChannels; i++ {
-		buf[i] = 0x00
-	}
-	d.writeColor(buf)
-
 	if d.DeviceProfile == nil {
 		logger.Log(logger.Fields{"serial": d.Serial}).Error("Unable to set color. DeviceProfile is null!")
 		return
@@ -1232,11 +1219,23 @@ func (d *Device) setDeviceColor() {
 		logger.Log(logger.Fields{}).Info("Exiting setDeviceColor() due to RGB being set to Off")
 		return
 	}
+	selectedEffect, err := d.currentCanonicalSelectedEffect()
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to resolve canonical device lighting effect")
+		return
+	}
+	brightness, err := d.effectiveCanonicalBrightness()
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to resolve canonical device brightness")
+		return
+	}
 
-	if d.DeviceProfile.RGBProfile == "mousepad" {
+	var buf = make([]byte, d.LEDChannels)
+
+	if selectedEffect == "mousepad" {
 		for _, rows := range d.DeviceProfile.Mousepad.Row {
 			for _, keys := range rows.Zones {
-				keys.Color.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
+				keys.Color.Brightness = rgb.GetBrightnessValueFloat(brightness)
 				profileColor := rgb.ModifyBrightness(keys.Color)
 				for _, packetIndex := range keys.PacketIndex {
 					buf[packetIndex] = byte(profileColor.Red)
@@ -1249,12 +1248,18 @@ func (d *Device) setDeviceColor() {
 		return
 	}
 
-	if d.DeviceProfile.RGBProfile == "static" {
-		profile := d.GetRgbProfile("static")
-		if profile == nil {
+	settings, err := d.resolveCanonicalEffectSettings(selectedEffect)
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial, "effect": selectedEffect}).Error("Unable to resolve canonical device lighting settings")
+		return
+	}
+	profile := lightingsettings.RendererProfileFromEffectSettings(settings)
+
+	if selectedEffect == "static" {
+		if settings.SingleColor == nil {
 			return
 		}
-		profile.StartColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
+		profile.StartColor.Brightness = rgb.GetBrightnessValueFloat(brightness)
 		profileColor := rgb.ModifyBrightness(profile.StartColor)
 		for _, rows := range d.DeviceProfile.Mousepad.Row {
 			for _, keys := range rows.Zones {
@@ -1269,7 +1274,7 @@ func (d *Device) setDeviceColor() {
 		return
 	}
 
-	go func(lightChannels int) {
+	go func(lightChannels int, effect string, brightness uint8, resolvedProfile rgb.Profile) {
 		startTime := time.Now()
 		d.activeRgb = rgb.Exit()
 
@@ -1285,13 +1290,7 @@ func (d *Device) setDeviceColor() {
 				buff := make([]byte, 0)
 
 				rgbCustomColor := true
-				profile := d.GetRgbProfile(d.DeviceProfile.RGBProfile)
-				if profile == nil {
-					for i := 0; i < d.LEDChannels; i++ {
-						buff = append(buff, []byte{0, 0, 0}...)
-					}
-					continue
-				}
+				profile := resolvedProfile
 				rgbModeSpeed := common.FClamp(profile.Speed, 0.1, 10)
 				// Check if we have custom colors
 				if (rgb.Color{}) == profile.StartColor || (rgb.Color{}) == profile.EndColor {
@@ -1324,12 +1323,12 @@ func (d *Device) setDeviceColor() {
 				}
 
 				// Brightness
-				r.RGBBrightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
+				r.RGBBrightness = rgb.GetBrightnessValueFloat(brightness)
 				r.RGBStartColor.Brightness = r.RGBBrightness
 				r.RGBEndColor.Brightness = r.RGBBrightness
 				r.RGBMiddleColor.Brightness = r.RGBBrightness
 
-				switch d.DeviceProfile.RGBProfile {
+				switch effect {
 				case "custom":
 					{
 						for n := 0; n < d.LEDs; n++ {
@@ -1478,7 +1477,7 @@ func (d *Device) setDeviceColor() {
 				time.Sleep(20 * time.Millisecond)
 			}
 		}
-	}(d.LEDChannels)
+	}(d.LEDChannels, selectedEffect, brightness, profile)
 }
 
 // writeColorCluster will write data to the device from cluster client
