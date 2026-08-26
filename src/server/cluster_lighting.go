@@ -99,7 +99,7 @@ func clusterLightingWorkspaceSummaryFromSnapshot(snapshot cluster.LightingSnapsh
 		return summary
 	}
 	summary.ConfiguredEffect = snapshot.SelectedEffect
-	summary.ConfiguredEffectLabel = openRGBLightingEffectDisplayLabel(descriptor.ID, descriptor.Label)
+	summary.ConfiguredEffectLabel = devicesLightingEffectDisplayLabel(descriptor.ID, descriptor.Label)
 	summary.ConfiguredEffectIconURL = clusterLightingEffectIconURL(descriptor.ID)
 	summary.EffectSupported = true
 	summary.Brightness = snapshot.Brightness
@@ -142,7 +142,7 @@ func clusterLightingWorkspaceSummaryFromSnapshot(snapshot cluster.LightingSnapsh
 			continue
 		}
 		summary.SupportedEffects = append(summary.SupportedEffects, clusterLightingEffectSummary{
-			ID: effect.ID, Label: openRGBLightingEffectDisplayLabel(effect.ID, effect.Label), Selected: effect.ID == snapshot.SelectedEffect,
+			ID: effect.ID, Label: devicesLightingEffectDisplayLabel(effect.ID, effect.Label), Selected: effect.ID == snapshot.SelectedEffect,
 		})
 	}
 	sort.Slice(summary.SupportedEffects, func(i, j int) bool {

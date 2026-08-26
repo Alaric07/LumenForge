@@ -4,55 +4,26 @@ import (
 	"fmt"
 	"slices"
 
+	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/lightingsettings"
 	"LumenForge/src/rgb"
 )
 
-// LightingEffectOption is a presentation-safe copy of one effect supported by
-// an imported controller.
-type LightingEffectOption struct {
-	ID    string
-	Label string
-}
+// Compatibility aliases keep existing package-local consumers source-compatible
+// while shared presentation types are the contract returned by LightingSnapshot.
+type LightingEffectOption = lightingpresentation.EffectOption
+type LightingTemperaturePointSnapshot = lightingpresentation.TemperaturePoint
+type LightingGradientStopSnapshot = lightingpresentation.GradientStop
+type LightingSnapshot = lightingpresentation.Snapshot
 
-// LightingTemperaturePointSnapshot is a presentation-safe copy of one
-// canonical semantic temperature point.
-type LightingTemperaturePointSnapshot struct {
-	ColorHex string
-	Celsius  float64
-}
-
-// LightingGradientStopSnapshot is a presentation-safe copy of one canonical
-// ordered Gradient stop.
-type LightingGradientStopSnapshot struct {
-	Position  float64
-	ColorHex  string
-	Intensity float64
-}
-
-// LightingSnapshot is an immutable presentation/configuration view of an
-// imported controller's lighting state. It does not confirm live hardware
-// output.
-type LightingSnapshot struct {
-	ConfiguredEffect  string
-	EffectSupported   bool
-	SupportedEffects  []LightingEffectOption
-	HasBrightness     bool
-	Brightness        uint8
-	HasSpeed          bool
-	Speed             float64
-	ClusterControlled bool
-	PaletteKind       string
-	SingleColorHex    string
-	TwoColorStartHex  string
-	TwoColorEndHex    string
-	HasTemperature    bool
-	TemperatureLow    LightingTemperaturePointSnapshot
-	TemperatureMiddle LightingTemperaturePointSnapshot
-	TemperatureHigh   LightingTemperaturePointSnapshot
-	HasGradient       bool
-	GradientStops     []LightingGradientStopSnapshot
-	Customized        bool
+// LightingDeviceID identifies this imported device for Devices lighting.
+func (d *Device) LightingDeviceID() string {
+	if d == nil {
+		return ""
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.Serial
 }
 
 func lightingColorHex(color lightingsettings.Color) string {
@@ -62,18 +33,19 @@ func lightingColorHex(color lightingsettings.Color) string {
 // LightingSnapshot returns a complete race-safe value snapshot. Selected
 // effect, Brightness, and effect settings come from the cut-over target state
 // and canonical resolver.
-func (d *Device) LightingSnapshot() (LightingSnapshot, bool) {
+func (d *Device) LightingSnapshot() (lightingpresentation.Snapshot, bool) {
 	if d == nil {
-		return LightingSnapshot{}, false
+		return lightingpresentation.Snapshot{}, false
 	}
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if !d.IsOpenRGB || d.lifecycleInactiveLocked() {
-		return LightingSnapshot{}, false
+		return lightingpresentation.Snapshot{}, false
 	}
 
-	snapshot := LightingSnapshot{
+	snapshot := lightingpresentation.Snapshot{
+		TargetKind:       "openrgb",
 		SupportedEffects: make([]LightingEffectOption, 0, len(d.RGBModes)),
 	}
 	for _, effect := range d.RGBModes {
@@ -123,21 +95,21 @@ func (d *Device) LightingSnapshot() (LightingSnapshot, bool) {
 		resolution.Settings.Temperature != nil {
 		temperature := resolution.Settings.Temperature
 		snapshot.HasTemperature = true
-		snapshot.TemperatureLow = LightingTemperaturePointSnapshot{
+		snapshot.TemperatureLow = lightingpresentation.TemperaturePoint{
 			ColorHex: lightingColorHex(temperature.Low.Color), Celsius: temperature.Low.Celsius,
 		}
-		snapshot.TemperatureMiddle = LightingTemperaturePointSnapshot{
+		snapshot.TemperatureMiddle = lightingpresentation.TemperaturePoint{
 			ColorHex: lightingColorHex(temperature.Middle.Color), Celsius: temperature.Middle.Celsius,
 		}
-		snapshot.TemperatureHigh = LightingTemperaturePointSnapshot{
+		snapshot.TemperatureHigh = lightingpresentation.TemperaturePoint{
 			ColorHex: lightingColorHex(temperature.High.Color), Celsius: temperature.High.Celsius,
 		}
 	}
 	if descriptor.PaletteKind == rgb.LightingPaletteGradient && resolution.Settings.Gradient != nil {
 		snapshot.HasGradient = true
-		snapshot.GradientStops = make([]LightingGradientStopSnapshot, len(resolution.Settings.Gradient.Stops))
+		snapshot.GradientStops = make([]lightingpresentation.GradientStop, len(resolution.Settings.Gradient.Stops))
 		for index, stop := range resolution.Settings.Gradient.Stops {
-			snapshot.GradientStops[index] = LightingGradientStopSnapshot{
+			snapshot.GradientStops[index] = lightingpresentation.GradientStop{
 				Position: stop.Position, ColorHex: lightingColorHex(stop.Color), Intensity: stop.Intensity,
 			}
 		}

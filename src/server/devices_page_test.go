@@ -5,7 +5,7 @@ import (
 	"LumenForge/src/config"
 	"LumenForge/src/devices"
 	"LumenForge/src/devices/openrgbimport"
-	"LumenForge/src/devices/scimitarprorgb"
+	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/rgb"
 	"LumenForge/src/stats"
 	"LumenForge/src/templates"
@@ -23,11 +23,16 @@ import (
 
 const devicesPageHelperEnvironment = "LUMENFORGE_DEVICES_PAGE_TEST_HELPER"
 
-type devicesPageScimitarLightingSnapshotProvider struct {
-	snapshot scimitarprorgb.LightingSnapshot
+type devicesPageLightingSnapshotProvider struct {
+	serial   string
+	snapshot lightingpresentation.Snapshot
 }
 
-func (provider devicesPageScimitarLightingSnapshotProvider) LightingSnapshot() (scimitarprorgb.LightingSnapshot, bool) {
+func (provider devicesPageLightingSnapshotProvider) LightingDeviceID() string {
+	return provider.serial
+}
+
+func (provider devicesPageLightingSnapshotProvider) LightingSnapshot() (lightingpresentation.Snapshot, bool) {
 	return provider.snapshot, true
 }
 
@@ -81,13 +86,13 @@ func requestDevicesPage(t *testing.T, handler http.Handler, rawQuery string) *ht
 }
 
 func TestDevicesLightingPresentationModel(t *testing.T) {
-	source := openrgbimport.LightingSnapshot{
+	source := lightingpresentation.Snapshot{TargetKind: "openrgb",
 		ConfiguredEffect:  "wave",
 		EffectSupported:   true,
 		HasBrightness:     true,
 		Brightness:        0,
 		ClusterControlled: true,
-		SupportedEffects: []openrgbimport.LightingEffectOption{
+		SupportedEffects: []lightingpresentation.EffectOption{
 			{ID: "future-effect", Label: "Future Effect"},
 			{
 				ID:    "wave",
@@ -101,18 +106,18 @@ func TestDevicesLightingPresentationModel(t *testing.T) {
 		TwoColorStartHex:  "#112233",
 		TwoColorEndHex:    "#aabbcc",
 		HasTemperature:    true,
-		TemperatureLow:    openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#010203", Celsius: 20.5},
-		TemperatureMiddle: openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#040506", Celsius: 50.25},
-		TemperatureHigh:   openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#070809", Celsius: 80.75},
+		TemperatureLow:    lightingpresentation.TemperaturePoint{ColorHex: "#010203", Celsius: 20.5},
+		TemperatureMiddle: lightingpresentation.TemperaturePoint{ColorHex: "#040506", Celsius: 50.25},
+		TemperatureHigh:   lightingpresentation.TemperaturePoint{ColorHex: "#070809", Celsius: 80.75},
 		HasGradient:       true,
-		GradientStops: []openrgbimport.LightingGradientStopSnapshot{
+		GradientStops: []lightingpresentation.GradientStop{
 			{Position: 0, ColorHex: "#112233", Intensity: 0},
 			{Position: 1, ColorHex: "#aabbcc", Intensity: 1},
 		},
 		Customized: true,
 	}
 
-	summary := openRGBLightingWorkspaceSummaryFromSnapshot(source)
+	summary := devicesLightingWorkspaceSummaryFromSnapshot(source)
 	if summary.ConfiguredEffect != "wave" || summary.ConfiguredEffectLabel != "Wave <Label> & More" ||
 		summary.ConfiguredEffectIconURL != "/static/img/icons/rgb/wave.svg" ||
 		!summary.EffectSupported || !summary.HasBrightness || summary.Brightness != 0 || !summary.ClusterControlled ||
@@ -162,12 +167,13 @@ func runDevicesWorkspaceAddsWritableNativeScimitarLightingOnlyAssertions(t *test
 	scimitarSerial := "scimitar-presentation"
 	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{
 		scimitarSerial: {
-			Serial: scimitarSerial, Product: "SCIMITAR PRO RGB", ProductType: common.ProductTypeScimitarProRgb,
-			Instance: devicesPageScimitarLightingSnapshotProvider{snapshot: scimitarprorgb.LightingSnapshot{
+			Serial: scimitarSerial, Product: "SCIMITAR PRO RGB", ProductType: common.ProductTypeScimitarProRgb - 1,
+			Instance: devicesPageLightingSnapshotProvider{serial: scimitarSerial, snapshot: lightingpresentation.Snapshot{TargetKind: "native",
 				ConfiguredEffect: "gradient", EffectSupported: true, HasBrightness: true, Brightness: 64,
-				SupportedEffects: []scimitarprorgb.LightingEffectOption{{ID: "gradient", Label: "Gradient"}},
-				PaletteKind: string(rgb.LightingPaletteGradient), HasGradient: true,
-				GradientStops: []scimitarprorgb.LightingGradientStopSnapshot{{Position: 0.2, ColorHex: "#102030", Intensity: 0.4}},
+				SupportedEffects: []lightingpresentation.EffectOption{{ID: "gradient", Label: "Gradient"}},
+				PaletteKind:      string(rgb.LightingPaletteGradient), HasGradient: true,
+				GradientStops:      []lightingpresentation.GradientStop{{Position: 0.2, ColorHex: "#102030", Intensity: 0.4}},
+				ExternalControlled: true,
 			}},
 		},
 	}, map[string]stats.BatteryStats{}, scimitarSerial)
@@ -175,7 +181,7 @@ func runDevicesWorkspaceAddsWritableNativeScimitarLightingOnlyAssertions(t *test
 		summary.Lighting.TargetKind != "native" || summary.Lighting.ConfiguredEffect != "gradient" ||
 		!summary.Lighting.HasBrightness || summary.Lighting.Brightness != 64 ||
 		summary.Lighting.PaletteKind != string(rgb.LightingPaletteGradient) || !summary.Lighting.HasGradient ||
-		len(summary.Lighting.GradientStops) != 1 || summary.Lighting.GradientStops[0].ColorHex != "#102030" {
+		!summary.Lighting.ExternalControlled || len(summary.Lighting.GradientStops) != 1 || summary.Lighting.GradientStops[0].ColorHex != "#102030" {
 		t.Fatalf("Scimitar Devices summary = %#v, ok=%t", summary, ok)
 	}
 	body := renderDevicesLightingView(t, summary.Lighting)
@@ -227,10 +233,10 @@ func TestDevicesLightingEffectIconInventory(t *testing.T) {
 		}
 
 		wantURL := "/static/img/icons/rgb/" + descriptor.Icon
-		summary := openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+		summary := devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb",
 			ConfiguredEffect: descriptor.ID,
 			EffectSupported:  true,
-			SupportedEffects: []openrgbimport.LightingEffectOption{{ID: descriptor.ID, Label: descriptor.Label}},
+			SupportedEffects: []lightingpresentation.EffectOption{{ID: descriptor.ID, Label: descriptor.Label}},
 		})
 		if summary.ConfiguredEffectIconURL != wantURL {
 			t.Errorf("software effect %q icon URL = %q, want %q", descriptor.ID, summary.ConfiguredEffectIconURL, wantURL)
@@ -258,17 +264,17 @@ func TestDevicesLightingEffectIconInventory(t *testing.T) {
 	}
 
 	for _, id := range []string{"unknown", "../wave", `wave');background:url(/escaped.svg);/*`} {
-		if got := openRGBLightingEffectIconURL(id); got != "" {
+		if got := devicesLightingEffectIconURL(id); got != "" {
 			t.Errorf("non-canonical software effect ID %q produced icon URL %q", id, got)
 		}
 	}
 }
 
 func TestDevicesLightingEffectSelectorPresentation(t *testing.T) {
-	source := openrgbimport.LightingSnapshot{
+	source := lightingpresentation.Snapshot{TargetKind: "openrgb",
 		ConfiguredEffect: "wave",
 		EffectSupported:  true,
-		SupportedEffects: []openrgbimport.LightingEffectOption{
+		SupportedEffects: []lightingpresentation.EffectOption{
 			{ID: "wave", Label: "Wave"},
 			{ID: "aurora-z", Label: "aurora"},
 			{ID: "off", Label: "Off"},
@@ -276,7 +282,7 @@ func TestDevicesLightingEffectSelectorPresentation(t *testing.T) {
 			{ID: "aurora-a", Label: "Aurora"},
 		},
 	}
-	summary := openRGBLightingWorkspaceSummaryFromSnapshot(source)
+	summary := devicesLightingWorkspaceSummaryFromSnapshot(source)
 	if len(summary.SupportedEffects) != len(source.SupportedEffects) {
 		t.Fatalf("presentation effect options = %d, want %d snapshot-supported effects", len(summary.SupportedEffects), len(source.SupportedEffects))
 	}
@@ -300,27 +306,27 @@ func TestDevicesLightingEffectSelectorPresentation(t *testing.T) {
 		t.Error("presentation effect options alias the source snapshot")
 	}
 
-	emptyLabelOff := openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
-		SupportedEffects: []openrgbimport.LightingEffectOption{{ID: "off"}},
+	emptyLabelOff := devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb",
+		SupportedEffects: []lightingpresentation.EffectOption{{ID: "off"}},
 	})
 	if len(emptyLabelOff.SupportedEffects) != 1 || emptyLabelOff.SupportedEffects[0].ID != "off" || emptyLabelOff.SupportedEffects[0].Label != "Off" {
 		t.Fatalf("empty-label supported Off presentation = %#v", emptyLabelOff.SupportedEffects)
 	}
 
-	withoutOff := openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
-		SupportedEffects: []openrgbimport.LightingEffectOption{{ID: "static", Label: "Static"}},
+	withoutOff := devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb",
+		SupportedEffects: []lightingpresentation.EffectOption{{ID: "static", Label: "Static"}},
 	})
 	if len(withoutOff.SupportedEffects) != 1 || withoutOff.SupportedEffects[0].ID != "static" {
 		t.Fatalf("presentation fabricated an effect absent from the snapshot: %#v", withoutOff.SupportedEffects)
 	}
 }
 
-func devicesLightingSpeedSnapshot(effect string, speed float64) openrgbimport.LightingSnapshot {
+func devicesLightingSpeedSnapshot(effect string, speed float64) lightingpresentation.Snapshot {
 	capability, _ := rgb.LightingEffectCapabilities(effect)
-	return openrgbimport.LightingSnapshot{
+	return lightingpresentation.Snapshot{TargetKind: "openrgb",
 		ConfiguredEffect: effect,
 		EffectSupported:  true,
-		SupportedEffects: []openrgbimport.LightingEffectOption{{
+		SupportedEffects: []lightingpresentation.EffectOption{{
 			ID:    effect,
 			Label: effect,
 		}},
@@ -332,7 +338,7 @@ func devicesLightingSpeedSnapshot(effect string, speed float64) openrgbimport.Li
 func TestDevicesLightingSpeedControlPresentation(t *testing.T) {
 	for _, effect := range []string{"circle", "flame", "cyberpunkglitch", "rain", "aurora", "gradient"} {
 		t.Run(effect, func(t *testing.T) {
-			summary := openRGBLightingWorkspaceSummaryFromSnapshot(devicesLightingSpeedSnapshot(effect, 2))
+			summary := devicesLightingWorkspaceSummaryFromSnapshot(devicesLightingSpeedSnapshot(effect, 2))
 			if !summary.HasSpeedControl || summary.Speed != "2" {
 				t.Fatalf("speed presentation for %q = %#v", effect, summary)
 			}
@@ -341,22 +347,22 @@ func TestDevicesLightingSpeedControlPresentation(t *testing.T) {
 
 	for _, test := range []struct {
 		name     string
-		snapshot openrgbimport.LightingSnapshot
+		snapshot lightingpresentation.Snapshot
 	}{
-		{name: "unsupported effect", snapshot: func() openrgbimport.LightingSnapshot {
+		{name: "unsupported effect", snapshot: func() lightingpresentation.Snapshot {
 			value := devicesLightingSpeedSnapshot("circle", 2)
 			value.EffectSupported = false
 			value.HasSpeed = false
 			return value
 		}()},
-		{name: "missing speed", snapshot: func() openrgbimport.LightingSnapshot {
+		{name: "missing speed", snapshot: func() lightingpresentation.Snapshot {
 			value := devicesLightingSpeedSnapshot("circle", 2)
 			value.HasSpeed = false
 			return value
 		}()},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if summary := openRGBLightingWorkspaceSummaryFromSnapshot(test.snapshot); summary.HasSpeedControl {
+			if summary := devicesLightingWorkspaceSummaryFromSnapshot(test.snapshot); summary.HasSpeedControl {
 				t.Fatalf("%s produced a Speed control: %#v", test.name, summary)
 			}
 		})
@@ -424,13 +430,13 @@ func TestDevicesLightingColorResetTemplate(t *testing.T) {
 }
 
 func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
-	staticSnapshot := openrgbimport.LightingSnapshot{
+	staticSnapshot := lightingpresentation.Snapshot{TargetKind: "openrgb",
 		ConfiguredEffect: "static",
 		EffectSupported:  true,
 		PaletteKind:      string(rgb.LightingPaletteStaticSingle),
 		SingleColorHex:   "#00ffff",
 	}
-	uncustomizedBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(staticSnapshot))
+	uncustomizedBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(staticSnapshot))
 	for _, expected := range []string{
 		`id="lf-lighting-color-input"`,
 		`type="color"`,
@@ -455,7 +461,7 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 	}
 
 	staticSnapshot.Customized = true
-	customizedBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(staticSnapshot))
+	customizedBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(staticSnapshot))
 	resetStart = strings.Index(customizedBody, `class="lf-reset-control"`)
 	if resetStart < 0 {
 		t.Fatal("customized Static template does not render Reset")
@@ -469,7 +475,7 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 	}
 
 	staticSnapshot.ClusterControlled = true
-	clusterBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(staticSnapshot))
+	clusterBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(staticSnapshot))
 	for _, id := range []string{"lf-lighting-color-input", "lf-lighting-color-hex"} {
 		inputStart := strings.Index(clusterBody, `id="`+id+`"`)
 		if inputStart < 0 {
@@ -485,7 +491,7 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 		t.Error("cluster-owned Static template exposes local Reset controls")
 	}
 
-	unsupportedBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+	unsupportedBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb",
 		ConfiguredEffect: "aurora",
 		EffectSupported:  true,
 		PaletteKind:      string(rgb.LightingPaletteGenerated),
@@ -495,7 +501,7 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 		t.Error("non-single-color effect rendered the color editor")
 	}
 
-	twoColorSnapshot := openrgbimport.LightingSnapshot{
+	twoColorSnapshot := lightingpresentation.Snapshot{TargetKind: "openrgb",
 		ConfiguredEffect: "wave",
 		EffectSupported:  true,
 		HasSpeed:         true,
@@ -504,7 +510,7 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 		TwoColorStartHex: "#418fe8",
 		TwoColorEndHex:   "#828282",
 	}
-	twoColorBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(twoColorSnapshot))
+	twoColorBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(twoColorSnapshot))
 	for _, expected := range []string{
 		`data-lf-two-color-control`,
 		`data-lf-current-start="#418fe8"`,
@@ -543,7 +549,7 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 	}
 
 	twoColorSnapshot.Customized = true
-	customizedTwoColorBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(twoColorSnapshot))
+	customizedTwoColorBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(twoColorSnapshot))
 	resetStart = strings.Index(customizedTwoColorBody, `class="lf-reset-control"`)
 	if resetStart < 0 {
 		t.Fatal("customized two-color Reset container is absent")
@@ -554,7 +560,7 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 	}
 
 	twoColorSnapshot.ClusterControlled = true
-	clusterTwoColorBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(twoColorSnapshot))
+	clusterTwoColorBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(twoColorSnapshot))
 	for _, id := range []string{
 		"lf-lighting-start-color-input",
 		"lf-lighting-start-color-hex",
@@ -582,16 +588,16 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 		{effect: "cpu-temperature", high: 95},
 		{effect: "gpu-temperature", high: 80},
 	} {
-		temperatureSnapshot := openrgbimport.LightingSnapshot{
+		temperatureSnapshot := lightingpresentation.Snapshot{TargetKind: "openrgb",
 			ConfiguredEffect:  test.effect,
 			EffectSupported:   true,
 			PaletteKind:       string(rgb.LightingPaletteTemperatureThree),
 			HasTemperature:    true,
-			TemperatureLow:    openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#00ff00", Celsius: 20},
-			TemperatureMiddle: openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#ffff00", Celsius: 50},
-			TemperatureHigh:   openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#ff0000", Celsius: test.high},
+			TemperatureLow:    lightingpresentation.TemperaturePoint{ColorHex: "#00ff00", Celsius: 20},
+			TemperatureMiddle: lightingpresentation.TemperaturePoint{ColorHex: "#ffff00", Celsius: 50},
+			TemperatureHigh:   lightingpresentation.TemperaturePoint{ColorHex: "#ff0000", Celsius: test.high},
 		}
-		body := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(temperatureSnapshot))
+		body := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(temperatureSnapshot))
 		for _, expected := range []string{
 			`data-lf-temperature-control`, `value="#00ff00"`, `value="#ffff00"`, `value="#ff0000"`,
 			`value="` + fmt.Sprint(test.high) + `"`, `step="any"`, `Low temperature threshold in degrees Celsius`,
@@ -620,7 +626,7 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 			t.Errorf("%s uncustomized temperature Reset is not hidden", test.effect)
 		}
 		temperatureSnapshot.Customized = true
-		customizedBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(temperatureSnapshot))
+		customizedBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(temperatureSnapshot))
 		resetStart := strings.Index(customizedBody, `class="lf-reset-control"`)
 		if resetStart < 0 {
 			t.Errorf("%s customized temperature Reset is not visible", test.effect)
@@ -630,29 +636,29 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 		}
 	}
 
-	clusterTemperature := openrgbimport.LightingSnapshot{
+	clusterTemperature := lightingpresentation.Snapshot{TargetKind: "openrgb",
 		ConfiguredEffect: "cpu-temperature", EffectSupported: true,
 		PaletteKind: string(rgb.LightingPaletteTemperatureThree), HasTemperature: true, ClusterControlled: true,
-		TemperatureLow:    openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#00ff00", Celsius: 20},
-		TemperatureMiddle: openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#ffff00", Celsius: 50},
-		TemperatureHigh:   openrgbimport.LightingTemperaturePointSnapshot{ColorHex: "#ff0000", Celsius: 95},
+		TemperatureLow:    lightingpresentation.TemperaturePoint{ColorHex: "#00ff00", Celsius: 20},
+		TemperatureMiddle: lightingpresentation.TemperaturePoint{ColorHex: "#ffff00", Celsius: 50},
+		TemperatureHigh:   lightingpresentation.TemperaturePoint{ColorHex: "#ff0000", Celsius: 95},
 	}
-	clusterTemperatureBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(clusterTemperature))
+	clusterTemperatureBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(clusterTemperature))
 	if strings.Count(clusterTemperatureBody, " disabled") < 9 || strings.Contains(clusterTemperatureBody, `data-lf-reset-control`) {
 		t.Error("cluster-owned temperature editor is active or exposes Reset")
 	}
 
-	gradientSnapshot := openrgbimport.LightingSnapshot{
+	gradientSnapshot := lightingpresentation.Snapshot{TargetKind: "openrgb",
 		ConfiguredEffect: "gradient", EffectSupported: true, HasBrightness: true, Brightness: 60,
 		HasSpeed: true, Speed: 10, PaletteKind: string(rgb.LightingPaletteGradient), HasGradient: true,
-		GradientStops: []openrgbimport.LightingGradientStopSnapshot{
+		GradientStops: []lightingpresentation.GradientStop{
 			{Position: 0, ColorHex: "#ff0000", Intensity: 1},
 			{Position: 0.25, ColorHex: "#00ff00", Intensity: 1},
 			{Position: 0.5, ColorHex: "#0000ff", Intensity: 1},
 			{Position: 0.75, ColorHex: "#ffff00", Intensity: 1},
 		},
 	}
-	gradientBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(gradientSnapshot))
+	gradientBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(gradientSnapshot))
 	for _, expected := range []string{
 		`data-lf-gradient-control`, `id="lf-lighting-gradient-stops"`, `Gradient stops`, `Add stop`, `Save Gradient`,
 		`Position uses 0 for the start and 1 for the end`, `Intensity is relative to device Brightness`,
@@ -688,7 +694,7 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 		t.Error("uncustomized Gradient Reset is not hidden")
 	}
 	gradientSnapshot.Customized = true
-	customGradientBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(gradientSnapshot))
+	customGradientBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(gradientSnapshot))
 	gradientResetStart = strings.Index(customGradientBody, `class="lf-reset-control"`)
 	if gradientResetStart < 0 {
 		t.Error("customized Gradient Reset is not visible")
@@ -699,7 +705,7 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 
 	twoStopGradient := gradientSnapshot
 	twoStopGradient.GradientStops = gradientSnapshot.GradientStops[:2]
-	twoStopBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(twoStopGradient))
+	twoStopBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(twoStopGradient))
 	for _, remove := range strings.Split(twoStopBody, `data-lf-gradient-remove`)[1:] {
 		if end := strings.Index(remove, ">"); end < 0 || !strings.Contains(remove[:end], "disabled") {
 			t.Error("two-stop Gradient Remove is enabled")
@@ -707,7 +713,7 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 	}
 
 	gradientSnapshot.ClusterControlled = true
-	clusterGradientBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(gradientSnapshot))
+	clusterGradientBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(gradientSnapshot))
 	if strings.Count(clusterGradientBody, " disabled") < 19 || strings.Contains(clusterGradientBody, `data-lf-reset-control`) {
 		t.Error("cluster-owned Gradient controls are active or expose Reset")
 	}
@@ -715,7 +721,7 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 		rgb.LightingPaletteStaticSingle, rgb.LightingPaletteTwoColor, rgb.LightingPaletteTemperatureThree,
 		rgb.LightingPaletteGenerated, rgb.LightingPaletteNone,
 	} {
-		body := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+		body := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb",
 			ConfiguredEffect: "other", EffectSupported: true, PaletteKind: string(palette), HasGradient: true,
 			GradientStops: gradientSnapshot.GradientStops,
 		}))
@@ -732,7 +738,7 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 		rgb.LightingPaletteNone,
 		"unsupported",
 	} {
-		body := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+		body := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb",
 			ConfiguredEffect: "other",
 			EffectSupported:  true,
 			PaletteKind:      string(palette),
@@ -748,7 +754,7 @@ func runDevicesLightingColorResetTemplateAssertions(t *testing.T) {
 func runDevicesLightingSpeedTemplateAssertions(t *testing.T) {
 	for _, effect := range []string{"circle", "flame", "cyberpunkglitch", "rain", "aurora", "gradient"} {
 		snapshot := devicesLightingSpeedSnapshot(effect, 2)
-		body := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(snapshot))
+		body := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(snapshot))
 		for _, expected := range []string{
 			`data-lf-speed-control`,
 			`for="lf-lighting-speed-slider">Speed</label>`,
@@ -786,7 +792,7 @@ func runDevicesLightingSpeedTemplateAssertions(t *testing.T) {
 	}
 
 	for _, effect := range []string{"static", "off", "cpu-temperature", "gpu-temperature"} {
-		body := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(devicesLightingSpeedSnapshot(effect, 2)))
+		body := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(devicesLightingSpeedSnapshot(effect, 2)))
 		if strings.Contains(body, "data-lf-speed-slider") || strings.Contains(body, "data-lf-speed-number") || strings.Contains(body, "Speed / Unavailable") {
 			t.Errorf("%s rendered an unavailable or interactive Speed control", effect)
 		}
@@ -794,7 +800,7 @@ func runDevicesLightingSpeedTemplateAssertions(t *testing.T) {
 
 	clusterSnapshot := devicesLightingSpeedSnapshot("rain", 2)
 	clusterSnapshot.ClusterControlled = true
-	clusterBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(clusterSnapshot))
+	clusterBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(clusterSnapshot))
 	for _, id := range []string{"lf-lighting-speed-slider", "lf-lighting-speed-number"} {
 		inputStart := strings.Index(clusterBody, `id="`+id+`"`)
 		if inputStart < 0 {
@@ -819,7 +825,7 @@ func runDevicesLightingSpeedTemplateAssertions(t *testing.T) {
 
 func runDevicesLightingBrightnessTemplateAssertions(t *testing.T) {
 	for _, brightness := range []uint8{0, 100} {
-		body := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+		body := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb",
 			HasBrightness: true,
 			Brightness:    brightness,
 		}))
@@ -861,7 +867,7 @@ func runDevicesLightingBrightnessTemplateAssertions(t *testing.T) {
 		}
 	}
 
-	escapedBody := renderDevicesLightingViewForSerial(t, `lighting"&<serial`, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+	escapedBody := renderDevicesLightingViewForSerial(t, `lighting"&<serial`, devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb",
 		HasBrightness: true,
 		Brightness:    50,
 	}))
@@ -870,7 +876,7 @@ func runDevicesLightingBrightnessTemplateAssertions(t *testing.T) {
 		t.Error("brightness control did not contextually escape the device serial data attribute")
 	}
 
-	unavailableBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{}))
+	unavailableBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb"}))
 	if !strings.Contains(unavailableBody, "lf-range-control-unavailable") ||
 		!strings.Contains(unavailableBody, `>Unavailable</strong>`) ||
 		strings.Contains(unavailableBody, "data-lf-brightness-slider") ||
@@ -884,7 +890,7 @@ func runDevicesLightingBrightnessTemplateAssertions(t *testing.T) {
 		}
 	}
 
-	clusterBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+	clusterBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb",
 		HasBrightness:     true,
 		Brightness:        40,
 		ClusterControlled: true,
@@ -913,10 +919,10 @@ func runDevicesLightingBrightnessTemplateAssertions(t *testing.T) {
 
 func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
 
-	normalBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+	normalBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb",
 		ConfiguredEffect: "wave",
 		EffectSupported:  true,
-		SupportedEffects: []openrgbimport.LightingEffectOption{
+		SupportedEffects: []lightingpresentation.EffectOption{
 			{ID: "wave", Label: "Wave <Bright> & Wide"},
 			{ID: "off", Label: "Off"},
 		},
@@ -960,10 +966,10 @@ func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
 	if strings.Contains(normalBody, "ZgotmplZ") || strings.Contains(normalBody, `<img class="lf-lighting-effect`) {
 		t.Error("known effect icon did not render as a safely escaped CSS mask")
 	}
-	poisonedLabelBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+	poisonedLabelBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb",
 		ConfiguredEffect: "wave",
 		EffectSupported:  true,
-		SupportedEffects: []openrgbimport.LightingEffectOption{{ID: "wave", Label: `Wave "');background:url(/label.svg);\\`}},
+		SupportedEffects: []lightingpresentation.EffectOption{{ID: "wave", Label: `Wave "');background:url(/label.svg);\\`}},
 	}))
 	iconTagStart := strings.Index(poisonedLabelBody, `<span class="lf-lighting-effect-icon-art"`)
 	if iconTagStart < 0 {
@@ -978,15 +984,15 @@ func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
 		t.Errorf("CSS-like effect label influenced icon tag: got %q, want %q", iconTag, wantIconTag)
 	}
 
-	withoutOffBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
-		SupportedEffects: []openrgbimport.LightingEffectOption{{ID: "static", Label: "Static"}},
+	withoutOffBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb",
+		SupportedEffects: []lightingpresentation.EffectOption{{ID: "static", Label: "Static"}},
 	}))
 	if strings.Contains(withoutOffBody, `value="off"`) || strings.Contains(withoutOffBody, `>Off</option>`) {
 		t.Error("effect selector fabricated Off when the snapshot did not report it")
 	}
 
-	emptyBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
-		SupportedEffects: []openrgbimport.LightingEffectOption{{ID: "off", Label: "Off"}},
+	emptyBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb",
+		SupportedEffects: []lightingpresentation.EffectOption{{ID: "off", Label: "Off"}},
 	}))
 	for _, expected := range []string{
 		`<option value="" selected disabled>Not configured</option>`,
@@ -1001,10 +1007,10 @@ func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
 	}
 
 	maliciousEffectID := `legacy');background:url(/escaped.svg);\\<effect>`
-	unsupportedBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+	unsupportedBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb",
 		ConfiguredEffect: maliciousEffectID,
 		EffectSupported:  false,
-		SupportedEffects: []openrgbimport.LightingEffectOption{{ID: "static", Label: "Static & Safe"}},
+		SupportedEffects: []lightingpresentation.EffectOption{{ID: "static", Label: "Static & Safe"}},
 	}))
 	for _, expected := range []string{
 		`<option value="static">Static &amp; Safe</option>`,
@@ -1021,21 +1027,21 @@ func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
 		t.Error("unsupported configured effect influenced a CSS mask URL")
 	}
 
-	knownUnsupportedBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+	knownUnsupportedBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb",
 		ConfiguredEffect: "wave",
 		EffectSupported:  false,
-		SupportedEffects: []openrgbimport.LightingEffectOption{{ID: "static", Label: "Static"}},
+		SupportedEffects: []lightingpresentation.EffectOption{{ID: "static", Label: "Static"}},
 	}))
 	if !strings.Contains(knownUnsupportedBody, `class="lf-lighting-effect-icon-fallback"`) ||
 		strings.Contains(knownUnsupportedBody, `/static/img/icons/rgb/wave.svg`) {
 		t.Error("known but unsupported effect did not retain the generic fallback")
 	}
 
-	clusterBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{
+	clusterBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb",
 		ConfiguredEffect:  "static",
 		EffectSupported:   true,
 		ClusterControlled: true,
-		SupportedEffects:  []openrgbimport.LightingEffectOption{{ID: "static", Label: "Static"}},
+		SupportedEffects:  []lightingpresentation.EffectOption{{ID: "static", Label: "Static"}},
 	}))
 	for _, expected := range []string{
 		`data-lf-cluster-controlled="true"`,
@@ -1064,7 +1070,7 @@ func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
 		t.Error("cluster-controlled effect selector is not disabled")
 	}
 
-	unavailableBody := renderDevicesLightingView(t, openRGBLightingWorkspaceSummaryFromSnapshot(openrgbimport.LightingSnapshot{}))
+	unavailableBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb"}))
 	if !strings.Contains(unavailableBody, "Effect selection unavailable") ||
 		!strings.Contains(unavailableBody, "No supported effects were reported for this controller.") ||
 		strings.Contains(unavailableBody, "data-lf-effect-selector") || strings.Contains(unavailableBody, "<select") {

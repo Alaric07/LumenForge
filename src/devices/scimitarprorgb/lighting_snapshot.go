@@ -3,52 +3,17 @@ package scimitarprorgb
 import (
 	"fmt"
 
+	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/lightingsettings"
 	"LumenForge/src/rgb"
 )
 
-// LightingEffectOption is a presentation-safe Scimitar effect catalogue entry.
-type LightingEffectOption struct {
-	ID    string
-	Label string
-}
-
-type LightingTemperaturePointSnapshot struct {
-	ColorHex string
-	Celsius  float64
-}
-
-type LightingGradientStopSnapshot struct {
-	Position  float64
-	ColorHex  string
-	Intensity float64
-}
-
-// LightingSnapshot is an immutable view of Scimitar's desired canonical
-// lighting configuration. It intentionally does not claim current hardware
-// output, which can be externally owned.
-type LightingSnapshot struct {
-	ConfiguredEffect  string
-	EffectSupported   bool
-	SupportedEffects  []LightingEffectOption
-	HasBrightness     bool
-	Brightness        uint8
-	HasSpeed          bool
-	Speed             float64
-	ClusterControlled bool
-	ExternalControlled bool
-	PaletteKind       string
-	SingleColorHex    string
-	TwoColorStartHex  string
-	TwoColorEndHex    string
-	HasTemperature    bool
-	TemperatureLow    LightingTemperaturePointSnapshot
-	TemperatureMiddle LightingTemperaturePointSnapshot
-	TemperatureHigh   LightingTemperaturePointSnapshot
-	HasGradient       bool
-	GradientStops     []LightingGradientStopSnapshot
-	Customized        bool
-}
+// Compatibility aliases keep existing package-local consumers source-compatible
+// while shared presentation types are the contract returned by LightingSnapshot.
+type LightingEffectOption = lightingpresentation.EffectOption
+type LightingTemperaturePointSnapshot = lightingpresentation.TemperaturePoint
+type LightingGradientStopSnapshot = lightingpresentation.GradientStop
+type LightingSnapshot = lightingpresentation.Snapshot
 
 func scimitarLightingColorHex(color lightingsettings.Color) string {
 	return fmt.Sprintf("#%02x%02x%02x", uint8(color.Red), uint8(color.Green), uint8(color.Blue))
@@ -56,21 +21,22 @@ func scimitarLightingColorHex(color lightingsettings.Color) string {
 
 // LightingSnapshot reads only canonical desired state and resolved canonical
 // settings. The returned slices contain presentation copies.
-func (d *Device) LightingSnapshot() (LightingSnapshot, bool) {
+func (d *Device) LightingSnapshot() (lightingpresentation.Snapshot, bool) {
 	if d == nil || d.lightingSource == nil {
-		return LightingSnapshot{}, false
+		return lightingpresentation.Snapshot{}, false
 	}
 
 	effect, err := d.currentCanonicalSelectedEffect()
 	if err != nil {
-		return LightingSnapshot{}, false
+		return lightingpresentation.Snapshot{}, false
 	}
 	brightness, err := d.currentCanonicalBrightness()
 	if err != nil {
-		return LightingSnapshot{}, false
+		return lightingpresentation.Snapshot{}, false
 	}
 
-	snapshot := LightingSnapshot{
+	snapshot := lightingpresentation.Snapshot{
+		TargetKind:       "native",
 		ConfiguredEffect: effect,
 		HasBrightness:    true,
 		Brightness:       brightness,
@@ -97,7 +63,7 @@ func (d *Device) LightingSnapshot() (LightingSnapshot, bool) {
 	}
 	resolution, err := d.lightingSource.resolveEffectSettingsWithStatus(effect)
 	if err != nil || resolution.Settings.EffectID != effect {
-		return LightingSnapshot{}, false
+		return lightingpresentation.Snapshot{}, false
 	}
 	settings := resolution.Settings.Clone()
 	snapshot.Customized = resolution.Customized
@@ -120,16 +86,16 @@ func (d *Device) LightingSnapshot() (LightingSnapshot, bool) {
 		if descriptor.TemperaturePoints == rgb.SoftwareEffectTemperaturePointsLowMiddleHigh && settings.Temperature != nil {
 			temperature := settings.Temperature
 			snapshot.HasTemperature = true
-			snapshot.TemperatureLow = LightingTemperaturePointSnapshot{ColorHex: scimitarLightingColorHex(temperature.Low.Color), Celsius: temperature.Low.Celsius}
-			snapshot.TemperatureMiddle = LightingTemperaturePointSnapshot{ColorHex: scimitarLightingColorHex(temperature.Middle.Color), Celsius: temperature.Middle.Celsius}
-			snapshot.TemperatureHigh = LightingTemperaturePointSnapshot{ColorHex: scimitarLightingColorHex(temperature.High.Color), Celsius: temperature.High.Celsius}
+			snapshot.TemperatureLow = lightingpresentation.TemperaturePoint{ColorHex: scimitarLightingColorHex(temperature.Low.Color), Celsius: temperature.Low.Celsius}
+			snapshot.TemperatureMiddle = lightingpresentation.TemperaturePoint{ColorHex: scimitarLightingColorHex(temperature.Middle.Color), Celsius: temperature.Middle.Celsius}
+			snapshot.TemperatureHigh = lightingpresentation.TemperaturePoint{ColorHex: scimitarLightingColorHex(temperature.High.Color), Celsius: temperature.High.Celsius}
 		}
 	case rgb.LightingPaletteGradient:
 		if settings.Gradient != nil {
 			snapshot.HasGradient = true
-			snapshot.GradientStops = make([]LightingGradientStopSnapshot, len(settings.Gradient.Stops))
+			snapshot.GradientStops = make([]lightingpresentation.GradientStop, len(settings.Gradient.Stops))
 			for index, stop := range settings.Gradient.Stops {
-				snapshot.GradientStops[index] = LightingGradientStopSnapshot{Position: stop.Position, ColorHex: scimitarLightingColorHex(stop.Color), Intensity: stop.Intensity}
+				snapshot.GradientStops[index] = lightingpresentation.GradientStop{Position: stop.Position, ColorHex: scimitarLightingColorHex(stop.Color), Intensity: stop.Intensity}
 			}
 		}
 	}
