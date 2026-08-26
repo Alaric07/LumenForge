@@ -433,9 +433,10 @@ remain intact.
 
 ### Native-device migration
 
-- [~] Migrate one native device family at a time. Scimitar Pro RGB is the first
-  active native proof; other native packages remain on their existing legacy
-  paths.
+- [~] Migrate one native device family at a time. Scimitar Pro RGB established
+  the shared canonical proof; Scimitar RGB Elite and MM800 now use the same
+  canonical Device Lighting model while their retained legacy compatibility
+  surfaces remain to be removed.
 - [x] Extract the shared independent-device lighting runtime and move Scimitar
   Pro selected effect to canonical state (`d833da87`, with canonical-read fixes
   in `4aa688a2`).
@@ -452,17 +453,34 @@ remain intact.
 - [x] Synthesize retained Scimitar `/rgb` presentation from canonical resolved
   settings and remove legacy `d.Rgb` from effect-presentation authority
   (`4e37de16`).
-- [x] Add an immutable canonical Scimitar Lighting snapshot and expose Scimitar
-  Pro in the modern Devices -> Lighting workspace as a read-only native
-  presentation (`d58cb007`).
-- [ ] Add a reusable native Device Lighting mutation contract for effect,
-  Brightness, Speed, supported palette settings, and selected-effect Reset.
-- [ ] Make Scimitar Pro modern Device Lighting interactive through that native
-  contract without routing native devices through `/api/openrgbimport/*`.
-- [ ] Remove Scimitar Pro from the legacy `/rgb` editing path only after every
-  renderer-consumed modern control and Reset reaches parity.
-- [ ] Remove Scimitar Pro's retained legacy RGB file load/upgrade compatibility
-  after no active behavior or presentation depends on it.
+- [x] Add immutable canonical native Lighting snapshots and expose migrated
+  native devices in Devices -> Lighting (`d58cb007`, `f6c1cdc2`).
+- [x] Add the reusable native Device Lighting mutation contract for effect,
+  Brightness, Speed, supported palette settings, and selected-effect Reset
+  (`da1e0597`).
+- [x] Make native Device Lighting interactive without routing native devices
+  through `/api/openrgbimport/*` (`0aadedb2`).
+- [x] Migrate Scimitar RGB Elite selected effect, Brightness, renderer settings,
+  and its device-authored `mouse` mode to canonical native Lighting
+  (`2c758431`, `ce890f75`).
+- [x] Migrate MM800 selected effect, Brightness, renderer settings, and its
+  device-authored `mousepad` mode to canonical native Lighting
+  (`8b9eebe9`, `bfc4c5cd`, `ce890f75`).
+- [x] Add the shared authored-zone presentation and mutation contract used by
+  device-owned native modes. It supports persistent multi-selection, clear
+  selection, selected-zones and all-zones mutations, strict validation,
+  device-owned persistence, and suppression of local ordinary-zone output
+  while RGB Cluster or retained OpenRGB integration owns the device
+  (`ce890f75`).
+- [x] Keep authored-zone presentation metadata semantic rather than blindly
+  exposing legacy profile layout/group fields. MM800 presents its 15 zones in
+  stable numeric order and does not expose meaningless legacy row grouping or
+  overlapping legacy geometry; Scimitar RGB Elite presents Front, Scroll,
+  Side, and Logo while keeping DPI outside the authored-zone editor
+  (`ce890f75`).
+- [ ] Remove Scimitar Pro, Scimitar RGB Elite, and MM800 from retained legacy
+  `/rgb` editing and startup compatibility only after no active behavior or
+  presentation depends on those paths.
 - [ ] Preserve each later family's protocol, packet, topology, lifecycle,
   firmware, device-specific lighting modes, and hardware-specific output
   behavior while repeating migration one family at a time.
@@ -766,15 +784,19 @@ roadmap does not promise that every duplicate will be deleted.
     the resolver and shared controls (`fd2b3ab4`, `af08ec39`, `09f14f87`,
     `f719e5f4`, `235941d0`).
 22. [ ] Remove OpenRGB RGB Override and legacy imported-device lighting paths
-    after OpenRGB parity.
-23. [ ] Migrate native-device families one at a time without changing their
-    hardware-specific output behavior.
-24. [ ] Remove `/rgb`, global mutations, remaining target-local RGB copies,
-    remaining override infrastructure, and duplicated metadata after every
-    proven consumer reaches parity.
-25. [ ] Add final clean-install, selective-backup, and release guidance.
-26. [ ] Continue shell, Dashboard telemetry, responsive, accessibility, and
-    polish milestones independently.
+after OpenRGB parity.
+23. [~] Migrate native-device families one at a time without changing their
+hardware-specific output behavior. Scimitar Pro RGB, Scimitar RGB Elite, and
+MM800 now use the canonical Device Lighting model; retained legacy
+compatibility cleanup remains.
+24. [x] Add the generic native authored-zone presentation and mutation contract
+for device-owned modes (`ce890f75`).
+25. [ ] Remove `/rgb`, global mutations, remaining target-local RGB copies,
+remaining override infrastructure, and duplicated metadata after every
+proven consumer reaches parity.
+26. [ ] Add final clean-install, selective-backup, and release guidance.
+27. [ ] Continue shell, Dashboard telemetry, responsive, accessibility, and
+polish milestones independently.
 
 This order may change when implementation uncovers a prerequisite or defect.
 Record any change and its reason in this document.

@@ -22,48 +22,57 @@ editing, RGB Override, heterogeneous Static zone colors, and
 base/override/effective presentation are temporary legacy structures, not
 features to reproduce under new names.
 
-### First native proof: Scimitar Pro RGB
+### Native-device migration proofs
 
-Scimitar Pro RGB is the first native package using the shared canonical
-independent-device lighting runtime.
+Scimitar Pro RGB established the first native package on the shared canonical
+independent-device lighting runtime. Scimitar RGB Elite and MM800 now use the
+same canonical Device Lighting model while retaining their own device-specific
+hardware boundaries.
 
-Canonical state is now authoritative for:
+Canonical state is authoritative for migrated native-device software lighting,
+including:
 
 - selected software effect;
 - desired device Brightness;
-- complete per-effect customization;
-- ordered Gradient customization;
+- complete generic per-effect customization;
 - renderer input and native hardware-frame composition;
-- transient scheduler/lights-out Brightness;
-- retained legacy `/rgb` effect presentation.
+- supported device-authored lighting modes presented outside generic
+  `EffectSettings`.
 
-The native hardware boundary remains device-owned. Scimitar Pro keeps its
-existing USB/HID packet and LED-layout behavior. Its four ordinary
-software-effect zones are Front, Scroll, Side, and Logo; the DPI indicator is
-device-owned and remains outside the generic effect buffer.
+The native hardware boundary remains device-owned. Device packages continue to
+own USB/HID transport, packet layout, LED addressing, firmware behavior,
+device-specific indicators, and device-authored modes.
+
+Scimitar Pro keeps its existing ordinary-zone and DPI behavior. Scimitar RGB
+Elite exposes its authored `mouse` mode as four ordinary zones — Front, Scroll,
+Side, and Logo — while DPI remains device-owned and outside the authored-zone
+editor. MM800 exposes its 15-zone authored `mousepad` mode in stable numeric
+order.
+
+Device-authored zone state remains owned by the device profile rather than
+being fabricated as generic `EffectSettings`. The shared authored-zone
+presentation and mutation contract supports persistent multi-selection, clear
+selection, selected-zone mutations, all-zone mutations, strict validation, and
+device-owned persistence. Optional group and geometry metadata are semantic
+presentation data only; devices do not expose legacy row/layout fields merely
+because those fields exist in an old profile.
 
 When RGB Cluster or retained OpenRGB integration owns physical output, desired
-local canonical state remains stored independently. Effect customization may be
-persisted without restarting or replacing externally owned ordinary-zone
-output. Cluster frames are not rescaled by local device Brightness, while the
-device-owned DPI indicator follows the effective native Brightness contract.
+local state may still be persisted while local ordinary-zone output is
+suppressed. Cluster frames are not rescaled by local device Brightness.
+Device-owned indicators may still use the applicable effective native
+Brightness contract.
 
-`4e37de16` changed retained Scimitar `/rgb` presentation to resolve from
-canonical settings. Legacy `d.Rgb` data remains only for startup file
-load/upgrade compatibility and is not a fallback source for selected effect,
-Brightness, effect customization, Gradient customization, rendering,
-validation, or server-facing effect presentation.
+The reusable native Device Lighting mutation contract handles effect,
+Brightness, Speed, supported palette settings, selected-effect Reset, and
+authored-zone mutations without routing native devices through
+`/api/openrgbimport/*`.
 
-`d58cb007` added an immutable canonical Scimitar Lighting snapshot and exposed
-Scimitar Pro RGB in the modern Devices -> Lighting workspace. Native Scimitar
-controls are intentionally read-only at this checkpoint so they cannot
-accidentally route through OpenRGB-import mutation endpoints.
-
-Remaining Scimitar work is to add the native mutation contract used by the
-modern Device Lighting controls, including selected-effect Reset, and only then
-retire its legacy `/rgb` editing dependency and retained RGB startup
-compatibility machinery. Other native packages remain on their existing legacy
-paths until migrated individually.
+Retained legacy `/rgb` and startup compatibility paths may remain temporarily
+for migrated native packages, but they are not authoritative for canonical
+selected effect, desired Brightness, generic effect customization, or modern
+Devices -> Lighting presentation. They are removed only after no active
+behavior or presentation depends on them.
 
 ## 2. Product goals
 
@@ -655,6 +664,8 @@ The intended mutation categories are conceptually:
 - set Speed;
 - set descriptor-valid colors;
 - set Gradient data;
+- mutate validated device-authored zones when the selected native mode exposes
+  authored-zone controls;
 - reset customization.
 
 Exact route names are intentionally not frozen as a permanent external API
@@ -708,7 +719,16 @@ Speed or another genuine renderer-consumed setting.
     workspace was completed in `f719e5f4`, Cluster-scoped effect Reset was
     completed in `235941d0`, and the remaining legacy Cluster RGB/profile
     compatibility surface was removed in `0ccc2d3f`.
-13. Delete OpenRGB override code and legacy imported-device lighting controls.
+13. Add the reusable native Device Lighting mutation contract and make migrated
+    native devices interactive in the modern workspace. Completed in
+    `da1e0597` and `0aadedb2`.
+14. Migrate Scimitar RGB Elite and MM800 to canonical native Device Lighting,
+    preserving their device-authored `mouse` and `mousepad` modes. Completed
+    across `2c758431`, `8b9eebe9`, `bfc4c5cd`, and `ce890f75`.
+15. Add shared authored-zone presentation and mutations for validated
+    device-owned modes, without treating authored colors as generic
+    `EffectSettings`. Completed in `ce890f75`.
+16. Delete OpenRGB override code and legacy imported-device lighting controls.
     Completed in `dc94df10`, which removed OpenRGB legacy/global RGB
     compatibility and RGB Override support, and `d607182b`, which removed the
     remaining profile-local lighting mirrors and duplicate legacy OpenRGB page
@@ -717,12 +737,12 @@ Speed or another genuine renderer-consumed setting.
     lighting behavior and presentation. `DeviceProfile` retains only profile
     metadata and RGB Cluster membership; membership persistence is intentionally
     left for a later redesign.
-14. Migrate native target families separately.
-15. Remove `/rgb` after every remaining consumer has parity.
-16. Remove global mutations, target-local RGB copies, remaining override
+17. Migrate native target families separately.
+18. Remove `/rgb` after every remaining consumer has parity.
+19. Remove global mutations, target-local RGB copies, remaining override
     infrastructure, duplicate capability adapters, and obsolete CSS and
     documentation.
-17. Add final clean-install, backup, and release documentation.
+20. Add final clean-install, backup, and release documentation.
 
 Every milestone must build and have focused tests. No milestone may
 permanently dual-read or dual-write old and new lighting state. A legacy

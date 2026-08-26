@@ -54,35 +54,43 @@ must be accounted for, including:
 The legacy `/rgb` editor and remaining global RGB mutation infrastructure stay
 available for unmigrated packages until every remaining consumer has parity.
 
-### Active native proof: Scimitar Pro RGB
+### Active native migration
 
-`scimitarprorgb` is the first native-device proof for the canonical independent
-lighting architecture. It is intentionally tracked as **Migrating**, not
-**Migrated**, because its canonical backend and presentation cutovers are
-complete while interactive modern Device Lighting mutations and final legacy
-compatibility teardown remain outstanding.
+`scimitarprorgb`, `scimitarrgbelite`, and `mm800` are active canonical native
+lighting migrations. They remain tracked as **Migrating**, not **Migrated**,
+because retained legacy `/rgb` and startup compatibility surfaces have not yet
+been removed completely.
 
-Completed Scimitar Pro RGB work includes:
+Completed shared native work includes:
 
-- shared independent-device canonical selected-effect state and effect-settings
-  resolution (`d833da87`);
-- canonical desired Brightness (`35b7bb3f`);
-- transient scheduler Brightness without overwriting desired state, including
-  externally owned DPI replay behavior (`5c7763c7`);
-- canonical complete per-effect customization (`90a4b003`);
-- canonical ordered Gradient add/delete mutation (`b1fb390f`);
-- legacy `/rgb` presentation synthesized from canonical resolved settings
-  rather than legacy profile values (`4e37de16`);
-- modern Devices -> Lighting presentation from an immutable canonical snapshot,
-  currently read-only for native Scimitar mutations (`d58cb007`).
+- shared independent-device canonical selected-effect state and complete
+  effect-settings resolution;
+- canonical desired Brightness;
+- reusable native Devices -> Lighting presentation and mutation contracts;
+- generic effect, Brightness, Speed, palette-setting, and selected-effect Reset
+  mutations without routing native devices through OpenRGB-import endpoints;
+- shared authored-zone presentation and mutation for device-owned native modes
+  (`ce890f75`).
 
-The retained Scimitar `d.Rgb` file load/upgrade path is startup compatibility
-only. It is not authoritative for selected effect, desired Brightness, effect
-customization, Gradient customization, rendering, validation, or server-facing
-RGB effect presentation.
+Scimitar Pro RGB established the first canonical native proof. Scimitar RGB
+Elite now uses the same canonical model and exposes its device-authored `mouse`
+mode as Front, Scroll, Side, and Logo zones while leaving DPI outside the
+generic authored-zone editor.
 
-The other Scimitar packages remain separate **Legacy** migration targets.
-No parity is inferred from their similar package names or zoned-mouse shape.
+MM800 now uses canonical native Device Lighting and exposes its 15-zone
+device-authored `mousepad` mode through the same authored-zone editor. Legacy
+row grouping and overlapping legacy layout coordinates remain internal profile
+metadata and are not exposed as meaningful shared presentation semantics.
+
+For authored-zone modes, desired colors remain device-owned state rather than
+generic `EffectSettings`. Mutations validate the complete selection before
+changing state, persist device-owned authored colors, restart local output only
+while the device owns lighting, and suppress local ordinary-zone output while
+RGB Cluster or retained OpenRGB integration owns the device.
+
+Other native packages remain separate **Legacy** migration targets. No parity
+is inferred from similar package names, device shape, or matching audit
+signatures.
 
 ---
 
@@ -198,7 +206,7 @@ Generated as a read-only architecture inventory. This does not declare migration
 | `makr75WU` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
 | `memory` | Y | Legacy | multi-channel + per-LED | Y | Y | Y |  | Y | Y | Y | led |
 | `mm700` | Y | Legacy | single-profile | Y | Y |  |  |  | Y | Y | mousepad |
-| `mm800` | Y | Legacy | single-profile | Y | Y |  |  |  | Y | Y | mousepad |
+| `mm800` | Y | Migrating | single-profile | Y | Y |  |  |  | Y | Y | mousepad |
 | `motherboard` |  | Not a lighting target | weak-marker only |  |  |  |  |  |  |  |  |
 | `nautilusLcd` | Y | Legacy | other lighting | Y |  |  |  |  |  |  |  |
 | `nexus` |  | Not a lighting target | weak-marker only |  |  |  |  |  |  |  |  |
@@ -221,7 +229,7 @@ Generated as a read-only architecture inventory. This does not declare migration
 | `scimitarWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `scimitarprorgb` | Y | Migrating | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `scimitarrgb` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `scimitarrgbelite` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
+| `scimitarrgbelite` | Y | Migrating | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `scufenvisionproV2W` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `scufenvisionproV2WU` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `scufenvisionproW` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
