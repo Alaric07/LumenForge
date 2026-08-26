@@ -123,6 +123,16 @@ const (
 	openRGBImportGradientStopLimit = 1024
 )
 
+type nativeDeviceLightingTarget interface {
+	LightingDeviceID() string
+	SupportsLightingEffect(string) bool
+	SetLightingEffect(string) error
+	SetLightingBrightness(uint8) error
+	ResolveLightingEffectSettings(string) (lightingsettings.EffectSettings, error)
+	SetLightingEffectSettings(string, lightingsettings.EffectSettings) error
+	ResetLightingEffectSettings(string) error
+}
+
 func openRGBImportRegistryHooks() openrgbimport.RegistryHooks {
 	return openrgbimport.RegistryHooks{
 		Register: devices.RegisterOpenRGBImport,
@@ -2558,21 +2568,21 @@ func openRGBLightingWorkspaceSummaryFromSnapshot(snapshot openrgbimport.Lighting
 
 func scimitarLightingWorkspaceSummaryFromSnapshot(snapshot scimitarprorgb.LightingSnapshot) *devicesLightingWorkspaceSummary {
 	summary := &devicesLightingWorkspaceSummary{
-		ConfiguredEffect:  snapshot.ConfiguredEffect,
-		EffectSupported:   snapshot.EffectSupported,
-		HasBrightness:     snapshot.HasBrightness,
-		Brightness:        snapshot.Brightness,
-		ClusterControlled: snapshot.ClusterControlled,
+		ConfiguredEffect:   snapshot.ConfiguredEffect,
+		EffectSupported:    snapshot.EffectSupported,
+		HasBrightness:      snapshot.HasBrightness,
+		Brightness:         snapshot.Brightness,
+		ClusterControlled:  snapshot.ClusterControlled,
 		ExternalControlled: snapshot.ExternalControlled,
-		ReadOnly:          true,
-		SupportedEffects:  make([]devicesLightingEffectSummary, len(snapshot.SupportedEffects)),
-		PaletteKind:       snapshot.PaletteKind,
-		SingleColorHex:    snapshot.SingleColorHex,
-		TwoColorStartHex:  snapshot.TwoColorStartHex,
-		TwoColorEndHex:    snapshot.TwoColorEndHex,
-		HasTemperature:    snapshot.HasTemperature,
-		HasGradient:       snapshot.HasGradient,
-		Customized:        snapshot.Customized,
+		ReadOnly:           true,
+		SupportedEffects:   make([]devicesLightingEffectSummary, len(snapshot.SupportedEffects)),
+		PaletteKind:        snapshot.PaletteKind,
+		SingleColorHex:     snapshot.SingleColorHex,
+		TwoColorStartHex:   snapshot.TwoColorStartHex,
+		TwoColorEndHex:     snapshot.TwoColorEndHex,
+		HasTemperature:     snapshot.HasTemperature,
+		HasGradient:        snapshot.HasGradient,
+		Customized:         snapshot.Customized,
 	}
 	if summary.HasTemperature {
 		summary.TemperatureLow = devicesLightingTemperaturePointSummary{Role: "low", Label: "Low", ColorHex: snapshot.TemperatureLow.ColorHex, Celsius: strconv.FormatFloat(snapshot.TemperatureLow.Celsius, 'f', -1, 64)}
@@ -3096,6 +3106,267 @@ func decodeOpenRGBImportRequest(w http.ResponseWriter, r *http.Request, dst any)
 		return false
 	}
 	return true
+}
+
+func decodeNativeDeviceLightingRequest(w http.ResponseWriter, r *http.Request, dst any) bool {
+	return decodeOpenRGBImportRequest(w, r, dst)
+}
+
+func getNativeDeviceLightingTarget(serial string) (nativeDeviceLightingTarget, error) {
+	if serial == "" || !common.AlphanumericDashRegex.MatchString(serial) {
+		return nil, fmt.Errorf("invalid native device serial")
+	}
+	wrapper, ok := devices.LookupDevice(serial)
+	if !ok || wrapper == nil || wrapper.Hidden || wrapper.Unavailable || wrapper.Serial != serial {
+		return nil, fmt.Errorf("native device is not available")
+	}
+	target, ok := wrapper.Instance.(nativeDeviceLightingTarget)
+	if !ok || target == nil || target.LightingDeviceID() != serial {
+		return nil, fmt.Errorf("native device lighting is not available")
+	}
+	return target, nil
+}
+
+func validateNativeDeviceLightingEffect(target nativeDeviceLightingTarget, effect string) error {
+	descriptor, known := rgb.SoftwareEffectDescriptorByID(effect)
+	if !known || !descriptor.Scope.Includes(rgb.EffectScopeDevice) || !target.SupportsLightingEffect(effect) {
+		return fmt.Errorf("unsupported effect")
+	}
+	return nil
+}
+
+func updateNativeDeviceLightingSettings(target nativeDeviceLightingTarget, effect string, mutate func(*lightingsettings.EffectSettings)) error {
+	if err := validateNativeDeviceLightingEffect(target, effect); err != nil {
+		return err
+	}
+	settings, err := target.ResolveLightingEffectSettings(effect)
+	if err != nil {
+		return err
+	}
+	settings = settings.Clone()
+	if settings.EffectID != effect {
+		return fmt.Errorf("resolved effect settings do not match requested effect")
+	}
+	mutate(&settings)
+	if err := lightingsettings.Validate(settings); err != nil {
+		return err
+	}
+	return target.SetLightingEffectSettings(effect, settings)
+}
+
+func nativeDeviceLightingTargetForEffect(serial, effect string) (nativeDeviceLightingTarget, error) {
+	target, err := getNativeDeviceLightingTarget(serial)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateNativeDeviceLightingEffect(target, effect); err != nil {
+		return nil, err
+	}
+	return target, nil
+}
+
+func nativeDeviceLightingFailure(w http.ResponseWriter, message string) {
+	(&Response{Code: http.StatusOK, Status: 0, Message: message}).Send(w)
+}
+
+func setNativeDeviceLightingEffect(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Serial *string `json:"serial"`
+		Effect *string `json:"effect"`
+	}
+	if !decodeNativeDeviceLightingRequest(w, r, &req) {
+		return
+	}
+	if req.Serial == nil || *req.Serial == "" || req.Effect == nil || *req.Effect == "" {
+		nativeDeviceLightingFailure(w, "Invalid effect request")
+		return
+	}
+	target, err := nativeDeviceLightingTargetForEffect(*req.Serial, *req.Effect)
+	if err != nil || target.SetLightingEffect(*req.Effect) != nil {
+		nativeDeviceLightingFailure(w, "Unable to set effect")
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Effect set"}).Send(w)
+}
+
+func setNativeDeviceLightingBrightness(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Serial     *string `json:"serial"`
+		Brightness *int    `json:"brightness"`
+	}
+	if !decodeNativeDeviceLightingRequest(w, r, &req) {
+		return
+	}
+	if req.Serial == nil || *req.Serial == "" || req.Brightness == nil || *req.Brightness < 0 || *req.Brightness > 100 {
+		nativeDeviceLightingFailure(w, "Invalid brightness request")
+		return
+	}
+	target, err := getNativeDeviceLightingTarget(*req.Serial)
+	if err != nil || target.SetLightingBrightness(uint8(*req.Brightness)) != nil {
+		nativeDeviceLightingFailure(w, "Unable to set brightness")
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Brightness set"}).Send(w)
+}
+
+func setNativeDeviceLightingSpeed(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Serial *string  `json:"serial"`
+		Effect *string  `json:"effect"`
+		Speed  *float64 `json:"speed"`
+	}
+	if !decodeNativeDeviceLightingRequest(w, r, &req) {
+		return
+	}
+	if req.Serial == nil || *req.Serial == "" || req.Effect == nil || *req.Effect == "" || req.Speed == nil || math.IsNaN(*req.Speed) || math.IsInf(*req.Speed, 0) {
+		nativeDeviceLightingFailure(w, "Invalid speed request")
+		return
+	}
+	target, err := nativeDeviceLightingTargetForEffect(*req.Serial, *req.Effect)
+	minimum, maximum := rgb.ProfileSpeedRange(*req.Effect)
+	descriptor, known := rgb.SoftwareEffectDescriptorByID(*req.Effect)
+	if err != nil || !known || !descriptor.SupportsSpeed || *req.Speed < minimum || *req.Speed > maximum || updateNativeDeviceLightingSettings(target, *req.Effect, func(settings *lightingsettings.EffectSettings) { speed := *req.Speed; settings.Speed = &speed }) != nil {
+		nativeDeviceLightingFailure(w, "Invalid speed request")
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Speed set"}).Send(w)
+}
+
+func setNativeDeviceLightingSingleColor(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Serial string `json:"serial"`
+		Effect string `json:"effect"`
+		Color  string `json:"color"`
+	}
+	if !decodeNativeDeviceLightingRequest(w, r, &req) {
+		return
+	}
+	color, colorErr := parseHexColor(req.Color)
+	target, targetErr := nativeDeviceLightingTargetForEffect(req.Serial, req.Effect)
+	if req.Serial == "" || req.Effect == "" || req.Color == "" || colorErr != nil || targetErr != nil || updateNativeDeviceLightingSettings(target, req.Effect, func(settings *lightingsettings.EffectSettings) {
+		settings.SingleColor = &lightingsettings.SingleColorSettings{Color: color}
+	}) != nil {
+		nativeDeviceLightingFailure(w, "Invalid color request")
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Applied successfully"}).Send(w)
+}
+
+func setNativeDeviceLightingTwoColor(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Serial string `json:"serial"`
+		Effect string `json:"effect"`
+		Start  string `json:"start"`
+		End    string `json:"end"`
+	}
+	if !decodeNativeDeviceLightingRequest(w, r, &req) {
+		return
+	}
+	start, startErr := parseHexColor(req.Start)
+	end, endErr := parseHexColor(req.End)
+	target, targetErr := nativeDeviceLightingTargetForEffect(req.Serial, req.Effect)
+	if req.Serial == "" || req.Effect == "" || req.Start == "" || req.End == "" || startErr != nil || endErr != nil || targetErr != nil || updateNativeDeviceLightingSettings(target, req.Effect, func(settings *lightingsettings.EffectSettings) {
+		settings.TwoColor = &lightingsettings.TwoColorSettings{Start: start, End: end}
+	}) != nil {
+		nativeDeviceLightingFailure(w, "Invalid color request")
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Applied successfully"}).Send(w)
+}
+
+type nativeDeviceLightingTemperaturePointRequest struct {
+	Color   *string  `json:"color"`
+	Celsius *float64 `json:"celsius"`
+}
+type nativeDeviceLightingGradientStopRequest struct {
+	Position  *float64 `json:"position"`
+	Color     *string  `json:"color"`
+	Intensity *float64 `json:"intensity"`
+}
+
+func setNativeDeviceLightingTemperature(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Serial string                                       `json:"serial"`
+		Effect string                                       `json:"effect"`
+		Low    *nativeDeviceLightingTemperaturePointRequest `json:"low"`
+		Middle *nativeDeviceLightingTemperaturePointRequest `json:"middle"`
+		High   *nativeDeviceLightingTemperaturePointRequest `json:"high"`
+	}
+	if !decodeNativeDeviceLightingRequest(w, r, &req) {
+		return
+	}
+	valid := req.Serial != "" && req.Effect != "" && req.Low != nil && req.Middle != nil && req.High != nil && req.Low.Color != nil && req.Low.Celsius != nil && req.Middle.Color != nil && req.Middle.Celsius != nil && req.High.Color != nil && req.High.Celsius != nil
+	if !valid {
+		nativeDeviceLightingFailure(w, "Invalid temperature request")
+		return
+	}
+	lowColor, lowErr := parseHexColor(*req.Low.Color)
+	middleColor, middleErr := parseHexColor(*req.Middle.Color)
+	highColor, highErr := parseHexColor(*req.High.Color)
+	low, middle, high := *req.Low.Celsius, *req.Middle.Celsius, *req.High.Celsius
+	target, targetErr := nativeDeviceLightingTargetForEffect(req.Serial, req.Effect)
+	if lowErr != nil || middleErr != nil || highErr != nil || math.IsNaN(low) || math.IsInf(low, 0) || math.IsNaN(middle) || math.IsInf(middle, 0) || math.IsNaN(high) || math.IsInf(high, 0) || !(low < middle && middle < high) || targetErr != nil || updateNativeDeviceLightingSettings(target, req.Effect, func(settings *lightingsettings.EffectSettings) {
+		settings.Temperature = &lightingsettings.TemperatureSettings{Low: lightingsettings.TemperaturePoint{Color: lowColor, Celsius: low}, Middle: lightingsettings.TemperaturePoint{Color: middleColor, Celsius: middle}, High: lightingsettings.TemperaturePoint{Color: highColor, Celsius: high}}
+	}) != nil {
+		nativeDeviceLightingFailure(w, "Invalid temperature request")
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Applied successfully"}).Send(w)
+}
+
+func setNativeDeviceLightingGradient(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Serial string                                     `json:"serial"`
+		Effect string                                     `json:"effect"`
+		Stops  *[]nativeDeviceLightingGradientStopRequest `json:"stops"`
+	}
+	if !decodeNativeDeviceLightingRequest(w, r, &req) {
+		return
+	}
+	if req.Serial == "" || req.Effect == "" || req.Stops == nil || len(*req.Stops) < 2 || len(*req.Stops) > openRGBImportGradientStopLimit {
+		nativeDeviceLightingFailure(w, "Invalid Gradient request")
+		return
+	}
+	stops := make([]lightingsettings.GradientStop, len(*req.Stops))
+	previous := -1.0
+	for index, input := range *req.Stops {
+		if input.Position == nil || input.Color == nil || input.Intensity == nil {
+			nativeDeviceLightingFailure(w, "Invalid Gradient request")
+			return
+		}
+		color, err := parseHexColor(*input.Color)
+		position, intensity := *input.Position, *input.Intensity
+		if err != nil || math.IsNaN(position) || math.IsInf(position, 0) || position < 0 || position > 1 || math.IsNaN(intensity) || math.IsInf(intensity, 0) || intensity < 0 || intensity > 1 || position < previous {
+			nativeDeviceLightingFailure(w, "Invalid Gradient request")
+			return
+		}
+		stops[index] = lightingsettings.GradientStop{Position: position, Color: color, Intensity: intensity}
+		previous = position
+	}
+	target, err := nativeDeviceLightingTargetForEffect(req.Serial, req.Effect)
+	if err != nil || updateNativeDeviceLightingSettings(target, req.Effect, func(settings *lightingsettings.EffectSettings) {
+		settings.Gradient = &lightingsettings.GradientSettings{Stops: stops}
+	}) != nil {
+		nativeDeviceLightingFailure(w, "Invalid Gradient request")
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Applied successfully"}).Send(w)
+}
+
+func resetNativeDeviceLightingEffectSettings(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Serial string `json:"serial"`
+		Effect string `json:"effect"`
+	}
+	if !decodeNativeDeviceLightingRequest(w, r, &req) {
+		return
+	}
+	target, err := nativeDeviceLightingTargetForEffect(req.Serial, req.Effect)
+	if req.Serial == "" || req.Effect == "" || err != nil || target.ResetLightingEffectSettings(req.Effect) != nil {
+		nativeDeviceLightingFailure(w, "Failed to reset effect customization")
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Reset successfully"}).Send(w)
 }
 
 func discoverOpenRGBImportControllers(w http.ResponseWriter, r *http.Request) {
@@ -3639,6 +3910,14 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/openrgbimport/effect-reset", http.MethodPost, resetOpenRGBImportEffectCustomization)
 	handleFunc(r, "/api/openrgbimport/effect", http.MethodPost, setOpenRGBImportEffect)
 	handleFunc(r, "/api/openrgbimport/brightness", http.MethodPost, setOpenRGBImportBrightness)
+	handleFunc(r, "/api/devices/lighting/effect", http.MethodPost, setNativeDeviceLightingEffect)
+	handleFunc(r, "/api/devices/lighting/brightness", http.MethodPost, setNativeDeviceLightingBrightness)
+	handleFunc(r, "/api/devices/lighting/speed", http.MethodPost, setNativeDeviceLightingSpeed)
+	handleFunc(r, "/api/devices/lighting/single-color", http.MethodPost, setNativeDeviceLightingSingleColor)
+	handleFunc(r, "/api/devices/lighting/two-color", http.MethodPost, setNativeDeviceLightingTwoColor)
+	handleFunc(r, "/api/devices/lighting/temperature", http.MethodPost, setNativeDeviceLightingTemperature)
+	handleFunc(r, "/api/devices/lighting/gradient", http.MethodPost, setNativeDeviceLightingGradient)
+	handleFunc(r, "/api/devices/lighting/effect-reset", http.MethodPost, resetNativeDeviceLightingEffectSettings)
 	handleFunc(r, "/api/cluster/lighting/effect", http.MethodPost, setRGBClusterLightingEffect)
 	handleFunc(r, "/api/cluster/lighting/effect-reset", http.MethodPost, resetRGBClusterLightingEffect)
 	handleFunc(r, "/api/cluster/lighting/brightness", http.MethodPost, setRGBClusterLightingBrightness)

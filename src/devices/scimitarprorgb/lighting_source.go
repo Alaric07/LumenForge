@@ -54,6 +54,7 @@ type scimitarLightingSource interface {
 	selectedEffect() (string, error)
 	setSelectedEffect(string) error
 	setEffectSettings(string, lightingsettings.EffectSettings) error
+	deleteEffectSettings(string) (bool, error)
 	brightness() (uint8, error)
 	setBrightness(uint8) error
 }
@@ -69,6 +70,10 @@ type independentDeviceLightingResolver interface {
 
 type independentDeviceEffectSettingsAccess interface {
 	Set(string, string, lightingsettings.EffectSettings) error
+}
+
+type independentDeviceEffectSettingsDeletionAccess interface {
+	Delete(string, string) (bool, error)
 }
 
 type independentDeviceLightingSource struct {
@@ -152,6 +157,17 @@ func (source independentDeviceLightingSource) setEffectSettings(effect string, s
 		return fmt.Errorf("independent-device effect customization store is unavailable")
 	}
 	return source.effects.Set(source.deviceID, effect, settings)
+}
+
+func (source independentDeviceLightingSource) deleteEffectSettings(effect string) (bool, error) {
+	if source.effects == nil {
+		return false, fmt.Errorf("independent-device effect customization store is unavailable")
+	}
+	store, ok := source.effects.(independentDeviceEffectSettingsDeletionAccess)
+	if !ok {
+		return false, fmt.Errorf("independent-device effect customization deletion is unavailable")
+	}
+	return store.Delete(source.deviceID, effect)
 }
 
 func (source independentDeviceLightingSource) resolve() (scimitarResolvedLighting, error) {

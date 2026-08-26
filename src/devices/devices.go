@@ -467,6 +467,21 @@ func GetDevice(deviceId string) interface{} {
 	return nil
 }
 
+// LookupDevice returns a snapshot of the registered wrapper while preserving
+// the live instance identity it carries. Callers that need wrapper metadata
+// must use this instead of GetDevice.
+func LookupDevice(deviceId string) (*common.Device, bool) {
+	mutex.RLock()
+	defer mutex.RUnlock()
+
+	device, ok := devices[deviceId]
+	if !ok || device == nil {
+		return nil, false
+	}
+	snapshot := *device
+	return &snapshot, true
+}
+
 // GetDevices will return all available devices
 func GetDevices() map[string]*common.Device {
 	mutex.RLock()
