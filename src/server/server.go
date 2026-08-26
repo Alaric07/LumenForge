@@ -14,6 +14,7 @@ import (
 	"LumenForge/src/devices"
 	"LumenForge/src/devices/lcd"
 	"LumenForge/src/devices/openrgbimport"
+	"LumenForge/src/devices/scimitarprorgb"
 	"LumenForge/src/display"
 	"LumenForge/src/externalsources"
 	"LumenForge/src/inputmanager"
@@ -2355,54 +2356,69 @@ type devicesWorkspaceSummary struct {
 	HasBattery   bool
 	BatteryLevel uint16
 	OpenRGB      *openRGBWorkspaceSummary
-	Lighting     *openRGBLightingWorkspaceSummary
+	Lighting     *devicesLightingWorkspaceSummary
 	View         string
 }
 
-type openRGBLightingEffectSummary struct {
+// devicesLightingWorkspaceSummary is the presentation model shared by device
+// implementations which expose canonical lighting in the Devices workspace.
+type devicesLightingEffectSummary struct {
 	ID       string
 	Label    string
 	Selected bool
 }
 
-type openRGBLightingWorkspaceSummary struct {
+type devicesLightingWorkspaceSummary struct {
 	ConfiguredEffect        string
 	ConfiguredEffectLabel   string
 	ConfiguredEffectIconURL string
 	EffectSupported         bool
-	SupportedEffects        []openRGBLightingEffectSummary
+	SupportedEffects        []devicesLightingEffectSummary
 	HasBrightness           bool
 	Brightness              uint8
 	HasSpeedControl         bool
 	Speed                   string
 	ClusterControlled       bool
+	ExternalControlled      bool
+	ReadOnly                bool
 	PaletteKind             string
 	SingleColorHex          string
 	TwoColorStartHex        string
 	TwoColorEndHex          string
 	HasTemperature          bool
-	TemperatureLow          openRGBLightingTemperaturePointSummary
-	TemperatureMiddle       openRGBLightingTemperaturePointSummary
-	TemperatureHigh         openRGBLightingTemperaturePointSummary
-	TemperaturePoints       []openRGBLightingTemperaturePointSummary
+	TemperatureLow          devicesLightingTemperaturePointSummary
+	TemperatureMiddle       devicesLightingTemperaturePointSummary
+	TemperatureHigh         devicesLightingTemperaturePointSummary
+	TemperaturePoints       []devicesLightingTemperaturePointSummary
 	HasGradient             bool
-	GradientStops           []openRGBLightingGradientStopSummary
+	GradientStops           []devicesLightingGradientStopSummary
 	Customized              bool
 }
 
-type openRGBLightingTemperaturePointSummary struct {
+type devicesLightingTemperaturePointSummary struct {
 	Role     string
 	Label    string
 	ColorHex string
 	Celsius  string
 }
 
-type openRGBLightingGradientStopSummary struct {
+type devicesLightingGradientStopSummary struct {
 	Number    int
 	Position  string
 	ColorHex  string
 	Intensity string
 }
+
+type scimitarLightingSnapshotProvider interface {
+	LightingSnapshot() (scimitarprorgb.LightingSnapshot, bool)
+}
+
+// Compatibility aliases keep existing OpenRGB-focused presentation tests and
+// helpers readable while the template consumes the generic model above.
+type openRGBLightingEffectSummary = devicesLightingEffectSummary
+type openRGBLightingWorkspaceSummary = devicesLightingWorkspaceSummary
+type openRGBLightingTemperaturePointSummary = devicesLightingTemperaturePointSummary
+type openRGBLightingGradientStopSummary = devicesLightingGradientStopSummary
 
 func openRGBWorkspaceDisplayIdentifierLabel(label string) string {
 	switch label {
@@ -2540,6 +2556,60 @@ func openRGBLightingWorkspaceSummaryFromSnapshot(snapshot openrgbimport.Lighting
 	return summary
 }
 
+func scimitarLightingWorkspaceSummaryFromSnapshot(snapshot scimitarprorgb.LightingSnapshot) *devicesLightingWorkspaceSummary {
+	summary := &devicesLightingWorkspaceSummary{
+		ConfiguredEffect:  snapshot.ConfiguredEffect,
+		EffectSupported:   snapshot.EffectSupported,
+		HasBrightness:     snapshot.HasBrightness,
+		Brightness:        snapshot.Brightness,
+		ClusterControlled: snapshot.ClusterControlled,
+		ExternalControlled: snapshot.ExternalControlled,
+		ReadOnly:          true,
+		SupportedEffects:  make([]devicesLightingEffectSummary, len(snapshot.SupportedEffects)),
+		PaletteKind:       snapshot.PaletteKind,
+		SingleColorHex:    snapshot.SingleColorHex,
+		TwoColorStartHex:  snapshot.TwoColorStartHex,
+		TwoColorEndHex:    snapshot.TwoColorEndHex,
+		HasTemperature:    snapshot.HasTemperature,
+		HasGradient:       snapshot.HasGradient,
+		Customized:        snapshot.Customized,
+	}
+	if summary.HasTemperature {
+		summary.TemperatureLow = devicesLightingTemperaturePointSummary{Role: "low", Label: "Low", ColorHex: snapshot.TemperatureLow.ColorHex, Celsius: strconv.FormatFloat(snapshot.TemperatureLow.Celsius, 'f', -1, 64)}
+		summary.TemperatureMiddle = devicesLightingTemperaturePointSummary{Role: "middle", Label: "Middle", ColorHex: snapshot.TemperatureMiddle.ColorHex, Celsius: strconv.FormatFloat(snapshot.TemperatureMiddle.Celsius, 'f', -1, 64)}
+		summary.TemperatureHigh = devicesLightingTemperaturePointSummary{Role: "high", Label: "High", ColorHex: snapshot.TemperatureHigh.ColorHex, Celsius: strconv.FormatFloat(snapshot.TemperatureHigh.Celsius, 'f', -1, 64)}
+		summary.TemperaturePoints = []devicesLightingTemperaturePointSummary{summary.TemperatureLow, summary.TemperatureMiddle, summary.TemperatureHigh}
+	}
+	if summary.HasGradient {
+		summary.GradientStops = make([]devicesLightingGradientStopSummary, len(snapshot.GradientStops))
+		for index, stop := range snapshot.GradientStops {
+			summary.GradientStops[index] = devicesLightingGradientStopSummary{Number: index + 1, Position: strconv.FormatFloat(stop.Position, 'f', -1, 64), ColorHex: stop.ColorHex, Intensity: strconv.FormatFloat(stop.Intensity, 'f', -1, 64)}
+		}
+	}
+	if snapshot.HasSpeed {
+		summary.HasSpeedControl = true
+		summary.Speed = strconv.FormatFloat(snapshot.Speed, 'f', -1, 64)
+	}
+	for index, effect := range snapshot.SupportedEffects {
+		displayLabel := openRGBLightingEffectDisplayLabel(effect.ID, effect.Label)
+		summary.SupportedEffects[index] = devicesLightingEffectSummary{ID: effect.ID, Label: displayLabel, Selected: snapshot.EffectSupported && effect.ID == snapshot.ConfiguredEffect}
+		if effect.ID == snapshot.ConfiguredEffect {
+			summary.ConfiguredEffectLabel = displayLabel
+			if snapshot.EffectSupported {
+				summary.ConfiguredEffectIconURL = openRGBLightingEffectIconURL(effect.ID)
+			}
+		}
+	}
+	sort.Slice(summary.SupportedEffects, func(i, j int) bool {
+		leftLabel, rightLabel := strings.ToLower(summary.SupportedEffects[i].Label), strings.ToLower(summary.SupportedEffects[j].Label)
+		if leftLabel == rightLabel {
+			return summary.SupportedEffects[i].ID < summary.SupportedEffects[j].ID
+		}
+		return leftLabel < rightLabel
+	})
+	return summary
+}
+
 func devicesWorkspaceSummaryForSerial(
 	deviceList map[string]*common.Device,
 	batteryStats map[string]stats.BatteryStats,
@@ -2569,6 +2639,13 @@ func devicesWorkspaceSummaryForSerial(
 			summary.OpenRGB = openRGBWorkspaceSummaryFromSnapshot(snapshot)
 			if lightingSnapshot, usable := openRGBDevice.LightingSnapshot(); usable {
 				summary.Lighting = openRGBLightingWorkspaceSummaryFromSnapshot(lightingSnapshot)
+			}
+		}
+	}
+	if device.ProductType == common.ProductTypeScimitarProRgb {
+		if scimitar, ok := device.Instance.(scimitarLightingSnapshotProvider); ok && scimitar != nil {
+			if lightingSnapshot, usable := scimitar.LightingSnapshot(); usable {
+				summary.Lighting = scimitarLightingWorkspaceSummaryFromSnapshot(lightingSnapshot)
 			}
 		}
 	}

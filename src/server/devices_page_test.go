@@ -5,6 +5,7 @@ import (
 	"LumenForge/src/config"
 	"LumenForge/src/devices"
 	"LumenForge/src/devices/openrgbimport"
+	"LumenForge/src/devices/scimitarprorgb"
 	"LumenForge/src/rgb"
 	"LumenForge/src/stats"
 	"LumenForge/src/templates"
@@ -21,6 +22,14 @@ import (
 )
 
 const devicesPageHelperEnvironment = "LUMENFORGE_DEVICES_PAGE_TEST_HELPER"
+
+type devicesPageScimitarLightingSnapshotProvider struct {
+	snapshot scimitarprorgb.LightingSnapshot
+}
+
+func (provider devicesPageScimitarLightingSnapshotProvider) LightingSnapshot() (scimitarprorgb.LightingSnapshot, bool) {
+	return provider.snapshot, true
+}
 
 func TestOpenRGBLegacyTemplateOmitsDuplicateLightingControls(t *testing.T) {
 	templateSource, err := os.ReadFile(filepath.Join("..", "..", "web", "openrgb.html"))
@@ -131,6 +140,60 @@ func TestDevicesLightingPresentationModel(t *testing.T) {
 	source.SupportedEffects[0].ID = "mutated"
 	if summary.SupportedEffects[0].ID != "future-effect" {
 		t.Fatal("Lighting presentation retained mutable snapshot data")
+	}
+}
+
+func TestDevicesWorkspaceAddsReadOnlyScimitarLightingOnly(t *testing.T) {
+	if os.Getenv(devicesPageHelperEnvironment) == "scimitar-read-only" {
+		initializeDevicesPageTestProcess(t)
+		runDevicesWorkspaceAddsReadOnlyScimitarLightingOnlyAssertions(t)
+		return
+	}
+
+	command := exec.Command(os.Args[0], "-test.run=^TestDevicesWorkspaceAddsReadOnlyScimitarLightingOnly$")
+	command.Env = append(os.Environ(), devicesPageHelperEnvironment+"=scimitar-read-only")
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Scimitar read-only Lighting helper process failed: %v\n%s", err, output)
+	}
+}
+
+func runDevicesWorkspaceAddsReadOnlyScimitarLightingOnlyAssertions(t *testing.T) {
+	scimitarSerial := "scimitar-presentation"
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{
+		scimitarSerial: {
+			Serial: scimitarSerial, Product: "SCIMITAR PRO RGB", ProductType: common.ProductTypeScimitarProRgb,
+			Instance: devicesPageScimitarLightingSnapshotProvider{snapshot: scimitarprorgb.LightingSnapshot{
+				ConfiguredEffect: "gradient", EffectSupported: true, HasBrightness: true, Brightness: 64,
+				SupportedEffects: []scimitarprorgb.LightingEffectOption{{ID: "gradient", Label: "Gradient"}},
+				PaletteKind: string(rgb.LightingPaletteGradient), HasGradient: true,
+				GradientStops: []scimitarprorgb.LightingGradientStopSnapshot{{Position: 0.2, ColorHex: "#102030", Intensity: 0.4}},
+			}},
+		},
+	}, map[string]stats.BatteryStats{}, scimitarSerial)
+	if !ok || summary == nil || summary.Lighting == nil || !summary.Lighting.ReadOnly || summary.Lighting.ConfiguredEffect != "gradient" {
+		t.Fatalf("Scimitar Devices summary = %#v, ok=%t", summary, ok)
+	}
+	body := renderDevicesLightingView(t, summary.Lighting)
+	if !strings.Contains(body, `data-lf-lighting-read-only="true"`) || strings.Contains(body, `data-lf-lighting-read-only="false"`) {
+		t.Fatalf("Scimitar Lighting markup is not marked read-only:\n%s", body)
+	}
+	for _, control := range []string{"lf-lighting-effect-selector", "lf-lighting-brightness-slider", "lf-lighting-gradient-add", "lf-lighting-gradient-save"} {
+		start := strings.Index(body, `id="`+control+`"`)
+		if start < 0 {
+			t.Fatalf("Scimitar Lighting markup omitted %s", control)
+		}
+		end := strings.Index(body[start:], ">")
+		if end < 0 || !strings.Contains(body[start:start+end], "disabled") {
+			t.Errorf("Scimitar Lighting control %s remains active", control)
+		}
+	}
+
+	ordinary, ordinaryOK := devicesWorkspaceSummaryForSerial(map[string]*common.Device{
+		"ordinary": {Serial: "ordinary", Product: "Ordinary", ProductType: common.ProductTypeScimitarProRgb - 1, Instance: &struct{}{}},
+	}, map[string]stats.BatteryStats{}, "ordinary")
+	if !ordinaryOK || ordinary == nil || ordinary.Lighting != nil {
+		t.Fatalf("unrelated native device gained Lighting: %#v, ok=%t", ordinary, ordinaryOK)
 	}
 }
 

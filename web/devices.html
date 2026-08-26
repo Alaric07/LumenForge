@@ -135,6 +135,7 @@
                                     {{ if .ConfiguredEffect }}<span class="lf-device-hero-fact"><span>Effect</span><strong>{{ if .ConfiguredEffectLabel }}{{ .ConfiguredEffectLabel }}{{ else }}{{ .ConfiguredEffect }}{{ end }}</strong></span>{{ end }}
                                     {{ if .HasBrightness }}<span class="lf-device-hero-fact"><span>Brightness</span><strong data-lf-brightness-readout data-lf-device-serial="{{ $.Device.Serial }}">{{ .Brightness }}%</strong></span>{{ end }}
                                     {{ if .ClusterControlled }}<span class="lf-device-hero-fact lf-device-hero-fact-cluster">RGB Cluster owned</span>{{ end }}
+									{{ if .ExternalControlled }}<span class="lf-device-hero-fact">External OpenRGB owned</span>{{ end }}
                                     <span class="lf-device-hero-fact">Stored lighting state</span>
                                 {{ end }}
                             {{ else }}
@@ -158,7 +159,7 @@
 
                 {{ if eq .Device.View "lighting" }}
                     {{ with .Device.Lighting }}
-                        <section class="lf-lighting-workspace" aria-labelledby="lf-lighting-title">
+                        <section class="lf-lighting-workspace" aria-labelledby="lf-lighting-title" data-lf-lighting-read-only="{{ .ReadOnly }}">
                             <div class="lf-lighting-layout">
                                 <div class="lf-lighting-main">
                                     <section class="lf-lighting-primary" aria-labelledby="lf-lighting-title">
@@ -166,6 +167,7 @@
                                             <div>
                                                 <p class="lf-section-kicker">Stored configuration</p>
                                                 <h2 class="lf-lighting-title" id="lf-lighting-title">Lighting</h2>
+												{{ if .ReadOnly }}<p class="lf-lighting-effect-unavailable">This canonical lighting view is read-only.</p>{{ end }}
                                             </div>
                                             {{ if .ConfiguredEffect }}
                                                 <span class="lf-lighting-status{{ if .EffectSupported }} lf-lighting-status-supported{{ else }} lf-lighting-status-unsupported{{ end }}">{{ if .EffectSupported }}Supported{{ else }}Unsupported{{ end }}</span>
@@ -188,7 +190,7 @@
                                                         data-lf-cluster-controlled="{{ .ClusterControlled }}"
                                                         data-lf-status-id="lf-lighting-effect-status"
                                                         aria-describedby="lf-lighting-effect-status{{ if .ClusterControlled }} lf-lighting-effect-cluster-explanation{{ end }}"
-                                                        {{ if .ClusterControlled }}disabled{{ end }}
+                                                        {{ if or .ClusterControlled .ReadOnly }}disabled{{ end }}
                                                     >
                                                         {{ if not .ConfiguredEffect }}
                                                             <option value="" selected disabled>Not configured</option>
@@ -231,7 +233,7 @@
                                                             data-lf-brightness-number
                                                             aria-label="Brightness percentage"
                                                             aria-describedby="lf-lighting-brightness-status{{ if .ClusterControlled }} lf-lighting-brightness-cluster-explanation{{ end }}"
-                                                            {{ if .ClusterControlled }}disabled{{ end }}
+                                                            {{ if or .ClusterControlled .ReadOnly }}disabled{{ end }}
                                                         >
                                                         <span class="lf-range-control-suffix" aria-hidden="true">%</span>
                                                     </span>
@@ -253,7 +255,7 @@
                                                     data-lf-status-id="lf-lighting-brightness-status"
                                                     aria-valuetext="{{ .Brightness }} percent"
                                                     aria-describedby="lf-lighting-brightness-status{{ if .ClusterControlled }} lf-lighting-brightness-cluster-explanation{{ end }}"
-                                                    {{ if .ClusterControlled }}disabled{{ end }}
+                                                    {{ if or .ClusterControlled .ReadOnly }}disabled{{ end }}
                                                 >
                                                 <div class="lf-range-control-scale" aria-hidden="true"><span>0%</span><span>100%</span></div>
                                                 {{ if .ClusterControlled }}
@@ -286,7 +288,7 @@
 															data-lf-speed-number
 															aria-label="Speed level"
 															aria-describedby="lf-lighting-speed-status{{ if .ClusterControlled }} lf-lighting-speed-cluster-explanation{{ end }}"
-															{{ if .ClusterControlled }}disabled{{ end }}
+                                                            {{ if or .ClusterControlled .ReadOnly }}disabled{{ end }}
 														>
 													</span>
 												</div>
@@ -308,7 +310,7 @@
 													data-lf-status-id="lf-lighting-speed-status"
 													aria-label="Animation speed from Slow to Fast"
 													aria-describedby="lf-lighting-speed-status{{ if .ClusterControlled }} lf-lighting-speed-cluster-explanation{{ end }}"
-													{{ if .ClusterControlled }}disabled{{ end }}
+                                                    {{ if or .ClusterControlled .ReadOnly }}disabled{{ end }}
 												>
 												<div class="lf-range-control-scale" aria-hidden="true"><span>Slow</span><span>Fast</span></div>
 												{{ if .ClusterControlled }}
@@ -338,7 +340,7 @@
                                                         data-lf-status-id="lf-lighting-color-status"
                                                         aria-label="Effect color"
                                                         aria-describedby="lf-lighting-color-status{{ if .ClusterControlled }} lf-lighting-color-cluster-explanation{{ end }}"
-                                                        {{ if .ClusterControlled }}disabled{{ end }}
+                                                        {{ if or .ClusterControlled .ReadOnly }}disabled{{ end }}
                                                     >
                                                     <input
                                                         class="lf-color-control-hex"
@@ -349,7 +351,7 @@
                                                         maxlength="7"
                                                         data-lf-color-hex
                                                         aria-label="Effect color hex code"
-                                                        {{ if .ClusterControlled }}disabled{{ end }}
+                                                        {{ if or .ClusterControlled .ReadOnly }}disabled{{ end }}
                                                     >
                                                 </div>
                                                 {{ if .ClusterControlled }}
@@ -387,7 +389,7 @@
                                                                 value="{{ .TwoColorStartHex }}"
                                                                 aria-label="Start color"
                                                                 aria-describedby="lf-lighting-two-color-status{{ if .ClusterControlled }} lf-lighting-two-color-cluster-explanation{{ end }}"
-                                                                {{ if .ClusterControlled }}disabled{{ end }}
+                                                                {{ if or .ClusterControlled .ReadOnly }}disabled{{ end }}
                                                             >
                                                             <input
                                                                 class="lf-color-control-hex"
@@ -397,7 +399,7 @@
                                                                 pattern="#[0-9a-fA-F]{6}"
                                                                 maxlength="7"
                                                                 aria-label="Start color hex code"
-                                                                {{ if .ClusterControlled }}disabled{{ end }}
+                                                                {{ if or .ClusterControlled .ReadOnly }}disabled{{ end }}
                                                             >
                                                         </div>
                                                     </div>
@@ -413,7 +415,7 @@
                                                                 value="{{ .TwoColorEndHex }}"
                                                                 aria-label="End color"
                                                                 aria-describedby="lf-lighting-two-color-status{{ if .ClusterControlled }} lf-lighting-two-color-cluster-explanation{{ end }}"
-                                                                {{ if .ClusterControlled }}disabled{{ end }}
+                                                                {{ if or .ClusterControlled .ReadOnly }}disabled{{ end }}
                                                             >
                                                             <input
                                                                 class="lf-color-control-hex"
@@ -423,7 +425,7 @@
                                                                 pattern="#[0-9a-fA-F]{6}"
                                                                 maxlength="7"
                                                                 aria-label="End color hex code"
-                                                                {{ if .ClusterControlled }}disabled{{ end }}
+                                                                {{ if or .ClusterControlled .ReadOnly }}disabled{{ end }}
                                                             >
                                                         </div>
                                                     </div>
@@ -455,15 +457,16 @@
                                             >
                                                 <div class="lf-temperature-control-fields">
                                                     {{ $clusterControlled := .ClusterControlled }}
+                                                    {{ $readOnly := .ReadOnly }}
                                                     {{ range $point := .TemperaturePoints }}
                                                         <div class="lf-temperature-control-field">
                                                             <div class="lf-color-control-header">
                                                                 <label class="lf-color-control-label" for="lf-lighting-temperature-{{ $point.Role }}-color">{{ $point.Label }}</label>
                                                             </div>
                                                             <div class="lf-temperature-control-inputs">
-                                                                <input class="lf-color-control-input" id="lf-lighting-temperature-{{ $point.Role }}-color" type="color" value="{{ $point.ColorHex }}" aria-label="{{ $point.Label }} temperature color" aria-describedby="lf-lighting-temperature-status" {{ if $clusterControlled }}disabled{{ end }}>
-                                                                <input class="lf-color-control-hex" id="lf-lighting-temperature-{{ $point.Role }}-hex" type="text" value="{{ $point.ColorHex }}" pattern="#[0-9a-fA-F]{6}" maxlength="7" aria-label="{{ $point.Label }} temperature color hex code" aria-describedby="lf-lighting-temperature-status" {{ if $clusterControlled }}disabled{{ end }}>
-                                                                <label class="lf-temperature-control-celsius-label" for="lf-lighting-temperature-{{ $point.Role }}-celsius"><input class="lf-temperature-control-celsius" id="lf-lighting-temperature-{{ $point.Role }}-celsius" type="number" step="any" value="{{ $point.Celsius }}" aria-label="{{ $point.Label }} temperature threshold in degrees Celsius" aria-describedby="lf-lighting-temperature-status" {{ if $clusterControlled }}disabled{{ end }}><span aria-hidden="true">°C</span></label>
+                                                                <input class="lf-color-control-input" id="lf-lighting-temperature-{{ $point.Role }}-color" type="color" value="{{ $point.ColorHex }}" aria-label="{{ $point.Label }} temperature color" aria-describedby="lf-lighting-temperature-status" {{ if or $clusterControlled $readOnly }}disabled{{ end }}>
+                                                                <input class="lf-color-control-hex" id="lf-lighting-temperature-{{ $point.Role }}-hex" type="text" value="{{ $point.ColorHex }}" pattern="#[0-9a-fA-F]{6}" maxlength="7" aria-label="{{ $point.Label }} temperature color hex code" aria-describedby="lf-lighting-temperature-status" {{ if or $clusterControlled $readOnly }}disabled{{ end }}>
+                                                                <label class="lf-temperature-control-celsius-label" for="lf-lighting-temperature-{{ $point.Role }}-celsius"><input class="lf-temperature-control-celsius" id="lf-lighting-temperature-{{ $point.Role }}-celsius" type="number" step="any" value="{{ $point.Celsius }}" aria-label="{{ $point.Label }} temperature threshold in degrees Celsius" aria-describedby="lf-lighting-temperature-status" {{ if or $clusterControlled $readOnly }}disabled{{ end }}><span aria-hidden="true">°C</span></label>
                                                             </div>
                                                         </div>
                                                     {{ end }}
@@ -483,8 +486,10 @@
                                                 data-lf-effect="{{ .ConfiguredEffect }}"
                                                 data-lf-cluster-controlled="{{ .ClusterControlled }}"
                                                 data-lf-rows-id="lf-lighting-gradient-stops"
-                                                data-lf-add-id="lf-lighting-gradient-add"
-                                                data-lf-save-id="lf-lighting-gradient-save"
+                                                {{ if not .ReadOnly }}
+                                                    data-lf-add-id="lf-lighting-gradient-add"
+                                                    data-lf-save-id="lf-lighting-gradient-save"
+                                                {{ end }}
                                                 data-lf-status-id="lf-lighting-gradient-status"
                                                 aria-labelledby="lf-lighting-gradient-heading"
                                             >
@@ -493,10 +498,11 @@
                                                         <h3 id="lf-lighting-gradient-heading">Gradient stops</h3>
                                                         <p>Position uses 0 for the start and 1 for the end. Intensity is relative to device Brightness.</p>
                                                     </div>
-                                                    <button class="lf-button lf-button-secondary" id="lf-lighting-gradient-add" type="button" data-lf-gradient-add {{ if or .ClusterControlled (ge (len .GradientStops) 1024) }}disabled{{ end }}>Add stop</button>
+                                                    <button class="lf-button lf-button-secondary" id="lf-lighting-gradient-add" type="button" data-lf-gradient-add {{ if or .ClusterControlled .ReadOnly (ge (len .GradientStops) 1024) }}disabled{{ end }}>Add stop</button>
                                                 </div>
                                                 <div class="lf-gradient-stop-list" id="lf-lighting-gradient-stops">
                                                     {{ $clusterControlled := .ClusterControlled }}
+                                                    {{ $readOnly := .ReadOnly }}
                                                     {{ $minimumStops := eq (len .GradientStops) 2 }}
                                                     {{ range $stop := .GradientStops }}
                                                         <div class="lf-gradient-stop" data-lf-gradient-stop>
@@ -504,17 +510,17 @@
                                                             <div class="lf-gradient-stop-fields">
                                                                 <label class="lf-gradient-field-label" for="lf-lighting-gradient-color-{{ $stop.Number }}">Color
                                                                     <span class="lf-gradient-color-fields">
-                                                                        <input class="lf-color-control-input" id="lf-lighting-gradient-color-{{ $stop.Number }}" type="color" value="{{ $stop.ColorHex }}" data-lf-gradient-color aria-label="Stop {{ $stop.Number }} color" aria-describedby="lf-lighting-gradient-status" {{ if $clusterControlled }}disabled{{ end }}>
-                                                                        <input class="lf-color-control-hex" id="lf-lighting-gradient-hex-{{ $stop.Number }}" type="text" value="{{ $stop.ColorHex }}" pattern="#[0-9a-fA-F]{6}" maxlength="7" data-lf-gradient-hex aria-label="Stop {{ $stop.Number }} color hex code" aria-describedby="lf-lighting-gradient-status" {{ if $clusterControlled }}disabled{{ end }}>
+                                                                        <input class="lf-color-control-input" id="lf-lighting-gradient-color-{{ $stop.Number }}" type="color" value="{{ $stop.ColorHex }}" data-lf-gradient-color aria-label="Stop {{ $stop.Number }} color" aria-describedby="lf-lighting-gradient-status" {{ if or $clusterControlled $readOnly }}disabled{{ end }}>
+                                                                        <input class="lf-color-control-hex" id="lf-lighting-gradient-hex-{{ $stop.Number }}" type="text" value="{{ $stop.ColorHex }}" pattern="#[0-9a-fA-F]{6}" maxlength="7" data-lf-gradient-hex aria-label="Stop {{ $stop.Number }} color hex code" aria-describedby="lf-lighting-gradient-status" {{ if or $clusterControlled $readOnly }}disabled{{ end }}>
                                                                     </span>
                                                                 </label>
                                                                 <label class="lf-gradient-field-label" for="lf-lighting-gradient-position-{{ $stop.Number }}">Position
-                                                                    <input class="lf-gradient-number-input" id="lf-lighting-gradient-position-{{ $stop.Number }}" type="number" min="0" max="1" step="any" value="{{ $stop.Position }}" data-lf-gradient-position aria-label="Stop {{ $stop.Number }} position from 0 start to 1 end" aria-describedby="lf-lighting-gradient-status" {{ if $clusterControlled }}disabled{{ end }}>
+                                                                    <input class="lf-gradient-number-input" id="lf-lighting-gradient-position-{{ $stop.Number }}" type="number" min="0" max="1" step="any" value="{{ $stop.Position }}" data-lf-gradient-position aria-label="Stop {{ $stop.Number }} position from 0 start to 1 end" aria-describedby="lf-lighting-gradient-status" {{ if or $clusterControlled $readOnly }}disabled{{ end }}>
                                                                 </label>
                                                                 <label class="lf-gradient-field-label" for="lf-lighting-gradient-intensity-{{ $stop.Number }}">Relative intensity
-                                                                    <input class="lf-gradient-number-input" id="lf-lighting-gradient-intensity-{{ $stop.Number }}" type="number" min="0" max="1" step="any" value="{{ $stop.Intensity }}" data-lf-gradient-intensity aria-label="Stop {{ $stop.Number }} relative intensity from 0 to 1" aria-describedby="lf-lighting-gradient-status" {{ if $clusterControlled }}disabled{{ end }}>
+                                                                    <input class="lf-gradient-number-input" id="lf-lighting-gradient-intensity-{{ $stop.Number }}" type="number" min="0" max="1" step="any" value="{{ $stop.Intensity }}" data-lf-gradient-intensity aria-label="Stop {{ $stop.Number }} relative intensity from 0 to 1" aria-describedby="lf-lighting-gradient-status" {{ if or $clusterControlled $readOnly }}disabled{{ end }}>
                                                                 </label>
-                                                                <button class="lf-button lf-button-secondary lf-gradient-remove" type="button" data-lf-gradient-remove aria-label="Remove stop {{ $stop.Number }}" {{ if or $clusterControlled $minimumStops }}disabled{{ end }}>Remove</button>
+                                                                <button class="lf-button lf-button-secondary lf-gradient-remove" type="button" data-lf-gradient-remove aria-label="Remove stop {{ $stop.Number }}" {{ if or $clusterControlled $readOnly $minimumStops }}disabled{{ end }}>Remove</button>
                                                             </div>
                                                         </div>
                                                     {{ end }}
@@ -529,7 +535,7 @@
                                             </section>
                                         {{ end }}
 
-                                        {{ if not .ClusterControlled }}
+                                        {{ if or (not .ClusterControlled) .ReadOnly }}
                                             <div
                                                 class="lf-reset-control"
                                                 data-lf-reset-control
@@ -544,6 +550,7 @@
                                                     data-lf-device-serial="{{ $.Device.Serial }}"
                                                     data-lf-effect="{{ .ConfiguredEffect }}"
                                                     data-lf-status-id="lf-lighting-reset-status"
+                                                    {{ if .ReadOnly }}disabled{{ end }}
                                                 >
                                                     Reset to default
                                                 </button>
@@ -568,6 +575,14 @@
                                             <p>Local configuration remains stored, but cluster output currently owns lighting. The values shown here may not match visible physical output.</p>
                                         </section>
                                     {{ end }}
+
+									{{ if .ExternalControlled }}
+										<section class="lf-lighting-cluster-note" role="note" aria-label="Externally owned lighting">
+											<span class="lf-lighting-rail-icon" aria-hidden="true">⌁</span>
+											<h2>External OpenRGB owns output</h2>
+											<p>Local canonical configuration remains stored, but external output can differ from the values shown here.</p>
+										</section>
+									{{ end }}
 
                                     <section class="lf-lighting-rail-panel">
                                         <p class="lf-section-kicker">Configuration</p>

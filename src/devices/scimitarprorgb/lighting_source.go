@@ -50,6 +50,7 @@ func (override *scimitarSchedulerBrightnessOverride) effective(desired uint8) ui
 type scimitarLightingSource interface {
 	resolve() (scimitarResolvedLighting, error)
 	resolveEffectSettings(string) (lightingsettings.EffectSettings, error)
+	resolveEffectSettingsWithStatus(string) (lightingsettings.Resolution, error)
 	selectedEffect() (string, error)
 	setSelectedEffect(string) error
 	setEffectSettings(string, lightingsettings.EffectSettings) error
@@ -127,14 +128,23 @@ func (source independentDeviceLightingSource) setBrightness(brightness uint8) er
 }
 
 func (source independentDeviceLightingSource) resolveEffectSettings(effect string) (lightingsettings.EffectSettings, error) {
-	if source.resolver == nil {
-		return lightingsettings.EffectSettings{}, fmt.Errorf("independent-device lighting runtime is unavailable")
-	}
-	resolution, err := source.resolver.Resolve(lightingsettings.IndependentDevice(source.deviceID), effect)
+	resolution, err := source.resolveEffectSettingsWithStatus(effect)
 	if err != nil {
 		return lightingsettings.EffectSettings{}, err
 	}
 	return resolution.Settings.Clone(), nil
+}
+
+func (source independentDeviceLightingSource) resolveEffectSettingsWithStatus(effect string) (lightingsettings.Resolution, error) {
+	if source.resolver == nil {
+		return lightingsettings.Resolution{}, fmt.Errorf("independent-device lighting runtime is unavailable")
+	}
+	resolution, err := source.resolver.Resolve(lightingsettings.IndependentDevice(source.deviceID), effect)
+	if err != nil {
+		return lightingsettings.Resolution{}, err
+	}
+	resolution.Settings = resolution.Settings.Clone()
+	return resolution, nil
 }
 
 func (source independentDeviceLightingSource) setEffectSettings(effect string, settings lightingsettings.EffectSettings) error {

@@ -216,6 +216,9 @@ function speedSliderFixture(overrides) {
         value: "2",
         addEventListener: function (event, handler) { handlers[event] = handler; },
         closest: function (selector) {
+            if (selector === "[data-lf-lighting-read-only]") {
+                return null;
+            }
             assert.equal(selector, "[data-lf-speed-control]");
             return {classList: {add: function (name) { readyClasses.push(name); }}};
         },
@@ -3128,4 +3131,24 @@ test("RGB Cluster Reset failure restores the button and in-flight clicks are ded
     assert.equal(fixture.getReloads(), 0);
     assert.equal(fixture.resetButton.disabled, false);
     assert.equal(fixture.status.textContent, "Unable to reset effect. Try again.");
+});
+
+test("read-only Devices Lighting controls do not bind OpenRGB mutations", function() {
+    let bindings = 0;
+    const control = {
+        closest: function(selector) {
+            assert.equal(selector, "[data-lf-lighting-read-only]");
+            return {dataset: {lfLightingReadOnly: "true"}};
+        },
+        addEventListener: function() { bindings++; }
+    };
+    const browser = {
+        document: {
+            querySelectorAll: function(selector) {
+                return selector === "[data-lf-effect-selector]" ? [control] : [];
+            }
+        }
+    };
+    lighting.init(browser);
+    assert.equal(bindings, 0);
 });

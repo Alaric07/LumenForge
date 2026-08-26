@@ -1398,37 +1398,60 @@
     }
 
     function init(browser) {
+        function isReadOnly(control) {
+            if (typeof control.closest !== "function") {
+                return false;
+            }
+            const workspace = control.closest("[data-lf-lighting-read-only]");
+            return workspace && workspace.dataset.lfLightingReadOnly === "true";
+        }
         const selectors = browser.document.querySelectorAll("[data-lf-effect-selector]");
         for (const selector of selectors) {
-            bindEffectSelector(browser, selector);
+            if (!isReadOnly(selector)) {
+                bindEffectSelector(browser, selector);
+            }
         }
         const sliders = browser.document.querySelectorAll("[data-lf-brightness-slider]");
         for (const slider of sliders) {
-            bindBrightnessSlider(browser, slider);
+            if (!isReadOnly(slider)) {
+                bindBrightnessSlider(browser, slider);
+            }
         }
         const speedSliders = browser.document.querySelectorAll("[data-lf-speed-slider]");
         for (const slider of speedSliders) {
-            bindSpeedSlider(browser, slider);
+            if (!isReadOnly(slider)) {
+                bindSpeedSlider(browser, slider);
+            }
         }
         const colorInputs = browser.document.querySelectorAll("[data-lf-color-input]");
         for (const input of colorInputs) {
-            bindColorControl(browser, input);
+            if (!isReadOnly(input)) {
+                bindColorControl(browser, input);
+            }
         }
         const twoColorControls = browser.document.querySelectorAll("[data-lf-two-color-control]");
         for (const control of twoColorControls) {
-            bindTwoColorControl(browser, control);
+            if (!isReadOnly(control)) {
+                bindTwoColorControl(browser, control);
+            }
         }
         const temperatureControls = browser.document.querySelectorAll("[data-lf-temperature-control]");
         for (const control of temperatureControls) {
-            bindTemperatureControl(browser, control);
+            if (!isReadOnly(control)) {
+                bindTemperatureControl(browser, control);
+            }
         }
         const gradientControls = browser.document.querySelectorAll("[data-lf-gradient-control]");
         for (const control of gradientControls) {
-            bindGradientControl(browser, control);
+            if (!isReadOnly(control)) {
+                bindGradientControl(browser, control);
+            }
         }
         const resetButtons = browser.document.querySelectorAll("[data-lf-reset-button]");
         for (const button of resetButtons) {
-            bindResetButton(browser, button);
+            if (!isReadOnly(button)) {
+                bindResetButton(browser, button);
+            }
         }
     }
 
