@@ -2169,7 +2169,11 @@ func (d *Device) triggerKeyAssignment(value uint32) {
 				d.ModifyDpi()
 				break
 			case 8:
-				d.sniperMode(true)
+				if val.ActionHold {
+					d.sniperMode(true)
+				} else {
+					d.sniperMode(!d.SniperMode)
+				}
 				break
 			case 9:
 				if val.ActionHold {

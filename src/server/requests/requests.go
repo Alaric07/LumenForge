@@ -1975,6 +1975,24 @@ func ProcessChangeDebounceTime(r *http.Request) *Payload {
 	return &Payload{Message: language.GetValue("txtUnableToUpdateDebounceTime"), Code: http.StatusOK, Status: 0}
 }
 
+func validateKeyAssignment(keyAssignment inputmanager.KeyAssignment) *Payload {
+	if keyAssignment.IsMacro && keyAssignment.ActionHold {
+		return &Payload{Message: language.GetValue("txtPressAndHoldNotAllowed"), Code: http.StatusOK, Status: 0}
+	}
+
+	if keyAssignment.OnRelease && keyAssignment.ActionHold {
+		// Press and Hold not allowed
+		return &Payload{Message: language.GetValue("txtPressAndHoldNotAllowedOnRelease"), Code: http.StatusOK, Status: 0}
+	}
+
+	if keyAssignment.OnRelease && keyAssignment.ActionType == 8 {
+		// Sniper not allowed
+		return &Payload{Message: language.GetValue("txtSniperNotAllowedOnRelease"), Code: http.StatusOK, Status: 0}
+	}
+
+	return nil
+}
+
 // ProcessChangeKeyAssignment will process POST request from a client for key assignment change
 func ProcessChangeKeyAssignment(r *http.Request) *Payload {
 	req := &Payload{}
@@ -2017,23 +2035,8 @@ func ProcessChangeKeyAssignment(r *http.Request) *Payload {
 		OnRelease:      req.OnRelease,
 	}
 
-	if keyAssignment.IsMacro && keyAssignment.ActionHold {
-		return &Payload{Message: language.GetValue("txtPressAndHoldNotAllowed"), Code: http.StatusOK, Status: 0}
-	}
-
-	if keyAssignment.OnRelease && keyAssignment.ActionHold {
-		// Press and Hold not allowed
-		return &Payload{Message: language.GetValue("txtPressAndHoldNotAllowedOnRelease"), Code: http.StatusOK, Status: 0}
-	}
-
-	if keyAssignment.OnRelease && keyAssignment.ActionType == 8 {
-		// Sniper not allowed
-		return &Payload{Message: language.GetValue("txtSniperNotAllowedOnRelease"), Code: http.StatusOK, Status: 0}
-	}
-
-	if !keyAssignment.ActionHold && keyAssignment.ActionType == 8 {
-		// Sniper requires a Press and Hold
-		return &Payload{Message: language.GetValue("txtSniperPressAndHold"), Code: http.StatusOK, Status: 0}
+	if validation := validateKeyAssignment(keyAssignment); validation != nil {
+		return validation
 	}
 
 	results := devices.CallDeviceMethod(

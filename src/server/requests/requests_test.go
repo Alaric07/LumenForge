@@ -4,6 +4,7 @@ import (
 	"LumenForge/src/config"
 	"LumenForge/src/dashboard"
 	"LumenForge/src/externalsources"
+	"LumenForge/src/inputmanager"
 	"LumenForge/src/language"
 	"LumenForge/src/logger"
 	"LumenForge/src/temperatures"
@@ -15,6 +16,25 @@ import (
 	"path/filepath"
 	"testing"
 )
+
+func TestValidateKeyAssignmentSniperModes(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		assignment inputmanager.KeyAssignment
+		wantValid  bool
+	}{
+		{name: "press and hold", assignment: inputmanager.KeyAssignment{ActionType: 8, ActionHold: true}, wantValid: true},
+		{name: "toggle", assignment: inputmanager.KeyAssignment{ActionType: 8}, wantValid: true},
+		{name: "on release", assignment: inputmanager.KeyAssignment{ActionType: 8, OnRelease: true}, wantValid: false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got := validateKeyAssignment(test.assignment)
+			if (got == nil) != test.wantValid {
+				t.Fatalf("validateKeyAssignment(%#v) = %#v, want valid=%t", test.assignment, got, test.wantValid)
+			}
+		})
+	}
+}
 
 func TestLinkAdapterResult(t *testing.T) {
 	tests := []struct {
