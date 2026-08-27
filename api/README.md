@@ -48,6 +48,200 @@ with `--form`. The temperature-profile form endpoint retains
 rejected with HTTP `403`; fetch a new token or reload the dashboard. An
 unsupported mutation Content-Type is rejected with HTTP `415`.
 
+## Shared Native Device Workspace API
+
+The modern Devices workspace exposes shared native-device APIs for capabilities
+that have migrated to the new workspace. These routes do not replace
+device-owned hardware implementations. Device packages remain authoritative for
+supported options, validation, persistence, USB/HID communication, and other
+hardware-specific behavior.
+
+The older mouse, keyboard, and legacy RGB endpoints remain available for
+devices and UI surfaces that have not migrated. A shared Devices endpoint must
+not be interpreted as proof that every native device supports that capability.
+
+All state-changing routes below use the same local request protection described
+above.
+
+### Native Device Lighting
+
+These endpoints operate only on native devices that expose the corresponding
+modern Device Lighting capability.
+
+| Method | Endpoint | Request |
+| --- | --- | --- |
+| POST | `/api/devices/lighting/effect` | `{"serial":"DEVICE","effect":"rainbow"}` |
+| POST | `/api/devices/lighting/brightness` | `{"serial":"DEVICE","brightness":75}` |
+| POST | `/api/devices/lighting/speed` | `{"serial":"DEVICE","effect":"rainbow","speed":2}` |
+| POST | `/api/devices/lighting/single-color` | `{"serial":"DEVICE","effect":"static","color":"#ff6000"}` |
+| POST | `/api/devices/lighting/two-color` | `{"serial":"DEVICE","effect":"visor","start":"#ff0000","end":"#0000ff"}` |
+| POST | `/api/devices/lighting/temperature` | complete Low/Middle/High temperature request |
+| POST | `/api/devices/lighting/gradient` | complete ordered Gradient stop request |
+| POST | `/api/devices/lighting/effect-reset` | `{"serial":"DEVICE","effect":"gradient"}` |
+| POST | `/api/devices/lighting/zones` | authored-zone request |
+
+Brightness accepts values from `0` through `100`.
+
+Speed must be finite, supported by the selected effect, and inside that effect's
+configured speed range.
+
+Color fields use hexadecimal RGB values such as `#ff6000`.
+
+Temperature requests require complete Low, Middle, and High points:
+
+```json
+{
+  "serial": "DEVICE",
+  "effect": "cpu-temperature",
+  "low": {
+    "color": "#00ff00",
+    "celsius": 20
+  },
+  "middle": {
+    "color": "#ffff00",
+    "celsius": 50
+  },
+  "high": {
+    "color": "#ff0000",
+    "celsius": 95
+  }
+}
+```
+
+Thresholds must be finite and satisfy `low < middle < high`.
+
+Gradient requests contain the complete ordered stop list:
+
+```json
+{
+  "serial": "DEVICE",
+  "effect": "gradient",
+  "stops": [
+    {
+      "position": 0,
+      "color": "#ff0000",
+      "intensity": 1
+    },
+    {
+      "position": 0.5,
+      "color": "#0000ff",
+      "intensity": 1
+    }
+  ]
+}
+```
+
+At least two stops are required. Position and intensity must each be from `0`
+through `1`, and stops must already be ordered by nondecreasing position.
+
+Effect Reset removes the selected device/effect customization while preserving
+the selected effect and device Brightness.
+
+#### Authored native zones
+
+`POST /api/devices/lighting/zones` changes colors for a supported
+device-authored lighting mode.
+
+Example:
+
+```json
+{
+  "serial": "DEVICE",
+  "effect": "mouse",
+  "scope": "zone",
+  "zoneId": "1",
+  "color": "#ff6000"
+}
+```
+
+Supported scopes are:
+
+| Scope | Selector |
+| --- | --- |
+| `zone` | nonempty `zoneId` |
+| `zones` | nonempty unique `zoneIds` array |
+| `group` | nonempty `groupId` |
+| `all` | no zone or group selector |
+
+The selected device and authored effect determine which scopes and identifiers
+are actually supported.
+
+### Native DPI Workspace
+
+The DPI workspace APIs are available only for devices that expose the shared
+DPI capability.
+
+#### Get current DPI status
+
+```bash
+curl --silent \
+  'http://127.0.0.1:27003/api/devices/dpi/status?serial=DEVICE'
+```
+
+A usable response includes the active regular stage and temporary Sniper state:
+
+```json
+{
+  "status": 1,
+  "activeRegularStageId": "1",
+  "sniperActive": false
+}
+```
+
+#### Save DPI stages
+
+`POST /api/devices/dpi` saves the complete currently supported stage set.
+
+```bash
+lfcurl --silent -X POST \
+  -d '{"serial":"DEVICE","stages":[{"id":"0","dpi":800,"color":"#ff0000"},{"id":"1","dpi":1200,"color":"#00ff00"}]}' \
+  http://127.0.0.1:27003/api/devices/dpi
+```
+
+Every stage exposed by the device must appear exactly once. Stage IDs must match
+the device snapshot, DPI values must remain inside that device's advertised
+range, and colors must be valid hexadecimal RGB values.
+
+#### Select the active regular DPI stage
+
+```bash
+lfcurl --silent -X POST \
+  -d '{"serial":"DEVICE","stageId":"1"}' \
+  http://127.0.0.1:27003/api/devices/dpi/active
+```
+
+The stage must exist and must not be the Sniper stage.
+
+#### Set temporary Sniper mode
+
+```bash
+lfcurl --silent -X POST \
+  -d '{"serial":"DEVICE","active":true}' \
+  http://127.0.0.1:27003/api/devices/dpi/sniper
+```
+
+Sniper is a temporary override and does not replace the selected regular DPI
+stage.
+
+### Native Performance Controls
+
+The shared Performance routes expose device-neutral aliases for existing native
+performance mutations. A device may support any subset of these controls.
+
+| Method | Endpoint | Request |
+| --- | --- | --- |
+| POST | `/api/devices/performance/polling-rate` | `{"deviceId":"DEVICE","pollingRate":2}` |
+| POST | `/api/devices/performance/angle-snapping` | `{"deviceId":"DEVICE","angleSnapping":1}` |
+| POST | `/api/devices/performance/lift-height` | `{"deviceId":"DEVICE","liftHeight":3}` |
+
+The numeric values are device-owned values, not universal user-facing enums.
+Clients should use the options reported for the selected device rather than
+assuming that all mice or keyboards accept the same values.
+
+These routes reuse the existing native mutation semantics. The older
+device-class-specific mouse and keyboard endpoints remain available and are not
+removed by these shared aliases.
+
 ## OpenRGB Importer API
 
 These endpoints manage controllers imported from a separately running OpenRGB
