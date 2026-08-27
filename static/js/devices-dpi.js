@@ -15,6 +15,9 @@
     }
 })(typeof window === "undefined" ? null : window, function () {
     const endpoint = "/api/devices/dpi";
+    const activeStageEndpoint = "/api/devices/dpi/active";
+    const sniperEndpoint = "/api/devices/dpi/sniper";
+    const statusEndpoint = "/api/devices/dpi/status";
 
     function parseDPI(value, minimum, maximum) {
         if (!/^\d+$/.test(String(value))) {
@@ -71,6 +74,132 @@
         };
     }
 
+    function setStageActive(row, active) {
+        const activeClass = "lf-dpi-stage-active";
+        const header = row.querySelector(".lf-dpi-stage-header");
+        let changed = false;
+        if (row.classList.contains(activeClass) !== active) {
+            row.classList.toggle(activeClass, active);
+            changed = true;
+        }
+        if (!header) { return changed; }
+        const badge = header.querySelector(".lf-dpi-stage-state");
+        if (active && !badge) {
+            const nextBadge = row.ownerDocument.createElement("span");
+            nextBadge.className = "lf-dpi-stage-state";
+            nextBadge.textContent = "Active";
+            header.appendChild(nextBadge);
+            changed = true;
+        } else if (!active && badge) {
+            badge.remove();
+            changed = true;
+        }
+        return changed;
+    }
+
+    function applyActiveStageState(workspace, state) {
+        if (!state || typeof state.activeRegularStageId !== "string" || !state.activeRegularStageId || typeof state.sniperActive !== "boolean") {
+            return false;
+        }
+        const rows = Array.from(workspace.querySelectorAll("[data-lf-dpi-row]"));
+        const regularRows = rows.filter(function (row) { return !row.classList.contains("lf-dpi-stage-sniper"); });
+        const activeRegular = regularRows.find(function (row) { return row.dataset.lfStageId === state.activeRegularStageId; });
+        const sniper = rows.find(function (row) { return row.classList.contains("lf-dpi-stage-sniper"); });
+        if (!activeRegular || !sniper) { return false; }
+        let changed = false;
+        regularRows.forEach(function (row) { changed = setStageActive(row, row === activeRegular) || changed; });
+        return setStageActive(sniper, state.sniperActive) || changed;
+    }
+
+    function createStatusPoller(browser, workspace) {
+        const serial = workspace.dataset.lfDeviceSerial;
+        if (!serial || typeof browser.fetch !== "function") { return null; }
+        let pending = false;
+        let generation = 0;
+        async function poll() {
+            if (pending) { return false; }
+            pending = true;
+            const requestGeneration = generation;
+            try {
+                const response = await browser.fetch(statusEndpoint + "?serial=" + encodeURIComponent(serial));
+                const result = response.ok ? await response.json() : null;
+                return result && result.status === 1 && requestGeneration === generation ? applyActiveStageState(workspace, result) : false;
+            } catch (_) {
+                return false;
+            } finally {
+                pending = false;
+            }
+        }
+        const timer = typeof browser.setInterval === "function" ? browser.setInterval(poll, 1000) : null;
+        return {
+            invalidate: function () { generation += 1; },
+            poll: poll,
+            stop: function () { if (timer !== null && typeof browser.clearInterval === "function") { browser.clearInterval(timer); } }
+        };
+    }
+
+    function sniperActive(workspace) {
+        const sniper = Array.from(workspace.querySelectorAll("[data-lf-dpi-row]")).find(function (row) { return row.classList.contains("lf-dpi-stage-sniper"); });
+        return sniper ? sniper.classList.contains("lf-dpi-stage-active") : false;
+    }
+
+    function activeRegularStageID(workspace) {
+        const regular = Array.from(workspace.querySelectorAll("[data-lf-dpi-row]")).find(function (row) {
+            return !row.classList.contains("lf-dpi-stage-sniper") && row.classList.contains("lf-dpi-stage-active");
+        });
+        return regular ? regular.dataset.lfStageId : null;
+    }
+
+    async function selectActiveStage(browser, workspace, poller, stageID) {
+        const rows = Array.from(workspace.querySelectorAll("[data-lf-dpi-row]"));
+        const selected = rows.find(function (row) { return row.dataset.lfStageId === stageID && !row.classList.contains("lf-dpi-stage-sniper"); });
+        if (!selected) { return false; }
+        try {
+            const response = await browser.fetch(activeStageEndpoint, {method: "POST", body: JSON.stringify({serial: workspace.dataset.lfDeviceSerial, stageId: stageID})});
+            const result = response.ok ? await response.json() : null;
+            if (!result || result.status !== 1) { return false; }
+            if (poller) { poller.invalidate(); }
+            return applyActiveStageState(workspace, {activeRegularStageId: stageID, sniperActive: sniperActive(workspace)});
+        } catch (_) {
+            return false;
+        }
+    }
+
+    async function setSniperActive(browser, workspace, poller, active) {
+        const rows = Array.from(workspace.querySelectorAll("[data-lf-dpi-row]"));
+        const sniper = rows.find(function (row) { return row.classList.contains("lf-dpi-stage-sniper"); });
+        const regularStageID = activeRegularStageID(workspace);
+        if (!sniper || !regularStageID) { return false; }
+        try {
+            const response = await browser.fetch(sniperEndpoint, {method: "POST", body: JSON.stringify({serial: workspace.dataset.lfDeviceSerial, active: active})});
+            const result = response.ok ? await response.json() : null;
+            if (!result || result.status !== 1) { return false; }
+            if (poller) { poller.invalidate(); }
+            return applyActiveStageState(workspace, {activeRegularStageId: regularStageID, sniperActive: active});
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function bindStageSelection(browser, workspace, poller) {
+        let selecting = false;
+        workspace.querySelectorAll("[data-lf-dpi-row]").forEach(function (row) {
+            row.addEventListener("click", async function (event) {
+                if (event.target.closest("input, label, button, a") || selecting) { return; }
+                selecting = true;
+                try {
+                    if (row.classList.contains("lf-dpi-stage-sniper")) {
+                        await setSniperActive(browser, workspace, poller, !row.classList.contains("lf-dpi-stage-active"));
+                    } else {
+                        await selectActiveStage(browser, workspace, poller, row.dataset.lfStageId);
+                    }
+                } finally {
+                    selecting = false;
+                }
+            });
+        });
+    }
+
     function init(browser) {
         const workspace = browser.document.querySelector("[data-lf-dpi-workspace]");
         if (!workspace) { return; }
@@ -81,6 +210,8 @@
         if (!Number.isInteger(minimum) || !Number.isInteger(maximum) || minimum < 1 || maximum < minimum || !save) { return; }
         const readers = Array.from(workspace.querySelectorAll("[data-lf-dpi-row]")).map(function (row) { return bindRow(row, minimum, maximum); });
         if (readers.some(function (reader) { return reader === null; })) { return; }
+        const statusPoller = createStatusPoller(browser, workspace);
+        bindStageSelection(browser, workspace, statusPoller);
         let saving = false;
         save.addEventListener("click", async function () {
             if (saving) { return; }
@@ -106,5 +237,5 @@
         });
     }
 
-    return {init: init, normalizeColor: normalizeColor, parseDPI: parseDPI, rangeProgress: rangeProgress};
+    return {applyActiveStageState: applyActiveStageState, createStatusPoller: createStatusPoller, init: init, normalizeColor: normalizeColor, parseDPI: parseDPI, rangeProgress: rangeProgress, selectActiveStage: selectActiveStage, setSniperActive: setSniperActive};
 });

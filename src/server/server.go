@@ -146,6 +146,8 @@ type nativeDeviceAuthoredZoneLightingMultiTarget interface {
 type devicesDPIWorkspaceTarget interface {
 	DPIDeviceID() string
 	DPISnapshot() (dpipresentation.Snapshot, bool)
+	SelectMouseDPIStage(int) uint8
+	SetMouseSniperMode(bool) uint8
 	SaveMouseDPISettings(map[int]uint16, map[int]rgb.Color) uint8
 }
 
@@ -3263,6 +3265,129 @@ func getDevicesDPIWorkspaceTarget(serial string) (devicesDPIWorkspaceTarget, err
 	return target, nil
 }
 
+func getDevicesDPISnapshotProvider(serial string) (devicesDPISnapshotProvider, error) {
+	if serial == "" || !common.AlphanumericDashRegex.MatchString(serial) {
+		return nil, fmt.Errorf("invalid DPI device serial")
+	}
+	wrapper, ok := lookupDevicesDPIWorkspaceWrapper(serial)
+	if !ok || wrapper == nil || wrapper.Hidden || wrapper.Unavailable || wrapper.Serial != serial {
+		return nil, fmt.Errorf("DPI device is not available")
+	}
+	provider, ok := wrapper.Instance.(devicesDPISnapshotProvider)
+	if !ok || provider == nil || provider.DPIDeviceID() != serial {
+		return nil, fmt.Errorf("DPI workspace is not available")
+	}
+	return provider, nil
+}
+
+type devicesDPIStatusResponse struct {
+	Status               int    `json:"status"`
+	ActiveRegularStageID string `json:"activeRegularStageId,omitempty"`
+	SniperActive         bool   `json:"sniperActive"`
+}
+
+func (response devicesDPIStatusResponse) Send(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+func getDevicesDPIWorkspaceStatus(w http.ResponseWriter, r *http.Request) {
+	provider, err := getDevicesDPISnapshotProvider(r.URL.Query().Get("serial"))
+	if err != nil {
+		(devicesDPIStatusResponse{}).Send(w)
+		return
+	}
+	snapshot, usable := provider.DPISnapshot()
+	summary := devicesDPIWorkspaceSummaryFromSnapshot(snapshot)
+	if !usable || summary == nil || summary.SniperStage == nil {
+		(devicesDPIStatusResponse{}).Send(w)
+		return
+	}
+	(devicesDPIStatusResponse{
+		Status:               1,
+		ActiveRegularStageID: summary.ActiveRegularStageID,
+		SniperActive:         summary.SniperStage.Active,
+	}).Send(w)
+}
+
+func selectDevicesDPIWorkspaceStage(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Serial  *string `json:"serial"`
+		StageID *string `json:"stageId"`
+	}
+	if !decodeNativeDeviceLightingRequest(w, r, &req) {
+		return
+	}
+	if req.Serial == nil || req.StageID == nil || *req.Serial == "" || *req.StageID == "" {
+		nativeDeviceLightingFailure(w, "Invalid DPI stage request")
+		return
+	}
+	target, err := getDevicesDPIWorkspaceTarget(*req.Serial)
+	if err != nil {
+		nativeDeviceLightingFailure(w, "DPI workspace is not available")
+		return
+	}
+	stageID, parseErr := strconv.Atoi(*req.StageID)
+	if parseErr != nil || stageID < 0 {
+		nativeDeviceLightingFailure(w, "Invalid DPI stage request")
+		return
+	}
+	snapshot, usable := target.DPISnapshot()
+	if !usable {
+		nativeDeviceLightingFailure(w, "Invalid DPI stage request")
+		return
+	}
+	found := false
+	for _, stage := range snapshot.Stages {
+		if stage.ID == *req.StageID && !stage.Sniper {
+			found = true
+			break
+		}
+	}
+	if !found || target.SelectMouseDPIStage(stageID) != 1 {
+		nativeDeviceLightingFailure(w, "Unable to select DPI stage")
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "DPI stage selected"}).Send(w)
+}
+
+func setDevicesDPIWorkspaceSniper(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Serial *string `json:"serial"`
+		Active *bool   `json:"active"`
+	}
+	if !decodeNativeDeviceLightingRequest(w, r, &req) {
+		return
+	}
+	if req.Serial == nil || req.Active == nil || *req.Serial == "" {
+		nativeDeviceLightingFailure(w, "Invalid Sniper mode request")
+		return
+	}
+	target, err := getDevicesDPIWorkspaceTarget(*req.Serial)
+	if err != nil {
+		nativeDeviceLightingFailure(w, "DPI workspace is not available")
+		return
+	}
+	snapshot, usable := target.DPISnapshot()
+	if !usable {
+		nativeDeviceLightingFailure(w, "Invalid Sniper mode request")
+		return
+	}
+	hasSniper := false
+	for _, stage := range snapshot.Stages {
+		if stage.Sniper {
+			hasSniper = true
+			break
+		}
+	}
+	if !hasSniper || target.SetMouseSniperMode(*req.Active) != 1 {
+		nativeDeviceLightingFailure(w, "Unable to update Sniper mode")
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Sniper mode updated"}).Send(w)
+}
+
 func saveDevicesDPIWorkspace(w http.ResponseWriter, r *http.Request) {
 	type stageRequest struct {
 		ID    *string `json:"id"`
@@ -4136,6 +4261,7 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/devices/mouse", http.MethodGet, getMouseDevice)
 	handleFunc(r, "/api/media/playback", http.MethodGet, getMediaPlayback)
 	handleFunc(r, "/api/security/token", http.MethodGet, protection.tokenHandler)
+	handleFunc(r, "/api/devices/dpi/status", http.MethodGet, getDevicesDPIWorkspaceStatus)
 
 	// POST
 	handleFunc(r, "/api/media/", http.MethodPost, mediaPlaybackControl)
@@ -4161,6 +4287,8 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/devices/lighting/effect-reset", http.MethodPost, resetNativeDeviceLightingEffectSettings)
 	handleFunc(r, "/api/devices/lighting/zones", http.MethodPost, setNativeDeviceLightingZones)
 	handleFunc(r, "/api/devices/dpi", http.MethodPost, saveDevicesDPIWorkspace)
+	handleFunc(r, "/api/devices/dpi/active", http.MethodPost, selectDevicesDPIWorkspaceStage)
+	handleFunc(r, "/api/devices/dpi/sniper", http.MethodPost, setDevicesDPIWorkspaceSniper)
 	handleFunc(r, "/api/cluster/lighting/effect", http.MethodPost, setRGBClusterLightingEffect)
 	handleFunc(r, "/api/cluster/lighting/effect-reset", http.MethodPost, resetRGBClusterLightingEffect)
 	handleFunc(r, "/api/cluster/lighting/brightness", http.MethodPost, setRGBClusterLightingBrightness)

@@ -818,6 +818,44 @@ func (d *Device) SaveMouseDPI(stages map[int]uint16) uint8 {
 	return 0
 }
 
+// SelectMouseDPIStage selects an existing regular stage through the same
+// DeviceProfile runtime state used by physical DPI cycling.
+func (d *Device) SelectMouseDPIStage(stage int) uint8 {
+	if d == nil || d.DeviceProfile == nil {
+		return 0
+	}
+	profile, exists := d.DeviceProfile.Profiles[stage]
+	if !exists || profile.Sniper {
+		return 0
+	}
+	if d.DeviceProfile.Profile == stage {
+		return 1
+	}
+	d.DeviceProfile.Profile = stage
+	d.saveDeviceProfile()
+	if !d.SniperMode {
+		d.toggleDPI()
+	}
+	return 1
+}
+
+// SetMouseSniperMode applies the existing runtime Sniper override without
+// changing the selected regular DeviceProfile stage.
+func (d *Device) SetMouseSniperMode(active bool) uint8 {
+	if d == nil || d.DeviceProfile == nil {
+		return 0
+	}
+	for _, profile := range d.DeviceProfile.Profiles {
+		if profile.Sniper {
+			if d.SniperMode != active {
+				d.sniperMode(active)
+			}
+			return 1
+		}
+	}
+	return 0
+}
+
 // SaveMouseDPISettings atomically applies the Devices workspace DPI draft to
 // the existing DeviceProfile authority. Legacy DPI save methods remain
 // available for their established callers.
@@ -2015,7 +2053,9 @@ func (d *Device) ModifyDpi() {
 		d.DeviceProfile.Profile++
 	}
 	d.saveDeviceProfile()
-	d.toggleDPI()
+	if !d.SniperMode {
+		d.toggleDPI()
+	}
 }
 
 // addToMacroTracker adds or updates an entry in MacroTracker
