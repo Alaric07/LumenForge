@@ -7,6 +7,7 @@ package server
 import (
 	"LumenForge/src/audio"
 	"LumenForge/src/backup"
+	"LumenForge/src/buttonspresentation"
 	"LumenForge/src/cluster"
 	"LumenForge/src/common"
 	"LumenForge/src/config"
@@ -2389,6 +2390,7 @@ type devicesWorkspaceSummary struct {
 	OpenRGB      *openRGBWorkspaceSummary
 	Lighting     *devicesLightingWorkspaceSummary
 	DPI          *devicesDPIWorkspaceSummary
+	Buttons      *devicesButtonsWorkspaceSummary
 	View         string
 }
 
@@ -2472,6 +2474,63 @@ type devicesLightingSnapshotProvider interface {
 type devicesDPISnapshotProvider interface {
 	DPIDeviceID() string
 	DPISnapshot() (dpipresentation.Snapshot, bool)
+}
+
+// devicesButtonsSnapshotProvider is implemented only by devices that expose
+// their existing assignment state to the Devices workspace.
+type devicesButtonsSnapshotProvider interface {
+	ButtonsDeviceID() string
+	ButtonsSnapshot() (buttonspresentation.Snapshot, bool)
+}
+
+type devicesButtonsAssignmentTypeSummary struct {
+	ID    uint8
+	Label string
+}
+
+type devicesButtonsButtonSummary struct {
+	KeyIndex      int
+	Name          string
+	Default       bool
+	PressAndHold  bool
+	OnRelease     bool
+	ActionType    uint8
+	ActionCommand uint16
+	IsMacro       bool
+	ProfileSwitch bool
+}
+
+type devicesButtonsWorkspaceSummary struct {
+	Buttons         []devicesButtonsButtonSummary
+	AssignmentTypes []devicesButtonsAssignmentTypeSummary
+}
+
+func devicesButtonsWorkspaceSummaryFromSnapshot(snapshot buttonspresentation.Snapshot) *devicesButtonsWorkspaceSummary {
+	if len(snapshot.Buttons) == 0 || len(snapshot.AssignmentTypes) == 0 {
+		return nil
+	}
+	summary := &devicesButtonsWorkspaceSummary{
+		Buttons: make([]devicesButtonsButtonSummary, len(snapshot.Buttons)),
+		AssignmentTypes: make([]devicesButtonsAssignmentTypeSummary, len(snapshot.AssignmentTypes)),
+	}
+	for index, button := range snapshot.Buttons {
+		if button.KeyIndex < 1 || button.Name == "" {
+			return nil
+		}
+		summary.Buttons[index] = devicesButtonsButtonSummary{
+			KeyIndex: button.KeyIndex, Name: button.Name, Default: button.Default,
+			PressAndHold: button.PressAndHold, OnRelease: button.OnRelease,
+			ActionType: button.ActionType, ActionCommand: button.ActionCommand,
+			IsMacro: button.IsMacro, ProfileSwitch: button.ProfileSwitch,
+		}
+	}
+	for index, assignmentType := range snapshot.AssignmentTypes {
+		if assignmentType.Label == "" {
+			return nil
+		}
+		summary.AssignmentTypes[index] = devicesButtonsAssignmentTypeSummary{ID: assignmentType.ID, Label: assignmentType.Label}
+	}
+	return summary
 }
 
 type devicesDPIStageSummary struct {
@@ -2714,6 +2773,12 @@ func devicesWorkspaceSummaryForSerial(
 			summary.DPI = devicesDPIWorkspaceSummaryFromSnapshot(dpiSnapshot)
 		}
 	}
+	if buttonsDevice, ok := device.Instance.(devicesButtonsSnapshotProvider); ok &&
+		buttonsDevice != nil && buttonsDevice.ButtonsDeviceID() == serial {
+		if buttonsSnapshot, usable := buttonsDevice.ButtonsSnapshot(); usable {
+			summary.Buttons = devicesButtonsWorkspaceSummaryFromSnapshot(buttonsSnapshot)
+		}
+	}
 
 	return summary, true
 }
@@ -2730,6 +2795,10 @@ func devicesWorkspaceView(views []string, device *devicesWorkspaceSummary) strin
 	case "dpi":
 		if device.DPI != nil {
 			return "dpi"
+		}
+	case "buttons":
+		if device.Buttons != nil {
+			return "buttons"
 		}
 	}
 	return "overview"

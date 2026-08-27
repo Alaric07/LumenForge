@@ -1033,6 +1033,34 @@
     margin-top: 16px;
 }
 
+.lf-app-shell .lf-buttons-workspace {
+    min-width: 0;
+    margin-top: 24px;
+    padding: clamp(16px, 2vw, 24px);
+    overflow: hidden;
+    border: 1px solid var(--lf-border-panel);
+    border-radius: var(--lf-shell-radius);
+    background: var(--lf-panel-elevated);
+    box-shadow: var(--lf-shadow-soft);
+}
+
+.lf-app-shell .lf-buttons-table-wrap { overflow-x: auto; }
+.lf-app-shell .lf-buttons-table { width: 100%; min-width: 920px; border-collapse: collapse; }
+.lf-app-shell .lf-buttons-table th, .lf-app-shell .lf-buttons-table td { padding: 9px 10px; border-bottom: 1px solid var(--lf-border-subtle); vertical-align: middle; }
+.lf-app-shell .lf-buttons-table thead th { color: var(--lf-text-muted); font-size: 12px; font-weight: 720; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+.lf-app-shell .lf-buttons-table tbody th { min-width: 132px; color: var(--lf-text-primary); font-size: 13px; font-weight: 680; }
+.lf-app-shell .lf-buttons-table tbody tr { transition: background-color 150ms ease; }
+.lf-app-shell .lf-buttons-table tbody tr:hover { background: var(--lf-surface-hover); }
+.lf-app-shell .lf-buttons-table thead th:nth-child(2), .lf-app-shell .lf-buttons-table thead th:nth-child(3), .lf-app-shell .lf-buttons-table thead th:nth-child(4), .lf-app-shell .lf-buttons-table td:nth-child(2), .lf-app-shell .lf-buttons-table td:nth-child(3), .lf-app-shell .lf-buttons-table td:nth-child(4) { text-align: center; }
+.lf-app-shell .lf-buttons-control-title, .lf-app-shell .lf-buttons-control-subtitle { display: block; }
+.lf-app-shell .lf-buttons-control-subtitle { margin-top: 2px; color: var(--lf-text-muted); font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.lf-app-shell .lf-buttons-select { width: 100%; min-width: 150px; padding: 7px 28px 7px 9px; border: 1px solid var(--lf-border-emphasized); border-radius: 7px; color: var(--lf-text-primary); background: var(--lf-surface-subdued); font-size: 13px; }
+.lf-app-shell .lf-buttons-table td:nth-child(6) .lf-buttons-select { min-width: 180px; }
+.lf-app-shell .lf-buttons-table [data-lf-button-status] { max-width: 180px; margin-top: 4px; }
+.lf-app-shell .lf-buttons-toast { position: fixed; z-index: 1100; bottom: 28px; left: 50%; width: min(440px, calc(100vw - 32px)); padding: 15px 20px; border: 1px solid var(--lf-border-emphasized); border-radius: 10px; color: var(--lf-text-primary); background: var(--lf-panel-elevated); box-shadow: var(--lf-shadow-elevated); font-size: 15px; font-weight: 650; text-align: center; transform: translateX(-50%); }
+.lf-app-shell .lf-buttons-toast[data-lf-buttons-toast-kind="success"] { border-color: color-mix(in srgb, var(--good) 60%, var(--lf-border-emphasized)); }
+.lf-app-shell .lf-buttons-toast[data-lf-buttons-toast-kind="error"] { border-color: color-mix(in srgb, var(--bad) 60%, var(--lf-border-emphasized)); }
+
 @media (max-width: 900px) {
     .lf-app-shell .lf-dpi-editor-row {
         grid-template-columns: minmax(0, 1fr);

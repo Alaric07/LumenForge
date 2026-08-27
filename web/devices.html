@@ -127,7 +127,7 @@
                     <div class="lf-device-hero-copy">
                         <p class="lf-device-hero-context">{{ if .Device.OpenRGB }}OpenRGB imported controller{{ else }}Selected device{{ end }}</p>
                         <h1 class="lf-workspace-title">{{ .Device.Product }}</h1>
-                        <p class="lf-workspace-description">{{ if eq .Device.View "lighting" }}Stored lighting configuration and renderer capabilities{{ else if eq .Device.View "dpi" }}Configure mouse sensitivity and stage colors{{ else }}Device overview and configured hardware details{{ end }}</p>
+                        <p class="lf-workspace-description">{{ if eq .Device.View "lighting" }}Stored lighting configuration and renderer capabilities{{ else if eq .Device.View "dpi" }}Configure mouse sensitivity and stage colors{{ else if eq .Device.View "buttons" }}Configure physical button assignments{{ else }}Device overview and configured hardware details{{ end }}</p>
                         <div class="lf-device-hero-facts">
                             {{ if .Device.Unavailable }}<span class="lf-device-hero-fact lf-device-hero-fact-unavailable">Unavailable</span>{{ end }}
                             {{ if eq .Device.View "lighting" }}
@@ -151,12 +151,15 @@
                 </header>
 
                 <nav class="lf-device-workspace-nav" aria-label="Device workspace">
-                    <a class="lf-device-workspace-link{{ if and (ne .Device.View "lighting") (ne .Device.View "dpi") }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}"{{ if and (ne .Device.View "lighting") (ne .Device.View "dpi") }} aria-current="page"{{ end }}>Overview</a>
+                    <a class="lf-device-workspace-link{{ if and (ne .Device.View "lighting") (ne .Device.View "dpi") (ne .Device.View "buttons") }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}"{{ if and (ne .Device.View "lighting") (ne .Device.View "dpi") (ne .Device.View "buttons") }} aria-current="page"{{ end }}>Overview</a>
                     {{ if .Device.Lighting }}
                         <a class="lf-device-workspace-link{{ if eq .Device.View "lighting" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=lighting"{{ if eq .Device.View "lighting" }} aria-current="page"{{ end }}>Lighting</a>
                     {{ end }}
                     {{ if .Device.DPI }}
                         <a class="lf-device-workspace-link{{ if eq .Device.View "dpi" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=dpi"{{ if eq .Device.View "dpi" }} aria-current="page"{{ end }}>DPI</a>
+                    {{ end }}
+                    {{ if .Device.Buttons }}
+                        <a class="lf-device-workspace-link{{ if eq .Device.View "buttons" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=buttons"{{ if eq .Device.View "buttons" }} aria-current="page"{{ end }}>Key Assignments</a>
                     {{ end }}
                 </nav>
 
@@ -629,6 +632,23 @@
                                 {{ end }}
                             </div>
                             <div class="lf-dpi-editor-actions"><button class="lf-button lf-button-primary" type="button" data-lf-dpi-save>Apply changes</button><p class="lf-range-control-status" data-lf-dpi-status aria-live="polite"></p></div>
+                        </section>
+                    {{ end }}
+                {{ else if eq .Device.View "buttons" }}
+                    {{ with .Device.Buttons }}
+                        <section class="lf-buttons-workspace" data-lf-buttons-workspace data-lf-device-id="{{ $.Device.Serial }}">
+                            <div class="lf-buttons-table-wrap"><table class="lf-buttons-table"><thead><tr><th>Button</th><th class="lf-buttons-control-heading" title="Device uses the mouse's built-in behavior. LumenForge uses the custom assignment configured in this row."><span class="lf-buttons-control-title">Control</span><span class="lf-buttons-control-subtitle">Device ↔ LumenForge</span></th><th>Press and Hold</th><th>On Release</th><th>Assignment Type</th><th>Assignment Key</th></tr></thead><tbody>
+                            {{ range .Buttons }}
+                                <tr data-lf-button-row data-lf-key-index="{{ .KeyIndex }}" data-lf-current-command="{{ .ActionCommand }}" data-lf-profile-switch="{{ .ProfileSwitch }}">
+                                    <th scope="row">{{ .Name }}</th>
+                                    <td><label class="system-toggle compact"><input type="checkbox" data-lf-button-control {{ if not .Default }}checked{{ end }}><span class="toggle-track"></span></label></td>
+                                    <td><label class="system-toggle compact"><input type="checkbox" data-lf-button-hold {{ if .PressAndHold }}checked{{ end }}><span class="toggle-track"></span></label></td>
+                                    <td><label class="system-toggle compact"><input type="checkbox" data-lf-button-release {{ if .OnRelease }}checked{{ end }}><span class="toggle-track"></span></label></td>
+                                    <td><select class="lf-buttons-select" data-lf-button-type aria-label="{{ .Name }} assignment type">{{ $selected := .ActionType }}{{ range $.Device.Buttons.AssignmentTypes }}<option value="{{ .ID }}" {{ if eq $selected .ID }}selected{{ end }}>{{ .Label }}</option>{{ end }}</select></td>
+                                    <td><select class="lf-buttons-select" data-lf-button-command aria-label="{{ .Name }} assignment key"></select><p class="lf-range-control-status lf-buttons-option-status" data-lf-button-status aria-live="polite"></p></td>
+                                </tr>
+                            {{ end }}
+                            </tbody></table></div><div class="lf-buttons-toast" data-lf-buttons-toast role="status" aria-live="polite" hidden></div>
                         </section>
                     {{ end }}
                 {{ else }}
