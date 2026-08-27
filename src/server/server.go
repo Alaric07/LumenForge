@@ -14,6 +14,7 @@ import (
 	"LumenForge/src/devices"
 	"LumenForge/src/devices/lcd"
 	"LumenForge/src/devices/openrgbimport"
+	"LumenForge/src/dpipresentation"
 	"LumenForge/src/display"
 	"LumenForge/src/externalsources"
 	"LumenForge/src/inputmanager"
@@ -142,7 +143,14 @@ type nativeDeviceAuthoredZoneLightingMultiTarget interface {
 	SetLightingZoneColors(string, []string, rgb.Color) error
 }
 
+type devicesDPIWorkspaceTarget interface {
+	DPIDeviceID() string
+	DPISnapshot() (dpipresentation.Snapshot, bool)
+	SaveMouseDPISettings(map[int]uint16, map[int]rgb.Color) uint8
+}
+
 var lookupNativeDeviceLightingWrapper = devices.LookupDevice
+var lookupDevicesDPIWorkspaceWrapper = devices.LookupDevice
 
 func openRGBImportRegistryHooks() openrgbimport.RegistryHooks {
 	return openrgbimport.RegistryHooks{
@@ -2378,6 +2386,7 @@ type devicesWorkspaceSummary struct {
 	BatteryLevel uint16
 	OpenRGB      *openRGBWorkspaceSummary
 	Lighting     *devicesLightingWorkspaceSummary
+	DPI          *devicesDPIWorkspaceSummary
 	View         string
 }
 
@@ -2454,6 +2463,59 @@ type openRGBLightingGradientStopSummary = devicesLightingGradientStopSummary
 type devicesLightingSnapshotProvider interface {
 	LightingDeviceID() string
 	LightingSnapshot() (lightingpresentation.Snapshot, bool)
+}
+
+// devicesDPISnapshotProvider is implemented only by devices that can expose
+// their existing DPI state to the read-only Devices workspace.
+type devicesDPISnapshotProvider interface {
+	DPIDeviceID() string
+	DPISnapshot() (dpipresentation.Snapshot, bool)
+}
+
+type devicesDPIStageSummary struct {
+	ID, Name, ColorHex string
+	DPI                uint16
+	Sniper, Active     bool
+}
+
+type devicesDPIWorkspaceSummary struct {
+	MinimumDPI, MaximumDPI int
+	ActiveRegularStageID   string
+	RegularStages          []devicesDPIStageSummary
+	SniperStage            *devicesDPIStageSummary
+}
+
+func devicesDPIWorkspaceSummaryFromSnapshot(snapshot dpipresentation.Snapshot) *devicesDPIWorkspaceSummary {
+	if snapshot.MinimumDPI < 1 || snapshot.MaximumDPI < snapshot.MinimumDPI || len(snapshot.Stages) == 0 {
+		return nil
+	}
+	summary := &devicesDPIWorkspaceSummary{
+		MinimumDPI: snapshot.MinimumDPI, MaximumDPI: snapshot.MaximumDPI,
+		ActiveRegularStageID: snapshot.ActiveRegularStageID,
+		RegularStages:        make([]devicesDPIStageSummary, 0, len(snapshot.Stages)),
+	}
+	activeRegularFound := false
+	for _, stage := range snapshot.Stages {
+		if stage.ID == "" || stage.Name == "" || stage.ColorHex == "" {
+			return nil
+		}
+		presented := devicesDPIStageSummary{ID: stage.ID, Name: stage.Name, DPI: stage.DPI, ColorHex: stage.ColorHex, Sniper: stage.Sniper, Active: stage.Active}
+		if stage.Sniper {
+			if summary.SniperStage != nil {
+				return nil
+			}
+			summary.SniperStage = &presented
+			continue
+		}
+		summary.RegularStages = append(summary.RegularStages, presented)
+		if stage.ID == summary.ActiveRegularStageID {
+			activeRegularFound = true
+		}
+	}
+	if summary.ActiveRegularStageID == "" || !activeRegularFound || len(summary.RegularStages) == 0 || summary.SniperStage == nil {
+		return nil
+	}
+	return summary
 }
 
 func openRGBWorkspaceDisplayIdentifierLabel(label string) string {
@@ -2644,8 +2706,31 @@ func devicesWorkspaceSummaryForSerial(
 			summary.Lighting = devicesLightingWorkspaceSummaryFromSnapshot(lightingSnapshot)
 		}
 	}
+	if dpiDevice, ok := device.Instance.(devicesDPISnapshotProvider); ok &&
+		dpiDevice != nil && dpiDevice.DPIDeviceID() == serial {
+		if dpiSnapshot, usable := dpiDevice.DPISnapshot(); usable {
+			summary.DPI = devicesDPIWorkspaceSummaryFromSnapshot(dpiSnapshot)
+		}
+	}
 
 	return summary, true
+}
+
+func devicesWorkspaceView(views []string, device *devicesWorkspaceSummary) string {
+	if len(views) != 1 || device == nil {
+		return "overview"
+	}
+	switch views[0] {
+	case "lighting":
+		if device.Lighting != nil {
+			return "lighting"
+		}
+	case "dpi":
+		if device.DPI != nil {
+			return "dpi"
+		}
+	}
+	return "overview"
 }
 
 // uiDevices handles the devices workspace
@@ -2677,11 +2762,9 @@ func uiDevices(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		// Lighting is an optional presentation mode. Unknown, empty, or
+		// Lighting and DPI are optional presentation modes. Unknown, empty, or
 		// duplicated view values deliberately retain the Overview workspace.
-		if views := query["view"]; len(views) == 1 && views[0] == "lighting" && selectedDevice.Lighting != nil {
-			selectedDevice.View = "lighting"
-		}
+		selectedDevice.View = devicesWorkspaceView(query["view"], selectedDevice)
 	}
 
 	web := templates.Web{}
@@ -3163,6 +3246,83 @@ func nativeDeviceAuthoredZoneLightingTargetForEffect(serial, effect string) (nat
 
 func nativeDeviceLightingFailure(w http.ResponseWriter, message string) {
 	(&Response{Code: http.StatusOK, Status: 0, Message: message}).Send(w)
+}
+
+func getDevicesDPIWorkspaceTarget(serial string) (devicesDPIWorkspaceTarget, error) {
+	if serial == "" || !common.AlphanumericDashRegex.MatchString(serial) {
+		return nil, fmt.Errorf("invalid DPI device serial")
+	}
+	wrapper, ok := lookupDevicesDPIWorkspaceWrapper(serial)
+	if !ok || wrapper == nil || wrapper.Hidden || wrapper.Unavailable || wrapper.Serial != serial {
+		return nil, fmt.Errorf("DPI device is not available")
+	}
+	target, ok := wrapper.Instance.(devicesDPIWorkspaceTarget)
+	if !ok || target == nil || target.DPIDeviceID() != serial {
+		return nil, fmt.Errorf("DPI workspace is not available")
+	}
+	return target, nil
+}
+
+func saveDevicesDPIWorkspace(w http.ResponseWriter, r *http.Request) {
+	type stageRequest struct {
+		ID    *string `json:"id"`
+		DPI   *int    `json:"dpi"`
+		Color *string `json:"color"`
+	}
+	var req struct {
+		Serial *string         `json:"serial"`
+		Stages *[]stageRequest `json:"stages"`
+	}
+	if !decodeNativeDeviceLightingRequest(w, r, &req) {
+		return
+	}
+	if req.Serial == nil || req.Stages == nil || *req.Serial == "" {
+		nativeDeviceLightingFailure(w, "Invalid DPI request")
+		return
+	}
+	target, err := getDevicesDPIWorkspaceTarget(*req.Serial)
+	if err != nil {
+		nativeDeviceLightingFailure(w, "Unable to save DPI settings")
+		return
+	}
+	snapshot, usable := target.DPISnapshot()
+	if !usable || snapshot.MinimumDPI < 1 || snapshot.MaximumDPI < snapshot.MinimumDPI || len(*req.Stages) != len(snapshot.Stages) {
+		nativeDeviceLightingFailure(w, "Invalid DPI request")
+		return
+	}
+	allowed := make(map[string]struct{}, len(snapshot.Stages))
+	for _, stage := range snapshot.Stages {
+		allowed[stage.ID] = struct{}{}
+	}
+	stages := make(map[int]uint16, len(*req.Stages))
+	colors := make(map[int]rgb.Color, len(*req.Stages))
+	for _, stage := range *req.Stages {
+		if stage.ID == nil || stage.DPI == nil || stage.Color == nil || *stage.ID == "" || *stage.DPI < snapshot.MinimumDPI || *stage.DPI > snapshot.MaximumDPI {
+			nativeDeviceLightingFailure(w, "Invalid DPI request")
+			return
+		}
+		if _, exists := allowed[*stage.ID]; !exists {
+			nativeDeviceLightingFailure(w, "Invalid DPI request")
+			return
+		}
+		id, parseErr := strconv.Atoi(*stage.ID)
+		color, colorErr := parseHexColor(*stage.Color)
+		if parseErr != nil || id < 0 || colorErr != nil {
+			nativeDeviceLightingFailure(w, "Invalid DPI request")
+			return
+		}
+		if _, duplicate := stages[id]; duplicate {
+			nativeDeviceLightingFailure(w, "Invalid DPI request")
+			return
+		}
+		stages[id] = uint16(*stage.DPI)
+		colors[id] = rgb.Color{Red: color.Red, Green: color.Green, Blue: color.Blue}
+	}
+	if len(stages) != len(allowed) || target.SaveMouseDPISettings(stages, colors) != 1 {
+		nativeDeviceLightingFailure(w, "Unable to save DPI settings")
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "DPI settings saved"}).Send(w)
 }
 
 func setNativeDeviceLightingEffect(w http.ResponseWriter, r *http.Request) {
@@ -4000,6 +4160,7 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/devices/lighting/gradient", http.MethodPost, setNativeDeviceLightingGradient)
 	handleFunc(r, "/api/devices/lighting/effect-reset", http.MethodPost, resetNativeDeviceLightingEffectSettings)
 	handleFunc(r, "/api/devices/lighting/zones", http.MethodPost, setNativeDeviceLightingZones)
+	handleFunc(r, "/api/devices/dpi", http.MethodPost, saveDevicesDPIWorkspace)
 	handleFunc(r, "/api/cluster/lighting/effect", http.MethodPost, setRGBClusterLightingEffect)
 	handleFunc(r, "/api/cluster/lighting/effect-reset", http.MethodPost, resetRGBClusterLightingEffect)
 	handleFunc(r, "/api/cluster/lighting/brightness", http.MethodPost, setRGBClusterLightingBrightness)

@@ -5,6 +5,7 @@ import (
 	"LumenForge/src/config"
 	"LumenForge/src/devices"
 	"LumenForge/src/devices/openrgbimport"
+	"LumenForge/src/dpipresentation"
 	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/rgb"
 	"LumenForge/src/stats"
@@ -26,6 +27,19 @@ const devicesPageHelperEnvironment = "LUMENFORGE_DEVICES_PAGE_TEST_HELPER"
 type devicesPageLightingSnapshotProvider struct {
 	serial   string
 	snapshot lightingpresentation.Snapshot
+}
+
+type devicesPageDPISnapshotProvider struct {
+	serial   string
+	snapshot dpipresentation.Snapshot
+}
+
+func (provider devicesPageDPISnapshotProvider) DPIDeviceID() string {
+	return provider.serial
+}
+
+func (provider devicesPageDPISnapshotProvider) DPISnapshot() (dpipresentation.Snapshot, bool) {
+	return provider.snapshot, true
 }
 
 func (provider devicesPageLightingSnapshotProvider) LightingDeviceID() string {
@@ -200,6 +214,63 @@ func TestDevicesLightingAuthoredZoneEditorPresentation(t *testing.T) {
 		if end < 0 || !strings.Contains(readOnlyBody[at:at+end], "disabled") {
 			t.Errorf("read-only authored control %q is not disabled", marker)
 		}
+	}
+}
+
+func TestDevicesWorkspaceDPIPresentationAndViews(t *testing.T) {
+	initializeDevicesPageTestProcess(t)
+	serial := "scimitar-elite-dpi"
+	snapshot := dpipresentation.Snapshot{MinimumDPI: 100, MaximumDPI: 18000, ActiveRegularStageID: "1", Stages: []dpipresentation.Stage{
+		{ID: "0", Name: "Stage 1", DPI: 800, ColorHex: "#102030"},
+		{ID: "1", Name: "Stage 2", DPI: 1600, ColorHex: "#aabbcc", Active: true},
+		{ID: "2", Name: "Stage 3", DPI: 2400, ColorHex: "#102030"},
+		{ID: "3", Name: "Stage 4", DPI: 3200, ColorHex: "#102030"},
+		{ID: "4", Name: "Stage 5", DPI: 4000, ColorHex: "#102030"},
+		{ID: "5", Name: "Sniper", DPI: 400, ColorHex: "#ffaa00", Sniper: true},
+	}}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{
+		serial: {Serial: serial, Product: "SCIMITAR RGB ELITE", Instance: devicesPageDPISnapshotProvider{serial: serial, snapshot: snapshot}},
+	}, map[string]stats.BatteryStats{}, serial)
+	if !ok || summary == nil || summary.DPI == nil || summary.Lighting != nil || summary.DPI.MinimumDPI != 100 || summary.DPI.MaximumDPI != 18000 || summary.DPI.ActiveRegularStageID != "1" || len(summary.DPI.RegularStages) != 5 || summary.DPI.SniperStage == nil {
+		t.Fatalf("DPI Devices summary = %#v, ok=%t", summary, ok)
+	}
+	if summary.DPI.RegularStages[1].ColorHex != "#aabbcc" || !summary.DPI.RegularStages[1].Active || summary.DPI.SniperStage.ID != "5" || !summary.DPI.SniperStage.Sniper || summary.DPI.SniperStage.ColorHex != "#ffaa00" {
+		t.Fatalf("DPI stages = %#v / %#v", summary.DPI.RegularStages, summary.DPI.SniperStage)
+	}
+	body := renderDevicesDPIView(t, summary.DPI)
+	for _, want := range []string{"Stage 2", "Sniper", "lf-dpi-stage-sniper", "data-lf-dpi-slider", "data-lf-dpi-number", "data-lf-dpi-color", "data-lf-dpi-save", `min="100"`, `max="18000"`, "#ffaa00"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("DPI template omitted %q", want)
+		}
+	}
+	for _, unwanted := range []string{"DPI stages", "Regular stages", "Current device profile", "Read-only snapshot", "Stage ID", "100–18000 DPI"} {
+		if strings.Contains(body, unwanted) {
+			t.Errorf("DPI template retained %q", unwanted)
+		}
+	}
+	previous := -1
+	for _, name := range []string{"Stage 1", "Stage 2", "Stage 3", "Stage 4", "Stage 5", "Sniper"} {
+		position := strings.Index(body, name)
+		if position < 0 || position <= previous { t.Errorf("DPI stage order does not include %q in sequence", name) }
+		previous = position
+	}
+	if strings.Contains(body, "<select") {
+		t.Error("DPI template exposed an unexpected selector")
+	}
+	if got := devicesWorkspaceView([]string{"dpi"}, summary); got != "dpi" {
+		t.Errorf("DPI-capable workspace view = %q, want dpi", got)
+	}
+	if got := devicesWorkspaceView([]string{"lighting"}, summary); got != "overview" {
+		t.Errorf("DPI-only Lighting view = %q, want overview", got)
+	}
+	if got := devicesWorkspaceView([]string{"dpi"}, &devicesWorkspaceSummary{}); got != "overview" {
+		t.Errorf("unsupported DPI view = %q, want overview", got)
+	}
+	if got := devicesWorkspaceView([]string{"dpi", "dpi"}, summary); got != "overview" {
+		t.Errorf("duplicate DPI view = %q, want overview", got)
+	}
+	if got := devicesWorkspaceView([]string{"lighting"}, &devicesWorkspaceSummary{Lighting: &devicesLightingWorkspaceSummary{}}); got != "lighting" {
+		t.Errorf("existing Lighting view = %q, want lighting", got)
 	}
 }
 
@@ -983,7 +1054,6 @@ func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
 		},
 	}))
 	for _, expected := range []string{
-		`<label class="lf-lighting-label" for="lf-lighting-effect-selector">Configured effect</label>`,
 		`<span class="lf-lighting-effect-icon-frame" aria-hidden="true">`,
 		`class="lf-lighting-effect-icon-art" style="--lf-lighting-effect-mask: url('/static/img/icons/rgb/wave.svg');"`,
 		`<strong class="lf-lighting-effect-name">Wave &lt;Bright&gt; &amp; Wide</strong>`,
@@ -992,11 +1062,15 @@ func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
 		`data-lf-current-effect="wave"`,
 		`<option value="off">Off</option>`,
 		`value="wave" selected>Wave &lt;Bright&gt; &amp; Wide</option>`,
-		`Stable ID <code class="lf-lighting-effect-id">wave</code>`,
 		`id="lf-lighting-effect-status" aria-live="polite"`,
 	} {
 		if !strings.Contains(normalBody, expected) {
 			t.Errorf("normal effect selector does not contain %q", expected)
+		}
+	}
+	for _, unwanted := range []string{"Stored configuration", `>Lighting</h2>`, "Configured effect", "Stable ID <code"} {
+		if strings.Contains(normalBody, unwanted) {
+			t.Errorf("Lighting markup retained %q", unwanted)
 		}
 	}
 	if strings.Count(normalBody, "<option ") != 2 {
@@ -1057,8 +1131,8 @@ func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
 			t.Errorf("empty configured effect selector does not contain %q", expected)
 		}
 	}
-	if strings.Contains(emptyBody, `Stable ID <code`) {
-		t.Error("empty configured effect fabricated a stable ID")
+	if strings.Contains(emptyBody, `Stable ID <code`) || strings.Contains(emptyBody, "Configured effect") {
+		t.Error("empty configured effect retained hidden presentation labels")
 	}
 
 	maliciousEffectID := `legacy');background:url(/escaped.svg);\\<effect>`
@@ -1136,6 +1210,22 @@ func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
 func renderDevicesLightingView(t *testing.T, lighting *openRGBLightingWorkspaceSummary) string {
 	t.Helper()
 	return renderDevicesLightingViewForSerial(t, "lighting-template-device", lighting)
+}
+
+func renderDevicesDPIView(t *testing.T, dpi *devicesDPIWorkspaceSummary) string {
+	t.Helper()
+	var rendered bytes.Buffer
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{
+		Devices: map[string]*common.Device{
+			"dpi-template-device": {Product: "DPI Template Device", Serial: "dpi-template-device"},
+		},
+		Device:       &devicesWorkspaceSummary{Product: "DPI Template Device", Serial: "dpi-template-device", DPI: dpi, View: "dpi"},
+		BatteryStats: map[string]stats.BatteryStats{},
+		Page:         "devices",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return rendered.String()
 }
 
 func renderDevicesLightingViewForSerial(t *testing.T, serial string, lighting *openRGBLightingWorkspaceSummary) string {
@@ -1439,7 +1529,7 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"class=\"lf-device-workspace-link\" href=\"/devices?device=" + visibleSerial + "\">Overview</a>",
 		"class=\"lf-device-workspace-link lf-device-workspace-link-active\" href=\"/devices?device=" + visibleSerial + "&amp;view=lighting\" aria-current=\"page\">Lighting</a>",
 		">Static</strong>",
-		"<code class=\"lf-lighting-effect-id\">static</code>",
+		"class=\"lf-lighting-effect-name\">Static</strong>",
 		"data-lf-device-serial=\"" + visibleSerial + "\"",
 		"data-lf-current-effect=\"static\"",
 		"/static/img/icons/rgb/static.svg",
@@ -1450,7 +1540,7 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"aria-describedby=\"lf-lighting-effect-status lf-lighting-effect-cluster-explanation\"",
 		"Controlled by RGB Cluster. Change active lighting from the <a href=\"/rgbCluster\">RGB Cluster workspace</a>.",
 		"id=\"lf-lighting-effect-status\" aria-live=\"polite\"",
-		"lf-lighting-status-supported\">Supported",
+		"Effect support</dt><dd>Supported</dd>",
 		`data-lf-brightness-readout data-lf-device-serial="` + visibleSerial + `">0%</strong>`,
 		`id="lf-lighting-brightness-slider"`,
 		`type="range"`,

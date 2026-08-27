@@ -127,7 +127,7 @@
                     <div class="lf-device-hero-copy">
                         <p class="lf-device-hero-context">{{ if .Device.OpenRGB }}OpenRGB imported controller{{ else }}Selected device{{ end }}</p>
                         <h1 class="lf-workspace-title">{{ .Device.Product }}</h1>
-                        <p class="lf-workspace-description">{{ if eq .Device.View "lighting" }}Stored lighting configuration and renderer capabilities{{ else }}Device overview and configured hardware details{{ end }}</p>
+                        <p class="lf-workspace-description">{{ if eq .Device.View "lighting" }}Stored lighting configuration and renderer capabilities{{ else if eq .Device.View "dpi" }}Configure mouse sensitivity and stage colors{{ else }}Device overview and configured hardware details{{ end }}</p>
                         <div class="lf-device-hero-facts">
                             {{ if .Device.Unavailable }}<span class="lf-device-hero-fact lf-device-hero-fact-unavailable">Unavailable</span>{{ end }}
                             {{ if eq .Device.View "lighting" }}
@@ -151,27 +151,23 @@
                 </header>
 
                 <nav class="lf-device-workspace-nav" aria-label="Device workspace">
-                    <a class="lf-device-workspace-link{{ if ne .Device.View "lighting" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}"{{ if ne .Device.View "lighting" }} aria-current="page"{{ end }}>Overview</a>
+                    <a class="lf-device-workspace-link{{ if and (ne .Device.View "lighting") (ne .Device.View "dpi") }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}"{{ if and (ne .Device.View "lighting") (ne .Device.View "dpi") }} aria-current="page"{{ end }}>Overview</a>
                     {{ if .Device.Lighting }}
                         <a class="lf-device-workspace-link{{ if eq .Device.View "lighting" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=lighting"{{ if eq .Device.View "lighting" }} aria-current="page"{{ end }}>Lighting</a>
+                    {{ end }}
+                    {{ if .Device.DPI }}
+                        <a class="lf-device-workspace-link{{ if eq .Device.View "dpi" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=dpi"{{ if eq .Device.View "dpi" }} aria-current="page"{{ end }}>DPI</a>
                     {{ end }}
                 </nav>
 
                 {{ if eq .Device.View "lighting" }}
                     {{ with .Device.Lighting }}
-                        <section class="lf-lighting-workspace" aria-labelledby="lf-lighting-title" data-lf-lighting-read-only="{{ .ReadOnly }}" data-lf-lighting-target="{{ .TargetKind }}">
+                        <section class="lf-lighting-workspace" data-lf-lighting-read-only="{{ .ReadOnly }}" data-lf-lighting-target="{{ .TargetKind }}">
                             <div class="lf-lighting-layout">
                                 <div class="lf-lighting-main">
-                                    <section class="lf-lighting-primary" aria-labelledby="lf-lighting-title">
+                                    <section class="lf-lighting-primary">
                                         <header class="lf-lighting-primary-header">
-                                            <div>
-                                                <p class="lf-section-kicker">Stored configuration</p>
-                                                <h2 class="lf-lighting-title" id="lf-lighting-title">Lighting</h2>
-												{{ if .ReadOnly }}<p class="lf-lighting-effect-unavailable">This canonical lighting view is read-only.</p>{{ end }}
-                                            </div>
-                                            {{ if .ConfiguredEffect }}
-                                                <span class="lf-lighting-status{{ if .EffectSupported }} lf-lighting-status-supported{{ else }} lf-lighting-status-unsupported{{ end }}">{{ if .EffectSupported }}Supported{{ else }}Unsupported{{ end }}</span>
-                                            {{ end }}
+								{{ if .ReadOnly }}<p class="lf-lighting-effect-unavailable">This canonical lighting view is read-only.</p>{{ end }}
                                         </header>
 
                                         <div class="lf-lighting-effect-stage">
@@ -179,8 +175,8 @@
                                                 {{ if .ConfiguredEffect }}{{ template "lf-lighting-effect-icon" . }}{{ end }}
                                                 <div class="lf-lighting-effect-control">
                                                     {{ if .SupportedEffects }}
-                                                        <label class="lf-lighting-label" for="lf-lighting-effect-selector">Configured effect</label>
                                                         {{ if .ConfiguredEffect }}<strong class="lf-lighting-effect-name">{{ if .ConfiguredEffectLabel }}{{ .ConfiguredEffectLabel }}{{ else }}{{ .ConfiguredEffect }}{{ end }}</strong>{{ end }}
+                                                        <label class="lf-lighting-label" for="lf-lighting-effect-selector"><span class="lf-visually-hidden">Lighting effect</span></label>
                                                         <select
                                                         class="lf-lighting-effect-selector"
                                                         id="lf-lighting-effect-selector"
@@ -202,15 +198,11 @@
                                                             <option value="{{ .ID }}"{{ if .Selected }} selected{{ end }}>{{ .Label }}</option>
                                                         {{ end }}
                                                     </select>
-                                                    {{ if .ConfiguredEffect }}
-                                                        <span class="lf-lighting-effect-id-label">Stable ID <code class="lf-lighting-effect-id">{{ .ConfiguredEffect }}</code></span>
-                                                    {{ end }}
                                                     {{ if .ClusterControlled }}
                                                         <p class="lf-lighting-effect-cluster-explanation" id="lf-lighting-effect-cluster-explanation">Controlled by RGB Cluster. Change active lighting from the <a href="/rgbCluster">RGB Cluster workspace</a>.</p>
                                                     {{ end }}
                                                     <p class="lf-lighting-effect-status" id="lf-lighting-effect-status" aria-live="polite"></p>
                                                     {{ else }}
-                                                        <span class="lf-lighting-label">Configured effect</span>
                                                         <strong class="lf-lighting-effect-name lf-lighting-effect-name-muted">Effect selection unavailable</strong>
                                                         <p class="lf-lighting-effect-unavailable">No supported effects were reported for this controller.</p>
                                                     {{ end }}
@@ -615,6 +607,28 @@
                                     </section>
                                 </aside>
                             </div>
+                        </section>
+                    {{ end }}
+                {{ else if eq .Device.View "dpi" }}
+                    {{ with .Device.DPI }}
+                        <section class="lf-dpi-workspace lf-dpi-editor" data-lf-dpi-workspace data-lf-device-serial="{{ $.Device.Serial }}" data-lf-minimum="{{ .MinimumDPI }}" data-lf-maximum="{{ .MaximumDPI }}">
+                            <div class="lf-dpi-editor-list">
+                                {{ range .RegularStages }}
+                                    <article class="lf-dpi-editor-row{{ if .Active }} lf-dpi-stage-active{{ end }}" data-lf-dpi-row data-lf-stage-id="{{ .ID }}">
+                                        <div class="lf-dpi-stage-header"><h4>{{ .Name }}</h4>{{ if .Active }}<span class="lf-dpi-stage-state">Active</span>{{ end }}</div>
+                                        <div class="lf-range-control lf-dpi-range-control"><div class="lf-range-control-header"><label class="lf-range-control-label" for="lf-dpi-value-{{ .ID }}">DPI</label><span class="lf-range-control-value"><input class="lf-range-control-number" id="lf-dpi-value-{{ .ID }}" type="number" min="{{ $.Device.DPI.MinimumDPI }}" max="{{ $.Device.DPI.MaximumDPI }}" step="1" value="{{ .DPI }}" data-lf-dpi-number aria-label="{{ .Name }} DPI"></span></div><input class="lf-range-control-input" type="range" min="{{ $.Device.DPI.MinimumDPI }}" max="{{ $.Device.DPI.MaximumDPI }}" step="1" value="{{ .DPI }}" data-lf-dpi-slider aria-label="{{ .Name }} DPI slider"></div>
+                                        <div class="lf-color-control lf-dpi-color-control"><div class="lf-color-control-inputs"><input class="lf-color-control-input" type="color" value="{{ .ColorHex }}" data-lf-dpi-color aria-label="{{ .Name }} color"><input class="lf-color-control-hex" type="text" value="{{ .ColorHex }}" pattern="#[0-9a-fA-F]{6}" maxlength="7" data-lf-dpi-hex aria-label="{{ .Name }} color hex"></div></div>
+                                    </article>
+                                {{ end }}
+                                {{ with .SniperStage }}
+                                    <article class="lf-dpi-editor-row lf-dpi-stage-sniper{{ if .Active }} lf-dpi-stage-active{{ end }}" data-lf-dpi-row data-lf-stage-id="{{ .ID }}">
+                                        <div class="lf-dpi-stage-header"><h4>{{ .Name }}</h4>{{ if .Active }}<span class="lf-dpi-stage-state">Active</span>{{ end }}</div>
+                                        <div class="lf-range-control lf-dpi-range-control"><div class="lf-range-control-header"><label class="lf-range-control-label" for="lf-dpi-value-{{ .ID }}">DPI</label><span class="lf-range-control-value"><input class="lf-range-control-number" id="lf-dpi-value-{{ .ID }}" type="number" min="{{ $.Device.DPI.MinimumDPI }}" max="{{ $.Device.DPI.MaximumDPI }}" step="1" value="{{ .DPI }}" data-lf-dpi-number aria-label="{{ .Name }} DPI"></span></div><input class="lf-range-control-input" type="range" min="{{ $.Device.DPI.MinimumDPI }}" max="{{ $.Device.DPI.MaximumDPI }}" step="1" value="{{ .DPI }}" data-lf-dpi-slider aria-label="{{ .Name }} DPI slider"></div>
+                                        <div class="lf-color-control lf-dpi-color-control"><div class="lf-color-control-inputs"><input class="lf-color-control-input" type="color" value="{{ .ColorHex }}" data-lf-dpi-color aria-label="{{ .Name }} color"><input class="lf-color-control-hex" type="text" value="{{ .ColorHex }}" pattern="#[0-9a-fA-F]{6}" maxlength="7" data-lf-dpi-hex aria-label="{{ .Name }} color hex"></div></div>
+                                    </article>
+                                {{ end }}
+                            </div>
+                            <div class="lf-dpi-editor-actions"><button class="lf-button lf-button-primary" type="button" data-lf-dpi-save>Apply changes</button><p class="lf-range-control-status" data-lf-dpi-status aria-live="polite"></p></div>
                         </section>
                     {{ end }}
                 {{ else }}

@@ -818,6 +818,44 @@ func (d *Device) SaveMouseDPI(stages map[int]uint16) uint8 {
 	return 0
 }
 
+// SaveMouseDPISettings atomically applies the Devices workspace DPI draft to
+// the existing DeviceProfile authority. Legacy DPI save methods remain
+// available for their established callers.
+func (d *Device) SaveMouseDPISettings(stages map[int]uint16, colors map[int]rgb.Color) uint8 {
+	if d.DeviceProfile == nil || len(stages) == 0 || len(stages) != len(colors) {
+		return 0
+	}
+
+	for key, value := range stages {
+		profile, exists := d.DeviceProfile.Profiles[key]
+		color, hasColor := colors[key]
+		if !exists || !hasColor || profile.Color == nil || value < uint16(minDpiValue) || value > uint16(maxDpiValue) ||
+			color.Red < 0 || color.Red > 255 || color.Green < 0 || color.Green > 255 || color.Blue < 0 || color.Blue > 255 {
+			return 0
+		}
+	}
+	for key := range colors {
+		if _, exists := stages[key]; !exists {
+			return 0
+		}
+	}
+
+	for key, value := range stages {
+		profile := d.DeviceProfile.Profiles[key]
+		color := colors[key]
+		profile.Value = value
+		profile.Color.Red = color.Red
+		profile.Color.Green = color.Green
+		profile.Color.Blue = color.Blue
+		profile.Color.Hex = fmt.Sprintf("#%02x%02x%02x", int(color.Red), int(color.Green), int(color.Blue))
+		d.DeviceProfile.Profiles[key] = profile
+	}
+	d.saveDeviceProfile()
+	d.updateMouseDPI()
+	d.toggleDPI()
+	return 1
+}
+
 // updateMouseDPI will set DPI values to the device
 func (d *Device) updateMouseDPI() {
 	d.deviceLock.Lock()

@@ -710,7 +710,6 @@
 
 .lf-app-shell .lf-overview-panel-header h2,
 .lf-app-shell .lf-overview-rail-panel h2,
-.lf-app-shell .lf-lighting-title,
 .lf-app-shell .lf-lighting-comparison-header h2,
 .lf-app-shell .lf-lighting-rail-panel h2,
 .lf-app-shell .lf-lighting-cluster-note h2 {
@@ -948,6 +947,103 @@
     min-width: 0;
 }
 
+.lf-app-shell .lf-dpi-workspace {
+    min-width: 0;
+    margin-top: 24px;
+    padding: clamp(22px, 3vw, 32px);
+    overflow: hidden;
+    border: 1px solid var(--lf-border-panel);
+    border-radius: var(--lf-shell-radius);
+    background: radial-gradient(circle at 90% 8%, color-mix(in srgb, var(--lf-accent-secondary) 13%, transparent), transparent 25rem), var(--lf-panel-elevated);
+    box-shadow: var(--lf-shadow-soft);
+}
+
+.lf-app-shell .lf-dpi-stage-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.lf-app-shell .lf-dpi-editor-row h4 {
+    margin: 0;
+    color: var(--lf-text-primary);
+}
+
+.lf-app-shell .lf-dpi-stage-active {
+    border-color: var(--lf-accent-secondary);
+    box-shadow: 0 0 18px var(--lf-glow-selected);
+}
+
+.lf-app-shell .lf-dpi-stage-sniper {
+    border-color: var(--lf-border-emphasized);
+}
+
+.lf-app-shell .lf-dpi-editor-row h4 {
+    font-size: 15px;
+    font-weight: 720;
+}
+
+.lf-app-shell .lf-dpi-stage-state {
+    padding: 4px 8px;
+    border-radius: 7px;
+    color: var(--good);
+    background: color-mix(in srgb, var(--good) 13%, transparent);
+    font-size: 11px;
+    font-weight: 720;
+}
+
+.lf-app-shell .lf-dpi-editor-list {
+    display: grid;
+    gap: 10px;
+}
+
+.lf-app-shell .lf-dpi-editor-row {
+    display: grid;
+    grid-template-columns: minmax(110px, 0.55fr) minmax(250px, 1.6fr) minmax(150px, 0.65fr);
+    align-items: center;
+    gap: 18px;
+    padding: 14px 16px;
+    border: 1px solid var(--lf-border-subtle);
+    border-radius: 10px;
+    background: var(--lf-panel-secondary);
+}
+
+.lf-app-shell .lf-dpi-range-control,
+.lf-app-shell .lf-dpi-color-control {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.lf-app-shell .lf-dpi-range-control .lf-range-control-input {
+    min-height: 30px;
+    margin-top: 5px;
+}
+
+.lf-app-shell .lf-dpi-color-control .lf-color-control-inputs {
+    justify-content: flex-end;
+}
+
+.lf-app-shell .lf-dpi-editor-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 16px;
+}
+
+@media (max-width: 900px) {
+    .lf-app-shell .lf-dpi-editor-row {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+    }
+
+    .lf-app-shell .lf-dpi-color-control .lf-color-control-inputs {
+        justify-content: flex-start;
+    }
+}
+
 .lf-app-shell .lf-lighting-primary {
     padding: clamp(22px, 3vw, 32px);
     position: relative;
@@ -967,12 +1063,6 @@
     content: "";
     background: linear-gradient(90deg, transparent, var(--lf-accent-secondary), var(--lf-accent-highlight), transparent);
     box-shadow: 0 0 18px var(--lf-glow-selected);
-}
-
-.lf-app-shell .lf-lighting-title {
-    font-size: 30px;
-    font-weight: 735;
-    letter-spacing: -0.035em;
 }
 
 .lf-app-shell .lf-lighting-effect-stage {
@@ -1077,7 +1167,6 @@
     background: var(--lf-control-option-hover);
 }
 
-.lf-app-shell .lf-lighting-effect-id-label,
 .lf-app-shell .lf-lighting-effect-status,
 .lf-app-shell .lf-lighting-effect-unavailable,
 .lf-app-shell .lf-lighting-effect-cluster-explanation {
@@ -1087,12 +1176,6 @@
     font-size: 12px;
     line-height: 1.45;
     overflow-wrap: anywhere;
-}
-
-.lf-app-shell .lf-lighting-effect-id-label {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
 }
 
 .lf-app-shell .lf-lighting-effect-status {
