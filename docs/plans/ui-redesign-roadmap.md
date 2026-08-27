@@ -65,6 +65,39 @@ server-rendered device selection, and introduced an overview for imported
 controllers. Existing legacy device pages remain available; not every legacy
 device control has migrated.
 
+
+### Native device control workspaces
+
+- [x] `d9ea1dd6` — Add Scimitar Elite DPI workspace
+- [x] `afadd8f6` — Sync active DPI and sniper state
+- [x] `e9904362` — Add Scimitar Elite key assignments workspace
+- [x] `08341f0a` — Add toggle mode for Sniper assignments
+- [x] `99a1bcd4` — Add RGB Cluster effect cycling assignment
+- [x] `7447672f` — Add shared device performance workspace
+
+These milestones established the first modern native-device control workspace
+beyond Lighting. Scimitar RGB Elite now exposes its existing DPI configuration,
+live active-stage and Sniper state, physical button assignments, and performance
+settings through the shared Devices workspace.
+
+The visible native-device workspace is organized around Overview, Lighting,
+Performance, and Key Assignments. The Performance tab currently retains the
+internal `view=dpi` route while combining the existing DPI editor with
+capability-driven performance controls.
+
+The shared Performance presentation contract treats Polling Rate, Angle
+Snapping, and Lift Height as optional capabilities. The shared frontend uses
+device-generic `/api/devices/performance/*` routes while existing device
+packages remain authoritative for mutation, validation, persistence, and
+hardware behavior. Scimitar RGB Elite is the first hardware-validated
+Performance provider.
+
+RGB Cluster effect cycling is also available as a Scimitar RGB Elite physical
+button assignment without changing the existing Profile Switch assignment.
+Cluster effect changes made from either the physical assignment or system tray
+are reflected by the RGB Cluster page through lightweight canonical status
+synchronization.
+
 ### Mutation and persistence hardening
 
 - [x] `e44a2bb3` — Harden OpenRGB lighting mutations
@@ -486,6 +519,27 @@ remain intact.
   behavior while repeating migration one family at a time.
 - [ ] Remove shared override/global-editor infrastructure only after every
   proven remaining consumer reaches parity.
+
+### Native-device workspace expansion
+
+- [ ] Add a physically available keyboard as the second native shared-workspace
+  proof before broadly adapting unowned devices. Reuse existing native device
+  behavior rather than introducing replacement hardware logic.
+- [ ] Make Performance presentation fully device-neutral where the second device
+  class exposes assumptions inherited from the initial mouse implementation.
+- [ ] Enrich Overview as a read-only, capability-driven device summary after at
+  least a mouse and keyboard are represented. Show only state and telemetry that
+  the selected device truthfully reports.
+- [ ] After the shared contract is proven across owned device classes, add thin
+  Performance providers to other already-native devices where their existing
+  implementations expose the required current state, option inventory, and
+  mutation methods. Do not treat code-derived support as hardware validation.
+- [ ] Treat memory and Corsair controller workspace migration as separate
+  family-specific milestones because their channels, sensors, cooling, per-LED
+  behavior, and other device-owned capabilities differ materially from mouse and
+  keyboard controls.
+- [ ] Keep legacy native pages available until the applicable modern workspace
+  reaches control parity for that device family.
 
 ### Final cleanup
 

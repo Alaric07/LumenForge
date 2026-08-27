@@ -92,6 +92,14 @@ Other native packages remain separate **Legacy** migration targets. No parity
 is inferred from similar package names, device shape, or matching audit
 signatures.
 
+
+Device-workspace migration is tracked separately from this lighting matrix.
+Scimitar RGB Elite's modern DPI, Performance, Key Assignments, and physical-button
+assignment work does not alter its lighting status. Likewise, adding a shared
+Performance or Overview provider to another native package must not be treated
+as evidence that its lighting implementation has migrated or that unowned
+hardware has been physically validated.
+
 ---
 
 # LumenForge Native Lighting Migration Inventory
