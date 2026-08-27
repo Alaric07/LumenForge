@@ -18,6 +18,11 @@
     const activeStageEndpoint = "/api/devices/dpi/active";
     const sniperEndpoint = "/api/devices/dpi/sniper";
     const statusEndpoint = "/api/devices/dpi/status";
+    const performanceEndpoints = {
+        pollingRate: "/api/devices/performance/polling-rate",
+        angleSnapping: "/api/devices/performance/angle-snapping",
+        liftHeight: "/api/devices/performance/lift-height"
+    };
 
     function parseDPI(value, minimum, maximum) {
         if (!/^\d+$/.test(String(value))) {
@@ -200,7 +205,58 @@
         });
     }
 
+    function performanceValue(control, input) {
+        return control.dataset.lfPerformanceKind === "angleSnapping" ? (input.checked ? 1 : 0) : Number(input.value);
+    }
+
+    async function savePerformanceControl(browser, workspace, control) {
+        const kind = control.dataset.lfPerformanceKind;
+        const endpointForKind = performanceEndpoints[kind];
+        const input = control.querySelector("[data-lf-performance-input]");
+        const status = control.querySelector("[data-lf-performance-status]");
+        const deviceID = workspace.dataset.lfDeviceId;
+        if (!endpointForKind || !input || !status || !deviceID || control.dataset.lfSaving === "true") { return false; }
+        const previous = Number(control.dataset.lfConfirmedValue);
+        const value = performanceValue(control, input);
+        if (!Number.isInteger(value)) { return false; }
+        control.dataset.lfSaving = "true";
+        input.disabled = true;
+        status.textContent = "Saving…";
+        const payload = {deviceId: deviceID};
+        payload[kind] = value;
+        try {
+            const response = await browser.fetch(endpointForKind, {method: "POST", body: JSON.stringify(payload)});
+            const result = response.ok ? await response.json() : null;
+            if (!result || result.status !== 1) { throw new Error("save rejected"); }
+            control.dataset.lfConfirmedValue = String(value);
+            status.textContent = "Saved.";
+            return true;
+        } catch (_) {
+            if (kind === "angleSnapping") {
+                input.checked = previous !== 0;
+            } else {
+                input.value = String(previous);
+            }
+            status.textContent = "Unable to save setting. Try again.";
+            return false;
+        } finally {
+            control.dataset.lfSaving = "false";
+            input.disabled = false;
+        }
+    }
+
+    function initPerformance(browser) {
+        const workspace = browser.document.querySelector("[data-lf-performance-workspace]");
+        if (!workspace) { return; }
+        workspace.querySelectorAll("[data-lf-performance-control]").forEach(function (control) {
+            const input = control.querySelector("[data-lf-performance-input]");
+            if (!input) { return; }
+            input.addEventListener("change", function () { savePerformanceControl(browser, workspace, control); });
+        });
+    }
+
     function init(browser) {
+        initPerformance(browser);
         const workspace = browser.document.querySelector("[data-lf-dpi-workspace]");
         if (!workspace) { return; }
         const minimum = Number(workspace.dataset.lfMinimum);
@@ -237,5 +293,5 @@
         });
     }
 
-    return {applyActiveStageState: applyActiveStageState, createStatusPoller: createStatusPoller, init: init, normalizeColor: normalizeColor, parseDPI: parseDPI, rangeProgress: rangeProgress, selectActiveStage: selectActiveStage, setSniperActive: setSniperActive};
+    return {applyActiveStageState: applyActiveStageState, createStatusPoller: createStatusPoller, init: init, initPerformance: initPerformance, normalizeColor: normalizeColor, parseDPI: parseDPI, rangeProgress: rangeProgress, savePerformanceControl: savePerformanceControl, selectActiveStage: selectActiveStage, setSniperActive: setSniperActive};
 });

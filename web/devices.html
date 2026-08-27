@@ -127,7 +127,7 @@
                     <div class="lf-device-hero-copy">
                         <p class="lf-device-hero-context">{{ if .Device.OpenRGB }}OpenRGB imported controller{{ else }}Selected device{{ end }}</p>
                         <h1 class="lf-workspace-title">{{ .Device.Product }}</h1>
-                        <p class="lf-workspace-description">{{ if eq .Device.View "lighting" }}Stored lighting configuration and renderer capabilities{{ else if eq .Device.View "dpi" }}Configure mouse sensitivity and stage colors{{ else if eq .Device.View "buttons" }}Configure physical button assignments{{ else }}Device overview and configured hardware details{{ end }}</p>
+                        <p class="lf-workspace-description">{{ if eq .Device.View "lighting" }}Stored lighting configuration and renderer capabilities{{ else if eq .Device.View "dpi" }}Configure mouse sensitivity, stage colors, and device performance settings{{ else if eq .Device.View "buttons" }}Configure physical button assignments{{ else }}Device overview and configured hardware details{{ end }}</p>
                         <div class="lf-device-hero-facts">
                             {{ if .Device.Unavailable }}<span class="lf-device-hero-fact lf-device-hero-fact-unavailable">Unavailable</span>{{ end }}
                             {{ if eq .Device.View "lighting" }}
@@ -155,8 +155,8 @@
                     {{ if .Device.Lighting }}
                         <a class="lf-device-workspace-link{{ if eq .Device.View "lighting" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=lighting"{{ if eq .Device.View "lighting" }} aria-current="page"{{ end }}>Lighting</a>
                     {{ end }}
-                    {{ if .Device.DPI }}
-                        <a class="lf-device-workspace-link{{ if eq .Device.View "dpi" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=dpi"{{ if eq .Device.View "dpi" }} aria-current="page"{{ end }}>DPI</a>
+                    {{ if or .Device.DPI .Device.Performance }}
+                        <a class="lf-device-workspace-link{{ if eq .Device.View "dpi" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=dpi"{{ if eq .Device.View "dpi" }} aria-current="page"{{ end }}>Performance</a>
                     {{ end }}
                     {{ if .Device.Buttons }}
                         <a class="lf-device-workspace-link{{ if eq .Device.View "buttons" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=buttons"{{ if eq .Device.View "buttons" }} aria-current="page"{{ end }}>Key Assignments</a>
@@ -614,6 +614,7 @@
                     {{ end }}
                 {{ else if eq .Device.View "dpi" }}
                     {{ with .Device.DPI }}
+                        <h2 class="lf-workspace-section-heading">DPI</h2>
                         <section class="lf-dpi-workspace lf-dpi-editor" data-lf-dpi-workspace data-lf-device-serial="{{ $.Device.Serial }}" data-lf-minimum="{{ .MinimumDPI }}" data-lf-maximum="{{ .MaximumDPI }}">
                             <div class="lf-dpi-editor-list">
                                 {{ range .RegularStages }}
@@ -632,6 +633,33 @@
                                 {{ end }}
                             </div>
                             <div class="lf-dpi-editor-actions"><button class="lf-button lf-button-primary" type="button" data-lf-dpi-save>Apply changes</button><p class="lf-range-control-status" data-lf-dpi-status aria-live="polite"></p></div>
+                        </section>
+                    {{ end }}
+                    {{ with .Device.Performance }}
+                        <section class="lf-performance-workspace" data-lf-performance-workspace data-lf-device-id="{{ $.Device.Serial }}">
+                            <h2 class="lf-workspace-section-heading">Mouse Settings</h2>
+                            <div class="lf-performance-controls">
+                                {{ with .PollingRate }}
+                                    <div class="lf-performance-control" data-lf-performance-control data-lf-performance-kind="pollingRate" data-lf-confirmed-value="{{ .Value }}">
+                                        <label for="lf-performance-polling-rate">Polling Rate</label>
+                                        <select id="lf-performance-polling-rate" data-lf-performance-input aria-label="Polling Rate">{{ $selected := .Value }}{{ range .Options }}<option value="{{ .Value }}"{{ if eq .Value $selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select>
+                                        <p class="lf-range-control-status" data-lf-performance-status aria-live="polite"></p>
+                                    </div>
+                                {{ end }}
+                                {{ with .AngleSnapping }}
+                                    <div class="lf-performance-control" data-lf-performance-control data-lf-performance-kind="angleSnapping" data-lf-confirmed-value="{{ if .Enabled }}1{{ else }}0{{ end }}">
+                                        <label class="lf-performance-toggle system-toggle compact" for="lf-performance-angle-snapping"><span>Angle Snapping</span><input id="lf-performance-angle-snapping" type="checkbox" data-lf-performance-input{{ if .Enabled }} checked{{ end }}><span class="toggle-track" aria-hidden="true"></span></label>
+                                        <p class="lf-range-control-status" data-lf-performance-status aria-live="polite"></p>
+                                    </div>
+                                {{ end }}
+                                {{ with .LiftHeight }}
+                                    <div class="lf-performance-control" data-lf-performance-control data-lf-performance-kind="liftHeight" data-lf-confirmed-value="{{ .Value }}">
+                                        <label for="lf-performance-lift-height">Lift Height</label>
+                                        <select id="lf-performance-lift-height" data-lf-performance-input aria-label="Lift Height">{{ $selected := .Value }}{{ range .Options }}<option value="{{ .Value }}"{{ if eq .Value $selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select>
+                                        <p class="lf-range-control-status" data-lf-performance-status aria-live="polite"></p>
+                                    </div>
+                                {{ end }}
+                            </div>
                         </section>
                     {{ end }}
                 {{ else if eq .Device.View "buttons" }}

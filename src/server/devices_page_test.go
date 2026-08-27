@@ -7,10 +7,12 @@ import (
 	"LumenForge/src/devices/openrgbimport"
 	"LumenForge/src/dpipresentation"
 	"LumenForge/src/lightingpresentation"
+	"LumenForge/src/performancepresentation"
 	"LumenForge/src/rgb"
 	"LumenForge/src/stats"
 	"LumenForge/src/templates"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -34,11 +36,22 @@ type devicesPageDPISnapshotProvider struct {
 	snapshot dpipresentation.Snapshot
 }
 
+type devicesPagePerformanceSnapshotProvider struct {
+	serial   string
+	snapshot performancepresentation.Snapshot
+}
+
 func (provider devicesPageDPISnapshotProvider) DPIDeviceID() string {
 	return provider.serial
 }
 
 func (provider devicesPageDPISnapshotProvider) DPISnapshot() (dpipresentation.Snapshot, bool) {
+	return provider.snapshot, true
+}
+
+func (provider devicesPagePerformanceSnapshotProvider) PerformanceDeviceID() string { return provider.serial }
+
+func (provider devicesPagePerformanceSnapshotProvider) PerformanceSnapshot() (performancepresentation.Snapshot, bool) {
 	return provider.snapshot, true
 }
 
@@ -271,6 +284,73 @@ func TestDevicesWorkspaceDPIPresentationAndViews(t *testing.T) {
 	}
 	if got := devicesWorkspaceView([]string{"lighting"}, &devicesWorkspaceSummary{Lighting: &devicesLightingWorkspaceSummary{}}); got != "lighting" {
 		t.Errorf("existing Lighting view = %q, want lighting", got)
+	}
+}
+
+func TestDevicesWorkspacePerformancePresentationAndViews(t *testing.T) {
+	initializeDevicesPageTestProcess(t)
+	serial := "performance-device"
+	performance := performancepresentation.Snapshot{
+		PollingRate:   &performancepresentation.SelectSetting{Value: 2, Options: []performancepresentation.Option{{Value: 1, Label: "1000 Hz"}, {Value: 2, Label: "500 Hz"}}},
+		AngleSnapping: &performancepresentation.ToggleSetting{Enabled: true},
+		LiftHeight:    &performancepresentation.SelectSetting{Value: 3, Options: []performancepresentation.Option{{Value: 2, Label: "Low"}, {Value: 3, Label: "Medium"}}},
+	}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{
+		serial: {Serial: serial, Product: "Performance device", Instance: devicesPagePerformanceSnapshotProvider{serial: serial, snapshot: performance}},
+	}, map[string]stats.BatteryStats{}, serial)
+	if !ok || summary == nil || summary.DPI != nil || summary.Performance == nil || summary.Performance.PollingRate == nil || summary.Performance.AngleSnapping == nil || summary.Performance.LiftHeight == nil {
+		t.Fatalf("Performance Devices summary = %#v, ok=%t", summary, ok)
+	}
+	if got := devicesWorkspaceView([]string{"dpi"}, summary); got != "dpi" {
+		t.Errorf("Performance-only workspace view = %q, want dpi", got)
+	}
+	body := renderDevicesPerformanceView(t, nil, summary.Performance)
+	for _, want := range []string{"Performance", "Mouse Settings", "Polling Rate", "Angle Snapping", "Lift Height", `data-lf-performance-kind="pollingRate"`, `data-lf-performance-kind="angleSnapping"`, `data-lf-performance-kind="liftHeight"`} {
+		if !strings.Contains(body, want) { t.Errorf("Performance template omitted %q", want) }
+	}
+	unsupported := renderDevicesPerformanceView(t, nil, &devicesPerformanceWorkspaceSummary{AngleSnapping: &devicesPerformanceToggleSummary{Enabled: false}})
+	for _, unwanted := range []string{"Polling Rate", "Lift Height"} {
+		if strings.Contains(unsupported, unwanted) { t.Errorf("unsupported Performance control rendered %q", unwanted) }
+	}
+}
+
+func TestDevicesWorkspacePerformanceKeepsDPIEditor(t *testing.T) {
+	initializeDevicesPageTestProcess(t)
+	dpi := &devicesDPIWorkspaceSummary{MinimumDPI: 100, MaximumDPI: 18000, ActiveRegularStageID: "0", RegularStages: []devicesDPIStageSummary{{ID: "0", Name: "Stage 1", DPI: 800, ColorHex: "#102030", Active: true}}, SniperStage: &devicesDPIStageSummary{ID: "5", Name: "Sniper", DPI: 400, ColorHex: "#aabbcc", Sniper: true}}
+	performance := &devicesPerformanceWorkspaceSummary{AngleSnapping: &devicesPerformanceToggleSummary{Enabled: true}}
+	body := renderDevicesPerformanceView(t, dpi, performance)
+	if !strings.Contains(body, ">DPI</h2>") || !strings.Contains(body, "data-lf-dpi-workspace") || !strings.Contains(body, "Mouse Settings") {
+		t.Fatalf("combined Performance view omitted existing DPI editor: %s", body)
+	}
+	if !strings.Contains(body, `href="/devices?device=performance-template-device&amp;view=dpi"`) ||
+		!strings.Contains(body, `>Performance</a>`) || strings.Contains(body, `>DPI</a>`) {
+		t.Fatalf("DPI-capable workspace did not expose Performance navigation: %s", body)
+	}
+}
+
+func TestDevicesPerformanceRoutesUseExistingRequestPayloads(t *testing.T) {
+	router := setRoutes()
+	for _, route := range []struct {
+		path string
+		body string
+	}{
+		{path: "/api/devices/performance/polling-rate", body: `{"deviceId":"missing-performance-device","pollingRate":2}`},
+		{path: "/api/devices/performance/angle-snapping", body: `{"deviceId":"missing-performance-device","angleSnapping":1}`},
+		{path: "/api/devices/performance/lift-height", body: `{"deviceId":"missing-performance-device","liftHeight":3}`},
+	} {
+		t.Run(route.path, func(t *testing.T) {
+			recorder := requestOpenRGBLightingMutation(t, router, http.MethodPost, route.path, route.body)
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("shared Performance route HTTP status = %d", recorder.Code)
+			}
+			var response Response
+			if err := json.NewDecoder(recorder.Body).Decode(&response); err != nil {
+				t.Fatalf("decode shared Performance route response: %v", err)
+			}
+			if response.Code != http.StatusOK || response.Status != 0 {
+				t.Fatalf("shared Performance route response = %#v", response)
+			}
+		})
 	}
 }
 
@@ -1222,6 +1302,19 @@ func renderDevicesDPIView(t *testing.T, dpi *devicesDPIWorkspaceSummary) string 
 		Device:       &devicesWorkspaceSummary{Product: "DPI Template Device", Serial: "dpi-template-device", DPI: dpi, View: "dpi"},
 		BatteryStats: map[string]stats.BatteryStats{},
 		Page:         "devices",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return rendered.String()
+}
+
+func renderDevicesPerformanceView(t *testing.T, dpi *devicesDPIWorkspaceSummary, performance *devicesPerformanceWorkspaceSummary) string {
+	t.Helper()
+	var rendered bytes.Buffer
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{
+		Devices: map[string]*common.Device{"performance-template-device": {Product: "Performance Template Device", Serial: "performance-template-device"}},
+		Device: &devicesWorkspaceSummary{Product: "Performance Template Device", Serial: "performance-template-device", DPI: dpi, Performance: performance, View: "dpi"},
+		BatteryStats: map[string]stats.BatteryStats{}, Page: "devices",
 	}); err != nil {
 		t.Fatal(err)
 	}

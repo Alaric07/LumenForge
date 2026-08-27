@@ -29,6 +29,7 @@ import (
 	"LumenForge/src/media"
 	"LumenForge/src/metrics"
 	"LumenForge/src/openrgb"
+	"LumenForge/src/performancepresentation"
 	"LumenForge/src/rgb"
 	"LumenForge/src/scheduler"
 	"LumenForge/src/server/requests"
@@ -2390,6 +2391,7 @@ type devicesWorkspaceSummary struct {
 	OpenRGB      *openRGBWorkspaceSummary
 	Lighting     *devicesLightingWorkspaceSummary
 	DPI          *devicesDPIWorkspaceSummary
+	Performance  *devicesPerformanceWorkspaceSummary
 	Buttons      *devicesButtonsWorkspaceSummary
 	View         string
 }
@@ -2476,6 +2478,13 @@ type devicesDPISnapshotProvider interface {
 	DPISnapshot() (dpipresentation.Snapshot, bool)
 }
 
+// devicesPerformanceSnapshotProvider is implemented only by devices that
+// expose their existing performance settings to the Devices workspace.
+type devicesPerformanceSnapshotProvider interface {
+	PerformanceDeviceID() string
+	PerformanceSnapshot() (performancepresentation.Snapshot, bool)
+}
+
 // devicesButtonsSnapshotProvider is implemented only by devices that expose
 // their existing assignment state to the Devices workspace.
 type devicesButtonsSnapshotProvider interface {
@@ -2544,6 +2553,52 @@ type devicesDPIWorkspaceSummary struct {
 	ActiveRegularStageID   string
 	RegularStages          []devicesDPIStageSummary
 	SniperStage            *devicesDPIStageSummary
+}
+
+type devicesPerformanceOptionSummary struct {
+	Value int
+	Label string
+}
+
+type devicesPerformanceSelectSummary struct {
+	Value   int
+	Options []devicesPerformanceOptionSummary
+}
+
+type devicesPerformanceToggleSummary struct {
+	Enabled bool
+}
+
+type devicesPerformanceWorkspaceSummary struct {
+	PollingRate   *devicesPerformanceSelectSummary
+	AngleSnapping *devicesPerformanceToggleSummary
+	LiftHeight    *devicesPerformanceSelectSummary
+}
+
+func devicesPerformanceWorkspaceSummaryFromSnapshot(snapshot performancepresentation.Snapshot) *devicesPerformanceWorkspaceSummary {
+	summary := &devicesPerformanceWorkspaceSummary{}
+	copySelect := func(setting *performancepresentation.SelectSetting) *devicesPerformanceSelectSummary {
+		if setting == nil || len(setting.Options) == 0 {
+			return nil
+		}
+		options := make([]devicesPerformanceOptionSummary, len(setting.Options))
+		for index, option := range setting.Options {
+			if option.Label == "" {
+				return nil
+			}
+			options[index] = devicesPerformanceOptionSummary{Value: option.Value, Label: option.Label}
+		}
+		return &devicesPerformanceSelectSummary{Value: setting.Value, Options: options}
+	}
+	summary.PollingRate = copySelect(snapshot.PollingRate)
+	summary.LiftHeight = copySelect(snapshot.LiftHeight)
+	if snapshot.AngleSnapping != nil {
+		summary.AngleSnapping = &devicesPerformanceToggleSummary{Enabled: snapshot.AngleSnapping.Enabled}
+	}
+	if summary.PollingRate == nil && summary.AngleSnapping == nil && summary.LiftHeight == nil {
+		return nil
+	}
+	return summary
 }
 
 func devicesDPIWorkspaceSummaryFromSnapshot(snapshot dpipresentation.Snapshot) *devicesDPIWorkspaceSummary {
@@ -2773,6 +2828,12 @@ func devicesWorkspaceSummaryForSerial(
 			summary.DPI = devicesDPIWorkspaceSummaryFromSnapshot(dpiSnapshot)
 		}
 	}
+	if performanceDevice, ok := device.Instance.(devicesPerformanceSnapshotProvider); ok &&
+		performanceDevice != nil && performanceDevice.PerformanceDeviceID() == serial {
+		if performanceSnapshot, usable := performanceDevice.PerformanceSnapshot(); usable {
+			summary.Performance = devicesPerformanceWorkspaceSummaryFromSnapshot(performanceSnapshot)
+		}
+	}
 	if buttonsDevice, ok := device.Instance.(devicesButtonsSnapshotProvider); ok &&
 		buttonsDevice != nil && buttonsDevice.ButtonsDeviceID() == serial {
 		if buttonsSnapshot, usable := buttonsDevice.ButtonsSnapshot(); usable {
@@ -2793,7 +2854,7 @@ func devicesWorkspaceView(views []string, device *devicesWorkspaceSummary) strin
 			return "lighting"
 		}
 	case "dpi":
-		if device.DPI != nil {
+		if device.DPI != nil || device.Performance != nil {
 			return "dpi"
 		}
 	case "buttons":
@@ -4355,6 +4416,9 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/devices/lighting/gradient", http.MethodPost, setNativeDeviceLightingGradient)
 	handleFunc(r, "/api/devices/lighting/effect-reset", http.MethodPost, resetNativeDeviceLightingEffectSettings)
 	handleFunc(r, "/api/devices/lighting/zones", http.MethodPost, setNativeDeviceLightingZones)
+	handleFunc(r, "/api/devices/performance/polling-rate", http.MethodPost, changePollingRate)
+	handleFunc(r, "/api/devices/performance/angle-snapping", http.MethodPost, changeAngleSnapping)
+	handleFunc(r, "/api/devices/performance/lift-height", http.MethodPost, changeLiftHeight)
 	handleFunc(r, "/api/devices/dpi", http.MethodPost, saveDevicesDPIWorkspace)
 	handleFunc(r, "/api/devices/dpi/active", http.MethodPost, selectDevicesDPIWorkspaceStage)
 	handleFunc(r, "/api/devices/dpi/sniper", http.MethodPost, setDevicesDPIWorkspaceSniper)

@@ -151,3 +151,49 @@ test("DPI status poller prevents overlapping requests", async function () {
     assert.equal(await pending, false);
     poller.stop();
 });
+
+function performanceControl(kind, confirmed, value, checked) {
+    const input = {value: String(value), checked: Boolean(checked), disabled: false};
+    const status = {textContent: ""};
+    return {
+        dataset: {lfPerformanceKind: kind, lfConfirmedValue: String(confirmed)},
+        querySelector: function (selector) {
+            if (selector === "[data-lf-performance-input]") { return input; }
+            if (selector === "[data-lf-performance-status]") { return status; }
+            return null;
+        },
+        input: input,
+        status: status
+    };
+}
+
+test("shared Performance controls send generic device payloads", async function () {
+    const workspace = {dataset: {lfDeviceId: "elite-performance"}};
+    const requests = [];
+    const browser = {fetch: function (url, options) {
+        requests.push({url: url, body: JSON.parse(options.body)});
+        return Promise.resolve({ok: true, json: async function () { return {status: 1}; }});
+    }};
+    assert.equal(await dpi.savePerformanceControl(browser, workspace, performanceControl("pollingRate", 1, 2)), true);
+    assert.equal(await dpi.savePerformanceControl(browser, workspace, performanceControl("angleSnapping", 0, 1, true)), true);
+    assert.equal(await dpi.savePerformanceControl(browser, workspace, performanceControl("liftHeight", 2, 3)), true);
+    assert.deepEqual(requests, [
+        {url: "/api/devices/performance/polling-rate", body: {deviceId: "elite-performance", pollingRate: 2}},
+        {url: "/api/devices/performance/angle-snapping", body: {deviceId: "elite-performance", angleSnapping: 1}},
+        {url: "/api/devices/performance/lift-height", body: {deviceId: "elite-performance", liftHeight: 3}}
+    ]);
+});
+
+test("failed Performance mutations restore the confirmed control value", async function () {
+    const workspace = {dataset: {lfDeviceId: "elite-performance"}};
+    const browser = {fetch: function () { return Promise.resolve({ok: true, json: async function () { return {status: 0}; }}); }};
+    const select = performanceControl("pollingRate", 1, 2);
+    assert.equal(await dpi.savePerformanceControl(browser, workspace, select), false);
+    assert.equal(select.input.value, "1");
+    assert.equal(select.input.disabled, false);
+    assert.equal(select.status.textContent, "Unable to save setting. Try again.");
+    const toggle = performanceControl("angleSnapping", 0, 1, true);
+    assert.equal(await dpi.savePerformanceControl(browser, workspace, toggle), false);
+    assert.equal(toggle.input.checked, false);
+    assert.equal(toggle.input.disabled, false);
+});
