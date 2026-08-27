@@ -9,10 +9,10 @@
     }
 })(typeof window === "undefined" ? null : window, function () {
     const endpoint = "/api/mouse/updateKeyAssignment";
-    const optionSources = {0: null, 1: "/api/input/media", 2: null, 3: "/api/input/keyboard", 8: null, 9: "/api/input/mouse", 10: "/api/macro/", 11: null};
+    const optionSources = {0: null, 1: "/api/input/media", 2: null, 3: "/api/input/keyboard", 8: null, 9: "/api/input/mouse", 10: "/api/macro/", 11: null, 30: null};
 
     function localOptions(type) {
-        return (type === 0 || type === 2 || type === 8 || type === 11) ? [{value: 0, label: "None"}] : [];
+        return (type === 0 || type === 2 || type === 8 || type === 11 || type === 30) ? [{value: 0, label: "None"}] : [];
     }
     function optionList(value) {
         if (Array.isArray(value)) { return value; }
@@ -153,6 +153,10 @@
 		}
         type.addEventListener("change", async function () {
 			row.dataset.lfCurrentCommand = "0";
+			if (Number(type.value) === 30) {
+				hold.checked = false;
+				release.checked = false;
+			}
 			if (await populateAssignmentOptions(Number(type.value))) { return requestSave(); }
 		});
         control.addEventListener("change", requestSave);

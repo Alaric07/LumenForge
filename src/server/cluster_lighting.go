@@ -21,7 +21,10 @@ const (
 )
 
 var (
-	getClusterLightingDevice = cluster.Get
+	getClusterLightingDevice   = cluster.Get
+	getClusterLightingSnapshot = func(device *cluster.Device) cluster.LightingSnapshot {
+		return device.LightingSnapshot()
+	}
 	setClusterLightingEffect = func(device *cluster.Device, effect string) error {
 		return device.SetLightingEffect(effect)
 	}
@@ -47,6 +50,11 @@ var (
 		return device.ResetLightingEffect(effect)
 	}
 )
+
+type clusterLightingStatusResponse struct {
+	Status int    `json:"status"`
+	Effect string `json:"effect"`
+}
 
 type clusterLightingEffectSummary struct {
 	ID       string
@@ -218,6 +226,21 @@ func clusterLightingFailure(w http.ResponseWriter, message string) {
 
 func clusterLightingSuccess(w http.ResponseWriter, message string) {
 	(&Response{Code: http.StatusOK, Status: 1, Message: message}).Send(w)
+}
+
+// getRGBClusterLightingStatusHandler returns only the current canonical selected
+// effect so a rendered Cluster workspace can notice external changes.
+func getRGBClusterLightingStatusHandler(w http.ResponseWriter, _ *http.Request) {
+	response := clusterLightingStatusResponse{}
+	if device := getClusterLightingDevice(); device != nil {
+		snapshot := getClusterLightingSnapshot(device)
+		if snapshot.Available {
+			response.Status = 1
+			response.Effect = snapshot.SelectedEffect
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 func clusterLightingDescriptor(effect string, palette rgb.LightingPaletteKind, requireSpeed bool) bool {

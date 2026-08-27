@@ -10,11 +10,11 @@ func TestButtonsSnapshotUsesElitePhysicalOrder(t *testing.T) {
 	expectedTypes := []struct {
 		id    uint8
 		label string
-	}{{0, "None"}, {1, "Media Keys"}, {2, "DPI"}, {3, "Keyboard"}, {8, "Sniper"}, {9, "Mouse"}, {10, "Macro"}, {11, "Profile Switch"}}
+	}{{0, "None"}, {1, "Media Keys"}, {2, "DPI"}, {3, "Keyboard"}, {8, "Sniper"}, {9, "Mouse"}, {10, "Macro"}, {11, "Profile Switch"}, {30, "Cycle Cluster Effect"}}
 	d := &Device{
-		Serial: "elite-buttons-test",
-		KeyAssignment: map[int]inputmanager.KeyAssignment{},
-		KeyAssignmentTypes: map[int]string{0: "None", 1: "Media Keys", 2: "DPI", 3: "Keyboard", 8: "Sniper", 9: "Mouse", 10: "Macro", 11: "Profile Switch"},
+		Serial:             "elite-buttons-test",
+		KeyAssignment:      map[int]inputmanager.KeyAssignment{},
+		KeyAssignmentTypes: map[int]string{0: "None", 1: "Media Keys", 2: "DPI", 3: "Keyboard", 8: "Sniper", 9: "Mouse", 10: "Macro", 11: "Profile Switch", 30: "Cycle Cluster Effect"},
 	}
 	for index, key := range scimitarEliteVisibleButtonOrder {
 		d.KeyAssignment[key] = inputmanager.KeyAssignment{Name: expectedNames[index], ActionType: 3, ActionCommand: uint16(index)}
@@ -23,7 +23,7 @@ func TestButtonsSnapshotUsesElitePhysicalOrder(t *testing.T) {
 	d.KeyAssignment[1] = inputmanager.KeyAssignment{Name: "Left Button"}
 
 	snapshot, ok := d.ButtonsSnapshot()
-	if !ok || len(snapshot.Buttons) != 16 || len(snapshot.AssignmentTypes) != 8 {
+	if !ok || len(snapshot.Buttons) != 16 || len(snapshot.AssignmentTypes) != 9 {
 		t.Fatalf("ButtonsSnapshot usable/buttons/types = %t/%d/%d", ok, len(snapshot.Buttons), len(snapshot.AssignmentTypes))
 	}
 	for index, expected := range expectedNames {

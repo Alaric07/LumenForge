@@ -4359,6 +4359,7 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/devices/dpi/active", http.MethodPost, selectDevicesDPIWorkspaceStage)
 	handleFunc(r, "/api/devices/dpi/sniper", http.MethodPost, setDevicesDPIWorkspaceSniper)
 	handleFunc(r, "/api/cluster/lighting/effect", http.MethodPost, setRGBClusterLightingEffect)
+	handleFunc(r, "/api/cluster/lighting/status", http.MethodGet, getRGBClusterLightingStatusHandler)
 	handleFunc(r, "/api/cluster/lighting/effect-reset", http.MethodPost, resetRGBClusterLightingEffect)
 	handleFunc(r, "/api/cluster/lighting/brightness", http.MethodPost, setRGBClusterLightingBrightness)
 	handleFunc(r, "/api/cluster/lighting/speed", http.MethodPost, setRGBClusterLightingSpeed)

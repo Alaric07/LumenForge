@@ -15,7 +15,44 @@ func (d *Device) SetLightingEffect(effect string) error {
 	}
 	d.lightingMutationMu.Lock()
 	defer d.lightingMutationMu.Unlock()
+	return d.setLightingEffectLocked(effect)
+}
 
+// CycleLightingEffect advances the canonical RGB Cluster selected effect in
+// the descriptor catalogue order before reapplying output.
+func (d *Device) CycleLightingEffect() error {
+	if !d.runtimeAvailable() {
+		return fmt.Errorf("RGB Cluster lighting runtime is unavailable")
+	}
+	d.lightingMutationMu.Lock()
+	defer d.lightingMutationMu.Unlock()
+
+	state, err := d.lightingState.Snapshot()
+	if err != nil {
+		return err
+	}
+	if state.SelectedEffect == "" {
+		return fmt.Errorf("RGB Cluster selected effect is empty")
+	}
+
+	var effects []rgb.SoftwareEffectDescriptor
+	for _, descriptor := range rgb.SoftwareEffectDescriptors() {
+		if descriptor.Scope.Includes(rgb.EffectScopeCluster) {
+			effects = append(effects, descriptor)
+		}
+	}
+	if len(effects) == 0 {
+		return fmt.Errorf("RGB Cluster has no supported lighting effects")
+	}
+	for index, descriptor := range effects {
+		if descriptor.ID == state.SelectedEffect {
+			return d.setLightingEffectLocked(effects[(index+1)%len(effects)].ID)
+		}
+	}
+	return fmt.Errorf("RGB Cluster selected effect %q is not supported", state.SelectedEffect)
+}
+
+func (d *Device) setLightingEffectLocked(effect string) error {
 	descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect)
 	if !ok || !descriptor.Scope.Includes(rgb.EffectScopeCluster) {
 		return fmt.Errorf("effect %q is not supported by RGB Cluster", effect)

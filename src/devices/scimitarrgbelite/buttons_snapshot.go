@@ -41,7 +41,7 @@ func (d *Device) ButtonsSnapshot() (buttonspresentation.Snapshot, bool) {
 			IsMacro: assignment.IsMacro, ProfileSwitch: assignment.ProfileSwitch,
 		})
 	}
-	for _, id := range []int{0, 1, 2, 3, 8, 9, 10, 11} {
+	for _, id := range []int{0, 1, 2, 3, 8, 9, 10, 11, 30} {
 		label, ok := d.KeyAssignmentTypes[id]
 		if !ok || label == "" {
 			return buttonspresentation.Snapshot{}, false

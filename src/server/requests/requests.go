@@ -1976,6 +1976,14 @@ func ProcessChangeDebounceTime(r *http.Request) *Payload {
 }
 
 func validateKeyAssignment(keyAssignment inputmanager.KeyAssignment) *Payload {
+	if keyAssignment.ActionType == 30 && keyAssignment.ActionHold {
+		return &Payload{Message: language.GetValue("txtPressAndHoldNotAllowed"), Code: http.StatusOK, Status: 0}
+	}
+
+	if keyAssignment.ActionType == 30 && keyAssignment.OnRelease {
+		return &Payload{Message: language.GetValue("txtPressAndHoldNotAllowedOnRelease"), Code: http.StatusOK, Status: 0}
+	}
+
 	if keyAssignment.IsMacro && keyAssignment.ActionHold {
 		return &Payload{Message: language.GetValue("txtPressAndHoldNotAllowed"), Code: http.StatusOK, Status: 0}
 	}

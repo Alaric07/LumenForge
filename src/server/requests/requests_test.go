@@ -36,6 +36,25 @@ func TestValidateKeyAssignmentSniperModes(t *testing.T) {
 	}
 }
 
+func TestValidateKeyAssignmentCycleClusterEffectModes(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		assignment inputmanager.KeyAssignment
+		wantValid  bool
+	}{
+		{name: "press", assignment: inputmanager.KeyAssignment{ActionType: 30}, wantValid: true},
+		{name: "press and hold", assignment: inputmanager.KeyAssignment{ActionType: 30, ActionHold: true}, wantValid: false},
+		{name: "on release", assignment: inputmanager.KeyAssignment{ActionType: 30, OnRelease: true}, wantValid: false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got := validateKeyAssignment(test.assignment)
+			if (got == nil) != test.wantValid {
+				t.Fatalf("validateKeyAssignment(%#v) = %#v, want valid=%t", test.assignment, got, test.wantValid)
+			}
+		})
+	}
+}
+
 func TestLinkAdapterResult(t *testing.T) {
 	tests := []struct {
 		name        string

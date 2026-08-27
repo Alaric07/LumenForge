@@ -93,6 +93,18 @@ test("Buttons type changes populate before auto-save", async function () {
     assert.deepEqual(requests[0], {deviceId: "elite-test", keyIndex: 2, enabled: false, pressAndHold: false, keyAssignmentType: 3, keyAssignmentValue: 7, onRelease: false});
 });
 
+test("Buttons Cycle Cluster Effect clears hold and release before auto-save", async function () {
+    const targetRow = row(2, 3, 7, true);
+    const requests = [];
+    const target = browser(async function (_url, options) { requests.push(JSON.parse(options.body)); return response({status: 1}); });
+    await buttons.bindRow(target, {dataset: {lfDeviceId: "elite-test"}}, targetRow);
+    targetRow.controls["[data-lf-button-hold]"].checked = true;
+    targetRow.controls["[data-lf-button-release]"].checked = true;
+    targetRow.controls["[data-lf-button-type]"].value = "30";
+    await targetRow.controls["[data-lf-button-type]"].fire("change");
+    assert.deepEqual(requests[0], {deviceId: "elite-test", keyIndex: 2, enabled: false, pressAndHold: false, keyAssignmentType: 30, keyAssignmentValue: 0, onRelease: false});
+});
+
 test("Buttons saves show success and error toast feedback at the intended durations", async function () {
     const success = row(2, 0, 0);
     const successBrowser = browser(async function () { return response({status: 1}); });

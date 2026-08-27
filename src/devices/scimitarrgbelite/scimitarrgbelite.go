@@ -29,6 +29,14 @@ import (
 	"github.com/sstallion/go-hid"
 )
 
+var cycleClusterLightingEffect = func() error {
+	clusterDevice := cluster.Get()
+	if clusterDevice == nil {
+		return fmt.Errorf("RGB Cluster is unavailable")
+	}
+	return clusterDevice.CycleLightingEffect()
+}
+
 type ZoneColors struct {
 	Color            *rgb.Color
 	ColorIndex       []int
@@ -247,6 +255,7 @@ func Init(vendorId, productId uint16, _, path string) *common.Device {
 			9:  "Mouse",
 			10: "Macro",
 			11: "Profile Switch",
+			30: "Cycle Cluster Effect",
 		},
 		InputActions:      inputmanager.GetInputActions(),
 		keyAssignmentFile: "/database/key-assignments/scimitarrgbelite.json",
@@ -2255,6 +2264,11 @@ func (d *Device) triggerKeyAssignment(value uint32) {
 				break
 			case 11:
 				d.rotateDeviceProfile()
+				break
+			case 30:
+				if err := cycleClusterLightingEffect(); err != nil {
+					logger.Log(logger.Fields{"error": err, "serial": d.Serial, "action": "Cycle Cluster Effect"}).Error("Unable to cycle RGB Cluster effect")
+				}
 				break
 			}
 		}

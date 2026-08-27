@@ -10,7 +10,62 @@ import (
 
 	"LumenForge/src/common"
 	"LumenForge/src/lightingsettings"
+	"LumenForge/src/rgb"
 )
+
+func TestCycleLightingEffectUsesCanonicalClusterDescriptorOrder(t *testing.T) {
+	device, _ := newClusterTestDevice(t)
+	var effects []string
+	for _, descriptor := range rgb.SoftwareEffectDescriptors() {
+		if descriptor.Scope.Includes(rgb.EffectScopeCluster) {
+			effects = append(effects, descriptor.ID)
+		}
+	}
+	if len(effects) < 2 {
+		t.Fatal("need at least two RGB Cluster descriptors")
+	}
+
+	if err := device.SetLightingEffect(effects[0]); err != nil {
+		t.Fatal(err)
+	}
+	if err := device.CycleLightingEffect(); err != nil {
+		t.Fatal(err)
+	}
+	if state, err := device.lightingState.Snapshot(); err != nil || state.SelectedEffect != effects[1] {
+		t.Fatalf("canonical state after cycle = %#v, %v; want %q", state, err, effects[1])
+	}
+
+	if err := device.SetLightingEffect(effects[len(effects)-1]); err != nil {
+		t.Fatal(err)
+	}
+	if err := device.CycleLightingEffect(); err != nil {
+		t.Fatal(err)
+	}
+	if state, err := device.lightingState.Snapshot(); err != nil || state.SelectedEffect != effects[0] {
+		t.Fatalf("canonical state after wrap = %#v, %v; want %q", state, err, effects[0])
+	}
+}
+
+func TestCycleLightingEffectFailsClosed(t *testing.T) {
+	var unavailable *Device
+	if err := unavailable.CycleLightingEffect(); err == nil {
+		t.Fatal("nil runtime cycled")
+	}
+
+	device, _ := newClusterTestDevice(t)
+	device.lightingState.mu.Lock()
+	device.lightingState.state.SelectedEffect = ""
+	device.lightingState.mu.Unlock()
+	if err := device.CycleLightingEffect(); err == nil {
+		t.Fatal("empty selected effect cycled")
+	}
+	device.lightingState.mu.Lock()
+	device.lightingState.state.SelectedEffect = "not-an-effect"
+	device.lightingState.mu.Unlock()
+	if err := device.CycleLightingEffect(); err == nil {
+		t.Fatal("unknown selected effect cycled")
+	}
+}
 
 func TestClusterLightingSnapshotUsesCanonicalStateAndIsDefensive(t *testing.T) {
 	device, _ := newClusterTestDevice(t)

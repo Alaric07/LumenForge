@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -53,6 +54,7 @@ type clusterLightingGradientCall struct {
 func installClusterLightingMutationTestSeams(t *testing.T) *clusterLightingMutationCalls {
 	t.Helper()
 	previousDevice := getClusterLightingDevice
+	previousSnapshot := getClusterLightingSnapshot
 	previousEffect := setClusterLightingEffect
 	previousBrightness := setClusterLightingBrightness
 	previousSpeed := setClusterLightingSpeed
@@ -63,6 +65,7 @@ func installClusterLightingMutationTestSeams(t *testing.T) *clusterLightingMutat
 	previousReset := setClusterLightingReset
 	t.Cleanup(func() {
 		getClusterLightingDevice = previousDevice
+		getClusterLightingSnapshot = previousSnapshot
 		setClusterLightingEffect = previousEffect
 		setClusterLightingBrightness = previousBrightness
 		setClusterLightingSpeed = previousSpeed
@@ -133,6 +136,61 @@ func installClusterLightingMutationTestSeams(t *testing.T) *clusterLightingMutat
 		return calls.setError
 	}
 	return calls
+}
+
+func TestRGBClusterLightingStatusRouteUsesCanonicalSnapshotReadOnly(t *testing.T) {
+	previousDevice := getClusterLightingDevice
+	previousSnapshot := getClusterLightingSnapshot
+	t.Cleanup(func() {
+		getClusterLightingDevice = previousDevice
+		getClusterLightingSnapshot = previousSnapshot
+	})
+	device := &cluster.Device{}
+	getClusterLightingDevice = func() *cluster.Device { return device }
+	snapshotCalls := 0
+	getClusterLightingSnapshot = func(got *cluster.Device) cluster.LightingSnapshot {
+		if got != device {
+			t.Fatal("status requested a different Cluster device")
+		}
+		snapshotCalls++
+		return cluster.LightingSnapshot{Available: true, SelectedEffect: "wave"}
+	}
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/cluster/lighting/status", nil)
+	request.Host = "127.0.0.1"
+	setRoutes().ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status response code = %d", recorder.Code)
+	}
+	var response clusterLightingStatusResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Status != 1 || response.Effect != "wave" || snapshotCalls != 1 {
+		t.Fatalf("status response/calls = %#v/%d", response, snapshotCalls)
+	}
+}
+
+func TestRGBClusterLightingStatusRouteFailsClosedWithoutDetails(t *testing.T) {
+	previousDevice := getClusterLightingDevice
+	t.Cleanup(func() { getClusterLightingDevice = previousDevice })
+	getClusterLightingDevice = func() *cluster.Device { return nil }
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/cluster/lighting/status", nil)
+	request.Host = "127.0.0.1"
+	setRoutes().ServeHTTP(recorder, request)
+	if strings.Contains(recorder.Body.String(), "unavailable") || strings.Contains(recorder.Body.String(), "error") {
+		t.Fatalf("unavailable response leaked details: %q", recorder.Body.String())
+	}
+	var response clusterLightingStatusResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Status != 0 || response.Effect != "" {
+		t.Fatalf("unavailable response = %#v", response)
+	}
 }
 
 func TestClusterLightingMutationRoutesCallCanonicalMethodsOnce(t *testing.T) {
