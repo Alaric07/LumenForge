@@ -386,6 +386,118 @@ func TestDevicesPerformanceRoutesUseExistingRequestPayloads(t *testing.T) {
 	}
 }
 
+func TestDevicesLightingOwnershipControlsFollowTargetKind(t *testing.T) {
+	native := devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native"})
+	nativeBody := renderDevicesLightingView(t, native)
+	for _, want := range []string{"RGB Cluster", "OpenRGB Integration", `data-lf-ownership-kind="cluster"`, `data-lf-ownership-kind="openrgb-integration"`} {
+		if !strings.Contains(nativeBody, want) {
+			t.Errorf("native Lighting omitted %q", want)
+		}
+	}
+	nativeOwnership := strings.Index(nativeBody, `class="lf-lighting-ownership-panel"`)
+	nativeMain := strings.Index(nativeBody, `class="lf-lighting-main"`)
+	if nativeOwnership < nativeMain || nativeMain < 0 {
+		t.Error("native Lighting ownership did not render in the main content column")
+	}
+	if strings.Contains(nativeBody, `class="lf-lighting-rail"`) {
+		t.Error("native Lighting rendered an empty ownership rail")
+	}
+	for _, obsolete := range []string{"Workspace state", `lf-lighting-rail-panel`, `>Configuration<`, `class="lf-lighting-owner-banner"`, "RGB Cluster currently controls this device.", "OpenRGB currently controls this device."} {
+		if strings.Contains(nativeBody, obsolete) {
+			t.Errorf("native Lighting retained obsolete rail content %q", obsolete)
+		}
+	}
+	localClusterInput := strings.Split(nativeBody, `id="lf-lighting-rgb-cluster"`)[1]
+	localExternalInput := strings.Split(nativeBody, `id="lf-lighting-openrgb-integration"`)[1]
+	if strings.Contains(localClusterInput[:strings.Index(localClusterInput, ">")], "disabled") || strings.Contains(localExternalInput[:strings.Index(localExternalInput, ">")], "disabled") {
+		t.Error("normal native ownership did not leave both toggles usable")
+	}
+
+	imported := devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb"})
+	importedBody := renderDevicesLightingView(t, imported)
+	if !strings.Contains(importedBody, "RGB Cluster") {
+		t.Error("imported Lighting omitted RGB Cluster")
+	}
+	if strings.Contains(importedBody, "OpenRGB Integration") || strings.Contains(importedBody, "OpenRGB Link") {
+		t.Error("imported Lighting rendered an actionable OpenRGB ownership control")
+	}
+	if strings.Count(importedBody, `data-lf-ownership-kind=`) != 1 || !strings.Contains(importedBody, `class="lf-lighting-ownership-panel"`) {
+		t.Error("imported Lighting did not render exactly one main ownership control")
+	}
+
+	cluster := devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ClusterControlled: true})
+	clusterBody := renderDevicesLightingView(t, cluster)
+	clusterInput := strings.Split(clusterBody, `id="lf-lighting-rgb-cluster"`)[1]
+	externalInput := strings.Split(clusterBody, `id="lf-lighting-openrgb-integration"`)[1]
+	if strings.Contains(clusterInput[:strings.Index(clusterInput, ">")], "disabled") || !strings.Contains(externalInput[:strings.Index(externalInput, ">")], "disabled") {
+		t.Error("native Cluster ownership did not preserve the active toggle and disable OpenRGB Integration")
+	}
+	if strings.Contains(clusterBody, `class="lf-lighting-rail"`) || !strings.Contains(clusterBody, `class="lf-lighting-layout lf-lighting-layout-no-rail"`) {
+		t.Error("cluster-owned Lighting did not retain its full-width layout")
+	}
+	if !strings.Contains(clusterBody, `class="lf-lighting-owner-banner"`) || !strings.Contains(clusterBody, "RGB Cluster controls this device") {
+		t.Error("cluster-owned Lighting omitted its primary-card ownership banner")
+	}
+	clusterBanner := strings.Index(clusterBody, `class="lf-lighting-owner-banner"`)
+	clusterPrimary := strings.Index(clusterBody, `class="lf-lighting-primary"`)
+	clusterEffectStage := strings.Index(clusterBody, `class="lf-lighting-effect-stage"`)
+	if clusterPrimary < 0 || clusterBanner <= clusterPrimary || clusterEffectStage <= clusterBanner {
+		t.Error("cluster-owned Lighting did not place its ownership banner before local controls")
+	}
+	for _, obsolete := range []string{"RGB Cluster owned", "RGB Cluster owns output", "Local configuration remains stored", "RGB Cluster currently owns this device's lighting output.", "Controlled by RGB Cluster", "RGB Cluster currently controls this device."} {
+		if strings.Contains(clusterBody, obsolete) {
+			t.Errorf("cluster-owned Lighting retained obsolete ownership copy %q", obsolete)
+		}
+	}
+
+	external := devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ExternalControlled: true})
+	externalBody := renderDevicesLightingView(t, external)
+	clusterInput = strings.Split(externalBody, `id="lf-lighting-rgb-cluster"`)[1]
+	externalInput = strings.Split(externalBody, `id="lf-lighting-openrgb-integration"`)[1]
+	if !strings.Contains(clusterInput[:strings.Index(clusterInput, ">")], "disabled") || strings.Contains(externalInput[:strings.Index(externalInput, ">")], "disabled") {
+		t.Error("native OpenRGB ownership did not preserve the active toggle and disable RGB Cluster")
+	}
+	if strings.Contains(externalBody, `class="lf-lighting-rail"`) || !strings.Contains(externalBody, `class="lf-lighting-layout lf-lighting-layout-no-rail"`) || !strings.Contains(externalBody, `class="lf-lighting-owner-banner"`) || !strings.Contains(externalBody, "OpenRGB controls this device") {
+		t.Error("OpenRGB-owned Lighting did not retain its full-width ownership panel")
+	}
+	externalBanner := strings.Index(externalBody, `class="lf-lighting-owner-banner"`)
+	externalPrimary := strings.Index(externalBody, `class="lf-lighting-primary"`)
+	externalEffectStage := strings.Index(externalBody, `class="lf-lighting-effect-stage"`)
+	if externalPrimary < 0 || externalBanner <= externalPrimary || externalEffectStage <= externalBanner {
+		t.Error("OpenRGB-owned Lighting did not place its ownership banner before local controls")
+	}
+	for _, obsolete := range []string{"External OpenRGB owned", "External OpenRGB owns output", "Local canonical configuration remains stored", "OpenRGB currently controls this device."} {
+		if strings.Contains(externalBody, obsolete) {
+			t.Errorf("OpenRGB-owned Lighting retained obsolete ownership copy %q", obsolete)
+		}
+	}
+}
+
+func TestDevicesLightingOwnershipRoutesReuseLegacyHandlers(t *testing.T) {
+	router := setRoutes()
+	for _, route := range []struct {
+		modern string
+		legacy string
+	}{
+		{modern: "/api/devices/lighting/rgb-cluster", legacy: "/api/color/setCluster"},
+		{modern: "/api/devices/lighting/openrgb-integration", legacy: "/api/color/setOpenRgbIntegration"},
+	} {
+		t.Run(route.modern, func(t *testing.T) {
+			const body = `{"deviceId":"missinglightingdevice","mode":1}`
+			modernRecorder := requestOpenRGBLightingMutation(t, router, http.MethodPost, route.modern, body)
+			legacyRecorder := requestOpenRGBLightingMutation(t, router, http.MethodPost, route.legacy, body)
+			if modernRecorder.Code != http.StatusOK || legacyRecorder.Code != http.StatusOK {
+				t.Fatalf("modern HTTP = %d, legacy HTTP = %d", modernRecorder.Code, legacyRecorder.Code)
+			}
+			modern := decodeLifecycleResponse(t, modernRecorder)
+			legacy := decodeLifecycleResponse(t, legacyRecorder)
+			if modern.Code != legacy.Code || modern.Status != legacy.Status || modern.Message != legacy.Message {
+				t.Errorf("modern response = %#v, legacy response = %#v", modern, legacy)
+			}
+		})
+	}
+}
+
 func TestDevicesWorkspaceAddsWritableNativeScimitarLightingOnly(t *testing.T) {
 	if os.Getenv(devicesPageHelperEnvironment) == "scimitar-native" {
 		initializeDevicesPageTestProcess(t)
@@ -411,7 +523,8 @@ func runDevicesWorkspaceAddsWritableNativeScimitarLightingOnlyAssertions(t *test
 				SupportedEffects: []lightingpresentation.EffectOption{{ID: "gradient", Label: "Gradient"}},
 				PaletteKind:      string(rgb.LightingPaletteGradient), HasGradient: true,
 				GradientStops:      []lightingpresentation.GradientStop{{Position: 0.2, ColorHex: "#102030", Intensity: 0.4}},
-				ExternalControlled: true,
+				ClusterControlled:  false,
+				ExternalControlled: false,
 			}},
 		},
 	}, map[string]stats.BatteryStats{}, scimitarSerial)
@@ -419,7 +532,7 @@ func runDevicesWorkspaceAddsWritableNativeScimitarLightingOnlyAssertions(t *test
 		summary.Lighting.TargetKind != "native" || summary.Lighting.ConfiguredEffect != "gradient" ||
 		!summary.Lighting.HasBrightness || summary.Lighting.Brightness != 64 ||
 		summary.Lighting.PaletteKind != string(rgb.LightingPaletteGradient) || !summary.Lighting.HasGradient ||
-		!summary.Lighting.ExternalControlled || len(summary.Lighting.GradientStops) != 1 || summary.Lighting.GradientStops[0].ColorHex != "#102030" {
+		summary.Lighting.ClusterControlled || summary.Lighting.ExternalControlled || len(summary.Lighting.GradientStops) != 1 || summary.Lighting.GradientStops[0].ColorHex != "#102030" {
 		t.Fatalf("Scimitar Devices summary = %#v, ok=%t", summary, ok)
 	}
 	body := renderDevicesLightingView(t, summary.Lighting)
@@ -1050,14 +1163,8 @@ func runDevicesLightingSpeedTemplateAssertions(t *testing.T) {
 			t.Errorf("cluster-owned Speed control %s is not disabled", id)
 		}
 	}
-	for _, expected := range []string{
-		`aria-describedby="lf-lighting-speed-status lf-lighting-speed-cluster-explanation"`,
-		`id="lf-lighting-speed-cluster-explanation"`,
-		`href="/rgbCluster"`,
-	} {
-		if !strings.Contains(clusterBody, expected) {
-			t.Errorf("cluster-owned Speed template does not contain %q", expected)
-		}
+	if !strings.Contains(clusterBody, `aria-describedby="lf-lighting-speed-status"`) || strings.Contains(clusterBody, "lf-lighting-speed-cluster-explanation") {
+		t.Error("cluster-owned Speed retains a stale ownership description reference")
 	}
 }
 
@@ -1143,15 +1250,8 @@ func runDevicesLightingBrightnessTemplateAssertions(t *testing.T) {
 			t.Errorf("cluster-owned brightness control %s is not disabled", id)
 		}
 	}
-	for _, expected := range []string{
-		`aria-describedby="lf-lighting-brightness-status lf-lighting-brightness-cluster-explanation"`,
-		`id="lf-lighting-brightness-cluster-explanation"`,
-		`href="/rgbCluster"`,
-		"RGB Cluster currently owns this device's lighting output.",
-	} {
-		if !strings.Contains(clusterBody, expected) {
-			t.Errorf("cluster-owned brightness template does not contain %q", expected)
-		}
+	if !strings.Contains(clusterBody, `aria-describedby="lf-lighting-brightness-status"`) || strings.Contains(clusterBody, "lf-lighting-brightness-cluster-explanation") {
+		t.Error("cluster-owned Brightness retains a stale ownership description reference")
 	}
 }
 
@@ -1286,21 +1386,16 @@ func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
 	}))
 	for _, expected := range []string{
 		`data-lf-cluster-controlled="true"`,
-		`aria-describedby="lf-lighting-effect-status lf-lighting-effect-cluster-explanation"`,
-		`id="lf-lighting-effect-cluster-explanation"`,
+		`aria-describedby="lf-lighting-effect-status"`,
 		`/static/img/icons/rgb/static.svg`,
-		`Controlled by RGB Cluster. Change active lighting from the <a href="/rgbCluster">RGB Cluster workspace</a>.`,
-		`id="lf-lighting-cluster-note"`,
+		"RGB Cluster controls this device",
 	} {
 		if !strings.Contains(clusterBody, expected) {
 			t.Errorf("cluster-controlled effect selector does not contain %q", expected)
 		}
 	}
-	if strings.Count(clusterBody, "RGB Cluster owns output") != 1 {
-		t.Error("cluster-controlled Lighting view does not retain exactly one ownership explanation")
-	}
-	if strings.Count(clusterBody, "Controlled by RGB Cluster. Change active lighting") != 1 {
-		t.Error("cluster-controlled Lighting view does not render exactly one concise inline explanation")
+	if strings.Contains(clusterBody, "lf-lighting-effect-cluster-explanation") || strings.Contains(clusterBody, `class="lf-lighting-rail"`) {
+		t.Error("cluster-controlled Lighting view retains obsolete ownership helper markup")
 	}
 	selectorStart = strings.Index(clusterBody, `id="lf-lighting-effect-selector"`)
 	if selectorStart < 0 {
@@ -1649,7 +1744,9 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"Stored lighting configuration and renderer capabilities",
 		"OpenRGB imported controller",
 		"Stored lighting state",
-		"Effect control",
+		`class="lf-lighting-ownership-panel"`,
+		"RGB Cluster",
+		`data-lf-ownership-kind="cluster"`,
 		"<nav class=\"lf-device-workspace-nav\" aria-label=\"Device workspace\">",
 		"class=\"lf-device-workspace-link\" href=\"/devices?device=" + visibleSerial + "\">Overview</a>",
 		"class=\"lf-device-workspace-link lf-device-workspace-link-active\" href=\"/devices?device=" + visibleSerial + "&amp;view=lighting\" aria-current=\"page\">Lighting</a>",
@@ -1662,10 +1759,8 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"id=\"lf-lighting-effect-selector\"",
 		"<option value=\"off\">Off</option>",
 		"value=\"static\" selected>Static</option>",
-		"aria-describedby=\"lf-lighting-effect-status lf-lighting-effect-cluster-explanation\"",
-		"Controlled by RGB Cluster. Change active lighting from the <a href=\"/rgbCluster\">RGB Cluster workspace</a>.",
+		"aria-describedby=\"lf-lighting-effect-status\"",
 		"id=\"lf-lighting-effect-status\" aria-live=\"polite\"",
-		"Effect support</dt><dd>Supported</dd>",
 		`data-lf-brightness-readout data-lf-device-serial="` + visibleSerial + `">0%</strong>`,
 		`id="lf-lighting-brightness-slider"`,
 		`type="range"`,
@@ -1673,7 +1768,7 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		`style="--lf-range-progress: 0%;"`,
 		`data-lf-current-brightness="0"`,
 		`id="lf-lighting-brightness-status" aria-live="polite"`,
-		"RGB Cluster currently owns this device's lighting output.",
+		"RGB Cluster controls this device",
 	} {
 		if !strings.Contains(lightingBody, expected) {
 			t.Errorf("Lighting GET /devices response does not contain %q", expected)
@@ -1692,6 +1787,9 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"/api/",
 		"Supported effects reference",
 		"lf-lighting-effect-list",
+		"Workspace state",
+		">Configuration<",
+		"Effect support</dt><dd>Supported</dd>",
 		"Static &lt;Effect&gt; &amp; More",
 		"</div>div>",
 	} {
