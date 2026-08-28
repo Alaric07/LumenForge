@@ -117,7 +117,8 @@ type Device struct {
 	stopRepeatMutex    sync.Mutex
 	ledDataMutex       sync.RWMutex
 	dispatch           dispatcher.DeviceDispatcher
-	keyXMap            map[int]float64
+	keyXMap                 map[int]float64
+	defaultKeyboardBaseline *keyboards.Keyboard
 }
 
 var (
@@ -688,29 +689,13 @@ func (d *Device) saveDeviceProfile() {
 			return
 		}
 
-		validKeyData := true
-		currentVersion := 0
-		if d.DeviceProfile.Keyboards["default"] == nil {
-			validKeyData = false
-		} else {
-			currentVersion = d.DeviceProfile.Keyboards["default"].Version
-			for _, row := range d.DeviceProfile.Keyboards["default"].Row {
-				for _, key := range row.Keys {
-					if key.OnlyColor {
-						continue
-					}
-					if len(key.KeyData) < 2 {
-						validKeyData = false
-						break
-					}
-				}
-				if !validKeyData {
-					break
-				}
-			}
+		defaultKeyboard := d.DeviceProfile.Keyboards["default"]
+		if d.defaultKeyboardBaseline != nil {
+			defaultKeyboard = d.defaultKeyboardBaseline
 		}
+		needsUpgrade, currentVersion := keyboardNeedsUpgrade(defaultKeyboard, layout)
 
-		if !validKeyData || currentVersion != layout.Version {
+		if needsUpgrade {
 			logger.Log(
 				logger.Fields{
 					"current":  currentVersion,
@@ -719,6 +704,7 @@ func (d *Device) saveDeviceProfile() {
 				},
 			).Info("Upgrading keyboard profile version")
 			d.DeviceProfile.Keyboards["default"] = layout
+			d.defaultKeyboardBaseline = nil
 		} else {
 			logger.Log(
 				logger.Fields{
@@ -735,7 +721,7 @@ func (d *Device) saveDeviceProfile() {
 		deviceProfile.Label = d.DeviceProfile.Label
 		deviceProfile.Profile = d.DeviceProfile.Profile
 		deviceProfile.Profiles = d.DeviceProfile.Profiles
-		deviceProfile.Keyboards = d.DeviceProfile.Keyboards
+		deviceProfile.Keyboards = d.keyboardProfilesForSave()
 		deviceProfile.RGBCluster = d.DeviceProfile.RGBCluster
 		deviceProfile.KeyboardLiveSync = d.DeviceProfile.KeyboardLiveSync
 		deviceProfile.OriginalBrightness = d.DeviceProfile.OriginalBrightness
@@ -776,6 +762,7 @@ func (d *Device) saveDeviceProfile() {
 
 // loadDeviceProfiles will load custom user profiles
 func (d *Device) loadDeviceProfiles() {
+	d.defaultKeyboardBaseline = nil
 	profileList := make(map[string]*DeviceProfile)
 	userProfileDirectory := pwd + "/database/profiles/"
 
@@ -1326,6 +1313,72 @@ func (d *Device) getCurrentKeyboard() *keyboards.Keyboard {
 	return nil
 }
 
+func cloneKeyboard(keyboard *keyboards.Keyboard) *keyboards.Keyboard {
+	if keyboard == nil {
+		return nil
+	}
+	data, err := json.Marshal(keyboard)
+	if err != nil {
+		return nil
+	}
+	clone := &keyboards.Keyboard{}
+	if err = json.Unmarshal(data, clone); err != nil {
+		return nil
+	}
+	return clone
+}
+
+func keyboardNeedsUpgrade(keyboard, layout *keyboards.Keyboard) (bool, int) {
+	if keyboard == nil {
+		return true, 0
+	}
+	for _, row := range keyboard.Row {
+		for _, key := range row.Keys {
+			if !key.OnlyColor && len(key.KeyData) < 2 {
+				return true, keyboard.Version
+			}
+		}
+	}
+	return keyboard.Version != layout.Version, keyboard.Version
+}
+
+func (d *Device) keyboardProfilesForSave() map[string]*keyboards.Keyboard {
+	if d.defaultKeyboardBaseline == nil {
+		return d.DeviceProfile.Keyboards
+	}
+	profiles := make(map[string]*keyboards.Keyboard, len(d.DeviceProfile.Keyboards))
+	for name, keyboard := range d.DeviceProfile.Keyboards {
+		profiles[name] = keyboard
+	}
+	profiles["default"] = d.defaultKeyboardBaseline
+	return profiles
+}
+
+func (d *Device) restoreDefaultKeyboardBaseline() {
+	if d.defaultKeyboardBaseline == nil || d.DeviceProfile == nil {
+		return
+	}
+	d.DeviceProfile.Keyboards["default"] = d.defaultKeyboardBaseline
+	d.defaultKeyboardBaseline = nil
+}
+
+func (d *Device) editableKeyboard() *keyboards.Keyboard {
+	if d.DeviceProfile == nil {
+		return nil
+	}
+	keyboard := d.getCurrentKeyboard()
+	if d.DeviceProfile.Profile != "default" || d.defaultKeyboardBaseline != nil {
+		return keyboard
+	}
+	workingCopy := cloneKeyboard(keyboard)
+	if workingCopy == nil {
+		return nil
+	}
+	d.defaultKeyboardBaseline = keyboard
+	d.DeviceProfile.Keyboards["default"] = workingCopy
+	return workingCopy
+}
+
 // SaveDeviceProfile will save a new keyboard profile
 func (d *Device) SaveDeviceProfile(profileName string, new bool) uint8 {
 	if new {
@@ -1341,8 +1394,12 @@ func (d *Device) SaveDeviceProfile(profileName string, new bool) uint8 {
 			return 2
 		}
 
+		keyboard := cloneKeyboard(d.getCurrentKeyboard())
+		if keyboard == nil {
+			return 0
+		}
 		d.DeviceProfile.Profiles = append(d.DeviceProfile.Profiles, profileName)
-		d.DeviceProfile.Keyboards[profileName] = d.getCurrentKeyboard()
+		d.DeviceProfile.Keyboards[profileName] = keyboard
 		d.saveDeviceProfile()
 		return 1
 	} else {
@@ -1365,6 +1422,7 @@ func (d *Device) UpdateKeyboardProfile(profileName string) uint8 {
 		return 2
 	}
 
+	d.restoreDefaultKeyboardBaseline()
 	d.DeviceProfile.Profile = profileName
 	d.saveDeviceProfile()
 	// RGB reset
@@ -1521,7 +1579,11 @@ func (d *Device) applyKeyboardPerformanceSave(performance common.KeyboardPerform
 
 // UpdateDeviceKeyAssignment will update device key assignments
 func (d *Device) UpdateDeviceKeyAssignment(keyIndex int, keyAssignment inputmanager.KeyAssignment) uint8 {
-	for rowId, row := range d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row {
+	keyboard := d.editableKeyboard()
+	if keyboard == nil {
+		return 0
+	}
+	for rowId, row := range keyboard.Row {
 		for keyId, key := range row.Keys {
 			if keyIndex == keyId {
 				if key.OnlyColor {
@@ -1534,8 +1596,10 @@ func (d *Device) UpdateDeviceKeyAssignment(keyIndex int, keyAssignment inputmana
 				key.ActionHold = keyAssignment.ActionHold
 				key.ToggleDelay = keyAssignment.ToggleDelay
 				key.ProfileSwitch = keyAssignment.ProfileSwitch
-				d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row[rowId].Keys[keyId] = key
-				d.saveDeviceProfile()
+				keyboard.Row[rowId].Keys[keyId] = key
+				if d.DeviceProfile.Profile != "default" {
+					d.saveDeviceProfile()
+				}
 				d.setupKeyAssignment()
 				return 1
 			}
@@ -1559,141 +1623,104 @@ func (d *Device) buildKeyIndexMap() map[int]KeyPos {
 	return keyIndexMap
 }
 
+func setKeyboardRowColor(keyboard *keyboards.Keyboard, rowID int, color rgb.Color) {
+	for keyIndex, key := range keyboard.Row[rowID].Keys {
+		if key.NoColor {
+			continue
+		}
+		key.Color = rgb.Color{Red: color.Red, Green: color.Green, Blue: color.Blue, Brightness: 0}
+		keyboard.Row[rowID].Keys[keyIndex] = key
+	}
+}
+
+func setKeyboardAllColor(keyboard *keyboards.Keyboard, color rgb.Color) {
+	for rowIndex, row := range keyboard.Row {
+		for keyIndex, key := range row.Keys {
+			if key.NoColor {
+				continue
+			}
+			key.Color = rgb.Color{Red: color.Red, Green: color.Green, Blue: color.Blue, Brightness: 0}
+			keyboard.Row[rowIndex].Keys[keyIndex] = key
+		}
+	}
+}
+
 // UpdateDeviceColor will update device color based on selected input
 func (d *Device) UpdateDeviceColor(keyId, keyOption int, color rgb.Color, selections []int) uint8 {
 	if d.DeviceProfile == nil {
 		return 0
 	}
-	if _, ok := d.DeviceProfile.Keyboards[d.DeviceProfile.Profile]; !ok {
+	keyboard := d.editableKeyboard()
+	if keyboard == nil {
 		return 0
+	}
+	persist := func() {
+		d.DeviceProfile.RGBProfile = "keyboard"
+		if d.DeviceProfile.Profile != "default" {
+			d.saveDeviceProfile()
+		}
+		if d.activeRgb != nil {
+			d.activeRgb.Exit <- true
+			d.activeRgb = nil
+		}
+		d.setDeviceColor()
 	}
 
 	switch keyOption {
 	case 0:
-		{
-			for rowIndex, row := range d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row {
-				for keyIndex, key := range row.Keys {
-					if keyIndex == keyId {
-						if key.NoColor {
-							return 0
-						}
-						key.Color = rgb.Color{
-							Red:        color.Red,
-							Green:      color.Green,
-							Blue:       color.Blue,
-							Brightness: 0,
-						}
-						d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row[rowIndex].Keys[keyIndex] = key
-						d.DeviceProfile.RGBProfile = "keyboard"
-						d.saveDeviceProfile()
-						if d.activeRgb != nil {
-							d.activeRgb.Exit <- true
-							d.activeRgb = nil
-						}
-						d.setDeviceColor()
-						return 1
-					}
+		for rowIndex, row := range keyboard.Row {
+			for keyIndex, key := range row.Keys {
+				if keyIndex != keyId {
+					continue
 				}
+				if key.NoColor {
+					return 0
+				}
+				key.Color = rgb.Color{Red: color.Red, Green: color.Green, Blue: color.Blue, Brightness: 0}
+				keyboard.Row[rowIndex].Keys[keyIndex] = key
+				persist()
+				return 1
 			}
 		}
 	case 1:
-		{
-			rowId := -1
-			for rowIndex, row := range d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row {
-				for keyIndex, key := range row.Keys {
-					if keyIndex == keyId {
-						if key.NoColor {
-							return 0
-						}
-						rowId = rowIndex
-						break
-					}
-				}
-			}
-
-			if rowId < 0 {
-				return 0
-			}
-
-			for keyIndex, key := range d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row[rowId].Keys {
-				key.Color = rgb.Color{
-					Red:        color.Red,
-					Green:      color.Green,
-					Blue:       color.Blue,
-					Brightness: 0,
-				}
-				d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row[rowId].Keys[keyIndex] = key
-			}
-			d.DeviceProfile.RGBProfile = "keyboard"
-			d.saveDeviceProfile()
-			if d.activeRgb != nil {
-				d.activeRgb.Exit <- true
-				d.activeRgb = nil
-			}
-			d.setDeviceColor()
-			return 1
-		}
-	case 2:
-		{
-			for rowIndex, row := range d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row {
-				for keyIndex, key := range row.Keys {
+		rowID := -1
+		for candidateRowID, row := range keyboard.Row {
+			for keyIndex, key := range row.Keys {
+				if keyIndex == keyId {
 					if key.NoColor {
-						continue
+						return 0
 					}
-
-					key.Color = rgb.Color{
-						Red:        color.Red,
-						Green:      color.Green,
-						Blue:       color.Blue,
-						Brightness: 0,
-					}
-					d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row[rowIndex].Keys[keyIndex] = key
+					rowID = candidateRowID
+					break
 				}
 			}
-			d.DeviceProfile.RGBProfile = "keyboard"
-			d.saveDeviceProfile()
-			if d.activeRgb != nil {
-				d.activeRgb.Exit <- true
-				d.activeRgb = nil
-			}
-			d.setDeviceColor()
-			return 1
 		}
+		if rowID < 0 {
+			return 0
+		}
+		setKeyboardRowColor(keyboard, rowID, color)
+		persist()
+		return 1
+	case 2:
+		setKeyboardAllColor(keyboard, color)
+		persist()
+		return 1
 	case 3:
-		{
-			updated := 0
-			keyIndexMap := d.buildKeyIndexMap()
-			for _, val := range selections {
-				pos, ok := keyIndexMap[val]
+		updated := 0
+		for _, keyID := range selections {
+			for rowIndex, row := range keyboard.Row {
+				key, ok := row.Keys[keyID]
 				if !ok {
 					continue
 				}
-
-				key, valid := d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row[pos.Row].Keys[pos.Col]
-				if !valid {
-					continue
-				}
-
-				key.Color = rgb.Color{
-					Red:   color.Red,
-					Green: color.Green,
-					Blue:  color.Blue,
-				}
-
-				d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row[pos.Row].Keys[pos.Col] = key
+				key.Color = rgb.Color{Red: color.Red, Green: color.Green, Blue: color.Blue}
+				keyboard.Row[rowIndex].Keys[keyID] = key
 				updated++
 			}
-
-			if updated > 0 {
-				d.DeviceProfile.RGBProfile = "keyboard"
-				d.saveDeviceProfile()
-				if d.activeRgb != nil {
-					d.activeRgb.Exit <- true
-					d.activeRgb = nil
-				}
-				d.setDeviceColor()
-				return 1
-			}
+		}
+		if updated > 0 {
+			persist()
+			return 1
 		}
 	}
 	return 0

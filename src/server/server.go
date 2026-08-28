@@ -19,6 +19,7 @@ import (
 	"LumenForge/src/display"
 	"LumenForge/src/externalsources"
 	"LumenForge/src/inputmanager"
+	"LumenForge/src/keyboardassignmentspresentation"
 	"LumenForge/src/language"
 	"LumenForge/src/lifecycle"
 	"LumenForge/src/lightingpresentation"
@@ -2393,6 +2394,7 @@ type devicesWorkspaceSummary struct {
 	DPI          *devicesDPIWorkspaceSummary
 	Performance  *devicesPerformanceWorkspaceSummary
 	Buttons      *devicesButtonsWorkspaceSummary
+	KeyboardAssignments *devicesKeyboardAssignmentsWorkspaceSummary
 	View         string
 }
 
@@ -2490,6 +2492,35 @@ type devicesPerformanceSnapshotProvider interface {
 type devicesButtonsSnapshotProvider interface {
 	ButtonsDeviceID() string
 	ButtonsSnapshot() (buttonspresentation.Snapshot, bool)
+}
+
+type devicesKeyboardAssignmentsSnapshotProvider interface {
+	KeyboardAssignmentsDeviceID() string
+	KeyboardAssignmentsSnapshot() (keyboardassignmentspresentation.Snapshot, bool)
+}
+
+type devicesKeyboardAssignmentTypeSummary struct { ID uint8; Label string }
+type devicesKeyboardAssignmentKeySummary struct { KeyIndex int; KeyName, SubKeyName string; Width, Height, Left, Top int; CSS, KeySpace, ExtraCSS, ColorHex string; Spacing []int; KeyEmpty []string; Assignable, Default bool; ActionType uint8; ActionCommand uint16; DeviceID string; ActionHold bool; ToggleDelay uint16; ProfileSwitch bool }
+type devicesKeyboardAssignmentRowSummary struct { Index, Top int; CSS, OverrideCSS string; Keys []devicesKeyboardAssignmentKeySummary }
+type devicesKeyboardAssignmentsWorkspaceSummary struct { Rows []devicesKeyboardAssignmentRowSummary; AssignmentTypes []devicesKeyboardAssignmentTypeSummary; Profiles []string; ActiveProfile, LayoutClass, RowLayoutClass string; ClusterControlled bool }
+
+func devicesKeyboardAssignmentsWorkspaceSummaryFromSnapshot(snapshot keyboardassignmentspresentation.Snapshot) *devicesKeyboardAssignmentsWorkspaceSummary {
+	if !snapshot.Available || len(snapshot.Rows) == 0 || len(snapshot.AssignmentTypes) == 0 { return nil }
+	summary := &devicesKeyboardAssignmentsWorkspaceSummary{Profiles: append([]string(nil), snapshot.Profiles...), ActiveProfile: snapshot.ActiveProfile, LayoutClass: snapshot.LayoutClass, RowLayoutClass: snapshot.RowLayoutClass, ClusterControlled: snapshot.ClusterControlled}
+	if summary.ActiveProfile == "" || len(summary.Profiles) == 0 { return nil }
+	for _, assignmentType := range snapshot.AssignmentTypes {
+		if assignmentType.Label == "" { return nil }
+		summary.AssignmentTypes = append(summary.AssignmentTypes, devicesKeyboardAssignmentTypeSummary{ID: assignmentType.ID, Label: assignmentType.Label})
+	}
+	for _, row := range snapshot.Rows {
+		presented := devicesKeyboardAssignmentRowSummary{Index: row.Index, Top: row.Top, CSS: row.CSS, OverrideCSS: row.OverrideCSS}
+		for _, key := range row.Keys {
+			if key.KeyName == "" || key.Width < 1 || key.Height < 1 { return nil }
+			presented.Keys = append(presented.Keys, devicesKeyboardAssignmentKeySummary{KeyIndex: key.KeyIndex, KeyName: key.KeyName, SubKeyName: key.SubKeyName, Width: key.Width, Height: key.Height, Left: key.Left, Top: key.Top, CSS: key.CSS, KeySpace: key.KeySpace, ExtraCSS: key.ExtraCSS, Spacing: append([]int(nil), key.Spacing...), KeyEmpty: append([]string(nil), key.KeyEmpty...), ColorHex: key.ColorHex, Assignable: key.Assignable, Default: key.Default, ActionType: key.ActionType, ActionCommand: key.ActionCommand, DeviceID: key.DeviceID, ActionHold: key.ActionHold, ToggleDelay: key.ToggleDelay, ProfileSwitch: key.ProfileSwitch})
+		}
+		summary.Rows = append(summary.Rows, presented)
+	}
+	return summary
 }
 
 type devicesButtonsAssignmentTypeSummary struct {
@@ -2867,6 +2898,9 @@ func devicesWorkspaceSummaryForSerial(
 			summary.Buttons = devicesButtonsWorkspaceSummaryFromSnapshot(buttonsSnapshot)
 		}
 	}
+	if keyboardDevice, ok := device.Instance.(devicesKeyboardAssignmentsSnapshotProvider); ok && keyboardDevice != nil && keyboardDevice.KeyboardAssignmentsDeviceID() == serial {
+		if snapshot, usable := keyboardDevice.KeyboardAssignmentsSnapshot(); usable { summary.KeyboardAssignments = devicesKeyboardAssignmentsWorkspaceSummaryFromSnapshot(snapshot) }
+	}
 
 	return summary, true
 }
@@ -2888,6 +2922,8 @@ func devicesWorkspaceView(views []string, device *devicesWorkspaceSummary) strin
 		if device.Buttons != nil {
 			return "buttons"
 		}
+	case "key-assignments":
+		if device.KeyboardAssignments != nil { return "key-assignments" }
 	}
 	return "overview"
 }

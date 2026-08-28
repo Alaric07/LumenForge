@@ -1080,6 +1080,61 @@
 .lf-app-shell .lf-buttons-toast[data-lf-buttons-toast-kind="success"] { border-color: color-mix(in srgb, var(--good) 60%, var(--lf-border-emphasized)); }
 .lf-app-shell .lf-buttons-toast[data-lf-buttons-toast-kind="error"] { border-color: color-mix(in srgb, var(--bad) 60%, var(--lf-border-emphasized)); }
 
+.lf-app-shell .lf-keyboard-assignments-workspace { min-width: 0; margin-top: 24px; padding: clamp(16px, 2vw, 24px); border: 1px solid var(--lf-border-panel); border-radius: var(--lf-shell-radius); background: var(--lf-panel-elevated); box-shadow: var(--lf-shadow-soft); }
+.lf-app-shell .lf-keyboard-visualization-wrap { display: flex; justify-content: center; min-width: 0; overflow-x: auto; padding-bottom: 8px; }
+.lf-app-shell .lf-keyboard-visualization { --lf-kb-key: clamp(22px, 2.3vw, 34px); --lf-kb-gap: clamp(2px, .28vw, 4px); --lf-kb-radius: 6px; --lf-kb-top-offset: calc(var(--lf-kb-key) * 1.75); box-sizing: border-box; display: grid; gap: var(--lf-kb-gap); width: max-content; margin: 0 auto; padding: var(--lf-kb-gap); }
+.lf-app-shell .lf-keyboard-visualization.keyboard-8 { grid-template-rows: repeat(8, var(--lf-kb-key)); }
+.lf-app-shell .lf-keyboard-row, .lf-app-shell .lf-keyboard-row.keyboard-row-26 { display: grid; grid-template-columns: repeat(26, var(--lf-kb-key)); gap: var(--lf-kb-gap); }
+.lf-app-shell .lf-keyboard-row.keyboard-row-25 { grid-template-columns: repeat(25, var(--lf-kb-key)); }
+.lf-app-shell .lf-keyboard-row.lf-keyboard-margin-top { margin-top: var(--lf-kb-top-offset); }
+.lf-app-shell .lf-keyboard-key, .lf-app-shell .lf-keyboard-placeholder, .lf-app-shell .lf-keyboard-visualization .keyboard-key, .lf-app-shell .lf-keyboard-visualization .keyboard-key-empty { box-sizing: border-box; width: var(--lf-kb-key); height: var(--lf-kb-key); }
+.lf-app-shell .lf-keyboard-placeholder, .lf-app-shell .lf-keyboard-visualization .keyboard-key-empty { visibility: hidden; pointer-events: none; }
+.lf-app-shell .lf-keyboard-key, .lf-app-shell .lf-keyboard-visualization .keyboard-key, .lf-app-shell .lf-keyboard-visualization .keyboard-key-half, .lf-app-shell .lf-keyboard-visualization .keyboard-key-125, .lf-app-shell .lf-keyboard-visualization .keyboard-key-125-top32, .lf-app-shell .lf-keyboard-visualization .keyboard-key-125-125 { display: flex; align-items: center; justify-content: center; padding: 3px; border: 1px solid var(--lf-border-emphasized); border-radius: var(--lf-kb-radius); color: var(--lf-text-primary); background: var(--lf-surface-subdued); font: inherit; font-size: 10px; line-height: 1.1; text-align: center; }
+.lf-app-shell .lf-keyboard-visualization .keyboard-key.empty { visibility: hidden; }
+.lf-app-shell .lf-keyboard-visualization .keyboard-key.wide { grid-column: span 2; width: auto; }
+.lf-app-shell .lf-keyboard-visualization .keyboard-key.wide3 { grid-column: span 3; width: auto; }
+.lf-app-shell .lf-keyboard-visualization .keyboard-key.wide4 { grid-column: span 4; width: auto; }
+.lf-app-shell .lf-keyboard-visualization .keyboard-key.wide5 { grid-column: span 5; width: auto; }
+.lf-app-shell .lf-keyboard-visualization .keyboard-key.wide6 { grid-column: span 6; width: auto; }
+.lf-app-shell .lf-keyboard-visualization .keyboard-key.wide7 { grid-column: span 7; width: auto; }
+.lf-app-shell .lf-keyboard-visualization .keyboard-key.wide8 { grid-column: span 8; width: auto; }
+.lf-app-shell .lf-keyboard-visualization .keyboard-key-half { height: calc(var(--lf-kb-key) / 2); }
+.lf-app-shell .lf-keyboard-visualization .keyboard-key-half.wide3 { grid-column: span 3; width: auto; }
+.lf-app-shell .lf-keyboard-visualization .keyboard-key-half.wide4 { grid-column: span 4; width: auto; }
+.lf-app-shell .lf-keyboard-visualization .keyboard-key-125, .lf-app-shell .lf-keyboard-visualization .keyboard-key-125-top32 { height: calc(var(--lf-kb-key) * 2.0833); }
+.lf-app-shell .lf-keyboard-visualization .keyboard-key-125-top32 { position: relative; top: calc(var(--lf-kb-key) * .54); }
+.lf-app-shell .lf-keyboard-visualization .keyboard-key-125-125 { width: calc(var(--lf-kb-key) * 2.0833); height: calc(var(--lf-kb-key) * 2.0833); }
+.lf-app-shell .lf-keyboard-visualization .keyboard-key.top-32 { margin-top: calc(var(--lf-kb-key) * .54); }
+.lf-app-shell .lf-keyboard-visualization .keyboard-key.top-32auto { height: auto; margin-top: calc(var(--lf-kb-key) * 1.0666); }
+.lf-app-shell button.lf-keyboard-key { cursor: pointer; }
+.lf-app-shell button.lf-keyboard-key:hover, .lf-app-shell button.lf-keyboard-key[aria-pressed="true"] { border-color: var(--lf-accent-highlight); background: var(--lf-surface-hover); box-shadow: inset 0 0 0 1px var(--lf-accent-highlight); }
+.lf-app-shell button.lf-keyboard-key:focus-visible { outline: 2px solid var(--lf-accent-highlight); outline-offset: 2px; }
+.lf-app-shell .lf-keyboard-key small { display: block; margin-top: 2px; color: var(--lf-text-muted); font-size: 9px; }
+.lf-app-shell .lf-keyboard-key-static { opacity: .42; cursor: default; }
+.lf-app-shell .lf-keyboard-toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.lf-app-shell .lf-keyboard-toolbar-group { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; min-width: 0; padding: 10px; border: 1px solid var(--lf-border-subtle); border-radius: 9px; background: var(--lf-panel-secondary); }
+.lf-app-shell .lf-keyboard-toolbar-group > label { display: grid; gap: 5px; min-width: 150px; color: var(--lf-text-muted); font-size: 12px; font-weight: 680; }
+.lf-app-shell .lf-keyboard-profile-picker { position: relative; display: grid; gap: 5px; min-width: 150px; color: var(--lf-text-muted); font-size: 12px; font-weight: 680; }
+.lf-app-shell .lf-keyboard-profile-trigger { display: flex; align-items: center; justify-content: space-between; min-width: 150px; }
+.lf-app-shell .lf-keyboard-profile-trigger::after { content: "⌄"; margin-left: 12px; font-size: 14px; }
+.lf-app-shell .lf-keyboard-profile-list { position: absolute; z-index: 2; top: calc(100% + 4px); left: 0; display: grid; min-width: 100%; padding: 4px; border: 1px solid var(--lf-border-emphasized); border-radius: 7px; background: var(--lf-panel-elevated); box-shadow: var(--lf-shadow-soft); }
+.lf-app-shell .lf-keyboard-profile-list[hidden] { display: none; }
+.lf-app-shell .lf-keyboard-profile-option { border: 0; border-radius: 5px; padding: 7px 9px; color: var(--lf-text-primary); background: transparent; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.lf-app-shell .lf-keyboard-profile-option:hover, .lf-app-shell .lf-keyboard-profile-option:focus-visible, .lf-app-shell .lf-keyboard-profile-option[aria-selected="true"] { background: var(--lf-surface-hover); }
+.lf-app-shell .lf-keyboard-toolbar-group input[type="color"] { width: 38px; height: 34px; padding: 2px; border: 1px solid var(--lf-border-emphasized); border-radius: 7px; background: var(--lf-surface-subdued); }
+.lf-app-shell .lf-keyboard-toolbar-group [data-lf-keyboard-color-scope] { min-width: 145px; }
+.lf-app-shell .lf-keyboard-profile-dialog, .lf-app-shell .lf-keyboard-assignment-editor { margin-top: 16px; padding: 16px; border: 1px solid var(--lf-border-subtle); border-radius: 10px; background: var(--lf-panel-secondary); }
+.lf-app-shell .lf-keyboard-profile-dialog { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+.lf-app-shell .lf-keyboard-profile-dialog[hidden], .lf-app-shell .lf-keyboard-assignment-editor[hidden] { display: none; }
+.lf-app-shell .lf-keyboard-profile-dialog > label { display: grid; gap: 5px; min-width: min(100%, 220px); color: var(--lf-text-muted); font-size: 12px; font-weight: 680; }
+.lf-app-shell .lf-keyboard-assignment-editor { box-shadow: inset 0 1px 0 var(--lf-border-subtle); }
+.lf-app-shell .lf-keyboard-assignment-editor header h2 { margin: 2px 0 16px; font-size: 20px; }
+.lf-app-shell .lf-keyboard-assignment-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: end; }
+.lf-app-shell .lf-keyboard-assignment-controls > label:not(.system-toggle) { display: grid; gap: 6px; color: var(--lf-text-primary); font-size: 13px; font-weight: 680; }
+.lf-app-shell .lf-keyboard-assignment-controls small { display: block; color: var(--lf-text-muted); font-weight: 500; }
+.lf-app-shell .lf-keyboard-assignment-actions { display: flex; justify-content: flex-end; margin-top: 16px; }
+@media (max-width: 700px) { .lf-app-shell .lf-keyboard-assignment-controls { grid-template-columns: minmax(0, 1fr); } }
+
 @media (max-width: 900px) {
     .lf-app-shell .lf-dpi-editor-row {
         grid-template-columns: minmax(0, 1fr);

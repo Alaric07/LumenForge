@@ -7,6 +7,7 @@ import (
 	"LumenForge/src/devices/openrgbimport"
 	"LumenForge/src/dpipresentation"
 	"LumenForge/src/lightingpresentation"
+	"LumenForge/src/keyboardassignmentspresentation"
 	"LumenForge/src/performancepresentation"
 	"LumenForge/src/rgb"
 	"LumenForge/src/stats"
@@ -41,6 +42,10 @@ type devicesPagePerformanceSnapshotProvider struct {
 	snapshot performancepresentation.Snapshot
 }
 
+type devicesPageKeyboardAssignmentsSnapshotProvider struct { serial string; snapshot keyboardassignmentspresentation.Snapshot }
+func (provider devicesPageKeyboardAssignmentsSnapshotProvider) KeyboardAssignmentsDeviceID() string { return provider.serial }
+func (provider devicesPageKeyboardAssignmentsSnapshotProvider) KeyboardAssignmentsSnapshot() (keyboardassignmentspresentation.Snapshot, bool) { return provider.snapshot, true }
+
 func (provider devicesPageDPISnapshotProvider) DPIDeviceID() string {
 	return provider.serial
 }
@@ -61,6 +66,34 @@ func (provider devicesPageLightingSnapshotProvider) LightingDeviceID() string {
 
 func (provider devicesPageLightingSnapshotProvider) LightingSnapshot() (lightingpresentation.Snapshot, bool) {
 	return provider.snapshot, true
+}
+
+func TestDevicesWorkspaceKeyboardAssignmentsPresentationAndView(t *testing.T) {
+	const serial = "keyboard-assignment-device"
+	snapshot := keyboardassignmentspresentation.Snapshot{
+		Available: true,
+		Profiles: []string{"default"}, ActiveProfile: "default",
+		LayoutClass: "keyboard-8", RowLayoutClass: "keyboard-row-26",
+		Rows: []keyboardassignmentspresentation.Row{{Index: 0, CSS: "keyboard-row-26", Keys: []keyboardassignmentspresentation.Key{{KeyIndex: 11, KeyName: "G1", Width: 1, Height: 1, KeySpace: "keyboard-key wide3", CSS: "top-32", Spacing: []int{0}, KeyEmpty: []string{"keyboard-key-empty"}, Assignable: true}, {KeyIndex: 12, KeyName: "M1", Width: 1, Height: 1, Assignable: false}}}},
+		AssignmentTypes: []keyboardassignmentspresentation.AssignmentType{{ID: 0, Label: "None"}, {ID: 10, Label: "Macro"}},
+	}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "Keyboard", Instance: devicesPageKeyboardAssignmentsSnapshotProvider{serial: serial, snapshot: snapshot}}}, map[string]stats.BatteryStats{}, serial)
+	if !ok || summary.KeyboardAssignments == nil { t.Fatalf("summary = %#v, ok=%t", summary, ok) }
+	if got := summary.KeyboardAssignments.Rows[0].Keys; got[0].KeyIndex != 11 || got[0].KeySpace != "keyboard-key wide3" || len(got[0].Spacing) != 1 || len(got[0].KeyEmpty) != 1 || !got[0].Assignable || got[1].Assignable { t.Errorf("presented keys = %#v", got) }
+	if got := devicesWorkspaceView([]string{"key-assignments"}, summary); got != "key-assignments" { t.Errorf("view = %q", got) }
+	var rendered bytes.Buffer
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: {Serial: serial, Product: "Keyboard"}}, Device: &devicesWorkspaceSummary{Serial: serial, Product: "Keyboard", KeyboardAssignments: summary.KeyboardAssignments, View: "key-assignments"}, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil { t.Fatal(err) }
+	body := rendered.String()
+	for _, expected := range []string{"data-lf-keyboard-assignments-workspace", "data-lf-keyboard-key", "data-lf-keyboard-editor", "data-lf-keyboard-assignment-close", "keyboard-8", "keyboard-row-26", "keyboard-key wide3", "keyboard-key-empty", "Macro"} { if !strings.Contains(body, expected) { t.Errorf("missing %q", expected) } }
+	if strings.Contains(body, "lf-buttons-table") { t.Error("keyboard workspace rendered table-based button UI") }
+	if strings.Contains(body, "data-lf-keyboard-control") || strings.Contains(body, "Device ↔ LumenForge") { t.Error("keyboard workspace rendered the removed per-key ownership toggle") }
+	for _, expected := range []string{"data-lf-keyboard-profile-save disabled", "data-lf-keyboard-profile-delete disabled"} { if !strings.Contains(body, expected) { t.Errorf("default profile did not disable %q", expected) } }
+	for _, forbidden := range []string{"data-lf-keyboard-assignment-open disabled", "data-lf-keyboard-color value=\"#ffffff\" disabled", "data-lf-keyboard-color-scope disabled", "data-lf-keyboard-color-apply disabled"} { if strings.Contains(body, forbidden) { t.Errorf("default profile incorrectly disabled %q", forbidden) } }
+	for _, obsolete := range []string{"--lf-key-width", "--lf-key-height", "--lf-key-left", "--lf-key-top", "--lf-row-top"} { if strings.Contains(body, obsolete) { t.Errorf("keyboard workspace rendered raw coordinate layout %q", obsolete) } }
+	styles, err := os.ReadFile(filepath.Join("..", "..", "static", "css", "app-shell.css"))
+	if err != nil { t.Fatal(err) }
+	for _, expected := range []string{"repeat(26, var(--lf-kb-key))", "--lf-kb-gap", ".lf-keyboard-placeholder"} { if !strings.Contains(string(styles), expected) { t.Errorf("keyboard grid CSS missing %q", expected) } }
+	for _, obsolete := range []string{"flex: var(--lf-key-width)", "margin-left: calc(var(--lf-key-left)", "top: calc(var(--lf-key-top)"} { if strings.Contains(string(styles), obsolete) { t.Errorf("keyboard grid CSS retained raw layout %q", obsolete) } }
 }
 
 func TestOpenRGBLegacyTemplateOmitsDuplicateLightingControls(t *testing.T) {
