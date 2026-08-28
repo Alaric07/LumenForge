@@ -33,7 +33,7 @@ function commandControl(value) {
 }
 
 function editor(command) {
-    return {command: command, type: {disabled: false}, hold: {disabled: false}, status: {textContent: ""}};
+    return {command: command, type: {disabled: false}, hold: {disabled: false}, delay: {disabled: false}, status: {textContent: ""}};
 }
 
 function keyboardResponse(id, label) {
@@ -85,6 +85,13 @@ test("Keyboard assignment option-load success enables the selected command", asy
     assert.equal(assignments.canSaveAssignment(loaded, c, {actionType: 3}), true);
 });
 
+test("Keyboard assignment disabled state gates every editable field", function () {
+    const c = editor(commandControl("4")); assignments.updateDisabled(c, false, false);
+    for (const control of [c.type, c.command, c.hold, c.delay]) { assert.equal(control.disabled, true); }
+    assignments.updateDisabled(c, true, true); for (const control of [c.type, c.command, c.hold, c.delay]) { assert.equal(control.disabled, true); }
+    assignments.updateDisabled(c, false, true); for (const control of [c.type, c.command, c.hold, c.delay]) { assert.equal(control.disabled, false); }
+});
+
 test("Keyboard color payload preserves all four existing scopes", function () {
     const color = assignments.rgbFromHex("#123456"); const key = {keyIndex: 7}; const selected = [{keyIndex: 7}, {keyIndex: 9}];
     assert.deepEqual(assignments.colorPayload("k95", 0, color, key, selected), {deviceId: "k95", keyId: 7, keyOption: 0, color: color, keys: undefined});
@@ -104,7 +111,7 @@ function toolbarHarness(cluster, activeProfile) {
     const confirmedProfile = activeProfile || "default"; const profile = element(); profile.textContent = confirmedProfile; profile.dataset.lfConfirmed = confirmedProfile; profile.setAttribute("aria-expanded", "false"); const profileList = element(); profileList.hidden = true; const profileOptions = ["default", "gaming", "work"].map(function (name) { const option = element(); option.textContent = name; option.dataset.lfKeyboardProfileName = name; option.setAttribute("aria-selected", name === confirmedProfile ? "true" : "false"); return option; }); const save = element(); const saveAs = element(); const remove = element();
     const color = element("#123456"); const scope = element("0"); const apply = element(); const assignment = element(); const close = element();
     const dialog = element(); const name = element(); const create = element(); const cancel = element(); const profileStatus = element(); dialog.children = {"[data-lf-keyboard-profile-name]": name, "[data-lf-keyboard-profile-status]": profileStatus, "[data-lf-keyboard-profile-create]": create, "[data-lf-keyboard-profile-cancel]": cancel};
-    const editorNode = element(); editorNode.hidden = true; const title = element(); const type = element("0"); const command = commandControl("0"); const hold = element(); const status = element(); editorNode.children = {"[data-lf-keyboard-editor-title]": title, "[data-lf-keyboard-type]": type, "[data-lf-keyboard-command]": command, "[data-lf-keyboard-hold]": hold, "[data-lf-keyboard-status]": status};
+    const editorNode = element(); editorNode.hidden = true; const title = element(); const type = element("0"); const command = commandControl("0"); const hold = element(); const delay = element("30"); const delayWrap = element(); const status = element(); editorNode.children = {"[data-lf-keyboard-editor-title]": title, "[data-lf-keyboard-type]": type, "[data-lf-keyboard-command]": command, "[data-lf-keyboard-hold]": hold, "[data-lf-keyboard-delay]": delay, "[data-lf-keyboard-delay-wrap]": delayWrap, "[data-lf-keyboard-status]": status};
     const key = element(); key.textContent = "G6"; key.dataset = {lfKeyIndex: "6", lfDefault: "1", lfActionType: "0", lfActionCommand: "0", lfDeviceId: "", lfActionHold: "0", lfToggleDelay: "30"}; const keyB = element(); keyB.textContent = "G7"; keyB.dataset = Object.assign({}, key.dataset, {lfKeyIndex: "7"}); const keyC = element(); keyC.textContent = "G8"; keyC.dataset = Object.assign({}, key.dataset, {lfKeyIndex: "8"});
     const colorGroup = element(); if (cluster) { colorGroup.setAttribute("aria-disabled", "true"); color.disabled = scope.disabled = apply.disabled = true; }
     const nodes = {"[data-lf-keyboard-editor]": editorNode, "[data-lf-keyboard-assignment-open]": assignment, "[data-lf-keyboard-assignment-close]": close, "[data-lf-keyboard-profile]": profile, "[data-lf-keyboard-profile-list]": profileList, "[data-lf-keyboard-profile-save]": save, "[data-lf-keyboard-profile-new]": saveAs, "[data-lf-keyboard-profile-delete]": remove, "[data-lf-keyboard-profile-dialog]": dialog, "[data-lf-keyboard-color-apply]": apply, "[data-lf-keyboard-color]": color, "[data-lf-keyboard-color-scope]": scope, "[data-lf-keyboard-color-group]": colorGroup};
@@ -153,7 +160,16 @@ test("Keyboard non-default profile deletion posts and reloads", async function (
 });
 
 test("Keyboard assignment panel is closed initially, opens for a selected key, and closes without mutation", async function () {
-    const h = toolbarHarness(false, "gaming"); const editor = h.nodes["[data-lf-keyboard-editor]"]; const open = h.nodes["[data-lf-keyboard-assignment-open]"]; const close = h.nodes["[data-lf-keyboard-assignment-close]"]; assert.equal(editor.hidden, true); assert.equal(close.hidden, true); open.fire("click"); assert.equal(editor.hidden, true); await h.key.fire("click"); open.fire("click"); assert.equal(editor.hidden, false); assert.equal(close.hidden, false); assert.equal(editor.children["[data-lf-keyboard-editor-title]"].textContent, "G6"); close.fire("click"); assert.equal(editor.hidden, true); assert.equal(close.hidden, true); assert.equal(h.posts.length, 0); assert.equal(h.key.dataset.lfDefault, "1");
+    const h = toolbarHarness(false, "gaming"); const editor = h.nodes["[data-lf-keyboard-editor]"]; const open = h.nodes["[data-lf-keyboard-assignment-open]"]; const close = h.nodes["[data-lf-keyboard-assignment-close]"]; assert.equal(editor.hidden, true); assert.equal(close.hidden, true); open.fire("click"); assert.equal(editor.hidden, true); await h.key.fire("click"); open.fire("click"); assert.equal(editor.hidden, false); assert.equal(close.hidden, false); assert.equal(editor.children["[data-lf-keyboard-editor-title]"].textContent, "Key Assignment — G6"); close.fire("click"); assert.equal(editor.hidden, true); assert.equal(close.hidden, true); assert.equal(h.posts.length, 0); assert.equal(h.key.dataset.lfDefault, "1");
+});
+
+test("Assignment fields remain disabled through pending save and current-key option loading", async function () {
+    const h = toolbarHarness(false, "gaming"); const editor = h.nodes["[data-lf-keyboard-editor]"]; const fields = [editor.children["[data-lf-keyboard-type]"], editor.children["[data-lf-keyboard-command]"], editor.children["[data-lf-keyboard-hold]"], editor.children["[data-lf-keyboard-delay]"]]; const close = h.nodes["[data-lf-keyboard-assignment-close]"]; const saveResponse = deferred(); const optionResponse = deferred();
+    h.browser.fetch = function (url, options) { h.posts.push({url: url, options: options}); return url === "/api/keyboard/updateKeyAssignment" ? saveResponse.promise : optionResponse.promise; };
+    await h.key.fire("click"); h.nodes["[data-lf-keyboard-assignment-open]"].fire("click"); const hold = editor.children["[data-lf-keyboard-hold]"]; hold.checked = true; const saving = hold.fire("change"); for (const field of fields) { assert.equal(field.disabled, true); } assert.equal(close.disabled, false); close.fire("click"); assert.equal(editor.hidden, true);
+    h.keyB.dataset.lfActionType = "3"; h.keyB.dataset.lfActionCommand = "9"; const selectingB = h.keyB.fire("click"); for (const field of fields) { assert.equal(field.disabled, true); }
+    saveResponse.resolve({ok: true, json: async function () { return {status: 1}; }}); await saving; assert.equal(h.key.dataset.lfActionHold, "1"); assert.equal(h.keyB.dataset.lfActionHold, "0"); for (const field of fields) { assert.equal(field.disabled, true); }
+    optionResponse.resolve(keyboardResponse(9, "B command")); await selectingB; for (const field of fields) { assert.equal(field.disabled, false); } assert.equal(close.disabled, false);
 });
 
 test("Default keyboard profile permits working-copy edits but blocks Save and Delete", function () {
@@ -184,6 +200,39 @@ test("Unassigned assignment type keeps a disabled placeholder until a real comma
     const c = editor(commandControl()); const key = {}; const loaded = await assignments.populate({fetch: async function () { return keyboardResponse(8, "Real value"); }}, c, {actionType: 3, actionCommand: ""}, 1, key, function () { return true; }); assignments.updateDisabled(c, false, loaded); assert.equal(loaded, true); assert.equal(c.command.value, ""); assert.equal(c.command.children[0].textContent, "Select a value"); assert.equal(c.command.children[0].disabled, true); assert.equal(assignments.canSaveAssignment(loaded, c, {actionType: 3}), false); c.command.value = "8"; assert.equal(assignments.canSaveAssignment(loaded, c, {actionType: 3}), true);
 });
 
-test("Keyboard color selection toggles every click and retains the last selected key as current", async function () {
-    const h = toolbarHarness(false); await h.key.fire("click"); await h.keyB.fire("click"); assert.equal(h.key.getAttribute("aria-pressed"), "true"); assert.equal(h.keyB.getAttribute("aria-pressed"), "true"); await h.keyB.fire("click"); assert.equal(h.key.getAttribute("aria-pressed"), "true"); assert.equal(h.keyB.getAttribute("aria-pressed"), "false"); await h.key.fire("click"); assert.equal(h.key.getAttribute("aria-pressed"), "false");
+async function dragAcross(keys) {
+    await keys[0].fire("pointerdown");
+    for (const key of keys.slice(1)) { await key.fire("pointerenter", {preventDefault: function () {}}); }
+    await keys[keys.length - 1].fire("pointerup");
+    await keys[keys.length - 1].fire("click");
+}
+
+test("Current Key scope keeps one current key and drag moves it", async function () {
+    const h = toolbarHarness(false); await h.key.fire("click"); assert.equal(h.key.getAttribute("aria-pressed"), "true"); assert.equal(h.key.getAttribute("data-lf-current-key"), "true"); await h.keyB.fire("click"); assert.equal(h.key.getAttribute("aria-pressed"), "false"); assert.equal(h.keyB.getAttribute("aria-pressed"), "true"); await h.keyB.fire("click"); assert.equal(h.keyB.getAttribute("aria-pressed"), "false");
+    await dragAcross([h.key, h.keyB, h.keyC]); assert.equal(h.key.getAttribute("aria-pressed"), "false"); assert.equal(h.keyB.getAttribute("aria-pressed"), "false"); assert.equal(h.keyC.getAttribute("aria-pressed"), "true"); assert.equal(h.keyC.getAttribute("data-lf-current-key"), "true");
+    const scope = h.nodes["[data-lf-keyboard-color-scope]"]; scope.value = "3"; await scope.fire("change"); await h.key.fire("click"); scope.value = "0"; await scope.fire("change"); assert.equal(h.key.getAttribute("aria-pressed"), "true"); assert.equal(h.keyC.getAttribute("aria-pressed"), "false");
+});
+
+test("Current Row scope keeps one row anchor and collapses Selected Keys", async function () {
+    const h = toolbarHarness(false); const scope = h.nodes["[data-lf-keyboard-color-scope]"]; scope.value = "3"; await scope.fire("change"); await h.key.fire("click"); await h.keyB.fire("click"); scope.value = "1"; await scope.fire("change"); assert.equal(h.key.getAttribute("aria-pressed"), "false"); assert.equal(h.keyB.getAttribute("aria-pressed"), "true"); await h.keyB.fire("click"); assert.equal(h.keyB.getAttribute("aria-pressed"), "false"); await h.keyB.fire("click"); await dragAcross([h.keyB, h.keyC]); assert.equal(h.keyB.getAttribute("aria-pressed"), "false"); assert.equal(h.keyC.getAttribute("aria-pressed"), "true");
+});
+
+test("All Keys scope keeps one optional current key and does not drag-select", async function () {
+    const h = toolbarHarness(false); const scope = h.nodes["[data-lf-keyboard-color-scope]"]; scope.value = "2"; await scope.fire("change"); await h.key.fire("click"); await h.keyB.fire("click"); assert.equal(h.key.getAttribute("aria-pressed"), "false"); assert.equal(h.keyB.getAttribute("aria-pressed"), "true"); await h.keyB.fire("click"); assert.equal(h.keyB.getAttribute("aria-pressed"), "false"); await dragAcross([h.key, h.keyB, h.keyC]); assert.equal(h.key.getAttribute("aria-pressed"), "false"); assert.equal(h.keyB.getAttribute("aria-pressed"), "false"); assert.equal(h.keyC.getAttribute("aria-pressed"), "true");
+    await h.nodes["[data-lf-keyboard-color-apply]"].fire("click"); assert.equal(JSON.parse(h.posts[h.posts.length - 1].options.body).keyOption, 2);
+});
+
+test("Selected Keys scope supports deterministic select and deselect drags", async function () {
+    const h = toolbarHarness(false); const scope = h.nodes["[data-lf-keyboard-color-scope]"]; scope.value = "3"; await scope.fire("change"); await dragAcross([h.key, h.keyB, h.keyC, h.keyB]); for (const key of [h.key, h.keyB, h.keyC]) { assert.equal(key.getAttribute("aria-pressed"), "true"); } assert.equal(h.keyC.getAttribute("data-lf-current-key"), "true");
+    await dragAcross([h.keyB, h.keyC]); assert.equal(h.key.getAttribute("aria-pressed"), "true"); assert.equal(h.keyB.getAttribute("aria-pressed"), "false"); assert.equal(h.keyC.getAttribute("aria-pressed"), "false"); assert.equal(h.key.getAttribute("data-lf-current-key"), "true");
+    await h.nodes["[data-lf-keyboard-color-apply]"].fire("click"); const payload = JSON.parse(h.posts[h.posts.length - 1].options.body); assert.equal(payload.keyOption, 3); assert.deepEqual(payload.keys, [6]);
+    h.nodes["[data-lf-keyboard-assignment-open]"].fire("click"); assert.equal(h.nodes["[data-lf-keyboard-editor]"].children["[data-lf-keyboard-editor-title]"].textContent, "Key Assignment — G6");
+});
+
+test("Selected Keys click toggles individual keys", async function () {
+    const h = toolbarHarness(false); const scope = h.nodes["[data-lf-keyboard-color-scope]"]; scope.value = "3"; await scope.fire("change"); await h.key.fire("click"); await h.keyB.fire("click"); await h.keyB.fire("click"); assert.equal(h.key.getAttribute("aria-pressed"), "true"); assert.equal(h.keyB.getAttribute("aria-pressed"), "false"); assert.equal(h.key.getAttribute("data-lf-current-key"), "true");
+});
+
+test("Pointer cancellation leaves click selection intact", async function () {
+    const h = toolbarHarness(false); await h.key.fire("pointerdown"); await h.key.fire("pointercancel"); await h.key.fire("click"); assert.equal(h.key.getAttribute("aria-pressed"), "true"); assert.equal(h.key.getAttribute("data-lf-current-key"), "true");
 });
