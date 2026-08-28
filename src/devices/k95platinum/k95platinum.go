@@ -1505,13 +1505,18 @@ func (d *Device) ProcessSetKeyboardPerformance(performance common.KeyboardPerfor
 	if d.DeviceProfile == nil {
 		return 0
 	}
+	d.applyKeyboardPerformanceSave(performance)
+	d.saveDeviceProfile()
+	d.setupPerformance()
+	return 1
+}
+
+func (d *Device) applyKeyboardPerformanceSave(performance common.KeyboardPerformanceData) {
+	d.DeviceProfile.Performance = true
 	d.DeviceProfile.DisableWinKey = performance.WinKey
 	d.DeviceProfile.DisableShiftTab = performance.ShiftTab
 	d.DeviceProfile.DisableAltF4 = performance.AltF4
 	d.DeviceProfile.DisableAltTab = performance.AltTab
-	d.saveDeviceProfile()
-	d.setupPerformance()
-	return 1
 }
 
 // UpdateDeviceKeyAssignment will update device key assignments

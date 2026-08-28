@@ -4,6 +4,7 @@
     const api = factory();
     if (typeof module === "object" && module.exports) { module.exports = api; }
     if (root && root.document) {
+        root.LumenForgeDevicesToast = api.createToast(root, root.document.querySelector("[data-lf-buttons-toast]"));
         const init = function () { api.init(root); };
         if (root.document.readyState === "loading") { root.document.addEventListener("DOMContentLoaded", init); } else { init(); }
     }
@@ -170,7 +171,7 @@
         const workspace = browser.document.querySelector("[data-lf-buttons-workspace]");
         if (!workspace) { return; }
         const cache = createOptionCache();
-        const showToast = createToast(browser, workspace.querySelector("[data-lf-buttons-toast]"));
+        const showToast = browser.LumenForgeDevicesToast || createToast(browser, browser.document.querySelector("[data-lf-buttons-toast]"));
         workspace.querySelectorAll("[data-lf-button-row]").forEach(function (row) { bindRow(browser, workspace, row, cache, showToast); });
     }
     return {bindRow: bindRow, createOptionCache: createOptionCache, createToast: createToast, init: init, localOptions: localOptions, normalizeOptions: normalizeOptions, optionsFor: optionsFor, populate: populate, setOptions: setOptions};

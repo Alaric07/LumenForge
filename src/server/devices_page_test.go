@@ -294,23 +294,53 @@ func TestDevicesWorkspacePerformancePresentationAndViews(t *testing.T) {
 		PollingRate:   &performancepresentation.SelectSetting{Value: 2, Options: []performancepresentation.Option{{Value: 1, Label: "1000 Hz"}, {Value: 2, Label: "500 Hz"}}},
 		AngleSnapping: &performancepresentation.ToggleSetting{Enabled: true},
 		LiftHeight:    &performancepresentation.SelectSetting{Value: 3, Options: []performancepresentation.Option{{Value: 2, Label: "Low"}, {Value: 3, Label: "Medium"}}},
+		BooleanSettings: []performancepresentation.BooleanSetting{
+			{ID: "custom-one", Label: "Custom One", Enabled: true},
+			{ID: "custom-two", Label: "Custom Two"},
+		},
 	}
 	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{
 		serial: {Serial: serial, Product: "Performance device", Instance: devicesPagePerformanceSnapshotProvider{serial: serial, snapshot: performance}},
 	}, map[string]stats.BatteryStats{}, serial)
-	if !ok || summary == nil || summary.DPI != nil || summary.Performance == nil || summary.Performance.PollingRate == nil || summary.Performance.AngleSnapping == nil || summary.Performance.LiftHeight == nil {
+	if !ok || summary == nil || summary.DPI != nil || summary.Performance == nil || summary.Performance.PollingRate == nil || summary.Performance.AngleSnapping == nil || summary.Performance.LiftHeight == nil || len(summary.Performance.BooleanSettings) != 2 {
 		t.Fatalf("Performance Devices summary = %#v, ok=%t", summary, ok)
+	}
+	if got := summary.Performance.BooleanSettings; got[0].ID != "custom-one" || got[1].ID != "custom-two" || !got[0].Enabled || got[1].Enabled {
+		t.Errorf("generic BooleanSettings = %#v, want copied provider order and values", got)
 	}
 	if got := devicesWorkspaceView([]string{"dpi"}, summary); got != "dpi" {
 		t.Errorf("Performance-only workspace view = %q, want dpi", got)
 	}
 	body := renderDevicesPerformanceView(t, nil, summary.Performance)
-	for _, want := range []string{"Performance", "Mouse Settings", "Polling Rate", "Angle Snapping", "Lift Height", `data-lf-performance-kind="pollingRate"`, `data-lf-performance-kind="angleSnapping"`, `data-lf-performance-kind="liftHeight"`} {
-		if !strings.Contains(body, want) { t.Errorf("Performance template omitted %q", want) }
+	for _, want := range []string{"Performance", "Performance Settings", "Polling Rate", "Angle Snapping", "Lift Height", "Custom One", "Custom Two", `data-lf-performance-kind="pollingRate"`, `data-lf-performance-kind="angleSnapping"`, `data-lf-performance-kind="liftHeight"`, `data-lf-performance-setting-id="custom-one"`, `data-lf-performance-setting-id="custom-two"`, `data-lf-buttons-toast`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("Performance template omitted %q", want)
+		}
+	}
+	if strings.Contains(body, "Mouse Settings") {
+		t.Errorf("Performance template rendered an obsolete or unsupported control: %s", body)
+	}
+	if strings.Contains(body, "Saving…") || strings.Contains(body, "Saved.") {
+		t.Errorf("Performance template rendered inline success feedback: %s", body)
 	}
 	unsupported := renderDevicesPerformanceView(t, nil, &devicesPerformanceWorkspaceSummary{AngleSnapping: &devicesPerformanceToggleSummary{Enabled: false}})
 	for _, unwanted := range []string{"Polling Rate", "Lift Height"} {
-		if strings.Contains(unsupported, unwanted) { t.Errorf("unsupported Performance control rendered %q", unwanted) }
+		if strings.Contains(unsupported, unwanted) {
+			t.Errorf("unsupported Performance control rendered %q", unwanted)
+		}
+	}
+}
+
+func TestDevicesPerformanceBooleanSettingsFailClosedWhenMalformed(t *testing.T) {
+	for _, snapshot := range []performancepresentation.Snapshot{
+		{BooleanSettings: []performancepresentation.BooleanSetting{{ID: "", Label: "Missing ID"}}},
+		{BooleanSettings: []performancepresentation.BooleanSetting{{ID: "missing-label", Label: ""}}},
+		{BooleanSettings: []performancepresentation.BooleanSetting{{ID: "duplicate", Label: "First"}, {ID: "duplicate", Label: "Second"}}},
+	} {
+		summary := devicesPerformanceWorkspaceSummaryFromSnapshot(snapshot)
+		if summary != nil {
+			t.Errorf("malformed BooleanSettings produced summary %#v", summary)
+		}
 	}
 }
 
@@ -319,7 +349,7 @@ func TestDevicesWorkspacePerformanceKeepsDPIEditor(t *testing.T) {
 	dpi := &devicesDPIWorkspaceSummary{MinimumDPI: 100, MaximumDPI: 18000, ActiveRegularStageID: "0", RegularStages: []devicesDPIStageSummary{{ID: "0", Name: "Stage 1", DPI: 800, ColorHex: "#102030", Active: true}}, SniperStage: &devicesDPIStageSummary{ID: "5", Name: "Sniper", DPI: 400, ColorHex: "#aabbcc", Sniper: true}}
 	performance := &devicesPerformanceWorkspaceSummary{AngleSnapping: &devicesPerformanceToggleSummary{Enabled: true}}
 	body := renderDevicesPerformanceView(t, dpi, performance)
-	if !strings.Contains(body, ">DPI</h2>") || !strings.Contains(body, "data-lf-dpi-workspace") || !strings.Contains(body, "Mouse Settings") {
+	if !strings.Contains(body, ">DPI</h2>") || !strings.Contains(body, "data-lf-dpi-workspace") || !strings.Contains(body, "Performance Settings") {
 		t.Fatalf("combined Performance view omitted existing DPI editor: %s", body)
 	}
 	if !strings.Contains(body, `href="/devices?device=performance-template-device&amp;view=dpi"`) ||
@@ -337,6 +367,8 @@ func TestDevicesPerformanceRoutesUseExistingRequestPayloads(t *testing.T) {
 		{path: "/api/devices/performance/polling-rate", body: `{"deviceId":"missing-performance-device","pollingRate":2}`},
 		{path: "/api/devices/performance/angle-snapping", body: `{"deviceId":"missing-performance-device","angleSnapping":1}`},
 		{path: "/api/devices/performance/lift-height", body: `{"deviceId":"missing-performance-device","liftHeight":3}`},
+		{path: "/api/devices/performance/keyboard", body: `{"deviceId":"missing-performance-device","perf_winKey":true,"perf_shiftTab":false,"perf_altTab":true,"perf_altF4":false}`},
+		{path: "/api/keyboard/setPerformance", body: `{"deviceId":"missing-performance-device","perf_winKey":true,"perf_shiftTab":false,"perf_altTab":true,"perf_altF4":false}`},
 	} {
 		t.Run(route.path, func(t *testing.T) {
 			recorder := requestOpenRGBLightingMutation(t, router, http.MethodPost, route.path, route.body)

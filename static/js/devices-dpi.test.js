@@ -170,18 +170,38 @@ function performanceControl(kind, confirmed, value, checked) {
 test("shared Performance controls send generic device payloads", async function () {
     const workspace = {dataset: {lfDeviceId: "elite-performance"}};
     const requests = [];
+    const notifications = [];
     const browser = {fetch: function (url, options) {
         requests.push({url: url, body: JSON.parse(options.body)});
         return Promise.resolve({ok: true, json: async function () { return {status: 1}; }});
-    }};
-    assert.equal(await dpi.savePerformanceControl(browser, workspace, performanceControl("pollingRate", 1, 2)), true);
-    assert.equal(await dpi.savePerformanceControl(browser, workspace, performanceControl("angleSnapping", 0, 1, true)), true);
-    assert.equal(await dpi.savePerformanceControl(browser, workspace, performanceControl("liftHeight", 2, 3)), true);
+    }, LumenForgeDevicesToast: function (message, kind, duration) { notifications.push({message: message, kind: kind, duration: duration}); }};
+    const pollingRate = performanceControl("pollingRate", 1, 2);
+    const angleSnapping = performanceControl("angleSnapping", 0, 1, true);
+    const liftHeight = performanceControl("liftHeight", 2, 3);
+    assert.equal(await dpi.savePerformanceControl(browser, workspace, pollingRate), true);
+    assert.equal(await dpi.savePerformanceControl(browser, workspace, angleSnapping), true);
+    assert.equal(await dpi.savePerformanceControl(browser, workspace, liftHeight), true);
     assert.deepEqual(requests, [
         {url: "/api/devices/performance/polling-rate", body: {deviceId: "elite-performance", pollingRate: 2}},
         {url: "/api/devices/performance/angle-snapping", body: {deviceId: "elite-performance", angleSnapping: 1}},
         {url: "/api/devices/performance/lift-height", body: {deviceId: "elite-performance", liftHeight: 3}}
     ]);
+    assert.deepEqual(notifications, [
+        {message: "✓ Saved", kind: "success", duration: 1500},
+        {message: "✓ Saved", kind: "success", duration: 1500},
+        {message: "✓ Saved", kind: "success", duration: 1500}
+    ]);
+    assert.equal([pollingRate, angleSnapping, liftHeight].every(function (control) { return control.status.textContent === ""; }), true);
+});
+
+test("Performance saves suppress inline saving status while requests are pending", async function () {
+    const control = performanceControl("pollingRate", 1, 2);
+    let resolveRequest;
+    const save = dpi.savePerformanceControl({fetch: function () { return new Promise(function (resolve) { resolveRequest = resolve; }); }}, {dataset: {lfDeviceId: "elite-performance"}}, control);
+    assert.equal(control.input.disabled, true);
+    assert.equal(control.status.textContent, "");
+    resolveRequest({ok: true, json: async function () { return {status: 1}; }});
+    await save;
 });
 
 test("failed Performance mutations restore the confirmed control value", async function () {
@@ -196,4 +216,66 @@ test("failed Performance mutations restore the confirmed control value", async f
     assert.equal(await dpi.savePerformanceControl(browser, workspace, toggle), false);
     assert.equal(toggle.input.checked, false);
     assert.equal(toggle.input.disabled, false);
+});
+
+function keyboardPerformanceControl(id, confirmed, checked) {
+    const input = {checked: Boolean(checked), disabled: false};
+    const status = {textContent: ""};
+    return {
+        dataset: {lfPerformanceKind: "keyboardBoolean", lfPerformanceSettingId: id, lfConfirmedValue: confirmed ? "1" : "0"},
+        querySelector: function (selector) {
+            if (selector === "[data-lf-performance-input]") { return input; }
+            if (selector === "[data-lf-performance-status]") { return status; }
+            return null;
+        },
+        input: input,
+        status: status
+    };
+}
+
+function keyboardPerformanceWorkspace(controls) {
+    return {
+        dataset: {lfDeviceId: "k95-performance"},
+        querySelectorAll: function (selector) { return selector === "[data-lf-performance-control]" ? controls : []; }
+    };
+}
+
+test("keyboard Performance sends the complete current boolean configuration", async function () {
+    const controls = [
+        keyboardPerformanceControl("perf_winKey", true, false),
+        keyboardPerformanceControl("perf_shiftTab", false, false),
+        keyboardPerformanceControl("perf_altTab", true, true),
+        keyboardPerformanceControl("perf_altF4", false, false)
+    ];
+    const workspace = keyboardPerformanceWorkspace(controls);
+    const requests = [];
+    const notifications = [];
+    let resolveRequest;
+    const browser = {fetch: function (url, options) {
+        requests.push({url: url, body: JSON.parse(options.body)});
+        return new Promise(function (resolve) { resolveRequest = resolve; });
+    }, LumenForgeDevicesToast: function (message, kind, duration) { notifications.push({message: message, kind: kind, duration: duration}); }};
+    const saving = dpi.savePerformanceControl(browser, workspace, controls[0]);
+    assert.equal(controls.every(function (control) { return control.input.disabled === true && control.status.textContent === ""; }), true);
+    resolveRequest({ok: true, json: async function () { return {status: 1}; }});
+    assert.equal(await saving, true);
+    assert.deepEqual(requests, [{url: "/api/devices/performance/keyboard", body: {
+        deviceId: "k95-performance", perf_winKey: false, perf_shiftTab: false, perf_altTab: true, perf_altF4: false
+    }}]);
+    assert.equal(controls.every(function (control) { return control.input.disabled === false && control.status.textContent === ""; }), true);
+    assert.deepEqual(notifications, [{message: "✓ Saved", kind: "success", duration: 1500}]);
+});
+
+test("failed keyboard Performance save restores the complete confirmed state", async function () {
+    const controls = [
+        keyboardPerformanceControl("perf_winKey", true, false),
+        keyboardPerformanceControl("perf_shiftTab", false, true),
+        keyboardPerformanceControl("perf_altTab", true, false),
+        keyboardPerformanceControl("perf_altF4", false, true)
+    ];
+    const workspace = keyboardPerformanceWorkspace(controls);
+    const browser = {fetch: function () { return Promise.resolve({ok: true, json: async function () { return {status: 0}; }}); }};
+    assert.equal(await dpi.savePerformanceControl(browser, workspace, controls[0]), false);
+    assert.deepEqual(controls.map(function (control) { return control.input.checked; }), [true, false, true, false]);
+    assert.equal(controls.every(function (control) { return control.input.disabled === false && control.status.textContent === "Unable to save setting. Try again."; }), true);
 });

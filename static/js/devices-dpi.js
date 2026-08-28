@@ -21,7 +21,14 @@
     const performanceEndpoints = {
         pollingRate: "/api/devices/performance/polling-rate",
         angleSnapping: "/api/devices/performance/angle-snapping",
-        liftHeight: "/api/devices/performance/lift-height"
+        liftHeight: "/api/devices/performance/lift-height",
+        keyboard: "/api/devices/performance/keyboard"
+    };
+    const keyboardPerformanceFields = {
+        perf_winKey: "perf_winKey",
+        perf_shiftTab: "perf_shiftTab",
+        perf_altTab: "perf_altTab",
+        perf_altF4: "perf_altF4"
     };
 
     function parseDPI(value, minimum, maximum) {
@@ -209,8 +216,17 @@
         return control.dataset.lfPerformanceKind === "angleSnapping" ? (input.checked ? 1 : 0) : Number(input.value);
     }
 
+    function showPerformanceSaved(browser) {
+        if (typeof browser.LumenForgeDevicesToast === "function") {
+            browser.LumenForgeDevicesToast("✓ Saved", "success", 1500);
+        }
+    }
+
     async function savePerformanceControl(browser, workspace, control) {
         const kind = control.dataset.lfPerformanceKind;
+        if (kind === "keyboardBoolean") {
+            return saveKeyboardPerformanceControl(browser, workspace);
+        }
         const endpointForKind = performanceEndpoints[kind];
         const input = control.querySelector("[data-lf-performance-input]");
         const status = control.querySelector("[data-lf-performance-status]");
@@ -221,7 +237,7 @@
         if (!Number.isInteger(value)) { return false; }
         control.dataset.lfSaving = "true";
         input.disabled = true;
-        status.textContent = "Saving…";
+        status.textContent = "";
         const payload = {deviceId: deviceID};
         payload[kind] = value;
         try {
@@ -229,7 +245,8 @@
             const result = response.ok ? await response.json() : null;
             if (!result || result.status !== 1) { throw new Error("save rejected"); }
             control.dataset.lfConfirmedValue = String(value);
-            status.textContent = "Saved.";
+            status.textContent = "";
+            showPerformanceSaved(browser);
             return true;
         } catch (_) {
             if (kind === "angleSnapping") {
@@ -242,6 +259,68 @@
         } finally {
             control.dataset.lfSaving = "false";
             input.disabled = false;
+        }
+    }
+
+    function keyboardPerformanceControls(workspace) {
+        const controls = Array.from(workspace.querySelectorAll("[data-lf-performance-control]"))
+            .filter(function (control) { return control.dataset.lfPerformanceKind === "keyboardBoolean"; });
+        const byID = {};
+        for (const control of controls) {
+            const id = control.dataset.lfPerformanceSettingId;
+            const input = control.querySelector("[data-lf-performance-input]");
+            const status = control.querySelector("[data-lf-performance-status]");
+            if (!Object.prototype.hasOwnProperty.call(keyboardPerformanceFields, id) || byID[id] || !input || !status) {
+                return null;
+            }
+            byID[id] = {control: control, input: input, status: status};
+        }
+        return Object.keys(keyboardPerformanceFields).every(function (id) { return byID[id]; }) && controls.length === Object.keys(keyboardPerformanceFields).length ? byID : null;
+    }
+
+    function keyboardPerformanceState(controls, confirmed) {
+        const state = {};
+        for (const id of Object.keys(keyboardPerformanceFields)) {
+            const value = confirmed ? Number(controls[id].control.dataset.lfConfirmedValue) : (controls[id].input.checked ? 1 : 0);
+            if (value !== 0 && value !== 1) { return null; }
+            state[keyboardPerformanceFields[id]] = value === 1;
+        }
+        return state;
+    }
+
+    function setKeyboardPerformanceControls(controls, disabled, message) {
+        Object.keys(controls).forEach(function (id) {
+            controls[id].input.disabled = disabled;
+            controls[id].status.textContent = message;
+        });
+    }
+
+    async function saveKeyboardPerformanceControl(browser, workspace) {
+        const deviceID = workspace.dataset.lfDeviceId;
+        const controls = keyboardPerformanceControls(workspace);
+        if (!deviceID || !controls || workspace.dataset.lfKeyboardPerformanceSaving === "true") { return false; }
+        const state = keyboardPerformanceState(controls, false);
+        if (!state) { return false; }
+        workspace.dataset.lfKeyboardPerformanceSaving = "true";
+        setKeyboardPerformanceControls(controls, true, "");
+        try {
+            const payload = Object.assign({deviceId: deviceID}, state);
+            const response = await browser.fetch(performanceEndpoints.keyboard, {method: "POST", body: JSON.stringify(payload)});
+            const result = response.ok ? await response.json() : null;
+            if (!result || result.status !== 1) { throw new Error("save rejected"); }
+            Object.keys(controls).forEach(function (id) { controls[id].control.dataset.lfConfirmedValue = controls[id].input.checked ? "1" : "0"; });
+            setKeyboardPerformanceControls(controls, false, "");
+            showPerformanceSaved(browser);
+            return true;
+        } catch (_) {
+            const confirmed = keyboardPerformanceState(controls, true);
+            if (confirmed) {
+                Object.keys(keyboardPerformanceFields).forEach(function (id) { controls[id].input.checked = confirmed[keyboardPerformanceFields[id]]; });
+            }
+            setKeyboardPerformanceControls(controls, false, "Unable to save setting. Try again.");
+            return false;
+        } finally {
+            workspace.dataset.lfKeyboardPerformanceSaving = "false";
         }
     }
 
@@ -293,5 +372,5 @@
         });
     }
 
-    return {applyActiveStageState: applyActiveStageState, createStatusPoller: createStatusPoller, init: init, initPerformance: initPerformance, normalizeColor: normalizeColor, parseDPI: parseDPI, rangeProgress: rangeProgress, savePerformanceControl: savePerformanceControl, selectActiveStage: selectActiveStage, setSniperActive: setSniperActive};
+    return {applyActiveStageState: applyActiveStageState, createStatusPoller: createStatusPoller, init: init, initPerformance: initPerformance, keyboardPerformanceControls: keyboardPerformanceControls, normalizeColor: normalizeColor, parseDPI: parseDPI, rangeProgress: rangeProgress, saveKeyboardPerformanceControl: saveKeyboardPerformanceControl, savePerformanceControl: savePerformanceControl, selectActiveStage: selectActiveStage, setSniperActive: setSniperActive};
 });

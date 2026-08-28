@@ -637,7 +637,7 @@
                     {{ end }}
                     {{ with .Device.Performance }}
                         <section class="lf-performance-workspace" data-lf-performance-workspace data-lf-device-id="{{ $.Device.Serial }}">
-                            <h2 class="lf-workspace-section-heading">Mouse Settings</h2>
+                            <h2 class="lf-workspace-section-heading">Performance Settings</h2>
                             <div class="lf-performance-controls">
                                 {{ with .PollingRate }}
                                     <div class="lf-performance-control" data-lf-performance-control data-lf-performance-kind="pollingRate" data-lf-confirmed-value="{{ .Value }}">
@@ -659,6 +659,12 @@
                                         <p class="lf-range-control-status" data-lf-performance-status aria-live="polite"></p>
                                     </div>
                                 {{ end }}
+                                {{ range .BooleanSettings }}
+                                    <div class="lf-performance-control" data-lf-performance-control data-lf-performance-kind="keyboardBoolean" data-lf-performance-setting-id="{{ .ID }}" data-lf-confirmed-value="{{ if .Enabled }}1{{ else }}0{{ end }}">
+                                        <label class="lf-performance-toggle system-toggle compact" for="lf-performance-{{ .ID }}"><span>{{ .Label }}</span><input id="lf-performance-{{ .ID }}" type="checkbox" data-lf-performance-input{{ if .Enabled }} checked{{ end }}><span class="toggle-track" aria-hidden="true"></span></label>
+                                        <p class="lf-range-control-status" data-lf-performance-status aria-live="polite"></p>
+                                    </div>
+                                {{ end }}
                             </div>
                         </section>
                     {{ end }}
@@ -676,7 +682,7 @@
                                     <td><select class="lf-buttons-select" data-lf-button-command aria-label="{{ .Name }} assignment key"></select><p class="lf-range-control-status lf-buttons-option-status" data-lf-button-status aria-live="polite"></p></td>
                                 </tr>
                             {{ end }}
-                            </tbody></table></div><div class="lf-buttons-toast" data-lf-buttons-toast role="status" aria-live="polite" hidden></div>
+                            </tbody></table></div>
                         </section>
                     {{ end }}
                 {{ else }}
@@ -773,6 +779,7 @@
                         </aside>
                     </section>
                 {{ end }}
+                <div class="lf-buttons-toast" data-lf-buttons-toast role="status" aria-live="polite" hidden></div>
             {{ else }}
                 <header class="lf-workspace-header">
                     <p class="lf-section-kicker">Devices workspace</p>

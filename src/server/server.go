@@ -2569,10 +2569,17 @@ type devicesPerformanceToggleSummary struct {
 	Enabled bool
 }
 
+type devicesPerformanceBooleanSummary struct {
+	ID      string
+	Label   string
+	Enabled bool
+}
+
 type devicesPerformanceWorkspaceSummary struct {
-	PollingRate   *devicesPerformanceSelectSummary
-	AngleSnapping *devicesPerformanceToggleSummary
-	LiftHeight    *devicesPerformanceSelectSummary
+	PollingRate     *devicesPerformanceSelectSummary
+	AngleSnapping   *devicesPerformanceToggleSummary
+	LiftHeight      *devicesPerformanceSelectSummary
+	BooleanSettings []devicesPerformanceBooleanSummary
 }
 
 func devicesPerformanceWorkspaceSummaryFromSnapshot(snapshot performancepresentation.Snapshot) *devicesPerformanceWorkspaceSummary {
@@ -2595,7 +2602,27 @@ func devicesPerformanceWorkspaceSummaryFromSnapshot(snapshot performancepresenta
 	if snapshot.AngleSnapping != nil {
 		summary.AngleSnapping = &devicesPerformanceToggleSummary{Enabled: snapshot.AngleSnapping.Enabled}
 	}
-	if summary.PollingRate == nil && summary.AngleSnapping == nil && summary.LiftHeight == nil {
+	if len(snapshot.BooleanSettings) > 0 {
+		seen := make(map[string]struct{}, len(snapshot.BooleanSettings))
+		settings := make([]devicesPerformanceBooleanSummary, 0, len(snapshot.BooleanSettings))
+		valid := true
+		for _, setting := range snapshot.BooleanSettings {
+			if setting.ID == "" || setting.Label == "" {
+				valid = false
+				break
+			}
+			if _, duplicate := seen[setting.ID]; duplicate {
+				valid = false
+				break
+			}
+			seen[setting.ID] = struct{}{}
+			settings = append(settings, devicesPerformanceBooleanSummary{ID: setting.ID, Label: setting.Label, Enabled: setting.Enabled})
+		}
+		if valid {
+			summary.BooleanSettings = settings
+		}
+	}
+	if summary.PollingRate == nil && summary.AngleSnapping == nil && summary.LiftHeight == nil && len(summary.BooleanSettings) == 0 {
 		return nil
 	}
 	return summary
@@ -4419,6 +4446,7 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/devices/performance/polling-rate", http.MethodPost, changePollingRate)
 	handleFunc(r, "/api/devices/performance/angle-snapping", http.MethodPost, changeAngleSnapping)
 	handleFunc(r, "/api/devices/performance/lift-height", http.MethodPost, changeLiftHeight)
+	handleFunc(r, "/api/devices/performance/keyboard", http.MethodPost, setKeyboardPerformance)
 	handleFunc(r, "/api/devices/dpi", http.MethodPost, saveDevicesDPIWorkspace)
 	handleFunc(r, "/api/devices/dpi/active", http.MethodPost, selectDevicesDPIWorkspaceStage)
 	handleFunc(r, "/api/devices/dpi/sniper", http.MethodPost, setDevicesDPIWorkspaceSniper)
