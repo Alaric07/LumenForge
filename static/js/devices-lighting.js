@@ -300,6 +300,10 @@
         };
     }
 
+    function lightingExternallyOwned(element) {
+        return element.dataset.lfClusterControlled === "true" || element.dataset.lfExternalControlled === "true";
+    }
+
     function openRGBLightingTarget(serial) {
         return {endpoints: openRGBLightingEndpoints, kind: "openrgb", serial: serial};
     }
@@ -333,6 +337,100 @@
         } finally {
             browser.clearTimeout(timeout);
         }
+    }
+
+    const ownershipEndpoints = Object.freeze({
+        cluster: "/api/devices/lighting/rgb-cluster",
+        "openrgb-integration": "/api/devices/lighting/openrgb-integration"
+    });
+    const ownershipTimeoutMilliseconds = 10000;
+
+    function showOwnershipSaved(browser) {
+        if (typeof browser.LumenForgeDevicesToast === "function") {
+            browser.LumenForgeDevicesToast("✓ Saved", "success", 1500);
+        }
+    }
+
+    function updateOwnershipToggleAvailability(controls) {
+        const cluster = controls.find(function (control) { return control.dataset.lfOwnershipKind === "cluster"; });
+        const external = controls.find(function (control) { return control.dataset.lfOwnershipKind === "openrgb-integration"; });
+        const clusterEnabled = cluster && cluster.dataset.lfConfirmedEnabled === "1";
+        const externalEnabled = external && external.dataset.lfConfirmedEnabled === "1";
+        for (const control of controls) {
+            const input = control.querySelector("[data-lf-lighting-ownership-input]");
+            if (!input) { continue; }
+            input.checked = control.dataset.lfConfirmedEnabled === "1";
+            input.disabled = control.dataset.lfReadOnly === "true" ||
+                (control.dataset.lfOwnershipKind === "cluster" && externalEnabled) ||
+                (control.dataset.lfOwnershipKind === "openrgb-integration" && clusterEnabled);
+        }
+    }
+
+    function disableLocalLightingControls(browser) {
+        const document = browser.document;
+        if (!document || typeof document.querySelector !== "function") { return; }
+        const workspace = document.querySelector("[data-lf-lighting-read-only]");
+        if (!workspace || typeof workspace.querySelectorAll !== "function") { return; }
+        const selectors = [
+            "[data-lf-effect-selector]",
+            "[data-lf-brightness-number]",
+            "[data-lf-brightness-slider]",
+            "[data-lf-speed-number]",
+            "[data-lf-speed-slider]",
+            "[data-lf-color-input]",
+            "[data-lf-color-hex]",
+            "[data-lf-two-color-control] input",
+            "[data-lf-temperature-control] input",
+            "[data-lf-gradient-control] input, [data-lf-gradient-control] button",
+            "[data-lf-authored-zone-control] input, [data-lf-authored-zone-control] button"
+        ];
+        for (const selector of selectors) {
+            for (const control of workspace.querySelectorAll(selector)) {
+                control.disabled = true;
+            }
+        }
+        for (const reset of workspace.querySelectorAll("[data-lf-reset-control]")) {
+            reset.hidden = true;
+            for (const control of reset.querySelectorAll("input, button")) {
+                control.disabled = true;
+            }
+        }
+    }
+
+    function bindOwnershipToggle(browser, control, controls) {
+        const input = control.querySelector("[data-lf-lighting-ownership-input]");
+        const status = control.querySelector("[data-lf-lighting-ownership-status]");
+        const endpoint = ownershipEndpoints[control.dataset.lfOwnershipKind];
+        const deviceId = control.dataset.lfDeviceId;
+        if (!input || !status || !endpoint || !deviceId) { return null; }
+        let saving = false;
+        input.addEventListener("change", async function () {
+            if (saving) { return; }
+            const confirmed = control.dataset.lfConfirmedEnabled === "1";
+            const enabled = input.checked;
+            saving = true;
+            input.disabled = true;
+            status.textContent = "";
+            try {
+                await submitLightingMutation(browser, endpoint, {deviceId: deviceId, mode: enabled ? 1 : 0},
+                    ownershipTimeoutMilliseconds, "ownership request failed", "ownership save rejected");
+                control.dataset.lfConfirmedEnabled = enabled ? "1" : "0";
+                updateOwnershipToggleAvailability(controls);
+                if (enabled) { disableLocalLightingControls(browser); }
+                showOwnershipSaved(browser);
+                if (browser.location && typeof browser.location.reload === "function") {
+                    browser.setTimeout(function () { browser.location.reload(); }, 1500);
+                }
+            } catch (_) {
+                input.checked = confirmed;
+                status.textContent = "Unable to save lighting ownership. Try again.";
+                updateOwnershipToggleAvailability(controls);
+            } finally {
+                saving = false;
+                updateOwnershipToggleAvailability(controls);
+            }
+        });
+        return input;
     }
 
     function submitEffectForTarget(browser, target, effect) {
@@ -445,8 +543,7 @@
     }
 
     function bindBrightnessSlider(browser, slider) {
-        const clusterControlled = slider.dataset.lfClusterControlled === "true";
-        if (clusterControlled) {
+        if (lightingExternallyOwned(slider)) {
             return null;
         }
 
@@ -640,7 +737,7 @@
             }
         }
 
-        if (slider.dataset.lfClusterControlled === "true") {
+        if (lightingExternallyOwned(slider)) {
             return null;
         }
 
@@ -731,8 +828,7 @@
     }
 
     function bindEffectSelector(browser, selector) {
-        const clusterControlled = selector.dataset.lfClusterControlled === "true";
-        if (clusterControlled) {
+        if (lightingExternallyOwned(selector)) {
             return null;
         }
 
@@ -772,8 +868,7 @@
     }
 
     function bindColorControl(browser, colorInput) {
-        const clusterControlled = colorInput.dataset.lfClusterControlled === "true";
-        if (clusterControlled) return null;
+        if (lightingExternallyOwned(colorInput)) return null;
         const hexInput = browser.document.getElementById(colorInput.dataset.lfHexId);
         const status = browser.document.getElementById(colorInput.dataset.lfStatusId);
         if (!hexInput) return null;
@@ -834,7 +929,7 @@
     }
 
     function bindTwoColorControl(browser, container) {
-        if (container.dataset.lfClusterControlled === "true") return null;
+        if (lightingExternallyOwned(container)) return null;
 
         const startColor = browser.document.getElementById(container.dataset.lfStartColorId);
         const startHex = browser.document.getElementById(container.dataset.lfStartHexId);
@@ -933,7 +1028,7 @@
     }
 
     function bindTemperatureControl(browser, container) {
-        if (container.dataset.lfClusterControlled === "true") return null;
+        if (lightingExternallyOwned(container)) return null;
 
         const roles = ["Low", "Middle", "High"];
         const points = roles.map(function (role) {
@@ -1071,7 +1166,7 @@
     }
 
     function bindGradientControl(browser, container) {
-        if (container.dataset.lfClusterControlled === "true") return null;
+        if (lightingExternallyOwned(container)) return null;
 
         const rows = browser.document.getElementById(container.dataset.lfRowsId);
         const addButton = browser.document.getElementById(container.dataset.lfAddId);
@@ -1382,8 +1477,7 @@
     }
 
     function bindResetButton(browser, button) {
-        const clusterControlled = button.dataset.lfClusterControlled === "true";
-        if (clusterControlled) return null;
+        if (lightingExternallyOwned(button)) return null;
         const status = browser.document.getElementById(button.dataset.lfStatusId);
         if (!status) return null;
 
@@ -1411,7 +1505,7 @@
     }
 
     function bindAuthoredZoneControl(browser, control) {
-        const clusterControlled = control.dataset.lfClusterControlled === "true";
+        const clusterControlled = lightingExternallyOwned(control);
         const status = browser.document.getElementById(control.dataset.lfStatusId);
         const colorInput = control.querySelector("[data-lf-authored-zone-color]");
         const hexInput = control.querySelector("[data-lf-authored-zone-hex]");
@@ -1559,6 +1653,12 @@
         for (const control of authoredZoneControls) {
             if (!isReadOnly(control)) bindAuthoredZoneControl(browser, control);
         }
+
+        const ownershipControls = Array.from(browser.document.querySelectorAll("[data-lf-lighting-ownership-control]"));
+        updateOwnershipToggleAvailability(ownershipControls);
+        for (const control of ownershipControls) {
+            bindOwnershipToggle(browser, control, ownershipControls);
+        }
     }
 
     return {
@@ -1571,8 +1671,11 @@
         bindGradientControl,
         bindResetButton,
         bindAuthoredZoneControl,
+        bindOwnershipToggle,
         lightingTarget,
         lightingPayload,
+        updateOwnershipToggleAvailability,
+        disableLocalLightingControls,
         revealEffectReset,
         brightnessEndpoint,
         effectEndpoint,

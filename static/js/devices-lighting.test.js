@@ -1347,6 +1347,7 @@ test("multiple brightness controls keep transient success timers isolated", asyn
         if (selector === "[data-lf-gradient-control]") return [];
         if (selector === "[data-lf-reset-button]") return [];
         if (selector === "[data-lf-authored-zone-control]") return [];
+        if (selector === "[data-lf-lighting-ownership-control]") return [];
         assert.equal(selector, "[data-lf-brightness-readout]");
         return [];
     };
@@ -2147,7 +2148,7 @@ test("Lighting initialization tolerates pages without interactive controls", fun
 
     lighting.init(browser);
 
-    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-two-color-control]", "[data-lf-temperature-control]", "[data-lf-gradient-control]", "[data-lf-reset-button]", "[data-lf-authored-zone-control]"]);
+    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-two-color-control]", "[data-lf-temperature-control]", "[data-lf-gradient-control]", "[data-lf-reset-button]", "[data-lf-authored-zone-control]", "[data-lf-lighting-ownership-control]"]);
 });
 
 test("Lighting initialization supports isolated and combined interactive controls", function () {
@@ -3351,4 +3352,158 @@ test("read-only Devices Lighting controls do not bind OpenRGB mutations", functi
     };
     lighting.init(browser);
     assert.equal(bindings, 0);
+});
+
+function ownershipFixture(kind, enabled) {
+    const input = {checked: enabled, disabled: false, handlers: {}, addEventListener: function(event, handler) { this.handlers[event] = handler; }};
+    const status = {textContent: ""};
+    return {
+        dataset: {lfOwnershipKind: kind, lfDeviceId: "ownership-device", lfConfirmedEnabled: enabled ? "1" : "0"},
+        input,
+        status,
+        querySelector: function(selector) {
+            if (selector === "[data-lf-lighting-ownership-input]") return input;
+            if (selector === "[data-lf-lighting-ownership-status]") return status;
+            assert.fail("unexpected selector " + selector);
+        }
+    };
+}
+
+test("Lighting ownership toggles send shared deviceId/mode payloads and use the shared Saved toast", async function() {
+    const cluster = ownershipFixture("cluster", false);
+    const external = ownershipFixture("openrgb-integration", false);
+    const requests = [];
+    const toast = [];
+    const timers = timerFixture();
+    const browser = {
+        AbortController,
+        clearTimeout: timers.clearTimeout,
+        fetch: async function(url, options) { requests.push({url, options}); return {ok: true, json: async function() { return {status: 1}; }}; },
+        LumenForgeDevicesToast: function() { toast.push(Array.from(arguments)); },
+        setTimeout: timers.setTimeout,
+        location: {reload: function() {}}
+    };
+    lighting.bindOwnershipToggle(browser, cluster, [cluster, external]);
+    lighting.bindOwnershipToggle(browser, external, [cluster, external]);
+    cluster.input.checked = true;
+    await cluster.input.handlers.change();
+
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].url, "/api/devices/lighting/rgb-cluster");
+    assert.equal(requests[0].options.method, "POST");
+    assert.equal(requests[0].options.body, JSON.stringify({deviceId: "ownership-device", mode: 1}));
+    assert.ok(requests[0].options.signal instanceof AbortSignal);
+    assert.deepEqual(toast, [["✓ Saved", "success", 1500]]);
+    assert.equal(cluster.status.textContent, "");
+    assert.equal(external.input.disabled, true);
+});
+
+test("Lighting ownership failed saves restore the confirmed state and duplicate changes are guarded", async function() {
+    const cluster = ownershipFixture("cluster", false);
+    let requests = 0;
+    let resolve;
+    const browser = {
+        AbortController,
+        clearTimeout: clearTimeout,
+        fetch: function() { requests++; return new Promise(function(done) { resolve = done; }); },
+        setTimeout: function() { return 1; }
+    };
+    lighting.bindOwnershipToggle(browser, cluster, [cluster]);
+    cluster.input.checked = true;
+    const pending = cluster.input.handlers.change();
+    cluster.input.handlers.change();
+    assert.equal(requests, 1);
+    resolve({ok: true, json: async function() { return {status: 0}; }});
+    await pending;
+    assert.equal(cluster.input.checked, false);
+    assert.equal(cluster.input.disabled, false);
+    assert.equal(cluster.status.textContent, "Unable to save lighting ownership. Try again.");
+});
+
+test("Lighting ownership timeout aborts and restores the confirmed state", async function() {
+    const cluster = ownershipFixture("cluster", false);
+    const timers = timerFixture();
+    let signal;
+    const toast = [];
+    const browser = {
+        AbortController,
+        clearTimeout: timers.clearTimeout,
+        fetch: function(url, options) {
+            assert.equal(url, "/api/devices/lighting/rgb-cluster");
+            signal = options.signal;
+            return new Promise(function(resolve, reject) {
+                signal.addEventListener("abort", function() { reject(new Error("aborted")); });
+            });
+        },
+        LumenForgeDevicesToast: function() { toast.push(Array.from(arguments)); },
+        setTimeout: timers.setTimeout
+    };
+    lighting.bindOwnershipToggle(browser, cluster, [cluster]);
+    cluster.input.checked = true;
+    const pending = cluster.input.handlers.change();
+    timers.fireNext(10000);
+    await pending;
+
+    assert.equal(signal.aborted, true);
+    assert.equal(cluster.input.checked, false);
+    assert.equal(cluster.input.disabled, false);
+    assert.equal(cluster.status.textContent, "Unable to save lighting ownership. Try again.");
+    assert.deepEqual(toast, []);
+});
+
+test("Lighting ownership availability preserves the active toggle and disables only its alternative", function() {
+    const cluster = ownershipFixture("cluster", true);
+    const external = ownershipFixture("openrgb-integration", false);
+    lighting.updateOwnershipToggleAvailability([cluster, external]);
+    assert.equal(cluster.input.disabled, false);
+    assert.equal(external.input.disabled, true);
+
+    cluster.dataset.lfConfirmedEnabled = "0";
+    external.dataset.lfConfirmedEnabled = "1";
+    lighting.updateOwnershipToggleAvailability([cluster, external]);
+    assert.equal(cluster.input.disabled, true);
+    assert.equal(external.input.disabled, false);
+
+    external.dataset.lfConfirmedEnabled = "0";
+    lighting.updateOwnershipToggleAvailability([cluster, external]);
+    assert.equal(cluster.input.disabled, false);
+    assert.equal(external.input.disabled, false);
+});
+
+test("enabling Lighting ownership immediately disables local controls before the Saved reload", async function() {
+    const cluster = ownershipFixture("cluster", false);
+    const external = ownershipFixture("openrgb-integration", false);
+    const localControls = [
+        {disabled: false}, {disabled: false}, {disabled: false}, {disabled: false},
+        {disabled: false}, {disabled: false}, {disabled: false}, {disabled: false},
+        {disabled: false}, {disabled: false}, {disabled: false}
+    ];
+    const resetButton = {disabled: false};
+    const reset = {hidden: false, querySelectorAll: function(selector) { assert.equal(selector, "input, button"); return [resetButton]; }};
+    const workspace = {
+        querySelectorAll: function(selector) {
+            if (selector === "[data-lf-reset-control]") return [reset];
+            return localControls;
+        }
+    };
+    const timers = timerFixture();
+    let reloads = 0;
+    const browser = {
+        AbortController,
+        clearTimeout: timers.clearTimeout,
+        fetch: async function() { return {ok: true, json: async function() { return {status: 1}; }}; },
+        LumenForgeDevicesToast: function() {},
+        setTimeout: timers.setTimeout,
+        location: {reload: function() { reloads++; }},
+        document: {querySelector: function(selector) { assert.equal(selector, "[data-lf-lighting-read-only]"); return workspace; }}
+    };
+    lighting.bindOwnershipToggle(browser, cluster, [cluster, external]);
+    cluster.input.checked = true;
+    await cluster.input.handlers.change();
+
+    for (const local of localControls) assert.equal(local.disabled, true);
+    assert.equal(reset.hidden, true);
+    assert.equal(resetButton.disabled, true);
+    assert.equal(reloads, 0);
+    assert.equal(timers.pending(1500), 1);
 });
