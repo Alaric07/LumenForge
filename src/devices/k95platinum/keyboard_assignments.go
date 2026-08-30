@@ -2,7 +2,6 @@ package k95platinum
 
 import (
 	"LumenForge/src/keyboardassignmentspresentation"
-	"fmt"
 	"sort"
 )
 
@@ -15,9 +14,9 @@ func (d *Device) KeyboardAssignmentsDeviceID() string {
 
 func (d *Device) KeyboardAssignmentsSnapshot() (keyboardassignmentspresentation.Snapshot, bool) {
 	if d == nil || d.DeviceProfile == nil { return keyboardassignmentspresentation.Snapshot{}, false }
-	keyboard := d.DeviceProfile.Keyboards[d.DeviceProfile.Profile]
+	keyboard := d.getCurrentKeyboard()
 	if keyboard == nil { return keyboardassignmentspresentation.Snapshot{}, false }
-	snapshot := keyboardassignmentspresentation.Snapshot{Available: true, Profiles: append([]string(nil), d.DeviceProfile.Profiles...), ActiveProfile: d.DeviceProfile.Profile, ClusterControlled: d.DeviceProfile.RGBCluster, LayoutClass: d.UIKeyboard, RowLayoutClass: d.UIKeyboardRow}
+	snapshot := keyboardassignmentspresentation.Snapshot{Available: true, LiveRGBAvailable: true, LiveRGBEnabled: d.DeviceProfile.KeyboardLiveSync, Profiles: append([]string(nil), d.DeviceProfile.Profiles...), ActiveProfile: d.DeviceProfile.Profile, KeyboardLayouts: append([]string(nil), d.Layouts...), ActiveKeyboardLayout: d.DeviceProfile.Layout, ClusterControlled: d.DeviceProfile.RGBCluster, LayoutClass: d.UIKeyboard, RowLayoutClass: d.UIKeyboardRow}
 	rowIDs := make([]int, 0, len(keyboard.Row))
 	for id := range keyboard.Row { rowIDs = append(rowIDs, id) }
 	sort.Ints(rowIDs)
@@ -29,7 +28,9 @@ func (d *Device) KeyboardAssignmentsSnapshot() (keyboardassignmentspresentation.
 		sort.Ints(keyIDs)
 		for _, keyID := range keyIDs {
 			key := row.Keys[keyID]
-			presented.Keys = append(presented.Keys, keyboardassignmentspresentation.Key{KeyIndex: keyID, KeyName: key.KeyName, SubKeyName: key.SubKeyName, Width: key.Width, Height: key.Height, Left: key.Left, Top: key.Top, CSS: key.Css, KeySpace: key.KeySpace, ExtraCSS: key.ExtraCss, Spacing: append([]int(nil), key.Spacing...), KeyEmpty: append([]string(nil), key.KeyEmpty...), Assignable: !key.OnlyColor, Default: key.Default, ActionType: key.ActionType, ActionCommand: key.ActionCommand, DeviceID: key.DeviceId, ActionHold: key.ActionHold, ToggleDelay: key.ToggleDelay, ProfileSwitch: key.ProfileSwitch, ColorHex: fmt.Sprintf("#%02x%02x%02x", key.Color.Red, key.Color.Green, key.Color.Blue)})
+		red, green, blue := key.Color.Red, key.Color.Green, key.Color.Blue
+		if key.NoColor { red, green, blue = 255, 255, 255 }
+			presented.Keys = append(presented.Keys, keyboardassignmentspresentation.Key{KeyIndex: keyID, KeyName: key.KeyName, SubKeyName: key.SubKeyName, Width: key.Width, Height: key.Height, Left: key.Left, Top: key.Top, CSS: key.Css, KeySpace: key.KeySpace, ExtraCSS: key.ExtraCss, Spacing: append([]int(nil), key.Spacing...), KeyEmpty: append([]string(nil), key.KeyEmpty...), Assignable: !key.OnlyColor, Default: key.Default, NoColor: key.NoColor, ActionType: key.ActionType, ActionCommand: key.ActionCommand, DeviceID: key.DeviceId, ActionHold: key.ActionHold, ToggleDelay: key.ToggleDelay, ProfileSwitch: key.ProfileSwitch, Red: red, Green: green, Blue: blue})
 		}
 		snapshot.Rows = append(snapshot.Rows, presented)
 	}

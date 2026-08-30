@@ -75,6 +75,9 @@ type Device struct {
 	Debug              bool
 	dev                *hid.Device
 	listener           *hid.Device
+	listenerMu         sync.Mutex
+	listenerStop       chan struct{}
+	listenerDone       chan struct{}
 	Manufacturer       string `json:"manufacturer"`
 	Product            string `json:"product"`
 	Serial             string `json:"serial"`
@@ -118,7 +121,6 @@ type Device struct {
 	ledDataMutex       sync.RWMutex
 	dispatch           dispatcher.DeviceDispatcher
 	keyXMap                 map[int]float64
-	defaultKeyboardBaseline *keyboards.Keyboard
 }
 
 var (
@@ -270,6 +272,7 @@ func (d *Device) GetRgbProfiles() interface{} {
 // Stop will stop all device operations and switch a device back to hardware mode
 func (d *Device) Stop() {
 	d.Exit = true
+	d.stopBackendListener()
 	logger.Log(logger.Fields{"serial": d.Serial, "product": d.Product}).Info("Stopping device...")
 	if d.activeRgb != nil {
 		d.activeRgb.Stop()
@@ -298,6 +301,7 @@ func (d *Device) Stop() {
 // StopDirty will stop device in a dirty way
 func (d *Device) StopDirty() uint8 {
 	d.Exit = true
+	d.stopBackendListener()
 	logger.Log(logger.Fields{"serial": d.Serial, "product": d.Product}).Info("Stopping device (dirty)...")
 	if d.activeRgb != nil {
 		d.activeRgb.Stop()
@@ -689,11 +693,7 @@ func (d *Device) saveDeviceProfile() {
 			return
 		}
 
-		defaultKeyboard := d.DeviceProfile.Keyboards["default"]
-		if d.defaultKeyboardBaseline != nil {
-			defaultKeyboard = d.defaultKeyboardBaseline
-		}
-		needsUpgrade, currentVersion := keyboardNeedsUpgrade(defaultKeyboard, layout)
+		needsUpgrade, currentVersion := keyboardNeedsUpgrade(d.DeviceProfile.Keyboards["default"], layout)
 
 		if needsUpgrade {
 			logger.Log(
@@ -704,7 +704,6 @@ func (d *Device) saveDeviceProfile() {
 				},
 			).Info("Upgrading keyboard profile version")
 			d.DeviceProfile.Keyboards["default"] = layout
-			d.defaultKeyboardBaseline = nil
 		} else {
 			logger.Log(
 				logger.Fields{
@@ -721,7 +720,7 @@ func (d *Device) saveDeviceProfile() {
 		deviceProfile.Label = d.DeviceProfile.Label
 		deviceProfile.Profile = d.DeviceProfile.Profile
 		deviceProfile.Profiles = d.DeviceProfile.Profiles
-		deviceProfile.Keyboards = d.keyboardProfilesForSave()
+		deviceProfile.Keyboards = d.DeviceProfile.Keyboards
 		deviceProfile.RGBCluster = d.DeviceProfile.RGBCluster
 		deviceProfile.KeyboardLiveSync = d.DeviceProfile.KeyboardLiveSync
 		deviceProfile.OriginalBrightness = d.DeviceProfile.OriginalBrightness
@@ -762,7 +761,6 @@ func (d *Device) saveDeviceProfile() {
 
 // loadDeviceProfiles will load custom user profiles
 func (d *Device) loadDeviceProfiles() {
-	d.defaultKeyboardBaseline = nil
 	profileList := make(map[string]*DeviceProfile)
 	userProfileDirectory := pwd + "/database/profiles/"
 
@@ -1342,43 +1340,6 @@ func keyboardNeedsUpgrade(keyboard, layout *keyboards.Keyboard) (bool, int) {
 	return keyboard.Version != layout.Version, keyboard.Version
 }
 
-func (d *Device) keyboardProfilesForSave() map[string]*keyboards.Keyboard {
-	if d.defaultKeyboardBaseline == nil {
-		return d.DeviceProfile.Keyboards
-	}
-	profiles := make(map[string]*keyboards.Keyboard, len(d.DeviceProfile.Keyboards))
-	for name, keyboard := range d.DeviceProfile.Keyboards {
-		profiles[name] = keyboard
-	}
-	profiles["default"] = d.defaultKeyboardBaseline
-	return profiles
-}
-
-func (d *Device) restoreDefaultKeyboardBaseline() {
-	if d.defaultKeyboardBaseline == nil || d.DeviceProfile == nil {
-		return
-	}
-	d.DeviceProfile.Keyboards["default"] = d.defaultKeyboardBaseline
-	d.defaultKeyboardBaseline = nil
-}
-
-func (d *Device) editableKeyboard() *keyboards.Keyboard {
-	if d.DeviceProfile == nil {
-		return nil
-	}
-	keyboard := d.getCurrentKeyboard()
-	if d.DeviceProfile.Profile != "default" || d.defaultKeyboardBaseline != nil {
-		return keyboard
-	}
-	workingCopy := cloneKeyboard(keyboard)
-	if workingCopy == nil {
-		return nil
-	}
-	d.defaultKeyboardBaseline = keyboard
-	d.DeviceProfile.Keyboards["default"] = workingCopy
-	return workingCopy
-}
-
 // SaveDeviceProfile will save a new keyboard profile
 func (d *Device) SaveDeviceProfile(profileName string, new bool) uint8 {
 	if new {
@@ -1422,7 +1383,6 @@ func (d *Device) UpdateKeyboardProfile(profileName string) uint8 {
 		return 2
 	}
 
-	d.restoreDefaultKeyboardBaseline()
 	d.DeviceProfile.Profile = profileName
 	d.saveDeviceProfile()
 	// RGB reset
@@ -1579,7 +1539,7 @@ func (d *Device) applyKeyboardPerformanceSave(performance common.KeyboardPerform
 
 // UpdateDeviceKeyAssignment will update device key assignments
 func (d *Device) UpdateDeviceKeyAssignment(keyIndex int, keyAssignment inputmanager.KeyAssignment) uint8 {
-	keyboard := d.editableKeyboard()
+	keyboard := d.getCurrentKeyboard()
 	if keyboard == nil {
 		return 0
 	}
@@ -1597,9 +1557,7 @@ func (d *Device) UpdateDeviceKeyAssignment(keyIndex int, keyAssignment inputmana
 				key.ToggleDelay = keyAssignment.ToggleDelay
 				key.ProfileSwitch = keyAssignment.ProfileSwitch
 				keyboard.Row[rowId].Keys[keyId] = key
-				if d.DeviceProfile.Profile != "default" {
-					d.saveDeviceProfile()
-				}
+				d.saveDeviceProfile()
 				d.setupKeyAssignment()
 				return 1
 			}
@@ -1650,15 +1608,13 @@ func (d *Device) UpdateDeviceColor(keyId, keyOption int, color rgb.Color, select
 	if d.DeviceProfile == nil {
 		return 0
 	}
-	keyboard := d.editableKeyboard()
+	keyboard := d.getCurrentKeyboard()
 	if keyboard == nil {
 		return 0
 	}
 	persist := func() {
 		d.DeviceProfile.RGBProfile = "keyboard"
-		if d.DeviceProfile.Profile != "default" {
-			d.saveDeviceProfile()
-		}
+		d.saveDeviceProfile()
 		if d.activeRgb != nil {
 			d.activeRgb.Exit <- true
 			d.activeRgb = nil
@@ -2167,11 +2123,28 @@ func (d *Device) ProcessSetKeyboardLiveSync(enabled bool) uint8 {
 	return 1
 }
 
+// stopBackendListener closes and waits for the listener owned by this device.
+func (d *Device) stopBackendListener() {
+	d.listenerMu.Lock()
+	stop, done := d.listenerStop, d.listenerDone
+	if stop != nil {
+		close(stop)
+		d.listenerStop = nil
+	}
+	d.listenerMu.Unlock()
+	if done != nil {
+		<-done
+	}
+}
+
 // getListenerData will listen for keyboard events and return data on success or nil on failure.
 // ReadWithTimeout is mandatory due to the nature of listening for events
-func (d *Device) getListenerData() []byte {
+func (d *Device) getListenerData(listener *hid.Device) []byte {
+	if listener == nil {
+		return nil
+	}
 	data := make([]byte, bufferSize)
-	n, err := d.listener.ReadWithTimeout(data, 100*time.Millisecond)
+	n, err := listener.ReadWithTimeout(data, 100*time.Millisecond)
 	if err != nil || n == 0 {
 		return nil
 	}
@@ -2180,14 +2153,42 @@ func (d *Device) getListenerData() []byte {
 
 // controlButtonListener will listen for events from the control buttons
 func (d *Device) backendListener() {
+	d.listenerMu.Lock()
+	if d.listenerStop != nil {
+		d.listenerMu.Unlock()
+		return
+	}
+	stop, done := make(chan struct{}), make(chan struct{})
+	d.listenerStop, d.listenerDone = stop, done
+	d.listenerMu.Unlock()
 	go func() {
+		var listener *hid.Device
+		defer func() {
+			if listener != nil {
+				if err := listener.Close(); err != nil {
+					logger.Log(logger.Fields{"error": err, "vendorId": d.VendorId}).Error("Failed to close listener")
+				}
+			}
+			d.listenerMu.Lock()
+			if d.listener == listener {
+				d.listener = nil
+			}
+			if d.listenerStop == stop {
+				d.listenerStop = nil
+			}
+			if d.listenerDone == done {
+				d.listenerDone = nil
+			}
+			d.listenerMu.Unlock()
+			close(done)
+		}()
 		enum := hid.EnumFunc(func(info *hid.DeviceInfo) error {
 			if info.InterfaceNbr == 0 {
-				listener, err := hid.OpenPath(info.Path)
+				opened, err := hid.OpenPath(info.Path)
 				if err != nil {
 					return err
 				}
-				d.listener = listener
+				listener = opened
 			}
 			return nil
 		})
@@ -2196,21 +2197,30 @@ func (d *Device) backendListener() {
 		if err != nil {
 			logger.Log(logger.Fields{"error": err, "vendorId": d.VendorId}).Error("Unable to enumerate devices")
 		}
+		if listener == nil {
+			return
+		}
+		d.listenerMu.Lock()
+		select {
+		case <-stop:
+			d.listenerMu.Unlock()
+			return
+		default:
+			d.listener = listener
+			d.listenerMu.Unlock()
+		}
 
 		// Listen loop
 		for {
 			select {
+			case <-stop:
+				return
 			default:
 				if d.Exit {
-					err = d.listener.Close()
-					if err != nil {
-						logger.Log(logger.Fields{"error": err, "vendorId": d.VendorId}).Error("Failed to close listener")
-						return
-					}
 					return
 				}
 
-				data := d.getListenerData()
+				data := d.getListenerData(listener)
 				if len(data) == 0 || data == nil {
 					continue
 				}

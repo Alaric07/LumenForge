@@ -9,6 +9,7 @@ type Snapshot struct {
 	AngleSnapping   *ToggleSetting
 	LiftHeight      *SelectSetting
 	BooleanSettings []BooleanSetting
+	SaveBooleanSettings bool
 }
 
 // SelectSetting is a currently selected numeric option and its device-owned

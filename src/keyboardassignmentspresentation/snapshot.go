@@ -4,9 +4,13 @@ package keyboardassignmentspresentation
 
 // Snapshot is a read-only keyboard-assignment capability snapshot.
 type Snapshot struct {
-	Available       bool
-	Profiles        []string
-	ActiveProfile   string
+	Available         bool
+	LiveRGBAvailable  bool
+	LiveRGBEnabled    bool
+	Profiles          []string
+	ActiveProfile     string
+	KeyboardLayouts   []string
+	ActiveKeyboardLayout string
 	ClusterControlled bool
 	LayoutClass, RowLayoutClass string
 	Rows            []Row
@@ -28,12 +32,12 @@ type Key struct {
 	KeySpace, ExtraCSS string
 	Spacing []int
 	KeyEmpty []string
-	Assignable, Default bool
+	Assignable, Default, NoColor bool
 	ActionType uint8
 	ActionCommand uint16
 	DeviceID string
 	ActionHold bool
 	ToggleDelay uint16
 	ProfileSwitch bool
-	ColorHex string
+	Red, Green, Blue float64
 }

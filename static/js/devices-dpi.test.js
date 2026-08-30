@@ -219,7 +219,7 @@ test("failed Performance mutations restore the confirmed control value", async f
 });
 
 function keyboardPerformanceControl(id, confirmed, checked) {
-    const input = {checked: Boolean(checked), disabled: false};
+    const handlers = {}; const pending = []; const input = {checked: Boolean(checked), disabled: false, addEventListener: function (name, handler) { handlers[name] = handler; }, track: function (promise) { pending.push(Promise.resolve(promise)); return promise; }, fire: async function (name) { const result = handlers[name] ? handlers[name]() : undefined; await result; while (pending.length) { await pending.shift(); } }};
     const status = {textContent: ""};
     return {
         dataset: {lfPerformanceKind: "keyboardBoolean", lfPerformanceSettingId: id, lfConfirmedValue: confirmed ? "1" : "0"},
@@ -255,7 +255,7 @@ test("keyboard Performance sends the complete current boolean configuration", as
         requests.push({url: url, body: JSON.parse(options.body)});
         return new Promise(function (resolve) { resolveRequest = resolve; });
     }, LumenForgeDevicesToast: function (message, kind, duration) { notifications.push({message: message, kind: kind, duration: duration}); }};
-    const saving = dpi.savePerformanceControl(browser, workspace, controls[0]);
+    const saving = dpi.saveKeyboardPerformanceControl(browser, workspace);
     assert.equal(controls.every(function (control) { return control.input.disabled === true && control.status.textContent === ""; }), true);
     resolveRequest({ok: true, json: async function () { return {status: 1}; }});
     assert.equal(await saving, true);
@@ -263,7 +263,10 @@ test("keyboard Performance sends the complete current boolean configuration", as
         deviceId: "k95-performance", perf_winKey: false, perf_shiftTab: false, perf_altTab: true, perf_altF4: false
     }}]);
     assert.equal(controls.every(function (control) { return control.input.disabled === false && control.status.textContent === ""; }), true);
-    assert.deepEqual(notifications, [{message: "✓ Saved", kind: "success", duration: 1500}]);
+    assert.equal(notifications.length, 1);
+    assert.equal(notifications[0].message, "✓ Saved");
+    assert.equal(notifications[0].kind, "success");
+    assert.equal(notifications[0].duration, 1500);
 });
 
 test("failed keyboard Performance save restores the complete confirmed state", async function () {
@@ -275,7 +278,24 @@ test("failed keyboard Performance save restores the complete confirmed state", a
     ];
     const workspace = keyboardPerformanceWorkspace(controls);
     const browser = {fetch: function () { return Promise.resolve({ok: true, json: async function () { return {status: 0}; }}); }};
-    assert.equal(await dpi.savePerformanceControl(browser, workspace, controls[0]), false);
+    assert.equal(await dpi.saveKeyboardPerformanceControl(browser, workspace), false);
     assert.deepEqual(controls.map(function (control) { return control.input.checked; }), [true, false, true, false]);
     assert.equal(controls.every(function (control) { return control.input.disabled === false && control.status.textContent === "Unable to save setting. Try again."; }), true);
+});
+
+test("keyboard lockouts save the complete current configuration when changed", async function () {
+    const controls = [
+        keyboardPerformanceControl("perf_winKey", false, false),
+        keyboardPerformanceControl("perf_shiftTab", false, false),
+        keyboardPerformanceControl("perf_altTab", false, false),
+        keyboardPerformanceControl("perf_altF4", false, false)
+    ];
+    const workspace = keyboardPerformanceWorkspace(controls); const requests = []; const notifications = [];
+    const testBrowser = {document: {querySelector: function () { return workspace; }}, fetch: function (url, options) { requests.push({url: url, body: JSON.parse(options.body)}); return controls[0].input.track(Promise.resolve({ok: true, json: async function () { return {status: 1}; }})); }, LumenForgeDevicesToast: function (message, kind, duration) { notifications.push({message: message, kind: kind, duration: duration}); }};
+    dpi.initPerformance(testBrowser); controls[0].input.checked = true; await controls[0].input.fire("change");
+    assert.deepEqual(requests, [{url: "/api/devices/performance/keyboard", body: {deviceId: "k95-performance", perf_winKey: true, perf_shiftTab: false, perf_altTab: false, perf_altF4: false}}]);
+    assert.equal(notifications.length, 1);
+    assert.equal(notifications[0].message, "✓ Saved");
+    assert.equal(notifications[0].kind, "success");
+    assert.equal(notifications[0].duration, 1500);
 });

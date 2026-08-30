@@ -104,58 +104,108 @@ test("Keyboard color payload preserves all four existing scopes", function () {
 
 function element(value) {
     const handlers = {}; const attributes = {};
-    return {value: value || "", checked: false, disabled: false, hidden: false, textContent: "", dataset: {}, options: [{}], addEventListener: function (name, handler) { handlers[name] = handler; }, fire: function (name, event) { return handlers[name](event || {}); }, setAttribute: function (name, value) { attributes[name] = value; }, getAttribute: function (name) { return attributes[name] || null; }, querySelector: function (selector) { return this.children && this.children[selector]; }};
+    return {value: value || "", checked: false, disabled: false, hidden: false, textContent: "", dataset: {}, style: {}, options: [{}], assignmentTarget: false, addEventListener: function (name, handler) { handlers[name] = handler; }, fire: function (name, event) { return handlers[name](event || {}); }, setAttribute: function (name, value) { attributes[name] = value; }, getAttribute: function (name) { return attributes[name] || null; }, hasAttribute: function (name) { return name === "data-lf-keyboard-key" && this.assignmentTarget; }, querySelector: function (selector) { return this.children && this.children[selector]; }};
 }
 
-function toolbarHarness(cluster, activeProfile) {
-    const confirmedProfile = activeProfile || "default"; const profile = element(); profile.textContent = confirmedProfile; profile.dataset.lfConfirmed = confirmedProfile; profile.setAttribute("aria-expanded", "false"); const profileList = element(); profileList.hidden = true; const profileOptions = ["default", "gaming", "work"].map(function (name) { const option = element(); option.textContent = name; option.dataset.lfKeyboardProfileName = name; option.setAttribute("aria-selected", name === confirmedProfile ? "true" : "false"); return option; }); const save = element(); const saveAs = element(); const remove = element();
+function toolbarHarness(cluster, activeProfile, liveEnabled) {
+    const confirmedProfile = activeProfile || "default"; const profile = element(confirmedProfile); const save = element(); const saveAs = element(); const remove = element();
+    const keyboardLayout = element("US"); const keyboardLayoutStatus = element();
     const color = element("#123456"); const scope = element("0"); const apply = element(); const assignment = element(); const close = element();
     const dialog = element(); const name = element(); const create = element(); const cancel = element(); const profileStatus = element(); dialog.children = {"[data-lf-keyboard-profile-name]": name, "[data-lf-keyboard-profile-status]": profileStatus, "[data-lf-keyboard-profile-create]": create, "[data-lf-keyboard-profile-cancel]": cancel};
     const editorNode = element(); editorNode.hidden = true; const title = element(); const type = element("0"); const command = commandControl("0"); const hold = element(); const delay = element("30"); const delayWrap = element(); const status = element(); editorNode.children = {"[data-lf-keyboard-editor-title]": title, "[data-lf-keyboard-type]": type, "[data-lf-keyboard-command]": command, "[data-lf-keyboard-hold]": hold, "[data-lf-keyboard-delay]": delay, "[data-lf-keyboard-delay-wrap]": delayWrap, "[data-lf-keyboard-status]": status};
-    const key = element(); key.textContent = "G6"; key.dataset = {lfKeyIndex: "6", lfDefault: "1", lfActionType: "0", lfActionCommand: "0", lfDeviceId: "", lfActionHold: "0", lfToggleDelay: "30"}; const keyB = element(); keyB.textContent = "G7"; keyB.dataset = Object.assign({}, key.dataset, {lfKeyIndex: "7"}); const keyC = element(); keyC.textContent = "G8"; keyC.dataset = Object.assign({}, key.dataset, {lfKeyIndex: "8"});
+    const key = element(); key.textContent = "G6"; key.assignmentTarget = true; key.dataset = {lfKeyIndex: "6", lfKeyRed: "17", lfKeyGreen: "34", lfKeyBlue: "51", lfNormalColor: "rgba(17, 34, 51, 1)", lfDefault: "1", lfActionType: "0", lfActionCommand: "0", lfDeviceId: "", lfActionHold: "0", lfToggleDelay: "30"}; key.style.color = key.dataset.lfNormalColor; const keyB = element(); keyB.textContent = "G7"; keyB.assignmentTarget = true; keyB.dataset = Object.assign({}, key.dataset, {lfKeyIndex: "7", lfKeyRed: "68", lfKeyGreen: "85", lfKeyBlue: "102", lfNormalColor: "rgba(68, 85, 102, 1)"}); keyB.style.color = keyB.dataset.lfNormalColor; const keyC = element(); keyC.textContent = "G8"; keyC.assignmentTarget = true; keyC.dataset = Object.assign({}, key.dataset, {lfKeyIndex: "8", lfKeyRed: "119", lfKeyGreen: "136", lfKeyBlue: "153", lfNormalColor: "rgba(119, 136, 153, 1)"}); keyC.style.color = keyC.dataset.lfNormalColor; const led = element(); led.textContent = "M1"; led.dataset = {lfKeyIndex: "9", lfKeyRed: "170", lfKeyGreen: "187", lfKeyBlue: "204", lfNormalColor: "rgba(170, 187, 204, 1)"}; led.style.color = led.dataset.lfNormalColor;
     const colorGroup = element(); if (cluster) { colorGroup.setAttribute("aria-disabled", "true"); color.disabled = scope.disabled = apply.disabled = true; }
-    const nodes = {"[data-lf-keyboard-editor]": editorNode, "[data-lf-keyboard-assignment-open]": assignment, "[data-lf-keyboard-assignment-close]": close, "[data-lf-keyboard-profile]": profile, "[data-lf-keyboard-profile-list]": profileList, "[data-lf-keyboard-profile-save]": save, "[data-lf-keyboard-profile-new]": saveAs, "[data-lf-keyboard-profile-delete]": remove, "[data-lf-keyboard-profile-dialog]": dialog, "[data-lf-keyboard-color-apply]": apply, "[data-lf-keyboard-color]": color, "[data-lf-keyboard-color-scope]": scope, "[data-lf-keyboard-color-group]": colorGroup};
-    const keys = [key, keyB, keyC]; const workspace = {dataset: {lfDeviceId: "k95"}, querySelector: function (selector) { return nodes[selector] || null; }, querySelectorAll: function (selector) { if (selector === "[data-lf-keyboard-key]") { return keys; } if (selector === "[data-lf-keyboard-profile-option]") { return profileOptions; } return selector.indexOf("aria-pressed") >= 0 ? keys.filter(function (item) { return item.getAttribute("aria-pressed") === "true"; }) : []; }};
-    const posts = []; const browser = {document: {querySelector: function () { return workspace; }, readyState: "complete"}, fetch: async function (url, options) { posts.push({url: url, options: options}); return browser.response || {ok: true, json: async function () { return {status: 1}; }}; }, location: {reload: function () { browser.reloaded = true; }}, LumenForgeDevicesToast: function () { browser.toasted = true; }};
-    assignments.init(browser); return {browser: browser, nodes: nodes, profileOptions: profileOptions, key: key, keyB: keyB, keyC: keyC, posts: posts};
+    const live = element(); live.checked = Boolean(liveEnabled); const liveStatus = element();
+    const nodes = {"[data-lf-keyboard-editor]": editorNode, "[data-lf-keyboard-assignment-open]": assignment, "[data-lf-keyboard-assignment-close]": close, "[data-lf-keyboard-layout]": keyboardLayout, "[data-lf-keyboard-layout-status]": keyboardLayoutStatus, "[data-lf-keyboard-profile]": profile, "[data-lf-keyboard-profile-save]": save, "[data-lf-keyboard-profile-new]": saveAs, "[data-lf-keyboard-profile-delete]": remove, "[data-lf-keyboard-profile-dialog]": dialog, "[data-lf-keyboard-color-apply]": apply, "[data-lf-keyboard-color]": color, "[data-lf-keyboard-color-scope]": scope, "[data-lf-keyboard-color-group]": colorGroup, "[data-lf-keyboard-live-rgb]": live, "[data-lf-keyboard-live-rgb-status]": liveStatus};
+    const keys = [key, keyB, keyC]; const colorKeys = keys.concat(led); const workspace = {dataset: {lfDeviceId: "k95"}, querySelector: function (selector) { return nodes[selector] || null; }, querySelectorAll: function (selector) { if (selector === "[data-lf-keyboard-key]") { return keys; } if (selector === "[data-lf-keyboard-color-key]" || selector === "[data-lf-key-index]") { return colorKeys; } return selector.indexOf("aria-pressed") >= 0 ? colorKeys.filter(function (item) { return item.getAttribute("aria-pressed") === "true"; }) : []; }};
+    const posts = []; const timers = []; const browser = {document: {querySelector: function () { return workspace; }, readyState: "complete"}, fetch: async function (url, options) { posts.push({url: url, options: options}); return browser.response || {ok: true, json: async function () { return {status: 1}; }}; }, setInterval: function (handler) { const timer = {handler: handler, cleared: false}; timers.push(timer); return timer; }, clearInterval: function (timer) { timer.cleared = true; }, location: {reload: function () { browser.reloaded = true; }}, LumenForgeDevicesToast: function (message, kind) { browser.toasted = true; browser.toastMessage = message; browser.toastKind = kind; }};
+    assignments.init(browser); return {browser: browser, nodes: nodes, workspace: workspace, key: key, keyB: keyB, keyC: keyC, led: led, posts: posts, timers: timers};
 }
 
-test("Keyboard toolbar profile controls post existing payloads for a non-default profile", async function () {
-    const h = toolbarHarness(false, "gaming"); assert.equal(h.nodes["[data-lf-keyboard-profile-delete]"].disabled, false); await h.profileOptions[2].fire("click");
-    assert.deepEqual(JSON.parse(h.posts[0].options.body), {deviceId: "k95", keyboardProfileName: "work", new: false}); assert.equal(h.posts[0].url, "/api/keyboard/profile/change");
-    assert.equal(h.browser.reloaded, true);
+test("Non-assignable RGB positions remain color-selectable without activating assignments", async function () {
+    const h = toolbarHarness(false); await h.led.fire("click"); assert.equal(h.led.getAttribute("aria-pressed"), "true"); assert.equal(h.led.getAttribute("data-lf-current-key"), "true"); assert.equal(h.led.style.color, "rgba(170, 187, 204, 1)"); assert.equal(h.nodes["[data-lf-keyboard-color]"].value, "#aabbcc"); h.nodes["[data-lf-keyboard-assignment-open]"].fire("click"); assert.equal(h.nodes["[data-lf-keyboard-editor]"].hidden, true); assert.equal(h.posts.length, 0); assert.equal(h.browser.toastMessage, "Key assignments are not supported for this LED."); assert.equal(h.browser.toastKind, "warning");
 });
 
-test("Keyboard profile picker activates the selected default entry again", async function () {
-    const h = toolbarHarness(false, "default"); const profile = h.nodes["[data-lf-keyboard-profile]"]; const list = h.nodes["[data-lf-keyboard-profile-list]"];
-    await h.key.fire("click"); const hold = h.nodes["[data-lf-keyboard-editor]"].children["[data-lf-keyboard-hold]"]; hold.checked = true; await hold.fire("change");
-    profile.fire("click"); assert.equal(list.hidden, false); assert.equal(profile.getAttribute("aria-expanded"), "true"); assert.equal(h.profileOptions[0].getAttribute("aria-selected"), "true");
-    await h.profileOptions[0].fire("click");
-    assert.equal(list.hidden, true); assert.equal(h.posts[1].url, "/api/keyboard/profile/change"); assert.deepEqual(JSON.parse(h.posts[1].options.body), {deviceId: "k95", keyboardProfileName: "default", new: false}); assert.equal(h.browser.reloaded, true);
-    assert.equal(h.nodes["[data-lf-keyboard-profile-save]"].disabled, true); assert.equal(h.nodes["[data-lf-keyboard-profile-delete]"].disabled, true);
+test("Non-assignable RGB positions participate in Selected Keys color payloads", async function () {
+    const h = toolbarHarness(false); const scope = h.nodes["[data-lf-keyboard-color-scope]"]; scope.value = "3"; await scope.fire("change"); await h.key.fire("click"); await h.led.fire("click"); await h.nodes["[data-lf-keyboard-color-apply]"].fire("click"); const payload = JSON.parse(h.posts[h.posts.length - 1].options.body); assert.equal(payload.keyOption, 3); assert.deepEqual(payload.keys, [6, 9]);
+});
+
+test("Color Apply updates a non-assignable RGB position's normal visual color", async function () {
+    const h = toolbarHarness(false); await h.led.fire("click"); h.nodes["[data-lf-keyboard-color]"].value = "#c0ffee"; await h.nodes["[data-lf-keyboard-color-apply]"].fire("click"); assert.equal(h.led.dataset.lfNormalColor, "rgba(192, 255, 238, 1)"); assert.equal(h.led.style.color, "rgba(192, 255, 238, 1)"); assert.equal(h.led.dataset.lfKeyRed, "192");
+});
+
+test("Color Apply posts the first selected target once and commits visual color after success", async function () {
+    const h = toolbarHarness(false); const response = deferred(); h.browser.fetch = function (url, options) { h.posts.push({url: url, options: options}); return response.promise; }; await h.led.fire("click"); h.nodes["[data-lf-keyboard-color]"].value = "#c0ffee"; const applying = h.nodes["[data-lf-keyboard-color-apply]"].fire("click"); h.nodes["[data-lf-keyboard-color-apply]"].fire("click"); assert.equal(h.posts.length, 1); assert.deepEqual(JSON.parse(h.posts[0].options.body), {deviceId: "k95", keyId: 9, keyOption: 0, color: {red: 192, green: 255, blue: 238}}); assert.equal(h.led.style.color, "rgba(170, 187, 204, 1)"); response.resolve({ok: true, json: async function () { return {status: 1}; }}); await applying; assert.equal(h.led.style.color, "rgba(192, 255, 238, 1)");
+});
+
+test("Failed Color Apply does not commit a normal visual color", async function () {
+    const h = toolbarHarness(false); h.browser.response = {ok: true, json: async function () { return {status: 0}; }}; await h.led.fire("click"); h.nodes["[data-lf-keyboard-color]"].value = "#c0ffee"; await h.nodes["[data-lf-keyboard-color-apply]"].fire("click"); assert.equal(h.led.dataset.lfNormalColor, "rgba(170, 187, 204, 1)"); assert.equal(h.led.style.color, "rgba(170, 187, 204, 1)");
+});
+
+test("Color Apply updates normal color without replacing an active Live RGB frame", async function () {
+    const h = toolbarHarness(false, "default", true); assignments.renderLiveFrame(h.workspace, {9: {red: 1, green: 2, blue: 3}}); await h.led.fire("click"); h.nodes["[data-lf-keyboard-color]"].value = "#c0ffee"; await h.nodes["[data-lf-keyboard-color-apply]"].fire("click"); assert.equal(JSON.parse(h.posts[0].options.body).keyId, 9); assert.equal(h.led.dataset.lfNormalColor, "rgba(192, 255, 238, 1)"); assert.equal(h.led.style.color, "rgb(1, 2, 3)"); const toggle = h.nodes["[data-lf-keyboard-live-rgb]"]; toggle.checked = false; await toggle.fire("change"); assert.equal(h.led.style.color, "rgba(192, 255, 238, 1)");
+});
+
+test("Live RGB toggle posts enable and disable payloads", async function () {
+    const enable = toolbarHarness(false); const enableToggle = enable.nodes["[data-lf-keyboard-live-rgb]"]; enableToggle.checked = true; await enableToggle.fire("change"); assert.equal(enable.posts[0].url, "/api/keyboard/liveSync"); assert.deepEqual(JSON.parse(enable.posts[0].options.body), {deviceId: "k95", mode: 1}); assert.equal(enable.browser.toasted, true);
+    const disable = toolbarHarness(false, "default", true); const disableToggle = disable.nodes["[data-lf-keyboard-live-rgb]"]; disableToggle.checked = false; await disableToggle.fire("change"); assert.deepEqual(JSON.parse(disable.posts[0].options.body), {deviceId: "k95", mode: 0});
+});
+
+test("Live RGB toggle restores its confirmed state after a failed save", async function () {
+    const h = toolbarHarness(false); h.browser.response = {ok: true, json: async function () { return {status: 0}; }}; const toggle = h.nodes["[data-lf-keyboard-live-rgb]"]; toggle.checked = true; await toggle.fire("change"); assert.equal(toggle.checked, false); assert.equal(toggle.disabled, false); assert.equal(h.nodes["[data-lf-keyboard-live-rgb-status]"].textContent, "Couldn’t save Live RGB setting.");
+});
+
+test("RGB Cluster leaves Live RGB enabled while retaining color editing gates", function () {
+    const h = toolbarHarness(true); assert.equal(h.nodes["[data-lf-keyboard-live-rgb]"].disabled, false); assert.equal(h.nodes["[data-lf-keyboard-color-apply]"].disabled, true);
+});
+
+test("Live RGB frames update matching keys without changing keyboard selection state", function () {
+    const h = toolbarHarness(false); const unmatchedColor = h.keyB.style.color; h.key.setAttribute("aria-pressed", "true"); h.key.setAttribute("data-lf-current-key", "true"); assignments.renderLiveFrame({querySelectorAll: function () { return [h.key, h.keyB, h.keyC]; }}, {6: {red: 1, green: 2, blue: 3}, 8: {red: 10, green: 20, blue: 30}}); assert.equal(h.key.style.color, "rgb(1, 2, 3)"); assert.equal(h.keyC.style.color, "rgb(10, 20, 30)"); assert.equal(h.keyB.style.color, unmatchedColor); assert.equal(h.key.getAttribute("aria-pressed"), "true"); assert.equal(h.key.getAttribute("data-lf-current-key"), "true");
+});
+
+test("Disabling Live RGB restores normal key colors and stops its poller", async function () {
+    const h = toolbarHarness(false, "default", true); assignments.renderLiveFrame({querySelectorAll: function () { return [h.key, h.keyB, h.keyC]; }}, {6: {red: 1, green: 2, blue: 3}}); const toggle = h.nodes["[data-lf-keyboard-live-rgb]"]; toggle.checked = false; await toggle.fire("change"); assert.equal(h.key.style.color, "rgba(17, 34, 51, 1)"); assert.equal(h.timers[0].cleared, true);
+});
+
+test("Live RGB poller avoids overlapping requests and ignores a stopped poller", async function () {
+    const h = toolbarHarness(false, "default", true); const pending = deferred(); h.browser.fetch = function (url, options) { h.posts.push({url: url, options: options}); return pending.promise; }; h.timers[0].handler(); h.timers[0].handler(); assert.equal(h.posts.length, 1); const toggle = h.nodes["[data-lf-keyboard-live-rgb]"]; toggle.checked = false; const disabling = toggle.fire("change"); assert.equal(h.timers[0].cleared, true); pending.resolve({ok: true, json: async function () { return {status: 1, data: {keys: {6: {red: 1, green: 2, blue: 3}}}}; }}); await disabling; assert.equal(h.key.style.color, "rgba(17, 34, 51, 1)");
+});
+
+test("Color and Assignment Preset selector posts the existing profile-change payload", async function () {
+    const h = toolbarHarness(false, "gaming"); assert.equal(h.nodes["[data-lf-keyboard-profile-delete]"].disabled, false); h.nodes["[data-lf-keyboard-profile]"].value = "work"; await h.nodes["[data-lf-keyboard-profile]"].fire("change");
+    assert.deepEqual(JSON.parse(h.posts[0].options.body), {deviceId: "k95", keyboardProfileName: "work", new: false}); assert.equal(h.posts[0].url, "/api/keyboard/profile/change");
+    assert.equal(h.browser.reloaded, true);
 });
 
 test("Keyboard Save posts for an active non-default profile", async function () {
     const h = toolbarHarness(false, "gaming"); await h.nodes["[data-lf-keyboard-profile-save]"].fire("click"); assert.equal(h.posts[0].url, "/api/keyboard/profile/save");
 });
 
-test("Keyboard Save As dialog rejects empty values and creates named profiles", async function () {
-    const h = toolbarHarness(false); const dialog = h.nodes["[data-lf-keyboard-profile-dialog]"]; h.nodes["[data-lf-keyboard-profile-new]"].fire("click"); assert.equal(dialog.hidden, false); await dialog.children["[data-lf-keyboard-profile-create]"].fire("click"); assert.equal(h.posts.length, 0); assert.equal(dialog.children["[data-lf-keyboard-profile-status]"].textContent, "Enter a profile name."); dialog.children["[data-lf-keyboard-profile-name]"].value = "gaming"; await dialog.children["[data-lf-keyboard-profile-create]"].fire("click"); assert.equal(h.posts[0].url, "/api/keyboard/profile/new"); assert.deepEqual(JSON.parse(h.posts[0].options.body), {deviceId: "k95", keyboardProfileName: "gaming", new: true}); assert.equal(h.browser.reloaded, true);
+test("Keyboard Save Preset As dialog rejects empty values and creates named presets", async function () {
+    const h = toolbarHarness(false); const dialog = h.nodes["[data-lf-keyboard-profile-dialog]"]; h.nodes["[data-lf-keyboard-profile-new]"].fire("click"); assert.equal(dialog.hidden, false); await dialog.children["[data-lf-keyboard-profile-create]"].fire("click"); assert.equal(h.posts.length, 0); assert.equal(dialog.children["[data-lf-keyboard-profile-status]"].textContent, "Enter a preset name."); dialog.children["[data-lf-keyboard-profile-name]"].value = "gaming"; await dialog.children["[data-lf-keyboard-profile-create]"].fire("click"); assert.equal(h.posts[0].url, "/api/keyboard/profile/new"); assert.deepEqual(JSON.parse(h.posts[0].options.body), {deviceId: "k95", keyboardProfileName: "gaming", new: true}); assert.equal(h.browser.reloaded, true);
 });
 
 test("RGB Cluster disables only non-default keyboard color controls", function () {
     const h = toolbarHarness(true, "gaming"); assert.equal(h.nodes["[data-lf-keyboard-color]"].disabled, true); assert.equal(h.nodes["[data-lf-keyboard-color-scope]"].disabled, true); assert.equal(h.nodes["[data-lf-keyboard-color-apply]"].disabled, true); assert.equal(h.nodes["[data-lf-keyboard-profile]"].disabled, false); assert.equal(h.nodes["[data-lf-keyboard-profile-save]"].disabled, false); assert.equal(h.nodes["[data-lf-keyboard-profile-new]"].disabled, false); assert.equal(h.nodes["[data-lf-keyboard-profile-delete]"].disabled, false); assert.equal(h.nodes["[data-lf-keyboard-assignment-open]"].disabled, false);
 });
 
-test("Keyboard profile change failure restores the confirmed profile without reloading", async function () {
-    const h = toolbarHarness(false, "gaming"); h.browser.response = {ok: true, json: async function () { return {status: 0}; }}; const profile = h.nodes["[data-lf-keyboard-profile]"]; await h.profileOptions[0].fire("click"); assert.equal(profile.dataset.lfConfirmed, "gaming"); assert.equal(h.browser.reloaded, undefined); assert.equal(h.nodes["[data-lf-keyboard-editor]"].children["[data-lf-keyboard-status]"].textContent, "Couldn’t change keyboard profile.");
+test("Color and Assignment Preset change failure restores the confirmed preset without reloading", async function () {
+    const h = toolbarHarness(false, "gaming"); h.browser.response = {ok: true, json: async function () { return {status: 0}; }}; const profile = h.nodes["[data-lf-keyboard-profile]"]; profile.value = "default"; await profile.fire("change"); assert.equal(profile.value, "gaming"); assert.equal(h.browser.reloaded, undefined); assert.equal(h.nodes["[data-lf-keyboard-editor]"].children["[data-lf-keyboard-status]"].textContent, "Couldn’t change Color & Assignment Preset.");
 });
 
-test("Keyboard Save As failure retains the dialog and entered name", async function () {
-    const h = toolbarHarness(false); h.browser.response = {ok: true, json: async function () { return {status: 0}; }}; const dialog = h.nodes["[data-lf-keyboard-profile-dialog]"]; h.nodes["[data-lf-keyboard-profile-new]"].fire("click"); dialog.children["[data-lf-keyboard-profile-name]"].value = "gaming"; await dialog.children["[data-lf-keyboard-profile-create]"].fire("click"); assert.equal(dialog.hidden, false); assert.equal(dialog.children["[data-lf-keyboard-profile-name]"].value, "gaming"); assert.equal(dialog.children["[data-lf-keyboard-profile-status]"].textContent, "Couldn’t create keyboard profile."); assert.equal(h.browser.reloaded, undefined); assert.equal(h.browser.toasted, undefined);
+test("Keyboard Save Preset As failure retains the dialog and entered name", async function () {
+    const h = toolbarHarness(false); h.browser.response = {ok: true, json: async function () { return {status: 0}; }}; const dialog = h.nodes["[data-lf-keyboard-profile-dialog]"]; h.nodes["[data-lf-keyboard-profile-new]"].fire("click"); dialog.children["[data-lf-keyboard-profile-name]"].value = "gaming"; await dialog.children["[data-lf-keyboard-profile-create]"].fire("click"); assert.equal(dialog.hidden, false); assert.equal(dialog.children["[data-lf-keyboard-profile-name]"].value, "gaming"); assert.equal(dialog.children["[data-lf-keyboard-profile-status]"].textContent, "Couldn’t create Color & Assignment Preset."); assert.equal(h.browser.reloaded, undefined); assert.equal(h.browser.toasted, undefined);
 });
 
-test("Keyboard non-default profile deletion posts and reloads", async function () {
+test("Keyboard Layout posts the selected physical layout and reloads", async function () {
+    const h = toolbarHarness(false); const layout = h.nodes["[data-lf-keyboard-layout]"]; layout.value = "UK"; await layout.fire("change"); assert.equal(h.posts[0].url, "/api/keyboard/layout"); assert.deepEqual(JSON.parse(h.posts[0].options.body), {deviceId: "k95", keyboardLayout: "UK"}); assert.equal(h.browser.reloaded, true);
+});
+
+test("Keyboard Layout failure restores the confirmed physical layout", async function () {
+    const h = toolbarHarness(false); h.browser.response = {ok: true, json: async function () { return {status: 0}; }}; const layout = h.nodes["[data-lf-keyboard-layout]"]; layout.value = "UK"; await layout.fire("change"); assert.equal(layout.value, "US"); assert.equal(h.nodes["[data-lf-keyboard-layout-status]"].textContent, "Couldn’t change keyboard layout.");
+});
+
+test("Color and Assignment Preset deletion posts and reloads", async function () {
     const h = toolbarHarness(false, "gaming"); const profile = h.nodes["[data-lf-keyboard-profile]"]; const remove = h.nodes["[data-lf-keyboard-profile-delete]"]; await remove.fire("click"); assert.equal(remove.disabled, false); assert.equal(h.posts[0].url, "/api/keyboard/profile/delete"); assert.deepEqual(JSON.parse(h.posts[0].options.body), {deviceId: "k95", keyboardProfileName: "gaming", new: false}); assert.equal(h.browser.reloaded, true);
 });
 
@@ -172,11 +222,11 @@ test("Assignment fields remain disabled through pending save and current-key opt
     optionResponse.resolve(keyboardResponse(9, "B command")); await selectingB; for (const field of fields) { assert.equal(field.disabled, false); } assert.equal(close.disabled, false);
 });
 
-test("Default keyboard profile permits working-copy edits but blocks Save and Delete", function () {
+test("Default Color and Assignment Preset permits edits but blocks Save and Delete", function () {
     const h = toolbarHarness(false); for (const selector of ["[data-lf-keyboard-profile]", "[data-lf-keyboard-profile-new]", "[data-lf-keyboard-color]", "[data-lf-keyboard-color-scope]", "[data-lf-keyboard-color-apply]", "[data-lf-keyboard-assignment-open]"]) { assert.equal(h.nodes[selector].disabled, false, selector); } for (const selector of ["[data-lf-keyboard-profile-save]", "[data-lf-keyboard-profile-delete]"]) { assert.equal(h.nodes[selector].disabled, true, selector); } assert.equal(h.nodes["[data-lf-keyboard-editor]"].hidden, true);
 });
 
-test("Non-default keyboard profile enables assignment, Save, Delete, and color editing", function () {
+test("Non-default Color and Assignment Preset enables assignment, Save, Delete, and color editing", function () {
     const h = toolbarHarness(false, "gaming"); for (const selector of ["[data-lf-keyboard-profile]", "[data-lf-keyboard-profile-new]", "[data-lf-keyboard-profile-save]", "[data-lf-keyboard-profile-delete]", "[data-lf-keyboard-color]", "[data-lf-keyboard-color-scope]", "[data-lf-keyboard-color-apply]", "[data-lf-keyboard-assignment-open]"]) { assert.equal(h.nodes[selector].disabled, false, selector); }
 });
 
@@ -184,7 +234,7 @@ test("Non-default assignment edits retain the backend custom-assignment semantic
     const h = toolbarHarness(false, "gaming"); await h.key.fire("click"); const hold = h.nodes["[data-lf-keyboard-editor]"].children["[data-lf-keyboard-hold]"]; hold.checked = true; await hold.fire("change"); assert.equal(h.posts[0].url, "/api/keyboard/updateKeyAssignment"); assert.equal(JSON.parse(h.posts[0].options.body).enabled, false);
 });
 
-test("Default keyboard profile mutations update the working copy but Save and Delete remain guarded", async function () {
+test("Default Color and Assignment Preset mutations remain available while Save and Delete stay guarded", async function () {
     const h = toolbarHarness(false); await h.key.fire("click"); const editorNode = h.nodes["[data-lf-keyboard-editor]"]; editorNode.children["[data-lf-keyboard-hold]"].checked = true; await editorNode.children["[data-lf-keyboard-hold]"].fire("change"); await h.nodes["[data-lf-keyboard-color-apply]"].fire("click"); await h.nodes["[data-lf-keyboard-profile-save]"].fire("click"); await h.nodes["[data-lf-keyboard-profile-delete]"].fire("click"); assert.deepEqual(h.posts.map(function (post) { return post.url; }), ["/api/keyboard/updateKeyAssignment", "/api/keyboard/color"]);
 });
 
@@ -192,8 +242,8 @@ test("Default profile with RGB Cluster keeps Key Assignments and Save As availab
     const h = toolbarHarness(true); assert.equal(h.nodes["[data-lf-keyboard-assignment-open]"].disabled, false); assert.equal(h.nodes["[data-lf-keyboard-profile-new]"].disabled, false); assert.equal(h.nodes["[data-lf-keyboard-profile-save]"].disabled, true); assert.equal(h.nodes["[data-lf-keyboard-profile-delete]"].disabled, true); for (const selector of ["[data-lf-keyboard-color]", "[data-lf-keyboard-color-scope]", "[data-lf-keyboard-color-apply]"]) { assert.equal(h.nodes[selector].disabled, true, selector); }
 });
 
-test("Save As from default follows the edited working state through the existing create route", async function () {
-    const h = toolbarHarness(false); await h.key.fire("click"); const hold = h.nodes["[data-lf-keyboard-editor]"].children["[data-lf-keyboard-hold]"]; hold.checked = true; await hold.fire("change"); const dialog = h.nodes["[data-lf-keyboard-profile-dialog]"]; h.nodes["[data-lf-keyboard-profile-new]"].fire("click"); dialog.children["[data-lf-keyboard-profile-name]"].value = "workingcopy"; await dialog.children["[data-lf-keyboard-profile-create]"].fire("click"); assert.equal(h.posts[0].url, "/api/keyboard/updateKeyAssignment"); assert.equal(h.posts[1].url, "/api/keyboard/profile/new"); assert.equal(JSON.parse(h.posts[1].options.body).keyboardProfileName, "workingcopy");
+test("Save As from default follows the edited state through the existing create route", async function () {
+    const h = toolbarHarness(false); await h.key.fire("click"); const hold = h.nodes["[data-lf-keyboard-editor]"].children["[data-lf-keyboard-hold]"]; hold.checked = true; await hold.fire("change"); const dialog = h.nodes["[data-lf-keyboard-profile-dialog]"]; h.nodes["[data-lf-keyboard-profile-new]"].fire("click"); dialog.children["[data-lf-keyboard-profile-name]"].value = "editeddefault"; await dialog.children["[data-lf-keyboard-profile-create]"].fire("click"); assert.equal(h.posts[0].url, "/api/keyboard/updateKeyAssignment"); assert.equal(h.posts[1].url, "/api/keyboard/profile/new"); assert.equal(JSON.parse(h.posts[1].options.body).keyboardProfileName, "editeddefault");
 });
 
 test("Unassigned assignment type keeps a disabled placeholder until a real command is chosen", async function () {

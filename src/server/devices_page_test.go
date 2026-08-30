@@ -3,6 +3,7 @@ package server
 import (
 	"LumenForge/src/common"
 	"LumenForge/src/config"
+	"LumenForge/src/deviceprofilepresentation"
 	"LumenForge/src/devices"
 	"LumenForge/src/devices/openrgbimport"
 	"LumenForge/src/dpipresentation"
@@ -46,6 +47,10 @@ type devicesPageKeyboardAssignmentsSnapshotProvider struct { serial string; snap
 func (provider devicesPageKeyboardAssignmentsSnapshotProvider) KeyboardAssignmentsDeviceID() string { return provider.serial }
 func (provider devicesPageKeyboardAssignmentsSnapshotProvider) KeyboardAssignmentsSnapshot() (keyboardassignmentspresentation.Snapshot, bool) { return provider.snapshot, true }
 
+type devicesPageDeviceProfileSnapshotProvider struct { serial string; snapshot deviceprofilepresentation.Snapshot }
+func (provider devicesPageDeviceProfileSnapshotProvider) DeviceProfileDeviceID() string { return provider.serial }
+func (provider devicesPageDeviceProfileSnapshotProvider) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bool) { return provider.snapshot, true }
+
 func (provider devicesPageDPISnapshotProvider) DPIDeviceID() string {
 	return provider.serial
 }
@@ -68,32 +73,55 @@ func (provider devicesPageLightingSnapshotProvider) LightingSnapshot() (lighting
 	return provider.snapshot, true
 }
 
-func TestDevicesWorkspaceKeyboardAssignmentsPresentationAndView(t *testing.T) {
+func TestDevicesWorkspaceKeyboardPresentationAndView(t *testing.T) {
 	const serial = "keyboard-assignment-device"
 	snapshot := keyboardassignmentspresentation.Snapshot{
 		Available: true,
-		Profiles: []string{"default"}, ActiveProfile: "default",
+		LiveRGBAvailable: true, LiveRGBEnabled: true,
+		Profiles: []string{"default"}, ActiveProfile: "default", KeyboardLayouts: []string{"US", "UK"}, ActiveKeyboardLayout: "US",
 		LayoutClass: "keyboard-8", RowLayoutClass: "keyboard-row-26",
-		Rows: []keyboardassignmentspresentation.Row{{Index: 0, CSS: "keyboard-row-26", Keys: []keyboardassignmentspresentation.Key{{KeyIndex: 11, KeyName: "G1", Width: 1, Height: 1, KeySpace: "keyboard-key wide3", CSS: "top-32", Spacing: []int{0}, KeyEmpty: []string{"keyboard-key-empty"}, Assignable: true}, {KeyIndex: 12, KeyName: "M1", Width: 1, Height: 1, Assignable: false}}}},
+		Rows: []keyboardassignmentspresentation.Row{{Index: 0, CSS: "keyboard-row-26", Keys: []keyboardassignmentspresentation.Key{{KeyIndex: 11, KeyName: "G1", Width: 1, Height: 1, KeySpace: "keyboard-key wide3", CSS: "top-32", Spacing: []int{0}, KeyEmpty: []string{"keyboard-key-empty"}, Assignable: true, Red: 12.5, Green: 34, Blue: 56}, {KeyIndex: 12, KeyName: "M1", Width: 1, Height: 1, Assignable: false, Red: 0, Green: 255, Blue: 255}}}},
 		AssignmentTypes: []keyboardassignmentspresentation.AssignmentType{{ID: 0, Label: "None"}, {ID: 10, Label: "Macro"}},
 	}
 	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "Keyboard", Instance: devicesPageKeyboardAssignmentsSnapshotProvider{serial: serial, snapshot: snapshot}}}, map[string]stats.BatteryStats{}, serial)
 	if !ok || summary.KeyboardAssignments == nil { t.Fatalf("summary = %#v, ok=%t", summary, ok) }
 	if got := summary.KeyboardAssignments.Rows[0].Keys; got[0].KeyIndex != 11 || got[0].KeySpace != "keyboard-key wide3" || len(got[0].Spacing) != 1 || len(got[0].KeyEmpty) != 1 || !got[0].Assignable || got[1].Assignable { t.Errorf("presented keys = %#v", got) }
-	if got := devicesWorkspaceView([]string{"key-assignments"}, summary); got != "key-assignments" { t.Errorf("view = %q", got) }
+	if got := devicesWorkspaceView([]string{"keyboard"}, summary); got != "keyboard" { t.Errorf("view = %q", got) }
+	if got := devicesWorkspaceView([]string{"key-assignments"}, summary); got != "overview" { t.Errorf("retired view = %q", got) }
+	summary.Performance = &devicesPerformanceWorkspaceSummary{PollingRate: &devicesPerformanceSelectSummary{Value: 1, Options: []devicesPerformanceOptionSummary{{Value: 1, Label: "1000 Hz"}}}, BooleanSettings: []devicesPerformanceBooleanSummary{{ID: "perf_winKey", Label: "Disable Win Key"}, {ID: "perf_shiftTab", Label: "Disable Shift + Tab"}, {ID: "perf_altTab", Label: "Disable Alt + Tab"}, {ID: "perf_altF4", Label: "Disable Alt + F4"}}}
+	if got := devicesWorkspaceView([]string{"dpi"}, summary); got != "overview" { t.Errorf("retired performance view = %q", got) }
 	var rendered bytes.Buffer
-	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: {Serial: serial, Product: "Keyboard"}}, Device: &devicesWorkspaceSummary{Serial: serial, Product: "Keyboard", KeyboardAssignments: summary.KeyboardAssignments, View: "key-assignments"}, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil { t.Fatal(err) }
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: {Serial: serial, Product: "Keyboard"}}, Device: &devicesWorkspaceSummary{Serial: serial, Product: "Keyboard", KeyboardAssignments: summary.KeyboardAssignments, Performance: summary.Performance, DeviceProfiles: &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"default", "studio"}, ActiveProfile: "default"}, View: "keyboard"}, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil { t.Fatal(err) }
 	body := rendered.String()
-	for _, expected := range []string{"data-lf-keyboard-assignments-workspace", "data-lf-keyboard-key", "data-lf-keyboard-editor", "data-lf-keyboard-assignment-close", "keyboard-8", "keyboard-row-26", "keyboard-key wide3", "keyboard-key-empty", "Macro"} { if !strings.Contains(body, expected) { t.Errorf("missing %q", expected) } }
-	if strings.Contains(body, "lf-buttons-table") { t.Error("keyboard workspace rendered table-based button UI") }
-	if strings.Contains(body, "data-lf-keyboard-control") || strings.Contains(body, "Device ↔ LumenForge") { t.Error("keyboard workspace rendered the removed per-key ownership toggle") }
+	for _, expected := range []string{"data-lf-keyboard-assignments-workspace", "data-lf-keyboard-key", "data-lf-keyboard-color-key", "data-lf-keyboard-editor", "data-lf-keyboard-assignment-close", "keyboard-8", "keyboard-row-26", "keyboard-key wide3", "keyboard-key-empty", "Macro", `data-lf-key-red="12.5"`, `data-lf-normal-color="rgba(12.5, 34, 56, 1)"`} { if !strings.Contains(body, expected) { t.Errorf("missing %q", expected) } }
+	for _, expected := range []string{"data-lf-keyboard-live-rgb checked", "Key Assignments"} { if !strings.Contains(body, expected) { t.Errorf("missing %q", expected) } }
+	for _, expected := range []string{"lf-keyboard-settings-card", "data-lf-keyboard-settings-card", "Changes save automatically.", "lf-keyboard-lockouts-card", "data-lf-keyboard-lockouts-card", "Keyboard Settings", "Keyboard Layout", `select id="lf-keyboard-layout" class="lf-buttons-select" data-lf-keyboard-layout`, `option value="US" selected`, "Polling Rate", "Key Lockouts", "Color &amp; Key Assignments", "Color &amp; Assignment Preset", `select id="lf-keyboard-layout-profile" class="lf-buttons-select" data-lf-keyboard-profile`, `option value="default" selected>Working Configuration`, "Save Preset As", "Save Preset", "Delete Preset", "data-lf-device-profiles-workspace", "Device Profile", "Saves the complete keyboard configuration, including settings, lockouts, colors, assignments, and presets.", "Save Device Profile As", "Delete Device Profile", `href="/devices?device=keyboard-assignment-device&amp;view=keyboard"`, ">Keyboard</a>"} { if !strings.Contains(body, expected) { t.Errorf("missing %q", expected) } }
+	previous := -1
+	for _, expected := range []string{"Keyboard Settings", "Key Lockouts", "Color &amp; Key Assignments", "Color &amp; Assignment Preset", "lf-keyboard-visualization", "data-lf-keyboard-color-apply", "data-lf-keyboard-assignment-open", "Device Profile"} {
+		position := strings.Index(body, expected)
+		if position < 0 || position <= previous { t.Errorf("keyboard workspace order omitted or misplaced %q", expected) }
+		previous = position
+	}
+	if count := strings.Count(body, "data-lf-device-profiles-workspace"); count != 1 { t.Errorf("device profile workspace count = %d, want 1", count) }
+	for _, removed := range []string{">Performance</a>", ">Key Assignments</a>", "Save Performance Settings", "Save Key Lockouts"} { if strings.Contains(body, removed) { t.Errorf("keyboard workspace retained %q", removed) } }
 	for _, expected := range []string{"data-lf-keyboard-profile-save disabled", "data-lf-keyboard-profile-delete disabled"} { if !strings.Contains(body, expected) { t.Errorf("default profile did not disable %q", expected) } }
 	for _, forbidden := range []string{"data-lf-keyboard-assignment-open disabled", "data-lf-keyboard-color value=\"#ffffff\" disabled", "data-lf-keyboard-color-scope disabled", "data-lf-keyboard-color-apply disabled"} { if strings.Contains(body, forbidden) { t.Errorf("default profile incorrectly disabled %q", forbidden) } }
 	for _, obsolete := range []string{"--lf-key-width", "--lf-key-height", "--lf-key-left", "--lf-key-top", "--lf-row-top"} { if strings.Contains(body, obsolete) { t.Errorf("keyboard workspace rendered raw coordinate layout %q", obsolete) } }
 	styles, err := os.ReadFile(filepath.Join("..", "..", "static", "css", "app-shell.css"))
 	if err != nil { t.Fatal(err) }
-	for _, expected := range []string{"repeat(26, var(--lf-kb-key))", "--lf-kb-gap", ".lf-keyboard-placeholder"} { if !strings.Contains(string(styles), expected) { t.Errorf("keyboard grid CSS missing %q", expected) } }
+	for _, expected := range []string{"repeat(26, var(--lf-kb-key-width))", "--lf-kb-column-gap", ".lf-keyboard-placeholder", "button.lf-keyboard-key-static { opacity: 1; cursor: pointer; }"} { if !strings.Contains(string(styles), expected) { t.Errorf("keyboard grid CSS missing %q", expected) } }
 	for _, obsolete := range []string{"flex: var(--lf-key-width)", "margin-left: calc(var(--lf-key-left)", "top: calc(var(--lf-key-top)"} { if strings.Contains(string(styles), obsolete) { t.Errorf("keyboard grid CSS retained raw layout %q", obsolete) } }
+}
+
+func TestDevicesOverviewDeviceProfilePresentation(t *testing.T) {
+	const serial = "device-profile-device"
+	snapshot := deviceprofilepresentation.Snapshot{Supported: true, Profiles: []string{"default", "studio"}, ActiveProfile: "default"}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "Keyboard", Instance: devicesPageDeviceProfileSnapshotProvider{serial: serial, snapshot: snapshot}}}, map[string]stats.BatteryStats{}, serial)
+	if !ok || summary.DeviceProfiles == nil || summary.DeviceProfiles.ActiveProfile != "default" { t.Fatalf("summary = %#v, ok=%t", summary, ok) }
+	var rendered bytes.Buffer
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: {Serial: serial, Product: "Keyboard"}}, Device: summary, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil { t.Fatal(err) }
+	body := rendered.String()
+	for _, expected := range []string{"data-lf-device-profiles-workspace", "Device Profile", "Save Device Profile As", "Device Profile to delete", "Delete Device Profile", `select id="lf-device-profile" class="lf-buttons-select" data-lf-device-profile`, `option value="default" selected`, `option value="studio"`} { if !strings.Contains(body, expected) { t.Errorf("missing %q", expected) } }
 }
 
 func TestOpenRGBLegacyTemplateOmitsDuplicateLightingControls(t *testing.T) {

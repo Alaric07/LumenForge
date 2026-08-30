@@ -127,7 +127,7 @@
                     <div class="lf-device-hero-copy">
                         <p class="lf-device-hero-context">{{ if .Device.OpenRGB }}OpenRGB imported controller{{ else }}Selected device{{ end }}</p>
                         <h1 class="lf-workspace-title">{{ .Device.Product }}</h1>
-                        <p class="lf-workspace-description">{{ if eq .Device.View "lighting" }}Stored lighting configuration and renderer capabilities{{ else if eq .Device.View "dpi" }}Configure mouse sensitivity, stage colors, and device performance settings{{ else if eq .Device.View "buttons" }}Configure physical button assignments{{ else if eq .Device.View "key-assignments" }}Configure keyboard key assignments{{ else }}Device overview and configured hardware details{{ end }}</p>
+                        <p class="lf-workspace-description">{{ if eq .Device.View "lighting" }}Stored lighting configuration and renderer capabilities{{ else if eq .Device.View "dpi" }}Configure mouse sensitivity, stage colors, and device performance settings{{ else if eq .Device.View "buttons" }}Configure physical button assignments{{ else if eq .Device.View "keyboard" }}Configure keyboard settings, colors, and assignments{{ else }}Device overview and configured hardware details{{ end }}</p>
                         <div class="lf-device-hero-facts">
                             {{ if .Device.Unavailable }}<span class="lf-device-hero-fact lf-device-hero-fact-unavailable">Unavailable</span>{{ end }}
                             {{ if eq .Device.View "lighting" }}
@@ -149,18 +149,18 @@
                 </header>
 
                 <nav class="lf-device-workspace-nav" aria-label="Device workspace">
-                    <a class="lf-device-workspace-link{{ if and (ne .Device.View "lighting") (ne .Device.View "dpi") (ne .Device.View "buttons") (ne .Device.View "key-assignments") }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}"{{ if and (ne .Device.View "lighting") (ne .Device.View "dpi") (ne .Device.View "buttons") (ne .Device.View "key-assignments") }} aria-current="page"{{ end }}>Overview</a>
+                    <a class="lf-device-workspace-link{{ if and (ne .Device.View "lighting") (ne .Device.View "dpi") (ne .Device.View "buttons") (ne .Device.View "keyboard") }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}"{{ if and (ne .Device.View "lighting") (ne .Device.View "dpi") (ne .Device.View "buttons") (ne .Device.View "keyboard") }} aria-current="page"{{ end }}>Overview</a>
                     {{ if .Device.Lighting }}
                         <a class="lf-device-workspace-link{{ if eq .Device.View "lighting" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=lighting"{{ if eq .Device.View "lighting" }} aria-current="page"{{ end }}>Lighting</a>
                     {{ end }}
-                    {{ if or .Device.DPI .Device.Performance }}
+                    {{ if and (not .Device.KeyboardAssignments) (or .Device.DPI .Device.Performance) }}
                         <a class="lf-device-workspace-link{{ if eq .Device.View "dpi" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=dpi"{{ if eq .Device.View "dpi" }} aria-current="page"{{ end }}>Performance</a>
                     {{ end }}
                     {{ if .Device.Buttons }}
                         <a class="lf-device-workspace-link{{ if eq .Device.View "buttons" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=buttons"{{ if eq .Device.View "buttons" }} aria-current="page"{{ end }}>Key Assignments</a>
                     {{ end }}
                     {{ if .Device.KeyboardAssignments }}
-                        <a class="lf-device-workspace-link{{ if eq .Device.View "key-assignments" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=key-assignments"{{ if eq .Device.View "key-assignments" }} aria-current="page"{{ end }}>Key Assignments</a>
+                        <a class="lf-device-workspace-link{{ if eq .Device.View "keyboard" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=keyboard"{{ if eq .Device.View "keyboard" }} aria-current="page"{{ end }}>Keyboard</a>
                     {{ end }}
                 </nav>
 
@@ -668,9 +668,30 @@
                             </tbody></table></div>
                         </section>
                     {{ end }}
-                {{ else if eq .Device.View "key-assignments" }}
+                {{ else if eq .Device.View "keyboard" }}
                     {{ with .Device.KeyboardAssignments }}
-                        <section class="lf-keyboard-assignments-workspace" data-lf-keyboard-assignments-workspace data-lf-device-id="{{ $.Device.Serial }}">
+                        <div class="lf-keyboard-workspace">
+                            {{ if or .KeyboardLayouts $.Device.Performance }}
+                                <div class="lf-keyboard-performance-workspace" data-lf-performance-workspace data-lf-device-id="{{ $.Device.Serial }}">
+                                    <section class="lf-keyboard-configuration-card lf-keyboard-settings-card" data-lf-keyboard-settings-card>
+                                    <h2 class="lf-workspace-section-heading">Keyboard Settings</h2>
+                                    <p class="lf-keyboard-card-description">Changes save automatically.</p>
+                                    <div class="lf-performance-controls">
+                                        {{ if and .KeyboardLayouts .ActiveKeyboardLayout }}<div class="lf-performance-control"><label class="lf-keyboard-layout-select" for="lf-keyboard-layout"><span>Keyboard Layout</span><select id="lf-keyboard-layout" class="lf-buttons-select" data-lf-keyboard-layout aria-label="Keyboard Layout">{{ $activeKeyboardLayout := .ActiveKeyboardLayout }}{{ range .KeyboardLayouts }}<option value="{{ . }}"{{ if eq . $activeKeyboardLayout }} selected{{ end }}>{{ . }}</option>{{ end }}</select></label><p class="lf-range-control-status" data-lf-keyboard-layout-status aria-live="polite"></p></div>{{ end }}
+                                        {{ with $.Device.Performance }}
+                                            {{ with .PollingRate }}<div class="lf-performance-control" data-lf-performance-control data-lf-performance-kind="pollingRate" data-lf-confirmed-value="{{ .Value }}"><label for="lf-performance-polling-rate">Polling Rate</label><select id="lf-performance-polling-rate" data-lf-performance-input aria-label="Polling Rate">{{ $selected := .Value }}{{ range .Options }}<option value="{{ .Value }}"{{ if eq .Value $selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select><p class="lf-range-control-status" data-lf-performance-status aria-live="polite"></p></div>{{ end }}
+                                            {{ with .AngleSnapping }}<div class="lf-performance-control" data-lf-performance-control data-lf-performance-kind="angleSnapping" data-lf-confirmed-value="{{ if .Enabled }}1{{ else }}0{{ end }}"><label class="lf-performance-toggle system-toggle compact" for="lf-performance-angle-snapping"><span>Angle Snapping</span><input id="lf-performance-angle-snapping" type="checkbox" data-lf-performance-input{{ if .Enabled }} checked{{ end }}><span class="toggle-track" aria-hidden="true"></span></label><p class="lf-range-control-status" data-lf-performance-status aria-live="polite"></p></div>{{ end }}
+                                            {{ with .LiftHeight }}<div class="lf-performance-control" data-lf-performance-control data-lf-performance-kind="liftHeight" data-lf-confirmed-value="{{ .Value }}"><label for="lf-performance-lift-height">Lift Height</label><select id="lf-performance-lift-height" data-lf-performance-input aria-label="Lift Height">{{ $selected := .Value }}{{ range .Options }}<option value="{{ .Value }}"{{ if eq .Value $selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select><p class="lf-range-control-status" data-lf-performance-status aria-live="polite"></p></div>{{ end }}
+                                        {{ end }}
+                                    </div>
+                                    </section>
+                                    {{ with $.Device.Performance }}{{ if .BooleanSettings }}<section class="lf-keyboard-configuration-card lf-keyboard-lockouts-card" data-lf-keyboard-lockouts-card><h2 class="lf-workspace-section-heading">Key Lockouts</h2><p class="lf-keyboard-card-description">Changes save automatically.</p><div class="lf-performance-controls">{{ range .BooleanSettings }}<div class="lf-performance-control" data-lf-performance-control data-lf-performance-kind="keyboardBoolean" data-lf-performance-setting-id="{{ .ID }}" data-lf-confirmed-value="{{ if .Enabled }}1{{ else }}0{{ end }}"><label class="lf-performance-toggle system-toggle compact" for="lf-performance-{{ .ID }}"><span>{{ .Label }}</span><input id="lf-performance-{{ .ID }}" type="checkbox" data-lf-performance-input{{ if .Enabled }} checked{{ end }}><span class="toggle-track" aria-hidden="true"></span></label><p class="lf-range-control-status" data-lf-performance-status aria-live="polite"></p></div>{{ end }}</div></section>{{ end }}{{ end }}
+                                </div>
+                            {{ end }}
+                            <section class="lf-keyboard-assignments-workspace lf-keyboard-configuration-card" data-lf-keyboard-assignments-workspace data-lf-device-id="{{ $.Device.Serial }}">
+                            <h2 class="lf-workspace-section-heading">Color &amp; Key Assignments</h2>
+                            {{ $defaultProfile := eq .ActiveProfile "default" }}
+                            <section class="lf-keyboard-profile-section" aria-labelledby="lf-keyboard-preset-heading"><h2 id="lf-keyboard-preset-heading" class="lf-keyboard-profile-section-heading">Color &amp; Assignment Preset</h2><div class="lf-keyboard-footer-row lf-keyboard-footer-profile"><label class="lf-keyboard-layout-select" for="lf-keyboard-layout-profile"><span>Color &amp; Assignment Preset</span><select id="lf-keyboard-layout-profile" class="lf-buttons-select" data-lf-keyboard-profile aria-label="Color and Assignment Preset">{{ $active := .ActiveProfile }}{{ range .Profiles }}<option value="{{ . }}"{{ if eq . $active }} selected{{ end }}>{{ if eq . "default" }}Working Configuration{{ else }}{{ . }}{{ end }}</option>{{ end }}</select></label><button class="lf-button" type="button" data-lf-keyboard-profile-new>Save Preset As</button><button class="lf-button" type="button" data-lf-keyboard-profile-save{{ if $defaultProfile }} disabled{{ end }}>Save Preset</button><button class="lf-button lf-button-secondary" type="button" data-lf-keyboard-profile-delete{{ if $defaultProfile }} disabled{{ end }}>Delete Preset</button></div></section>
                             <div class="lf-keyboard-visualization-wrap" aria-label="Keyboard layout"><div class="lf-keyboard-visualization {{ .LayoutClass }}">
                                 {{ $rowLayoutClass := .RowLayoutClass }}
                                 {{ range .Rows }}
@@ -680,20 +701,20 @@
                                     {{ range .Keys }}
                                         {{ range .KeyEmpty }}<span class="lf-keyboard-placeholder {{ . }}" aria-hidden="true"></span>{{ end }}
                                         {{ range .Spacing }}<span class="lf-keyboard-placeholder keyboard-key-empty" aria-hidden="true"></span>{{ end }}
-                                        {{ if .Assignable }}
-                                            <button class="lf-keyboard-key {{ .KeySpace }} {{ .CSS }} {{ .ExtraCSS }}" type="button" data-lf-keyboard-key data-lf-key-index="{{ .KeyIndex }}" data-lf-default="{{ if .Default }}1{{ else }}0{{ end }}" data-lf-action-type="{{ .ActionType }}" data-lf-action-command="{{ .ActionCommand }}" data-lf-device-id="{{ .DeviceID }}" data-lf-action-hold="{{ if .ActionHold }}1{{ else }}0{{ end }}" data-lf-toggle-delay="{{ .ToggleDelay }}" data-lf-profile-switch="{{ if .ProfileSwitch }}1{{ else }}0{{ end }}" aria-label="Edit {{ .KeyName }} assignment" aria-pressed="false"><span>{{ .KeyName }}</span>{{ if .SubKeyName }}<small>{{ .SubKeyName }}</small>{{ end }}</button>
+                                        {{ if .NoColor }}
+                                            <span class="lf-keyboard-key lf-keyboard-key-static {{ .KeySpace }} {{ .CSS }} {{ .ExtraCSS }}" data-lf-normal-color="rgba({{ .Red }}, {{ .Green }}, {{ .Blue }}, 1)" style="color: rgba({{ .Red }}, {{ .Green }}, {{ .Blue }}, 1);" aria-label="{{ .KeyName }} has no color control"><span>{{ .KeyName }}</span>{{ if .SubKeyName }}<small>{{ .SubKeyName }}</small>{{ end }}</span>
+                                        {{ else if .Assignable }}
+                                            <button class="lf-keyboard-key {{ .KeySpace }} {{ .CSS }} {{ .ExtraCSS }}" type="button" data-lf-keyboard-key data-lf-keyboard-color-key data-lf-key-index="{{ .KeyIndex }}" data-lf-key-red="{{ .Red }}" data-lf-key-green="{{ .Green }}" data-lf-key-blue="{{ .Blue }}" data-lf-normal-color="rgba({{ .Red }}, {{ .Green }}, {{ .Blue }}, 1)" style="color: rgba({{ .Red }}, {{ .Green }}, {{ .Blue }}, 1);" data-lf-default="{{ if .Default }}1{{ else }}0{{ end }}" data-lf-action-type="{{ .ActionType }}" data-lf-action-command="{{ .ActionCommand }}" data-lf-device-id="{{ .DeviceID }}" data-lf-action-hold="{{ if .ActionHold }}1{{ else }}0{{ end }}" data-lf-toggle-delay="{{ .ToggleDelay }}" data-lf-profile-switch="{{ if .ProfileSwitch }}1{{ else }}0{{ end }}" aria-label="Edit {{ .KeyName }} assignment" aria-pressed="false"><span>{{ .KeyName }}</span>{{ if .SubKeyName }}<small>{{ .SubKeyName }}</small>{{ end }}</button>
                                         {{ else }}
-                                            <span class="lf-keyboard-key lf-keyboard-key-static {{ .KeySpace }} {{ .CSS }} {{ .ExtraCSS }}" aria-label="{{ .KeyName }} is not assignable"><span>{{ .KeyName }}</span>{{ if .SubKeyName }}<small>{{ .SubKeyName }}</small>{{ end }}</span>
+                                            <button class="lf-keyboard-key lf-keyboard-key-static {{ .KeySpace }} {{ .CSS }} {{ .ExtraCSS }}" type="button" data-lf-keyboard-color-key data-lf-key-index="{{ .KeyIndex }}" data-lf-key-red="{{ .Red }}" data-lf-key-green="{{ .Green }}" data-lf-key-blue="{{ .Blue }}" data-lf-normal-color="rgba({{ .Red }}, {{ .Green }}, {{ .Blue }}, 1)" style="color: rgba({{ .Red }}, {{ .Green }}, {{ .Blue }}, 1);" aria-label="{{ .KeyName }} color"><span>{{ .KeyName }}</span>{{ if .SubKeyName }}<small>{{ .SubKeyName }}</small>{{ end }}</button>
                                         {{ end }}
                                     {{ end }}</div>
                                 {{ end }}
                             </div></div>
                             <footer class="lf-keyboard-footer" data-lf-keyboard-toolbar>
-                                {{ $defaultProfile := eq .ActiveProfile "default" }}
-                                <div class="lf-keyboard-footer-row lf-keyboard-footer-profile"><div class="lf-keyboard-profile-picker" data-lf-keyboard-profile-picker><span>Keyboard Profile</span><button class="lf-button lf-keyboard-profile-trigger" type="button" data-lf-keyboard-profile data-lf-keyboard-profile-toggle data-lf-confirmed="{{ .ActiveProfile }}" aria-haspopup="listbox" aria-expanded="false">{{ .ActiveProfile }}</button><div class="lf-keyboard-profile-list" data-lf-keyboard-profile-list hidden role="listbox" aria-label="Keyboard Profile">{{ $active := .ActiveProfile }}{{ range .Profiles }}<button type="button" class="lf-keyboard-profile-option" data-lf-keyboard-profile-option data-lf-keyboard-profile-name="{{ . }}" role="option" aria-selected="{{ if eq . $active }}true{{ else }}false{{ end }}">{{ . }}</button>{{ end }}</div></div><button class="lf-button" type="button" data-lf-keyboard-profile-new>Save As</button><button class="lf-button" type="button" data-lf-keyboard-profile-save{{ if $defaultProfile }} disabled{{ end }}>Save</button><button class="lf-button lf-button-secondary" type="button" data-lf-keyboard-profile-delete{{ if $defaultProfile }} disabled{{ end }}>Delete Profile</button></div>
-                                <div class="lf-keyboard-footer-row lf-keyboard-footer-actions"><div class="lf-keyboard-color-controls" data-lf-keyboard-color-group{{ if .ClusterControlled }} aria-disabled="true"{{ end }}><input type="color" data-lf-keyboard-color value="#ffffff"{{ if .ClusterControlled }} disabled{{ end }}><select class="lf-buttons-select" data-lf-keyboard-color-scope{{ if .ClusterControlled }} disabled{{ end }}><option value="0">Current Key</option><option value="1">Current Row</option><option value="2">All Keys</option><option value="3">Selected Keys</option></select><button class="lf-button" type="button" data-lf-keyboard-color-apply{{ if .ClusterControlled }} disabled{{ end }}>Apply</button></div><button class="lf-button" type="button" data-lf-keyboard-assignment-open>Key Assignments</button></div>
+                                <div class="lf-keyboard-footer-row lf-keyboard-footer-actions"><div class="lf-keyboard-color-controls" data-lf-keyboard-color-group{{ if .ClusterControlled }} aria-disabled="true"{{ end }}><input type="color" data-lf-keyboard-color value="#ffffff"{{ if .ClusterControlled }} disabled{{ end }}><select class="lf-buttons-select" data-lf-keyboard-color-scope{{ if .ClusterControlled }} disabled{{ end }}><option value="0">Current Key</option><option value="1">Current Row</option><option value="2">All Keys</option><option value="3">Selected Keys</option></select><button class="lf-button" type="button" data-lf-keyboard-color-apply{{ if .ClusterControlled }} disabled{{ end }}>Apply</button></div>{{ if .LiveRGBAvailable }}<label class="lf-performance-toggle system-toggle compact" for="lf-keyboard-live-rgb"><span>Live RGB</span><input id="lf-keyboard-live-rgb" type="checkbox" data-lf-keyboard-live-rgb{{ if .LiveRGBEnabled }} checked{{ end }}><span class="toggle-track" aria-hidden="true"></span></label><p class="lf-range-control-status" data-lf-keyboard-live-rgb-status aria-live="polite"></p>{{ end }}<button class="lf-button" type="button" data-lf-keyboard-assignment-open>Key Assignments</button></div>
                             </footer>
-                            <section class="lf-keyboard-profile-dialog" data-lf-keyboard-profile-dialog hidden role="dialog" aria-modal="true" aria-label="Save keyboard profile"><label>Profile name <input type="text" data-lf-keyboard-profile-name autocomplete="off"></label><button class="lf-button" type="button" data-lf-keyboard-profile-create>Create</button><button class="lf-button lf-button-secondary" type="button" data-lf-keyboard-profile-cancel>Cancel</button><p class="lf-range-control-status" data-lf-keyboard-profile-status aria-live="polite"></p></section>
+                            <section class="lf-keyboard-profile-dialog" data-lf-keyboard-profile-dialog hidden role="dialog" aria-modal="true" aria-label="Save color and assignment preset"><label>Preset name <input type="text" data-lf-keyboard-profile-name autocomplete="off"></label><button class="lf-button" type="button" data-lf-keyboard-profile-create>Save Preset</button><button class="lf-button lf-button-secondary" type="button" data-lf-keyboard-profile-cancel>Cancel</button><p class="lf-range-control-status" data-lf-keyboard-profile-status aria-live="polite"></p></section>
                             <section class="lf-keyboard-assignment-editor" data-lf-keyboard-editor hidden role="dialog" aria-modal="true">
                                 <header><h2 data-lf-keyboard-editor-title></h2></header>
                                 <div class="lf-keyboard-assignment-controls">
@@ -706,6 +727,22 @@
                                 <div class="lf-keyboard-assignment-actions"><button class="lf-button lf-button-secondary" type="button" data-lf-keyboard-assignment-close>Close</button></div>
                             </section>
                         </section>
+                        {{ with $.Device.DeviceProfiles }}
+                            <section class="lf-keyboard-configuration-card lf-device-profile-panel" data-lf-device-profiles-workspace data-lf-device-id="{{ $.Device.Serial }}">
+                                <header class="lf-overview-panel-header">
+                                    <div>
+                                        <p class="lf-section-kicker">Device configuration</p>
+                                        <h2>Device Profile</h2>
+                                    </div>
+                                </header>
+                                <p class="lf-device-profile-description">Saves the complete keyboard configuration, including settings, lockouts, colors, assignments, and presets.</p>
+                                <div class="lf-device-profile-controls"><label class="lf-device-profile-select" for="lf-device-profile"><span>Active Device Profile</span><select id="lf-device-profile" class="lf-buttons-select" data-lf-device-profile aria-label="Device Profile">{{ $activeDeviceProfile := .ActiveProfile }}{{ range .Profiles }}<option value="{{ . }}"{{ if eq . $activeDeviceProfile }} selected{{ end }}>{{ . }}</option>{{ end }}</select></label><button class="lf-button" type="button" data-lf-device-profile-new>Save Device Profile As</button></div>
+                                {{ if gt (len .Profiles) 1 }}<div class="lf-device-profile-controls"><label class="lf-device-profile-select" for="lf-device-profile-delete"><span>Device Profile to delete</span><select id="lf-device-profile-delete" class="lf-buttons-select" data-lf-device-profile-delete-select aria-label="Device Profile to delete">{{ range .Profiles }}{{ if ne . $activeDeviceProfile }}<option value="{{ . }}">{{ . }}</option>{{ end }}{{ end }}</select></label><button class="lf-button lf-button-secondary" type="button" data-lf-device-profile-delete>Delete Device Profile</button></div>{{ end }}
+                                <p class="lf-range-control-status" data-lf-device-profile-status aria-live="polite"></p>
+                                <section class="lf-device-profile-dialog" data-lf-device-profile-dialog hidden role="dialog" aria-modal="true" aria-label="Save Device Profile"><label>Device Profile name <input type="text" data-lf-device-profile-name autocomplete="off"></label><button class="lf-button" type="button" data-lf-device-profile-create>Save Device Profile</button><button class="lf-button lf-button-secondary" type="button" data-lf-device-profile-cancel>Cancel</button><p class="lf-range-control-status" data-lf-device-profile-dialog-status aria-live="polite"></p></section>
+                            </section>
+                        {{ end }}
+                        </div>
                     {{ end }}
                 {{ else }}
                     <section class="lf-overview-workspace" aria-label="Selected device overview">
@@ -737,6 +774,22 @@
                                     {{ end }}
                                 </dl>
                             </section>
+
+                            {{ if not .Device.KeyboardAssignments }}{{ with .Device.DeviceProfiles }}
+                                <section class="lf-overview-panel lf-device-profile-panel" data-lf-device-profiles-workspace data-lf-device-id="{{ $.Device.Serial }}">
+                                    <header class="lf-overview-panel-header">
+                                        <div>
+                                            <p class="lf-section-kicker">Device configuration</p>
+                                            <h2>Device Profile</h2>
+                                        </div>
+                                    </header>
+                                    <p class="lf-device-profile-description">Save or switch a complete device configuration. Device profiles include supported settings across available workspaces, such as performance, assignments, lighting, layouts, and other device-wide controls for this hardware.</p>
+                                    <div class="lf-device-profile-controls"><label class="lf-device-profile-select" for="lf-device-profile"><span>Active Device Profile</span><select id="lf-device-profile" class="lf-buttons-select" data-lf-device-profile aria-label="Device Profile">{{ $activeDeviceProfile := .ActiveProfile }}{{ range .Profiles }}<option value="{{ . }}"{{ if eq . $activeDeviceProfile }} selected{{ end }}>{{ . }}</option>{{ end }}</select></label><button class="lf-button" type="button" data-lf-device-profile-new>Save Device Profile As</button></div>
+                                    {{ if gt (len .Profiles) 1 }}<div class="lf-device-profile-controls"><label class="lf-device-profile-select" for="lf-device-profile-delete"><span>Device Profile to delete</span><select id="lf-device-profile-delete" class="lf-buttons-select" data-lf-device-profile-delete-select aria-label="Device Profile to delete">{{ range .Profiles }}{{ if ne . $activeDeviceProfile }}<option value="{{ . }}">{{ . }}</option>{{ end }}{{ end }}</select></label><button class="lf-button lf-button-secondary" type="button" data-lf-device-profile-delete>Delete Device Profile</button></div>{{ end }}
+                                    <p class="lf-range-control-status" data-lf-device-profile-status aria-live="polite"></p>
+                                    <section class="lf-device-profile-dialog" data-lf-device-profile-dialog hidden role="dialog" aria-modal="true" aria-label="Save Device Profile"><label>Device Profile name <input type="text" data-lf-device-profile-name autocomplete="off"></label><button class="lf-button" type="button" data-lf-device-profile-create>Save Device Profile</button><button class="lf-button lf-button-secondary" type="button" data-lf-device-profile-cancel>Cancel</button><p class="lf-range-control-status" data-lf-device-profile-dialog-status aria-live="polite"></p></section>
+                                </section>
+                            {{ end }}{{ end }}
 
                             {{ with .Device.OpenRGB }}
                                 <section class="lf-openrgb-overview">

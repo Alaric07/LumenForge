@@ -23,6 +23,7 @@ func (d *Device) PerformanceSnapshot() (performancepresentation.Snapshot, bool) 
 	}
 
 	snapshot := performancepresentation.Snapshot{
+		SaveBooleanSettings: true,
 		BooleanSettings: []performancepresentation.BooleanSetting{
 			{ID: "perf_winKey", Label: "Disable Win Key", Enabled: d.DeviceProfile.DisableWinKey},
 			{ID: "perf_shiftTab", Label: "Disable Shift + Tab", Enabled: d.DeviceProfile.DisableShiftTab},
