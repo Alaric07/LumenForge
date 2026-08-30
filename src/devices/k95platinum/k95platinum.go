@@ -11,6 +11,7 @@ import (
 	"LumenForge/src/dispatcher"
 	"LumenForge/src/inputmanager"
 	"LumenForge/src/keyboards"
+	"LumenForge/src/lightingsettings"
 	"LumenForge/src/logger"
 	"LumenForge/src/macro"
 	"LumenForge/src/rgb"
@@ -72,55 +73,58 @@ type DeviceProfile struct {
 }
 
 type Device struct {
-	Debug              bool
-	dev                *hid.Device
-	listener           *hid.Device
-	listenerMu         sync.Mutex
-	listenerStop       chan struct{}
-	listenerDone       chan struct{}
-	Manufacturer       string `json:"manufacturer"`
-	Product            string `json:"product"`
-	Serial             string `json:"serial"`
-	Firmware           string `json:"firmware"`
-	activeRgb          *rgb.ActiveRGB
-	UserProfiles       map[string]*DeviceProfile `json:"userProfiles"`
-	Devices            map[int]string            `json:"devices"`
-	DeviceProfile      *DeviceProfile
-	OriginalProfile    *DeviceProfile
-	Template           string
-	VendorId           uint16
-	ProductId          uint16
-	Brightness         map[int]string
-	PollingRates       map[int]string
-	LEDChannels        int
-	CpuTemp            float32
-	GpuTemp            float32
-	Layouts            []string
-	Rgb                *rgb.RGB
-	rgbMutex           sync.RWMutex
-	Exit               bool
-	timer              *time.Ticker
-	autoRefreshChan    chan struct{}
-	mutex              sync.Mutex
-	deviceLock         sync.Mutex
-	UIKeyboard         string
-	UIKeyboardRow      string
-	KeyboardKey        *keyboards.Key
-	PressLoop          bool
-	ModifierIndex      *big.Int
-	KeyAssignmentTypes map[int]string
-	MacroTracker       map[int]macro.Tracker
-	RGBModes           []string
-	LedData            map[int]rgb.Color `json:"-"`
-	instance           *common.Device
-	mouseLoopActive    bool
-	mouseLoopMutex     sync.Mutex
-	mouseLoopStopCh    chan struct{}
-	stopRepeat         chan struct{}
-	stopRepeatMutex    sync.Mutex
-	ledDataMutex       sync.RWMutex
-	dispatch           dispatcher.DeviceDispatcher
-	keyXMap                 map[int]float64
+	Debug                       bool
+	dev                         *hid.Device
+	listener                    *hid.Device
+	listenerMu                  sync.Mutex
+	listenerStop                chan struct{}
+	listenerDone                chan struct{}
+	Manufacturer                string `json:"manufacturer"`
+	Product                     string `json:"product"`
+	Serial                      string `json:"serial"`
+	Firmware                    string `json:"firmware"`
+	activeRgb                   *rgb.ActiveRGB
+	lightingSource              k95LightingSource
+	lightingRestart             func()
+	schedulerBrightnessOverride k95SchedulerBrightnessOverride
+	UserProfiles                map[string]*DeviceProfile `json:"userProfiles"`
+	Devices                     map[int]string            `json:"devices"`
+	DeviceProfile               *DeviceProfile
+	OriginalProfile             *DeviceProfile
+	Template                    string
+	VendorId                    uint16
+	ProductId                   uint16
+	Brightness                  map[int]string
+	PollingRates                map[int]string
+	LEDChannels                 int
+	CpuTemp                     float32
+	GpuTemp                     float32
+	Layouts                     []string
+	Rgb                         *rgb.RGB
+	rgbMutex                    sync.RWMutex
+	Exit                        bool
+	timer                       *time.Ticker
+	autoRefreshChan             chan struct{}
+	mutex                       sync.Mutex
+	deviceLock                  sync.Mutex
+	UIKeyboard                  string
+	UIKeyboardRow               string
+	KeyboardKey                 *keyboards.Key
+	PressLoop                   bool
+	ModifierIndex               *big.Int
+	KeyAssignmentTypes          map[int]string
+	MacroTracker                map[int]macro.Tracker
+	RGBModes                    []string
+	LedData                     map[int]rgb.Color `json:"-"`
+	instance                    *common.Device
+	mouseLoopActive             bool
+	mouseLoopMutex              sync.Mutex
+	mouseLoopStopCh             chan struct{}
+	stopRepeat                  chan struct{}
+	stopRepeatMutex             sync.Mutex
+	ledDataMutex                sync.RWMutex
+	dispatch                    dispatcher.DeviceDispatcher
+	keyXMap                     map[int]float64
 }
 
 var (
@@ -218,9 +222,12 @@ func Init(vendorId, productId uint16, _, path string) *common.Device {
 		LedData:      make(map[int]rgb.Color),
 	}
 
-	d.getDebugMode()       // Debug mode
-	d.getManufacturer()    // Manufacturer
-	d.getSerial()          // Serial
+	d.getDebugMode()    // Debug mode
+	d.getManufacturer() // Manufacturer
+	d.getSerial()       // Serial
+	if err = d.attachIndependentDeviceLightingRuntime(config.GetPaths()); err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to attach canonical device lighting runtime")
+	}
 	d.loadRgb()            // Load RGB
 	d.setSoftwareMode()    // Activate software mode
 	d.getDeviceFirmware()  // Firmware
@@ -476,6 +483,16 @@ func (d *Device) GetRgbProfile(profile string) *rgb.Profile {
 	return nil
 }
 
+// GetCurrentRgbProfile is retained for presentation compatibility. Canonical
+// independent-device lighting state is the authoritative selected effect.
+func (d *Device) GetCurrentRgbProfile() string {
+	effect, err := d.currentCanonicalSelectedEffect()
+	if err != nil {
+		return ""
+	}
+	return effect
+}
+
 // GetDeviceTemplate will return device template name
 func (d *Device) GetDeviceTemplate() string {
 	return d.Template
@@ -509,7 +526,7 @@ func (d *Device) GetDeviceLedData() interface{} {
 		DeviceId:          d.Serial,
 		ActiveUserProfile: activeUserProfile,
 		KeyboardProfile:   d.DeviceProfile.Profile,
-		RgbProfile:        d.DeviceProfile.RGBProfile,
+		RgbProfile:        d.GetCurrentRgbProfile(),
 		Layout:            d.DeviceProfile.Layout,
 		Keys:              keys,
 	}
@@ -570,7 +587,8 @@ func (d *Device) setupPerformance() {
 
 // isRgbStatic will return if RGB effect is static
 func (d *Device) isRgbStatic() bool {
-	if d.DeviceProfile.RGBProfile == "keyboard" || d.DeviceProfile.RGBProfile == "static" {
+	effect, err := d.currentCanonicalSelectedEffect()
+	if err == nil && (effect == "keyboard" || effect == "static") {
 		return true
 	}
 	return false
@@ -1046,26 +1064,9 @@ func (d *Device) UpdateRgbProfileData(profileName string, profile rgb.Profile) u
 
 // UpdateRgbProfile will update device RGB profile
 func (d *Device) UpdateRgbProfile(_ int, profile string) uint8 {
-	if d.DeviceProfile == nil {
+	if err := d.SetLightingEffect(profile); err != nil {
 		return 0
 	}
-
-	if d.GetRgbProfile(profile) == nil {
-		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
-		return 0
-	}
-
-	if d.DeviceProfile.RGBCluster {
-		return 5
-	}
-
-	d.DeviceProfile.RGBProfile = profile // Set profile
-	d.saveDeviceProfile()                // Save profile
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
-	d.setDeviceColor()
 	return 1
 
 }
@@ -1133,36 +1134,25 @@ func (d *Device) ChangeDeviceBrightness(mode uint8) uint8 {
 
 // ChangeDeviceBrightnessValue will change device brightness via slider
 func (d *Device) ChangeDeviceBrightnessValue(value uint8) uint8 {
-	if value < 0 || value > 100 {
+	if err := d.SetLightingBrightness(value); err != nil {
 		return 0
 	}
-
-	d.DeviceProfile.BrightnessSlider = &value
-	d.saveDeviceProfile()
-
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
-	d.setDeviceColor()
 	return 1
 }
 
 // SchedulerBrightness will change device brightness via scheduler
 func (d *Device) SchedulerBrightness(value uint8) uint8 {
+	var override *uint8
 	if value == 0 {
-		d.DeviceProfile.OriginalBrightness = *d.DeviceProfile.BrightnessSlider
-		d.DeviceProfile.BrightnessSlider = &value
-	} else {
-		d.DeviceProfile.BrightnessSlider = &d.DeviceProfile.OriginalBrightness
+		zero := uint8(0)
+		override = &zero
 	}
-
-	d.saveDeviceProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
+	if !d.schedulerBrightnessOverride.set(override) {
+		return 1
 	}
-	d.setDeviceColor()
+	if d.DeviceProfile != nil && !d.DeviceProfile.RGBCluster {
+		d.restartCanonicalLighting()
+	}
 	return 1
 }
 
@@ -1613,7 +1603,10 @@ func (d *Device) UpdateDeviceColor(keyId, keyOption int, color rgb.Color, select
 		return 0
 	}
 	persist := func() {
-		d.DeviceProfile.RGBProfile = "keyboard"
+		if err := d.setCanonicalSelectedEffect("keyboard"); err != nil {
+			logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to persist K95 keyboard lighting selection")
+			return
+		}
 		d.saveDeviceProfile()
 		if d.activeRgb != nil {
 			d.activeRgb.Exit <- true
@@ -1716,10 +1709,13 @@ func (d *Device) setDeviceColor() {
 		logger.Log(logger.Fields{}).Info("Exiting setDeviceColor() due to RGB Cluster")
 		return
 	}
-
-	if d.GetRgbProfile(d.DeviceProfile.RGBProfile) == nil {
-		d.DeviceProfile.RGBProfile = "keyboard"
+	canonical, err := d.resolveEffectiveCanonicalLighting()
+	if err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to resolve canonical device lighting")
+		return
 	}
+	effect := canonical.selectedEffect
+	brightness := canonical.brightness
 
 	if d.DeviceProfile.RgbOff {
 		if _, ok := d.DeviceProfile.Keyboards[d.DeviceProfile.Profile]; ok {
@@ -1740,11 +1736,11 @@ func (d *Device) setDeviceColor() {
 		}
 	}
 
-	if d.DeviceProfile.RGBProfile == "keyboard" {
+	if effect == "keyboard" {
 		if _, ok := d.DeviceProfile.Keyboards[d.DeviceProfile.Profile]; ok {
 			for _, rows := range d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row {
 				for _, keys := range rows.Keys {
-					keys.Color.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
+					keys.Color.Brightness = rgb.GetBrightnessValueFloat(brightness)
 					keys.Color = *rgb.ModifyBrightness(keys.Color)
 					for _, packetIndex := range keys.PacketIndex {
 						buf[0][packetIndex] = byte(keys.Color.Red)
@@ -1761,17 +1757,13 @@ func (d *Device) setDeviceColor() {
 		}
 	}
 
-	if d.DeviceProfile.RGBProfile == "static" {
-		profile := d.GetRgbProfile("static")
-		if profile == nil {
-			return
-		}
-
-		profile.StartColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
+	if effect == "static" {
+		profile := lightingsettings.RendererProfileFromEffectSettings(canonical.settings)
+		profile.StartColor.Brightness = rgb.GetBrightnessValueFloat(brightness)
 		profileColor := rgb.ModifyBrightness(profile.StartColor)
 		for _, rows := range d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row {
 			for _, keys := range rows.Keys {
-				keys.Color.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
+				keys.Color.Brightness = rgb.GetBrightnessValueFloat(brightness)
 				keys.Color = *rgb.ModifyBrightness(keys.Color)
 
 				for _, packetIndex := range keys.PacketIndex {
@@ -1785,7 +1777,7 @@ func (d *Device) setDeviceColor() {
 		return
 	}
 
-	if d.DeviceProfile.RGBProfile == "off" {
+	if effect == "off" {
 		for _, rows := range d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row {
 			for _, keys := range rows.Keys {
 				for _, packetIndex := range keys.PacketIndex {
@@ -1798,8 +1790,12 @@ func (d *Device) setDeviceColor() {
 		d.writeColor(buf) // Write color once
 		return
 	}
+	if !d.SupportsLightingEffect(effect) {
+		logger.Log(logger.Fields{"serial": d.Serial, "effect": effect}).Error("Unable to render unsupported canonical K95 lighting effect")
+		return
+	}
 
-	go func(lightChannels int) {
+	go func(lightChannels int, effect string, brightness uint8, profile rgb.Profile) {
 		startTime := time.Now()
 		d.activeRgb = rgb.Exit()
 
@@ -1813,10 +1809,6 @@ func (d *Device) setDeviceColor() {
 				return
 			default:
 				rgbCustomColor := true
-				profile := d.GetRgbProfile(d.DeviceProfile.RGBProfile)
-				if profile == nil {
-					continue
-				}
 				rgbModeSpeed := common.FClamp(profile.Speed, 0.1, 10)
 				// Check if we have custom colors
 				if (rgb.Color{}) == profile.StartColor || (rgb.Color{}) == profile.EndColor {
@@ -1849,12 +1841,12 @@ func (d *Device) setDeviceColor() {
 				}
 
 				// Brightness
-				r.RGBBrightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
+				r.RGBBrightness = rgb.GetBrightnessValueFloat(brightness)
 				r.RGBStartColor.Brightness = r.RGBBrightness
 				r.RGBEndColor.Brightness = r.RGBBrightness
 				r.RGBMiddleColor.Brightness = r.RGBBrightness
 
-				switch d.DeviceProfile.RGBProfile {
+				switch effect {
 				case "rainbow":
 					{
 						r.Rainbow(startTime)
@@ -1968,7 +1960,7 @@ func (d *Device) setDeviceColor() {
 				time.Sleep(20 * time.Millisecond)
 			}
 		}
-	}(d.LEDChannels)
+	}(d.LEDChannels, effect, brightness, lightingsettings.RendererProfileFromEffectSettings(canonical.settings))
 }
 
 // writeColor will write color data to the device
@@ -1981,7 +1973,8 @@ func (d *Device) writeColor(data map[int][]byte) {
 	}
 
 	// Always override Lock color
-	if d.DeviceProfile.Performance && d.DeviceProfile.RGBProfile != "off" {
+	effect, err := d.currentCanonicalSelectedEffect()
+	if d.DeviceProfile.Performance && err == nil && effect != "off" {
 		data[0][9] = 255
 		data[1][9] = 0
 		data[2][9] = 0
@@ -2371,26 +2364,25 @@ func (d *Device) triggerKeyAssignment(value []byte) {
 
 			// Brightness
 			if key.ActionType == 11 {
-				if !keyPressed || d.DeviceProfile.BrightnessSlider == nil {
+				if !keyPressed {
 					continue
 				}
-
-				if *d.DeviceProfile.BrightnessSlider >= 100 {
-					*d.DeviceProfile.BrightnessSlider = 0
+				brightness, err := d.currentCanonicalBrightness()
+				if err != nil {
+					continue
+				}
+				if brightness >= 100 {
+					brightness = 0
 				} else {
-					next := *d.DeviceProfile.BrightnessSlider + 20
+					next := brightness + 20
 					if next > 100 {
 						next = 100
 					}
-					*d.DeviceProfile.BrightnessSlider = next
+					brightness = next
 				}
-
-				d.saveDeviceProfile()
-				if d.activeRgb != nil {
-					d.activeRgb.Exit <- true
-					d.activeRgb = nil
+				if err := d.setCanonicalBrightness(brightness); err == nil {
+					d.restartCanonicalLighting()
 				}
-				d.setDeviceColor()
 				continue
 			}
 

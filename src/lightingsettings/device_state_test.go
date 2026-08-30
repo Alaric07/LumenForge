@@ -212,3 +212,21 @@ func TestIndependentDeviceStateValidation(t *testing.T) {
 		t.Fatal("RGB Cluster-only effect was accepted for independent-device state")
 	}
 }
+
+func TestIndependentDeviceStateStoreAcceptsKeyboardSpecialEffectOnly(t *testing.T) {
+	store, err := LoadIndependentDeviceStateStore(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyboard := IndependentDeviceLightingState{SelectedEffect: "keyboard", Brightness: 50}
+	if err := store.Set("k95", keyboard); err != nil {
+		t.Fatalf("Set keyboard special effect: %v", err)
+	}
+	got, found, err := store.Resolve("k95")
+	if err != nil || !found || got != keyboard {
+		t.Fatalf("keyboard state = %#v, %t, %v", got, found, err)
+	}
+	if err := store.Set("k95", IndependentDeviceLightingState{SelectedEffect: "not-a-real-effect", Brightness: 50}); err == nil {
+		t.Fatal("arbitrary unknown effect was accepted")
+	}
+}

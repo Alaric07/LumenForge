@@ -102,6 +102,7 @@ func TestDevicesWorkspaceKeyboardPresentationAndView(t *testing.T) {
 		if position < 0 || position <= previous { t.Errorf("keyboard workspace order omitted or misplaced %q", expected) }
 		previous = position
 	}
+	if presetForm, keyboard := strings.Index(body, "data-lf-keyboard-profile-dialog"), strings.Index(body, "lf-keyboard-visualization"); presetForm < 0 || keyboard < 0 || presetForm >= keyboard { t.Error("keyboard preset form did not render below preset controls and above the keyboard visualization") }
 	if count := strings.Count(body, "data-lf-device-profiles-workspace"); count != 1 { t.Errorf("device profile workspace count = %d, want 1", count) }
 	for _, removed := range []string{">Performance</a>", ">Key Assignments</a>", "Save Performance Settings", "Save Key Lockouts"} { if strings.Contains(body, removed) { t.Errorf("keyboard workspace retained %q", removed) } }
 	for _, expected := range []string{"data-lf-keyboard-profile-save disabled", "data-lf-keyboard-profile-delete disabled"} { if !strings.Contains(body, expected) { t.Errorf("default profile did not disable %q", expected) } }

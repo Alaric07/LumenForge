@@ -237,7 +237,7 @@ func independentDeviceEffectDescriptor(descriptor rgb.SoftwareEffectDescriptor, 
 func specialIndependentDeviceEffectID(effect string) bool {
 	// Device-specific effects are selected through the independent-device state
 	// store but deliberately have no shared software-effect descriptor/settings.
-	return effect == "mousepad" || effect == "mouse"
+	return effect == "mousepad" || effect == "mouse" || effect == "keyboard"
 }
 
 func validateIndependentDeviceIdentity(deviceID string) error {
