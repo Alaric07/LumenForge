@@ -13,8 +13,8 @@ configuration. It covers:
 This is a deliberate clean break for alpha software. Compatibility with old
 lighting customization data is not required. OpenRGB-imported devices and RGB
 Cluster established the canonical model first. Scimitar Pro RGB, Scimitar RGB
-Elite, and MM800 now form the first completed native migration set. Remaining
-native device families still migrate separately and only after their
+Elite, MM800, and K95 Platinum now form the completed native migration proof
+set. Remaining native device families still migrate separately and only after their
 hardware-specific behavior and required controls are understood; they are not
 part of one broad migration milestone.
 
@@ -26,9 +26,9 @@ features to reproduce under new names.
 ### Native-device migration proofs
 
 Scimitar Pro RGB established the first native package on the shared canonical
-independent-device lighting runtime. Scimitar RGB Elite and MM800 now use the
-same canonical Device Lighting model while retaining their own device-specific
-hardware boundaries.
+independent-device lighting runtime. Scimitar RGB Elite, MM800, and K95 Platinum
+are separate package proofs of the canonical Device Lighting model while
+retaining their own device-specific hardware boundaries.
 
 Canonical state is authoritative for migrated native-device software lighting,
 including:
@@ -37,6 +37,7 @@ including:
 - desired device Brightness;
 - complete generic per-effect customization;
 - renderer input and native hardware-frame composition;
+- restart behavior after a successful persisted change;
 - supported device-authored lighting modes presented outside generic
   `EffectSettings`.
 
@@ -48,7 +49,9 @@ Scimitar Pro keeps its existing ordinary-zone and DPI behavior. Scimitar RGB
 Elite exposes its authored `mouse` mode as four ordinary zones — Front, Scroll,
 Side, and Logo — while DPI remains device-owned and outside the authored-zone
 editor. MM800 exposes its 15-zone authored `mousepad` mode in stable numeric
-order.
+order. K95 Platinum's `keyboard` mode retains its existing per-key state and is
+edited in the Keyboard workspace rather than through the generic authored-zone
+editor; its keyboard protocol, presets, and lifecycle remain device-owned.
 
 Device-authored zone state remains owned by the device profile rather than
 being fabricated as generic `EffectSettings`. The shared authored-zone
@@ -57,6 +60,23 @@ selection, selected-zone mutations, all-zone mutations, strict validation, and
 device-owned persistence. Optional group and geometry metadata are semantic
 presentation data only; devices do not expose legacy row/layout fields merely
 because those fields exist in an old profile.
+
+### Device-profile presentation patterns
+
+Full Device Profiles belong on Overview for K95 Platinum and Scimitar RGB Elite.
+They use existing device backends to save and select complete device
+configurations; `default` remains the displayed profile name for both.
+
+MM800 exposes a scoped Lighting Profile only while its `mousepad` mode is
+selected. Its existing `DeviceProfile` stores the custom mousepad layout and
+colors, while canonical lighting state remains authoritative for selected
+effect, desired Brightness, and generic effect customization. In that scoped
+Lighting Profile presentation only, the stored `default` key is displayed as
+Working Configuration.
+
+OpenRGB imports expose no profile UI. Their canonical cutover records do not
+make user profiles authoritative for selected effect, desired Brightness, or
+generic effect customization.
 
 When RGB Cluster or retained OpenRGB integration owns physical output, desired
 local state may still be persisted while local ordinary-zone output is
@@ -69,11 +89,11 @@ Brightness, Speed, supported palette settings, selected-effect Reset, and
 authored-zone mutations without routing native devices through
 `/api/openrgbimport/*`.
 
-Scimitar Pro RGB, Scimitar RGB Elite, and MM800 no longer retain legacy
-`/rgb` lighting persistence or mutation compatibility. Their canonical selected
-effect, desired Brightness, generic effect customization, authored-zone state,
-and modern Devices -> Lighting presentation remain authoritative. Other native
-families continue using the legacy path until migrated individually.
+Scimitar Pro RGB, Scimitar RGB Elite, MM800, and K95 Platinum no longer retain
+legacy `/rgb` lighting persistence or mutation compatibility. Their canonical
+selected effect, desired Brightness, generic effect customization, authored-zone
+or keyboard-owned state, and modern Devices presentation remain authoritative.
+Other native families continue using the legacy path until migrated individually.
 
 ## 2. Product goals
 
@@ -626,8 +646,8 @@ not promise immediate deletion of shared native-device infrastructure.
 
 The standalone RGB editor now serves only native-device families that have not
 yet completed canonical Device Lighting migration. OpenRGB-imported devices,
-RGB Cluster, Scimitar Pro RGB, Scimitar RGB Elite, and MM800 no longer depend
-on it for lighting configuration. Therefore:
+RGB Cluster, Scimitar Pro RGB, Scimitar RGB Elite, MM800, and K95 Platinum no
+longer depend on it for lighting configuration. Therefore:
 
 - OpenRGB has cut over independently;
 - RGB Cluster has cut over independently;
@@ -635,6 +655,17 @@ on it for lighting configuration. Therefore:
 - `/rgb` is removed only when every still-supported target it serves has
   equivalent renderer-consumed controls and Reset behavior;
 - no permanent global editor remains after parity.
+
+`eligibleForLegacyGlobalRGB()` is temporary migration infrastructure for this
+coexistence period. It keeps unmigrated native families on the retained global
+`/rgb` collector and mutation paths while excluding canonical Device Lighting
+providers from those paths. Exclusion is behavioral rather than a requirement to
+delete every legacy-looking package-local helper immediately: a migrated package
+may retain helpers such as `GetRgbProfiles`, `GetRgbProfile`, `loadRgb`, or
+`saveRgbProfile` without restoring legacy lighting authority. When every
+legitimate native `/rgb` consumer has migrated and the global system is removed,
+this eligibility bridge and related compatibility machinery are removed as part
+of that final cleanup.
 
 Initial OpenRGB work must not broadly redesign native hardware protocols,
 packet formats, lifecycle behavior, or device-owned firmware effects.
@@ -725,9 +756,12 @@ Speed or another genuine renderer-consumed setting.
 13. Add the reusable native Device Lighting mutation contract and make migrated
     native devices interactive in the modern workspace. Completed in
     `da1e0597` and `0aadedb2`.
-14. Migrate Scimitar RGB Elite and MM800 to canonical native Device Lighting,
-    preserving their device-authored `mouse` and `mousepad` modes. Completed
-    across `2c758431`, `8b9eebe9`, `bfc4c5cd`, and `ce890f75`.
+14. Migrate Scimitar RGB Elite, MM800, and K95 Platinum to canonical native
+    Device Lighting, preserving their device-authored `mouse`, `mousepad`, and
+    `keyboard` modes. Scimitar RGB Elite and MM800 were completed across
+    `2c758431`, `8b9eebe9`, `bfc4c5cd`, and `ce890f75`; K95 Platinum retains
+    its keyboard protocol, per-key state, keyboard presets, RGB Cluster
+    behavior, and lifecycle as device-owned concerns.
 15. Add shared authored-zone presentation and mutations for validated
     device-owned modes, without treating authored colors as generic
     `EffectSettings`. Completed in `ce890f75`.

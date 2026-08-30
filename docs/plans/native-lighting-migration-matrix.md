@@ -53,13 +53,23 @@ must be accounted for, including:
 
 The legacy `/rgb` editor and remaining global RGB mutation infrastructure stay
 available for unmigrated packages until every remaining consumer has parity.
+`eligibleForLegacyGlobalRGB()` is the temporary migration bridge between those
+two states: it admits unmigrated native packages to the retained global path and
+excludes canonical Device Lighting providers from its collector and mutations.
+This is a runtime boundary, not proof that every legacy-looking package-local
+helper has already been deleted. A migrated package can temporarily retain
+helpers such as `GetRgbProfiles`, `GetRgbProfile`, `loadRgb`, or
+`saveRgbProfile` without making them authoritative lighting state or allowing
+the global `/rgb` path to call them. Once no legitimate native `/rgb` consumers
+remain, the bridge and related retained compatibility machinery can be removed
+with the global system.
 
 ### Completed native migration proofs
 
-`scimitarprorgb`, `scimitarrgbelite`, and `mm800` are now tracked as
-**Migrated**. Canonical Device Lighting is authoritative and these packages no
-longer participate in retained legacy `/rgb` lighting persistence or mutation
-paths (`2ef84b50`, `564cf8c8`).
+`scimitarprorgb`, `scimitarrgbelite`, `mm800`, and `k95platinum` are now
+tracked as **Migrated**. Canonical Device Lighting is authoritative and these
+packages no longer participate in retained legacy `/rgb` lighting persistence
+or mutation paths.
 
 Completed shared native work includes:
 
@@ -76,6 +86,18 @@ Scimitar Pro RGB established the first canonical native proof. Scimitar RGB
 Elite now uses the same canonical model and exposes its device-authored `mouse`
 mode as Front, Scroll, Side, and Logo zones while leaving DPI outside the
 generic authored-zone editor.
+
+K95 Platinum is a separate keyboard proof: canonical selected effect, desired
+Brightness, generic effect settings, renderer input, and restart behavior are
+authoritative while its existing keyboard protocol, per-key state, keyboard
+presets, RGB Cluster behavior, and lifecycle remain device-owned. Its `keyboard`
+mode is edited in the Keyboard workspace rather than through the generic
+authored-zone editor. The inventory records no OpenRGB target-server integration
+for this package.
+
+K95 Platinum retains some legacy-looking RGB helpers, but its canonical
+presentation provider causes `eligibleForLegacyGlobalRGB()` to reject it before
+the global `/rgb` collector or mutation paths can invoke those helpers.
 
 MM800 now uses canonical native Device Lighting and exposes its 15-zone
 device-authored `mousepad` mode through the same authored-zone editor. Legacy
@@ -188,7 +210,7 @@ Generated as a read-only architecture inventory. This does not declare migration
 | `k70rgbRF` | Y | Legacy | single-profile | Y | Y |  |  |  |  |  | keyboard |
 | `k70rgbtklcs` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
 | `k95` | Y | Legacy | single-profile | Y | Y |  |  |  |  |  | keyboard |
-| `k95platinum` | Y | Legacy | single-profile | Y | Y |  |  |  | Y |  | keyboard |
+| `k95platinum` | Y | Migrated | single-profile |  | Y |  |  |  | Y |  | keyboard |
 | `k95platinumXT` | Y | Legacy | single-profile | Y |  |  |  |  |  |  | keyboard |
 | `katarpro` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  | mouse |
 | `katarproW` | Y | Legacy | single-profile | Y | Y |  |  |  |  |  |  |

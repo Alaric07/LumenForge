@@ -85,6 +85,13 @@ Performance, and Key Assignments. The Performance tab currently retains the
 internal `view=dpi` route while combining the existing DPI editor with
 capability-driven performance controls.
 
+K95 Platinum now provides Overview, Lighting, and Keyboard workspaces. Its
+Keyboard workspace contains Keyboard Settings, Key Lockouts, and Color & Key
+Assignments. The nested Color & Assignment Preset is a keyboard-specific preset
+concept, distinct from the full Device Profile shown on Overview. Full Device
+Profiles use the existing device backend to represent the complete device
+configuration: K95 Platinum and Scimitar RGB Elite expose them on Overview.
+
 The shared Performance presentation contract treats Polling Rate, Angle
 Snapping, and Lift Height as optional capabilities. The shared frontend uses
 device-generic `/api/devices/performance/*` routes while existing device
@@ -467,9 +474,19 @@ remain intact.
 ### Native-device migration
 
 - [x] Complete the first native Device Lighting migration set. Scimitar Pro RGB
-  established the shared canonical proof, and Scimitar RGB Elite and MM800 now
-  use the same canonical Device Lighting model without participating in retained
-  legacy `/rgb` lighting persistence or mutation paths (`2ef84b50`, `564cf8c8`).
+  established the shared canonical proof; Scimitar RGB Elite, MM800, and K95
+  Platinum now use canonical Device Lighting without participating in retained
+  legacy `/rgb` lighting persistence or mutation paths.
+
+The retained global `/rgb` path uses `eligibleForLegacyGlobalRGB()` as a
+temporary migration bridge: unmigrated native families remain eligible, while
+canonical Device Lighting providers are excluded from its collector and global
+mutations. That runtime boundary does not require immediate deletion of every
+package-local legacy-looking helper. Such helpers are not authoritative lighting
+state for a migrated package and cannot make it participate in the global path.
+The bridge and its compatibility machinery remain until the final `/rgb` cleanup
+after every legitimate native consumer has migrated.
+
 - [x] Extract the shared independent-device lighting runtime and move Scimitar
   Pro selected effect to canonical state (`d833da87`, with canonical-read fixes
   in `4aa688a2`).
@@ -499,6 +516,10 @@ remain intact.
 - [x] Migrate MM800 selected effect, Brightness, renderer settings, and its
   device-authored `mousepad` mode to canonical native Lighting
   (`8b9eebe9`, `bfc4c5cd`, `ce890f75`).
+- [x] Migrate K95 Platinum selected effect, Brightness, generic effect settings,
+  renderer input, and restart behavior to canonical native Lighting while
+  retaining its keyboard protocol, per-key state, keyboard presets, RGB Cluster
+  behavior, and lifecycle as device-owned concerns.
 - [x] Add the shared authored-zone presentation and mutation contract used by
   device-owned native modes. It supports persistent multi-selection, clear
   selection, selected-zones and all-zones mutations, strict validation,
@@ -511,9 +532,9 @@ remain intact.
   overlapping legacy geometry; Scimitar RGB Elite presents Front, Scroll,
   Side, and Logo while keeping DPI outside the authored-zone editor
   (`ce890f75`).
-- [x] Remove Scimitar Pro, Scimitar RGB Elite, and MM800 from retained legacy
-  `/rgb` editing and startup compatibility after eliminating their remaining
-  legacy RGB persistence and mutation dependencies (`2ef84b50`, `564cf8c8`).
+- [x] Remove Scimitar Pro, Scimitar RGB Elite, MM800, and K95 Platinum from
+  retained legacy `/rgb` editing and startup compatibility after eliminating
+  their remaining legacy RGB persistence and mutation dependencies.
 - [ ] Preserve each later family's protocol, packet, topology, lifecycle,
   firmware, device-specific lighting modes, and hardware-specific output
   behavior while repeating migration one family at a time.
@@ -522,14 +543,16 @@ remain intact.
 
 ### Native-device workspace expansion
 
-- [ ] Add a physically available keyboard as the second native shared-workspace
-  proof before broadly adapting unowned devices. Reuse existing native device
-  behavior rather than introducing replacement hardware logic.
+- [x] Add a physically available keyboard as the second native shared-workspace
+  proof. K95 Platinum completes the physical mouse-and-keyboard proof while
+  reusing existing native device behavior rather than introducing replacement
+  hardware logic.
 - [ ] Make Performance presentation fully device-neutral where the second device
   class exposes assumptions inherited from the initial mouse implementation.
-- [ ] Enrich Overview as a read-only, capability-driven device summary after at
-  least a mouse and keyboard are represented. Show only state and telemetry that
-  the selected device truthfully reports.
+- [ ] Enrich Overview as a read-only, capability-driven device summary now that
+  a physical mouse and keyboard are represented. It may show active effect,
+  ownership or RGB Cluster state, active profile, polling or performance state,
+  and truthful device statistics only when the selected device reports them.
 - [ ] After the shared contract is proven across owned device classes, add thin
   Performance providers to other already-native devices where their existing
   implementations expose the required current state, option inventory, and
@@ -840,10 +863,10 @@ roadmap does not promise that every duplicate will be deleted.
 22. [ ] Remove OpenRGB RGB Override and legacy imported-device lighting paths
 after OpenRGB parity.
 23. [~] Migrate native-device families one at a time without changing their
-hardware-specific output behavior. Scimitar Pro RGB, Scimitar RGB Elite, and
-MM800 are fully migrated to the canonical Device Lighting model and no longer
-participate in legacy `/rgb` lighting persistence or mutation paths
-(`2ef84b50`, `564cf8c8`). Remaining native families are still pending.
+hardware-specific output behavior. Scimitar Pro RGB, Scimitar RGB Elite, MM800,
+and K95 Platinum are fully migrated to the canonical Device Lighting model and
+no longer participate in legacy `/rgb` lighting persistence or mutation paths.
+Remaining native families are still pending.
 24. [x] Add the generic native authored-zone presentation and mutation contract
 for device-owned modes (`ce890f75`).
 25. [ ] Remove `/rgb`, global mutations, remaining target-local RGB copies,
