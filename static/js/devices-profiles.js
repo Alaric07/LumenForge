@@ -26,20 +26,21 @@
         const status = workspace.querySelector("[data-lf-device-profile-status]");
         const dialog = workspace.querySelector("[data-lf-device-profile-dialog]");
         const saveAs = workspace.querySelector("[data-lf-device-profile-new]");
+		const profileLabel = workspace.dataset.lfDeviceProfileLabel || "Device Profile";
         const confirmedProfile = profile ? profile.value : "";
         if (profile) {
             profile.addEventListener("change", function () {
                 if (profile.value === confirmedProfile) { return Promise.resolve(); }
                 return request(browser, workspace, "/api/userProfile/change", "POST", profile.value).catch(function () {
                     profile.value = confirmedProfile;
-                    if (status) { status.textContent = "Couldn’t change Device Profile."; }
+					if (status) { status.textContent = "Couldn’t change " + profileLabel + "."; }
                 });
             });
         }
         if (deleteProfile && deleteSelect) {
             deleteProfile.addEventListener("click", function () {
                 return request(browser, workspace, "/api/userProfile/delete", "DELETE", deleteSelect.value).catch(function () {
-                    if (status) { status.textContent = "Couldn’t delete Device Profile."; }
+					if (status) { status.textContent = "Couldn’t delete " + profileLabel + "."; }
                 });
             });
         }
@@ -48,8 +49,8 @@
             const dialogStatus = dialog.querySelector("[data-lf-device-profile-dialog-status]");
             saveAs.addEventListener("click", function () { dialog.hidden = false; });
             dialog.querySelector("[data-lf-device-profile-create]").addEventListener("click", function () {
-                if (!name.value.trim()) { dialogStatus.textContent = "Enter a Device Profile name."; return Promise.resolve(); }
-                return request(browser, workspace, "/api/userProfile", "PUT", name.value.trim()).then(function () { dialog.hidden = true; }).catch(function () { dialogStatus.textContent = "Couldn’t save Device Profile."; });
+				if (!name.value.trim()) { dialogStatus.textContent = "Enter a " + profileLabel + " name."; return Promise.resolve(); }
+				return request(browser, workspace, "/api/userProfile", "PUT", name.value.trim()).then(function () { dialog.hidden = true; }).catch(function () { dialogStatus.textContent = "Couldn’t save " + profileLabel + "."; });
             });
             dialog.querySelector("[data-lf-device-profile-cancel]").addEventListener("click", function () { dialog.hidden = true; });
         }

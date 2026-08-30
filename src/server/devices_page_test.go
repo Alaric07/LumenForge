@@ -7,8 +7,8 @@ import (
 	"LumenForge/src/devices"
 	"LumenForge/src/devices/openrgbimport"
 	"LumenForge/src/dpipresentation"
-	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/keyboardassignmentspresentation"
+	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/performancepresentation"
 	"LumenForge/src/rgb"
 	"LumenForge/src/stats"
@@ -43,13 +43,67 @@ type devicesPagePerformanceSnapshotProvider struct {
 	snapshot performancepresentation.Snapshot
 }
 
-type devicesPageKeyboardAssignmentsSnapshotProvider struct { serial string; snapshot keyboardassignmentspresentation.Snapshot }
-func (provider devicesPageKeyboardAssignmentsSnapshotProvider) KeyboardAssignmentsDeviceID() string { return provider.serial }
-func (provider devicesPageKeyboardAssignmentsSnapshotProvider) KeyboardAssignmentsSnapshot() (keyboardassignmentspresentation.Snapshot, bool) { return provider.snapshot, true }
+type devicesPageKeyboardAssignmentsSnapshotProvider struct {
+	serial   string
+	snapshot keyboardassignmentspresentation.Snapshot
+}
 
-type devicesPageDeviceProfileSnapshotProvider struct { serial string; snapshot deviceprofilepresentation.Snapshot }
-func (provider devicesPageDeviceProfileSnapshotProvider) DeviceProfileDeviceID() string { return provider.serial }
-func (provider devicesPageDeviceProfileSnapshotProvider) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bool) { return provider.snapshot, true }
+func (provider devicesPageKeyboardAssignmentsSnapshotProvider) KeyboardAssignmentsDeviceID() string {
+	return provider.serial
+}
+func (provider devicesPageKeyboardAssignmentsSnapshotProvider) KeyboardAssignmentsSnapshot() (keyboardassignmentspresentation.Snapshot, bool) {
+	return provider.snapshot, true
+}
+
+type devicesPageDeviceProfileSnapshotProvider struct {
+	serial   string
+	snapshot deviceprofilepresentation.Snapshot
+}
+
+func (provider devicesPageDeviceProfileSnapshotProvider) DeviceProfileDeviceID() string {
+	return provider.serial
+}
+func (provider devicesPageDeviceProfileSnapshotProvider) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bool) {
+	return provider.snapshot, true
+}
+
+type devicesPageLightingDeviceProfileSnapshotProvider struct {
+	serial           string
+	lightingSnapshot lightingpresentation.Snapshot
+	profileSnapshot  deviceprofilepresentation.Snapshot
+}
+
+func (provider devicesPageLightingDeviceProfileSnapshotProvider) LightingDeviceID() string {
+	return provider.serial
+}
+func (provider devicesPageLightingDeviceProfileSnapshotProvider) LightingSnapshot() (lightingpresentation.Snapshot, bool) {
+	return provider.lightingSnapshot, true
+}
+func (provider devicesPageLightingDeviceProfileSnapshotProvider) DeviceProfileDeviceID() string {
+	return provider.serial
+}
+func (provider devicesPageLightingDeviceProfileSnapshotProvider) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bool) {
+	return provider.profileSnapshot, true
+}
+
+type devicesPageKeyboardDeviceProfileSnapshotProvider struct {
+	serial           string
+	keyboardSnapshot keyboardassignmentspresentation.Snapshot
+	profileSnapshot  deviceprofilepresentation.Snapshot
+}
+
+func (provider devicesPageKeyboardDeviceProfileSnapshotProvider) KeyboardAssignmentsDeviceID() string {
+	return provider.serial
+}
+func (provider devicesPageKeyboardDeviceProfileSnapshotProvider) KeyboardAssignmentsSnapshot() (keyboardassignmentspresentation.Snapshot, bool) {
+	return provider.keyboardSnapshot, true
+}
+func (provider devicesPageKeyboardDeviceProfileSnapshotProvider) DeviceProfileDeviceID() string {
+	return provider.serial
+}
+func (provider devicesPageKeyboardDeviceProfileSnapshotProvider) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bool) {
+	return provider.profileSnapshot, true
+}
 
 func (provider devicesPageDPISnapshotProvider) DPIDeviceID() string {
 	return provider.serial
@@ -59,7 +113,9 @@ func (provider devicesPageDPISnapshotProvider) DPISnapshot() (dpipresentation.Sn
 	return provider.snapshot, true
 }
 
-func (provider devicesPagePerformanceSnapshotProvider) PerformanceDeviceID() string { return provider.serial }
+func (provider devicesPagePerformanceSnapshotProvider) PerformanceDeviceID() string {
+	return provider.serial
+}
 
 func (provider devicesPagePerformanceSnapshotProvider) PerformanceSnapshot() (performancepresentation.Snapshot, bool) {
 	return provider.snapshot, true
@@ -76,53 +132,196 @@ func (provider devicesPageLightingSnapshotProvider) LightingSnapshot() (lighting
 func TestDevicesWorkspaceKeyboardPresentationAndView(t *testing.T) {
 	const serial = "keyboard-assignment-device"
 	snapshot := keyboardassignmentspresentation.Snapshot{
-		Available: true,
+		Available:        true,
 		LiveRGBAvailable: true, LiveRGBEnabled: true,
 		Profiles: []string{"default"}, ActiveProfile: "default", KeyboardLayouts: []string{"US", "UK"}, ActiveKeyboardLayout: "US",
 		LayoutClass: "keyboard-8", RowLayoutClass: "keyboard-row-26",
-		Rows: []keyboardassignmentspresentation.Row{{Index: 0, CSS: "keyboard-row-26", Keys: []keyboardassignmentspresentation.Key{{KeyIndex: 11, KeyName: "G1", Width: 1, Height: 1, KeySpace: "keyboard-key wide3", CSS: "top-32", Spacing: []int{0}, KeyEmpty: []string{"keyboard-key-empty"}, Assignable: true, Red: 12.5, Green: 34, Blue: 56}, {KeyIndex: 12, KeyName: "M1", Width: 1, Height: 1, Assignable: false, Red: 0, Green: 255, Blue: 255}}}},
+		Rows:            []keyboardassignmentspresentation.Row{{Index: 0, CSS: "keyboard-row-26", Keys: []keyboardassignmentspresentation.Key{{KeyIndex: 11, KeyName: "G1", Width: 1, Height: 1, KeySpace: "keyboard-key wide3", CSS: "top-32", Spacing: []int{0}, KeyEmpty: []string{"keyboard-key-empty"}, Assignable: true, Red: 12.5, Green: 34, Blue: 56}, {KeyIndex: 12, KeyName: "M1", Width: 1, Height: 1, Assignable: false, Red: 0, Green: 255, Blue: 255}}}},
 		AssignmentTypes: []keyboardassignmentspresentation.AssignmentType{{ID: 0, Label: "None"}, {ID: 10, Label: "Macro"}},
 	}
 	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "Keyboard", Instance: devicesPageKeyboardAssignmentsSnapshotProvider{serial: serial, snapshot: snapshot}}}, map[string]stats.BatteryStats{}, serial)
-	if !ok || summary.KeyboardAssignments == nil { t.Fatalf("summary = %#v, ok=%t", summary, ok) }
-	if got := summary.KeyboardAssignments.Rows[0].Keys; got[0].KeyIndex != 11 || got[0].KeySpace != "keyboard-key wide3" || len(got[0].Spacing) != 1 || len(got[0].KeyEmpty) != 1 || !got[0].Assignable || got[1].Assignable { t.Errorf("presented keys = %#v", got) }
-	if got := devicesWorkspaceView([]string{"keyboard"}, summary); got != "keyboard" { t.Errorf("view = %q", got) }
-	if got := devicesWorkspaceView([]string{"key-assignments"}, summary); got != "overview" { t.Errorf("retired view = %q", got) }
+	if !ok || summary.KeyboardAssignments == nil {
+		t.Fatalf("summary = %#v, ok=%t", summary, ok)
+	}
+	if got := summary.KeyboardAssignments.Rows[0].Keys; got[0].KeyIndex != 11 || got[0].KeySpace != "keyboard-key wide3" || len(got[0].Spacing) != 1 || len(got[0].KeyEmpty) != 1 || !got[0].Assignable || got[1].Assignable {
+		t.Errorf("presented keys = %#v", got)
+	}
+	if got := devicesWorkspaceView([]string{"keyboard"}, summary); got != "keyboard" {
+		t.Errorf("view = %q", got)
+	}
+	if got := devicesWorkspaceView([]string{"key-assignments"}, summary); got != "overview" {
+		t.Errorf("retired view = %q", got)
+	}
 	summary.Performance = &devicesPerformanceWorkspaceSummary{PollingRate: &devicesPerformanceSelectSummary{Value: 1, Options: []devicesPerformanceOptionSummary{{Value: 1, Label: "1000 Hz"}}}, BooleanSettings: []devicesPerformanceBooleanSummary{{ID: "perf_winKey", Label: "Disable Win Key"}, {ID: "perf_shiftTab", Label: "Disable Shift + Tab"}, {ID: "perf_altTab", Label: "Disable Alt + Tab"}, {ID: "perf_altF4", Label: "Disable Alt + F4"}}}
-	if got := devicesWorkspaceView([]string{"dpi"}, summary); got != "overview" { t.Errorf("retired performance view = %q", got) }
+	if got := devicesWorkspaceView([]string{"dpi"}, summary); got != "overview" {
+		t.Errorf("retired performance view = %q", got)
+	}
 	var rendered bytes.Buffer
-	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: {Serial: serial, Product: "Keyboard"}}, Device: &devicesWorkspaceSummary{Serial: serial, Product: "Keyboard", KeyboardAssignments: summary.KeyboardAssignments, Performance: summary.Performance, DeviceProfiles: &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"default", "studio"}, ActiveProfile: "default"}, View: "keyboard"}, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil { t.Fatal(err) }
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: {Serial: serial, Product: "Keyboard"}}, Device: &devicesWorkspaceSummary{Serial: serial, Product: "Keyboard", KeyboardAssignments: summary.KeyboardAssignments, Performance: summary.Performance, DeviceProfiles: &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"default", "studio"}, ActiveProfile: "default"}, View: "keyboard"}, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
 	body := rendered.String()
-	for _, expected := range []string{"data-lf-keyboard-assignments-workspace", "data-lf-keyboard-key", "data-lf-keyboard-color-key", "data-lf-keyboard-editor", "data-lf-keyboard-assignment-close", "keyboard-8", "keyboard-row-26", "keyboard-key wide3", "keyboard-key-empty", "Macro", `data-lf-key-red="12.5"`, `data-lf-normal-color="rgba(12.5, 34, 56, 1)"`} { if !strings.Contains(body, expected) { t.Errorf("missing %q", expected) } }
-	for _, expected := range []string{"data-lf-keyboard-live-rgb checked", "Key Assignments"} { if !strings.Contains(body, expected) { t.Errorf("missing %q", expected) } }
-	for _, expected := range []string{"lf-keyboard-settings-card", "data-lf-keyboard-settings-card", "Changes save automatically.", "lf-keyboard-lockouts-card", "data-lf-keyboard-lockouts-card", "Keyboard Settings", "Keyboard Layout", `select id="lf-keyboard-layout" class="lf-buttons-select" data-lf-keyboard-layout`, `option value="US" selected`, "Polling Rate", "Key Lockouts", "Color &amp; Key Assignments", "Color &amp; Assignment Preset", `select id="lf-keyboard-layout-profile" class="lf-buttons-select" data-lf-keyboard-profile`, `option value="default" selected>Working Configuration`, "Save Preset As", "Save Preset", "Delete Preset", "data-lf-device-profiles-workspace", "Device Profile", "Saves the complete keyboard configuration, including settings, lockouts, colors, assignments, and presets.", "Save Device Profile As", "Delete Device Profile", `href="/devices?device=keyboard-assignment-device&amp;view=keyboard"`, ">Keyboard</a>"} { if !strings.Contains(body, expected) { t.Errorf("missing %q", expected) } }
+	for _, expected := range []string{"data-lf-keyboard-assignments-workspace", "data-lf-keyboard-key", "data-lf-keyboard-color-key", "data-lf-keyboard-editor", "data-lf-keyboard-assignment-close", "keyboard-8", "keyboard-row-26", "keyboard-key wide3", "keyboard-key-empty", "Macro", `data-lf-key-red="12.5"`, `data-lf-normal-color="rgba(12.5, 34, 56, 1)"`} {
+		if !strings.Contains(body, expected) {
+			t.Errorf("missing %q", expected)
+		}
+	}
+	for _, expected := range []string{"data-lf-keyboard-live-rgb checked", "Key Assignments"} {
+		if !strings.Contains(body, expected) {
+			t.Errorf("missing %q", expected)
+		}
+	}
+	for _, expected := range []string{"lf-keyboard-settings-card", "data-lf-keyboard-settings-card", "Changes save automatically.", "lf-keyboard-lockouts-card", "data-lf-keyboard-lockouts-card", "Keyboard Settings", "Keyboard Layout", `select id="lf-keyboard-layout" class="lf-buttons-select" data-lf-keyboard-layout`, `option value="US" selected`, "Polling Rate", "Key Lockouts", "Color &amp; Key Assignments", "Color &amp; Assignment Preset", `select id="lf-keyboard-layout-profile" class="lf-buttons-select" data-lf-keyboard-profile`, `option value="default" selected>Working Configuration`, "Save Preset As", "Save Preset", "Delete Preset", `href="/devices?device=keyboard-assignment-device&amp;view=keyboard"`, ">Keyboard</a>"} {
+		if !strings.Contains(body, expected) {
+			t.Errorf("missing %q", expected)
+		}
+	}
 	previous := -1
-	for _, expected := range []string{"Keyboard Settings", "Key Lockouts", "Color &amp; Key Assignments", "Color &amp; Assignment Preset", "lf-keyboard-visualization", "data-lf-keyboard-color-apply", "data-lf-keyboard-assignment-open", "Device Profile"} {
+	for _, expected := range []string{"Keyboard Settings", "Key Lockouts", "Color &amp; Key Assignments", "Color &amp; Assignment Preset", "lf-keyboard-visualization", "data-lf-keyboard-color-apply", "data-lf-keyboard-assignment-open"} {
 		position := strings.Index(body, expected)
-		if position < 0 || position <= previous { t.Errorf("keyboard workspace order omitted or misplaced %q", expected) }
+		if position < 0 || position <= previous {
+			t.Errorf("keyboard workspace order omitted or misplaced %q", expected)
+		}
 		previous = position
 	}
-	if presetForm, keyboard := strings.Index(body, "data-lf-keyboard-profile-dialog"), strings.Index(body, "lf-keyboard-visualization"); presetForm < 0 || keyboard < 0 || presetForm >= keyboard { t.Error("keyboard preset form did not render below preset controls and above the keyboard visualization") }
-	if count := strings.Count(body, "data-lf-device-profiles-workspace"); count != 1 { t.Errorf("device profile workspace count = %d, want 1", count) }
-	for _, removed := range []string{">Performance</a>", ">Key Assignments</a>", "Save Performance Settings", "Save Key Lockouts"} { if strings.Contains(body, removed) { t.Errorf("keyboard workspace retained %q", removed) } }
-	for _, expected := range []string{"data-lf-keyboard-profile-save disabled", "data-lf-keyboard-profile-delete disabled"} { if !strings.Contains(body, expected) { t.Errorf("default profile did not disable %q", expected) } }
-	for _, forbidden := range []string{"data-lf-keyboard-assignment-open disabled", "data-lf-keyboard-color value=\"#ffffff\" disabled", "data-lf-keyboard-color-scope disabled", "data-lf-keyboard-color-apply disabled"} { if strings.Contains(body, forbidden) { t.Errorf("default profile incorrectly disabled %q", forbidden) } }
-	for _, obsolete := range []string{"--lf-key-width", "--lf-key-height", "--lf-key-left", "--lf-key-top", "--lf-row-top"} { if strings.Contains(body, obsolete) { t.Errorf("keyboard workspace rendered raw coordinate layout %q", obsolete) } }
+	if presetForm, keyboard := strings.Index(body, "data-lf-keyboard-profile-dialog"), strings.Index(body, "lf-keyboard-visualization"); presetForm < 0 || keyboard < 0 || presetForm >= keyboard {
+		t.Error("keyboard preset form did not render below preset controls and above the keyboard visualization")
+	}
+	if count := strings.Count(body, "data-lf-device-profiles-workspace"); count != 0 {
+		t.Errorf("device profile workspace count = %d, want 0", count)
+	}
+	for _, removed := range []string{">Performance</a>", ">Key Assignments</a>", "Save Performance Settings", "Save Key Lockouts", "Device Profile", "Save Device Profile As", "Delete Device Profile"} {
+		if strings.Contains(body, removed) {
+			t.Errorf("keyboard workspace retained %q", removed)
+		}
+	}
+	for _, expected := range []string{"data-lf-keyboard-profile-save disabled", "data-lf-keyboard-profile-delete disabled"} {
+		if !strings.Contains(body, expected) {
+			t.Errorf("default profile did not disable %q", expected)
+		}
+	}
+	for _, forbidden := range []string{"data-lf-keyboard-assignment-open disabled", "data-lf-keyboard-color value=\"#ffffff\" disabled", "data-lf-keyboard-color-scope disabled", "data-lf-keyboard-color-apply disabled"} {
+		if strings.Contains(body, forbidden) {
+			t.Errorf("default profile incorrectly disabled %q", forbidden)
+		}
+	}
+	for _, obsolete := range []string{"--lf-key-width", "--lf-key-height", "--lf-key-left", "--lf-key-top", "--lf-row-top"} {
+		if strings.Contains(body, obsolete) {
+			t.Errorf("keyboard workspace rendered raw coordinate layout %q", obsolete)
+		}
+	}
 	styles, err := os.ReadFile(filepath.Join("..", "..", "static", "css", "app-shell.css"))
-	if err != nil { t.Fatal(err) }
-	for _, expected := range []string{"repeat(26, var(--lf-kb-key-width))", "--lf-kb-column-gap", ".lf-keyboard-placeholder", "button.lf-keyboard-key-static { opacity: 1; cursor: pointer; }"} { if !strings.Contains(string(styles), expected) { t.Errorf("keyboard grid CSS missing %q", expected) } }
-	for _, obsolete := range []string{"flex: var(--lf-key-width)", "margin-left: calc(var(--lf-key-left)", "top: calc(var(--lf-key-top)"} { if strings.Contains(string(styles), obsolete) { t.Errorf("keyboard grid CSS retained raw layout %q", obsolete) } }
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{"repeat(26, var(--lf-kb-key-width))", "--lf-kb-column-gap", ".lf-keyboard-placeholder", "button.lf-keyboard-key-static { opacity: 1; cursor: pointer; }"} {
+		if !strings.Contains(string(styles), expected) {
+			t.Errorf("keyboard grid CSS missing %q", expected)
+		}
+	}
+	for _, obsolete := range []string{"flex: var(--lf-key-width)", "margin-left: calc(var(--lf-key-left)", "top: calc(var(--lf-key-top)"} {
+		if strings.Contains(string(styles), obsolete) {
+			t.Errorf("keyboard grid CSS retained raw layout %q", obsolete)
+		}
+	}
 }
 
-func TestDevicesOverviewDeviceProfilePresentation(t *testing.T) {
-	const serial = "device-profile-device"
+func TestDevicesOverviewKeyboardDeviceProfilePresentation(t *testing.T) {
+	const serial = "k95-device-profile"
 	snapshot := deviceprofilepresentation.Snapshot{Supported: true, Profiles: []string{"default", "studio"}, ActiveProfile: "default"}
-	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "Keyboard", Instance: devicesPageDeviceProfileSnapshotProvider{serial: serial, snapshot: snapshot}}}, map[string]stats.BatteryStats{}, serial)
-	if !ok || summary.DeviceProfiles == nil || summary.DeviceProfiles.ActiveProfile != "default" { t.Fatalf("summary = %#v, ok=%t", summary, ok) }
+	keyboardSnapshot := keyboardassignmentspresentation.Snapshot{Available: true, Profiles: []string{"default"}, ActiveProfile: "default", Rows: []keyboardassignmentspresentation.Row{{Keys: []keyboardassignmentspresentation.Key{{KeyName: "A", Width: 1, Height: 1}}}}, AssignmentTypes: []keyboardassignmentspresentation.AssignmentType{{Label: "None"}}}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K95 RGB Platinum", Instance: devicesPageKeyboardDeviceProfileSnapshotProvider{serial: serial, keyboardSnapshot: keyboardSnapshot, profileSnapshot: snapshot}}}, map[string]stats.BatteryStats{}, serial)
+	if !ok || summary.DeviceProfiles == nil || summary.DeviceProfiles.ActiveProfile != "default" || len(summary.DeviceProfiles.ProfileDisplayLabels) != 0 || summary.DeviceProfiles.Description != devicesKeyboardDeviceProfileDescription {
+		t.Fatalf("summary = %#v, ok=%t", summary, ok)
+	}
 	var rendered bytes.Buffer
-	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: {Serial: serial, Product: "Keyboard"}}, Device: summary, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil { t.Fatal(err) }
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: {Serial: serial, Product: "K95 RGB Platinum"}}, Device: summary, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
 	body := rendered.String()
-	for _, expected := range []string{"data-lf-device-profiles-workspace", "Device Profile", "Save Device Profile As", "Device Profile to delete", "Delete Device Profile", `select id="lf-device-profile" class="lf-buttons-select" data-lf-device-profile`, `option value="default" selected`, `option value="studio"`} { if !strings.Contains(body, expected) { t.Errorf("missing %q", expected) } }
+	for _, expected := range []string{"lf-overview-workspace", "data-lf-device-profiles-workspace", "Device Profile", devicesKeyboardDeviceProfileDescription, "Save Device Profile As", "Device Profile to delete", "Delete Device Profile", `select id="lf-device-profile" class="lf-buttons-select" data-lf-device-profile`, `option value="default" selected>default`, `option value="studio"`} {
+		if !strings.Contains(body, expected) {
+			t.Errorf("missing %q", expected)
+		}
+	}
+}
+
+func TestDevicesOverviewScimitarEliteDeviceProfilePresentation(t *testing.T) {
+	const serial = "scimitar-elite-device-profile"
+	snapshot := deviceprofilepresentation.Snapshot{Supported: true, Profiles: []string{"default", "studio"}, ActiveProfile: "default"}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "SCIMITAR RGB ELITE", ProductType: common.ProductTypeScimitarRgbElite, Instance: devicesPageDeviceProfileSnapshotProvider{serial: serial, snapshot: snapshot}}}, map[string]stats.BatteryStats{}, serial)
+	if !ok || summary.DeviceProfiles == nil || summary.DeviceProfiles.ActiveProfile != "default" || summary.DeviceProfiles.Description != devicesScimitarEliteDeviceProfileDescription {
+		t.Fatalf("summary = %#v, ok=%t", summary, ok)
+	}
+	var rendered bytes.Buffer
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: {Serial: serial, Product: "SCIMITAR RGB ELITE", ProductType: common.ProductTypeScimitarRgbElite}}, Device: summary, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
+	body := rendered.String()
+	for _, expected := range []string{"lf-overview-workspace", "data-lf-device-profiles-workspace", "Device Profile", devicesScimitarEliteDeviceProfileDescription, "Save Device Profile As", "Device Profile to delete", "Delete Device Profile", `select id="lf-device-profile" class="lf-buttons-select" data-lf-device-profile`, `option value="default" selected>default`, `option value="studio"`} {
+		if !strings.Contains(body, expected) {
+			t.Errorf("missing %q", expected)
+		}
+	}
+}
+
+func TestDevicesLightingProfilePresentation(t *testing.T) {
+	const serial = "mm800-lighting-profile"
+	profileSnapshot := deviceprofilepresentation.Snapshot{Supported: true, Scope: deviceprofilepresentation.ScopeLighting, Profiles: []string{"default", "studio"}, ActiveProfile: "default", DefaultProfileDisplayLabel: deviceprofilepresentation.WorkingConfigurationLabel}
+	mousepadSnapshot := lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "mousepad", EffectSupported: true, HasBrightness: true, Brightness: 72,
+		AuthoredZoneEditor: &lightingpresentation.AuthoredZoneEditor{EffectID: "mousepad", Heading: "Zones", Description: "Select one or more zones, choose a color, then apply it to the selected zones.", Zones: []lightingpresentation.AuthoredZone{{ID: "1", Label: "Zone 1", ColorHex: "#102030"}}}}
+	device := &common.Device{Serial: serial, Product: "MM800", ProductType: common.ProductTypeMM800, Instance: devicesPageLightingDeviceProfileSnapshotProvider{serial: serial, lightingSnapshot: mousepadSnapshot, profileSnapshot: profileSnapshot}}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: device}, map[string]stats.BatteryStats{}, serial)
+	if !ok || summary.DeviceProfiles == nil || summary.DeviceProfiles.Scope != deviceprofilepresentation.ScopeLighting || summary.DeviceProfiles.ProfileDisplayLabels["default"] != deviceprofilepresentation.WorkingConfigurationLabel || summary.DeviceProfiles.Label != "Lighting Profile" || summary.DeviceProfiles.Description != devicesLightingProfileDescription {
+		t.Fatalf("summary = %#v, ok=%t", summary, ok)
+	}
+
+	var rendered bytes.Buffer
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: device}, Device: &devicesWorkspaceSummary{Product: device.Product, Serial: serial, Lighting: summary.Lighting, DeviceProfiles: summary.DeviceProfiles, View: "lighting"}, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
+	body := rendered.String()
+	for _, expected := range []string{"Lighting Profile", devicesLightingProfileDescription, "Active Lighting Profile", "Save Lighting Profile As", "Lighting Profile to delete", "Delete Lighting Profile", `data-lf-device-profiles-workspace`, `data-lf-device-profile-label="Lighting Profile"`, `select id="lf-device-profile" class="lf-buttons-select" data-lf-device-profile`, `option value="default" selected>Working Configuration`, `option value="studio"`, "<h3>Zones</h3>", "Select one or more zones, choose a color, then apply it to the selected zones."} {
+		if !strings.Contains(body, expected) {
+			t.Errorf("missing %q", expected)
+		}
+	}
+	for _, removed := range []string{"Authored zones", "<h2>Device Profile</h2>"} {
+		if strings.Contains(body, removed) {
+			t.Errorf("MM800 lighting retained %q", removed)
+		}
+	}
+	zonesAt, profileAt, ownershipAt := strings.Index(body, "<h3>Zones</h3>"), strings.Index(body, "<h2>Lighting Profile</h2>"), strings.Index(body, `class="lf-lighting-ownership-panel"`)
+	if zonesAt < 0 || profileAt <= zonesAt || ownershipAt <= profileAt {
+		t.Errorf("MM800 lighting profile order = zones:%d profile:%d ownership:%d", zonesAt, profileAt, ownershipAt)
+	}
+
+	rendered.Reset()
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: device}, Device: &devicesWorkspaceSummary{Product: device.Product, Serial: serial, Lighting: summary.Lighting, DeviceProfiles: summary.DeviceProfiles, View: "overview"}, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(rendered.String(), "data-lf-device-profiles-workspace") {
+		t.Fatal("MM800 lighting profile rendered on Overview")
+	}
+
+	for _, effect := range []string{"static", "gradient"} {
+		lighting := devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: effect, EffectSupported: true})
+		rendered.Reset()
+		if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: device}, Device: &devicesWorkspaceSummary{Product: device.Product, Serial: serial, Lighting: lighting, DeviceProfiles: summary.DeviceProfiles, View: "lighting"}, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(rendered.String(), "data-lf-device-profiles-workspace") {
+			t.Errorf("Lighting Profile rendered for generic effect %q", effect)
+		}
+	}
+
+	rendered.Reset()
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: device}, Device: &devicesWorkspaceSummary{Product: device.Product, Serial: serial, OpenRGB: &openRGBWorkspaceSummary{}, Lighting: summary.Lighting, View: "lighting"}, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(rendered.String(), "data-lf-device-profiles-workspace") {
+		t.Fatal("OpenRGB presentation gained a profile panel")
+	}
 }
 
 func TestOpenRGBLegacyTemplateOmitsDuplicateLightingControls(t *testing.T) {
@@ -246,9 +445,9 @@ func TestDevicesLightingAuthoredZoneEditorPresentation(t *testing.T) {
 	}
 
 	nonGeometric := lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "mouse", EffectSupported: true,
-		AuthoredZoneEditor: &lightingpresentation.AuthoredZoneEditor{EffectID: "mouse", Zones: []lightingpresentation.AuthoredZone{{ID: "front", Label: "Front", ColorHex: "#102030"}}}}
+		AuthoredZoneEditor: &lightingpresentation.AuthoredZoneEditor{EffectID: "mouse", Heading: "Zones", Description: "Select one or more zones, choose a color, then apply it to the selected zones.", Zones: []lightingpresentation.AuthoredZone{{ID: "front", Label: "Front", ColorHex: "#102030"}}}}
 	nonGeometricBody := renderDevicesLightingView(t, devicesLightingWorkspaceSummaryFromSnapshot(nonGeometric))
-	for _, want := range []string{`data-lf-authored-zone-control`, `data-lf-effect="mouse"`, `data-lf-zone-id="front"`, `aria-pressed="false"`, `#102030`, `Clear selection`, `data-lf-authored-zone-clear`, `Selected zones`, `data-lf-authored-zone-apply="zones"`, `data-lf-authored-zone-apply="all"`, `selected zones or all zones`} {
+	for _, want := range []string{`data-lf-authored-zone-control`, `data-lf-effect="mouse"`, `data-lf-zone-id="front"`, `aria-pressed="false"`, `#102030`, `Clear selection`, `data-lf-authored-zone-clear`, `Selected zones`, `data-lf-authored-zone-apply="zones"`, `data-lf-authored-zone-apply="all"`, `<h3>Zones</h3>`, `Select one or more zones, choose a color, then apply it to the selected zones.`} {
 		if !strings.Contains(nonGeometricBody, want) {
 			t.Errorf("non-geometric editor omitted %q", want)
 		}
@@ -263,6 +462,9 @@ func TestDevicesLightingAuthoredZoneEditorPresentation(t *testing.T) {
 	}
 	if strings.Contains(nonGeometricBody, `data-lf-authored-zone-apply="group"`) || strings.Contains(nonGeometricBody, "--lf-authored-zone-left") {
 		t.Fatalf("non-geometric editor manufactured group/geometry metadata:\n%s", nonGeometricBody)
+	}
+	if strings.Contains(nonGeometricBody, "Authored zones") {
+		t.Fatal("Scimitar authored-zone editor retained its obsolete heading")
 	}
 
 	geometric := lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "mousepad", EffectSupported: true,
@@ -326,7 +528,9 @@ func TestDevicesWorkspaceDPIPresentationAndViews(t *testing.T) {
 	previous := -1
 	for _, name := range []string{"Stage 1", "Stage 2", "Stage 3", "Stage 4", "Stage 5", "Sniper"} {
 		position := strings.Index(body, name)
-		if position < 0 || position <= previous { t.Errorf("DPI stage order does not include %q in sequence", name) }
+		if position < 0 || position <= previous {
+			t.Errorf("DPI stage order does not include %q in sequence", name)
+		}
 		previous = position
 	}
 	if strings.Contains(body, "<select") {
@@ -1501,8 +1705,8 @@ func renderDevicesPerformanceView(t *testing.T, dpi *devicesDPIWorkspaceSummary,
 	t.Helper()
 	var rendered bytes.Buffer
 	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{
-		Devices: map[string]*common.Device{"performance-template-device": {Product: "Performance Template Device", Serial: "performance-template-device"}},
-		Device: &devicesWorkspaceSummary{Product: "Performance Template Device", Serial: "performance-template-device", DPI: dpi, Performance: performance, View: "dpi"},
+		Devices:      map[string]*common.Device{"performance-template-device": {Product: "Performance Template Device", Serial: "performance-template-device"}},
+		Device:       &devicesWorkspaceSummary{Product: "Performance Template Device", Serial: "performance-template-device", DPI: dpi, Performance: performance, View: "dpi"},
 		BatteryStats: map[string]stats.BatteryStats{}, Page: "devices",
 	}); err != nil {
 		t.Fatal(err)

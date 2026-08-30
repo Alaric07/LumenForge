@@ -76,7 +76,7 @@ func TestMM800LightingSnapshotPresentsAuthoredMousepadZonesDeterministically(t *
 		t.Fatal(err)
 	}
 	snapshot, ok := device.LightingSnapshot()
-	if !ok || snapshot.AuthoredZoneEditor == nil || snapshot.AuthoredZoneEditor.HasGroups || len(snapshot.AuthoredZoneEditor.Zones) != 15 {
+	if !ok || snapshot.AuthoredZoneEditor == nil || snapshot.AuthoredZoneEditor.Heading != "Zones" || snapshot.AuthoredZoneEditor.Description != "Select one or more zones, choose a color, then apply it to the selected zones." || snapshot.AuthoredZoneEditor.HasGroups || len(snapshot.AuthoredZoneEditor.Zones) != 15 {
 		t.Fatalf("authored snapshot = %#v", snapshot)
 	}
 	for index, zone := range snapshot.AuthoredZoneEditor.Zones {

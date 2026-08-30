@@ -122,7 +122,12 @@ func scimitarEliteAuthoredZoneEditor(profile *DeviceProfile) *lightingpresentati
 		keys = append(keys, key)
 	}
 	sort.Ints(keys)
-	editor := &lightingpresentation.AuthoredZoneEditor{EffectID: "mouse", Zones: make([]lightingpresentation.AuthoredZone, 0, len(keys))}
+	editor := &lightingpresentation.AuthoredZoneEditor{
+		EffectID:    "mouse",
+		Heading:     "Zones",
+		Description: "Select one or more zones, choose a color, then apply it to the selected zones.",
+		Zones:       make([]lightingpresentation.AuthoredZone, 0, len(keys)),
+	}
 	for _, key := range keys {
 		zone := profile.ZoneColors[key]
 		if zone.Color == nil {

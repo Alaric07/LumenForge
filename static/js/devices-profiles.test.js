@@ -9,8 +9,8 @@ function element(value) {
     return {value: value || "", hidden: false, textContent: "", children: {}, addEventListener: function (name, handler) { handlers[name] = handler; }, fire: function (name) { return handlers[name](); }, querySelector: function (selector) { return this.children[selector] || null; }};
 }
 
-function harness() {
-    const profile = element("default"); const deleteSelect = element("gaming"); const remove = element(); const status = element(); const saveAs = element(); const dialog = element(); const name = element(); const create = element(); const cancel = element(); const dialogStatus = element(); dialog.children = {"[data-lf-device-profile-name]": name, "[data-lf-device-profile-create]": create, "[data-lf-device-profile-cancel]": cancel, "[data-lf-device-profile-dialog-status]": dialogStatus};
+function harness(activeProfile = "default") {
+    const profile = element(activeProfile); const deleteSelect = element("gaming"); const remove = element(); const status = element(); const saveAs = element(); const dialog = element(); const name = element(); const create = element(); const cancel = element(); const dialogStatus = element(); dialog.children = {"[data-lf-device-profile-name]": name, "[data-lf-device-profile-create]": create, "[data-lf-device-profile-cancel]": cancel, "[data-lf-device-profile-dialog-status]": dialogStatus};
     const nodes = {"[data-lf-device-profile]": profile, "[data-lf-device-profile-delete-select]": deleteSelect, "[data-lf-device-profile-delete]": remove, "[data-lf-device-profile-status]": status, "[data-lf-device-profile-new]": saveAs, "[data-lf-device-profile-dialog]": dialog};
     const workspace = {dataset: {lfDeviceId: "k95"}, querySelector: function (selector) { return nodes[selector] || null; }};
     const posts = []; const browser = {document: {readyState: "complete", querySelector: function () { return workspace; }}, fetch: async function (url, options) { posts.push({url: url, options: options}); return browser.response || {ok: true, json: async function () { return {status: 1}; }}; }, location: {reload: function () { browser.reloaded = true; }}, LumenForgeDevicesToast: function () { browser.toasted = true; }};
@@ -19,6 +19,10 @@ function harness() {
 
 test("Device Profile selector posts the legacy user-profile change payload", async function () {
     const h = harness(); const profile = h.nodes["[data-lf-device-profile]"]; profile.value = "studio"; await profile.fire("change"); assert.equal(h.posts[0].url, "/api/userProfile/change"); assert.deepEqual(JSON.parse(h.posts[0].options.body), {deviceId: "k95", userProfileName: "studio"}); assert.equal(h.browser.reloaded, true);
+});
+
+test("Working Configuration submits the default profile key", async function () {
+    const h = harness("studio"); const profile = h.nodes["[data-lf-device-profile]"]; profile.value = "default"; await profile.fire("change"); assert.equal(h.posts[0].url, "/api/userProfile/change"); assert.deepEqual(JSON.parse(h.posts[0].options.body), {deviceId: "k95", userProfileName: "default"});
 });
 
 test("Device Profile selector leaves the active value alone and restores it after failure", async function () {

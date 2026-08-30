@@ -1,4 +1,4 @@
-package k95platinum
+package mm800
 
 import (
 	"LumenForge/src/deviceprofilepresentation"
@@ -6,7 +6,7 @@ import (
 )
 
 // DeviceProfileDeviceID and DeviceProfileSnapshot make this device a thin
-// provider for the shared full device-profile overview panel.
+// provider for the shared lighting-profile workspace panel.
 func (d *Device) DeviceProfileDeviceID() string {
 	if d == nil {
 		return ""
@@ -18,7 +18,12 @@ func (d *Device) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bo
 	if d == nil {
 		return deviceprofilepresentation.Snapshot{}, false
 	}
-	snapshot := deviceprofilepresentation.Snapshot{Supported: true}
+
+	snapshot := deviceprofilepresentation.Snapshot{
+		Supported:                  true,
+		Scope:                      deviceprofilepresentation.ScopeLighting,
+		DefaultProfileDisplayLabel: deviceprofilepresentation.WorkingConfigurationLabel,
+	}
 	for name, profile := range d.UserProfiles {
 		if profile == nil {
 			continue

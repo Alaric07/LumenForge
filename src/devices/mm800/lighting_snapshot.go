@@ -132,7 +132,11 @@ func mm800AuthoredZoneEditor(profile *DeviceProfile) *lightingpresentation.Autho
 		}
 	}
 	sort.Slice(zones, func(left, right int) bool { return zones[left].id < zones[right].id })
-	editor := &lightingpresentation.AuthoredZoneEditor{EffectID: "mousepad"}
+	editor := &lightingpresentation.AuthoredZoneEditor{
+		EffectID:    "mousepad",
+		Heading:     "Zones",
+		Description: "Select one or more zones, choose a color, then apply it to the selected zones.",
+	}
 	for _, value := range zones {
 		editor.Zones = append(editor.Zones, lightingpresentation.AuthoredZone{
 			ID: strconv.Itoa(value.id), Label: value.zone.Name,

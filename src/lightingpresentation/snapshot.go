@@ -24,9 +24,9 @@ type GradientStop struct {
 // AuthoredZoneEditor describes a device-owned authored-color mode without
 // making it a shared software effect setting.
 type AuthoredZoneEditor struct {
-	EffectID string
-	HasGroups bool
-	Zones    []AuthoredZone
+	EffectID, Heading, Description string
+	HasGroups                       bool
+	Zones                           []AuthoredZone
 }
 
 // AuthoredZone is an immutable presentation copy of one authored lighting

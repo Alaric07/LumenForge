@@ -10,6 +10,24 @@
     </span>
 {{ end }}
 
+{{ define "lf-device-profile-panel" }}
+    {{ with .Device.DeviceProfiles }}
+        <section class="lf-overview-panel lf-device-profile-panel" data-lf-device-profiles-workspace data-lf-device-id="{{ $.Device.Serial }}" data-lf-device-profile-label="{{ .Label }}">
+            <header class="lf-overview-panel-header">
+                <div>
+                    <p class="lf-section-kicker">Device configuration</p>
+                    <h2>{{ .Label }}</h2>
+                </div>
+            </header>
+            <p class="lf-device-profile-description">{{ .Description }}</p>
+            <div class="lf-device-profile-controls"><label class="lf-device-profile-select" for="lf-device-profile"><span>Active {{ .Label }}</span><select id="lf-device-profile" class="lf-buttons-select" data-lf-device-profile aria-label="{{ .Label }}">{{ $activeDeviceProfile := .ActiveProfile }}{{ $profileDisplayLabels := .ProfileDisplayLabels }}{{ range .Profiles }}{{ $profileName := . }}<option value="{{ $profileName }}"{{ if eq $profileName $activeDeviceProfile }} selected{{ end }}>{{ with index $profileDisplayLabels $profileName }}{{ . }}{{ else }}{{ $profileName }}{{ end }}</option>{{ end }}</select></label><button class="lf-button" type="button" data-lf-device-profile-new>Save {{ .Label }} As</button></div>
+            {{ if gt (len .Profiles) 1 }}<div class="lf-device-profile-controls"><label class="lf-device-profile-select" for="lf-device-profile-delete"><span>{{ .Label }} to delete</span><select id="lf-device-profile-delete" class="lf-buttons-select" data-lf-device-profile-delete-select aria-label="{{ .Label }} to delete">{{ $profileDisplayLabels := .ProfileDisplayLabels }}{{ range .Profiles }}{{ $profileName := . }}{{ if ne $profileName $activeDeviceProfile }}<option value="{{ $profileName }}">{{ with index $profileDisplayLabels $profileName }}{{ . }}{{ else }}{{ $profileName }}{{ end }}</option>{{ end }}{{ end }}</select></label><button class="lf-button lf-button-secondary" type="button" data-lf-device-profile-delete>Delete {{ .Label }}</button></div>{{ end }}
+            <p class="lf-range-control-status" data-lf-device-profile-status aria-live="polite"></p>
+            <section class="lf-device-profile-dialog" data-lf-device-profile-dialog hidden role="dialog" aria-modal="true" aria-label="Save {{ .Label }}"><label>{{ .Label }} name <input type="text" data-lf-device-profile-name autocomplete="off"></label><button class="lf-button" type="button" data-lf-device-profile-create>Save {{ .Label }}</button><button class="lf-button lf-button-secondary" type="button" data-lf-device-profile-cancel>Cancel</button><p class="lf-range-control-status" data-lf-device-profile-dialog-status aria-live="polite"></p></section>
+        </section>
+    {{ end }}
+{{ end }}
+
 <!DOCTYPE html>
 <html lang="en">
 {{ template "head" . }}
@@ -533,7 +551,7 @@
 
                                         {{ with .AuthoredZoneEditor }}
                                             <section class="lf-color-control lf-authored-zone-control" data-lf-authored-zone-control data-lf-device-serial="{{ $.Device.Serial }}" data-lf-lighting-target="{{ $.Device.Lighting.TargetKind }}" data-lf-effect="{{ .EffectID }}" data-lf-cluster-controlled="{{ $.Device.Lighting.ClusterControlled }}" data-lf-external-controlled="{{ $.Device.Lighting.ExternalControlled }}" data-lf-status-id="lf-lighting-authored-zone-status">
-                                                <div class="lf-color-control-header"><div><h3>Authored zones</h3><p>{{ if .HasGroups }}Select one or more zones, choose a color, then apply it to the selected zones, their group, or all zones.{{ else }}Select one or more zones, choose a color, then apply it to the selected zones or all zones.{{ end }}</p></div></div>
+                                                <div class="lf-color-control-header"><div><h3>{{ if .Heading }}{{ .Heading }}{{ else }}Authored zones{{ end }}</h3><p>{{ if .Description }}{{ .Description }}{{ else if .HasGroups }}Select one or more zones, choose a color, then apply it to the selected zones, their group, or all zones.{{ else }}Select one or more zones, choose a color, then apply it to the selected zones or all zones.{{ end }}</p></div></div>
                                                 <div class="lf-authored-zone-list{{ if .HasGeometry }} lf-authored-zone-list-geometric{{ end }}" data-lf-authored-zone-list{{ if .HasGeometry }} style="--lf-authored-zone-layout-width: {{ .LayoutWidth }}; --lf-authored-zone-layout-height: {{ .LayoutHeight }};"{{ end }}>
                                                     {{ range .Zones }}
                                                         <button type="button" class="lf-button lf-button-secondary lf-authored-zone" data-lf-authored-zone data-lf-zone-id="{{ .ID }}" data-lf-group-id="{{ .GroupID }}" aria-pressed="false" style="{{ if .HasGeometry }}--lf-authored-zone-left: {{ .Left }}; --lf-authored-zone-top: {{ .Top }}; --lf-authored-zone-width: {{ .Width }}; --lf-authored-zone-height: {{ .Height }};{{ end }}" {{ if or $.Device.Lighting.ClusterControlled $.Device.Lighting.ExternalControlled $.Device.Lighting.ReadOnly }}disabled{{ end }}><span>{{ .Label }}</span><span style="background-color: {{ .ColorHex }};">{{ .ColorHex }}</span></button>
@@ -544,6 +562,8 @@
                                                 <div class="lf-gradient-actions"><button class="lf-button lf-button-primary" type="button" data-lf-authored-zone-apply="zones" disabled>Selected zones</button>{{ if .HasGroups }}<button class="lf-button lf-button-secondary" type="button" data-lf-authored-zone-apply="group" disabled>Selected group</button>{{ end }}<button class="lf-button lf-button-secondary" type="button" data-lf-authored-zone-apply="all" {{ if or $.Device.Lighting.ClusterControlled $.Device.Lighting.ExternalControlled $.Device.Lighting.ReadOnly }}disabled{{ end }}>All zones</button></div><p class="lf-color-control-status" id="lf-lighting-authored-zone-status" aria-live="polite"></p>
                                             </section>
                                         {{ end }}
+
+                                        {{ if and $.Device.DeviceProfiles (eq $.Device.DeviceProfiles.Scope "lighting") (eq .ConfiguredEffect "mousepad") }}{{ template "lf-device-profile-panel" $ }}{{ end }}
 
                                         {{ if or (and (not .ClusterControlled) (not .ExternalControlled)) .ReadOnly }}
                                             <div
@@ -726,21 +746,6 @@
                                 <div class="lf-keyboard-assignment-actions"><button class="lf-button lf-button-secondary" type="button" data-lf-keyboard-assignment-close>Close</button></div>
                             </section>
                         </section>
-                        {{ with $.Device.DeviceProfiles }}
-                            <section class="lf-keyboard-configuration-card lf-device-profile-panel" data-lf-device-profiles-workspace data-lf-device-id="{{ $.Device.Serial }}">
-                                <header class="lf-overview-panel-header">
-                                    <div>
-                                        <p class="lf-section-kicker">Device configuration</p>
-                                        <h2>Device Profile</h2>
-                                    </div>
-                                </header>
-                                <p class="lf-device-profile-description">Saves the complete keyboard configuration, including settings, lockouts, colors, assignments, and presets.</p>
-                                <div class="lf-device-profile-controls"><label class="lf-device-profile-select" for="lf-device-profile"><span>Active Device Profile</span><select id="lf-device-profile" class="lf-buttons-select" data-lf-device-profile aria-label="Device Profile">{{ $activeDeviceProfile := .ActiveProfile }}{{ range .Profiles }}<option value="{{ . }}"{{ if eq . $activeDeviceProfile }} selected{{ end }}>{{ . }}</option>{{ end }}</select></label><button class="lf-button" type="button" data-lf-device-profile-new>Save Device Profile As</button></div>
-                                {{ if gt (len .Profiles) 1 }}<div class="lf-device-profile-controls"><label class="lf-device-profile-select" for="lf-device-profile-delete"><span>Device Profile to delete</span><select id="lf-device-profile-delete" class="lf-buttons-select" data-lf-device-profile-delete-select aria-label="Device Profile to delete">{{ range .Profiles }}{{ if ne . $activeDeviceProfile }}<option value="{{ . }}">{{ . }}</option>{{ end }}{{ end }}</select></label><button class="lf-button lf-button-secondary" type="button" data-lf-device-profile-delete>Delete Device Profile</button></div>{{ end }}
-                                <p class="lf-range-control-status" data-lf-device-profile-status aria-live="polite"></p>
-                                <section class="lf-device-profile-dialog" data-lf-device-profile-dialog hidden role="dialog" aria-modal="true" aria-label="Save Device Profile"><label>Device Profile name <input type="text" data-lf-device-profile-name autocomplete="off"></label><button class="lf-button" type="button" data-lf-device-profile-create>Save Device Profile</button><button class="lf-button lf-button-secondary" type="button" data-lf-device-profile-cancel>Cancel</button><p class="lf-range-control-status" data-lf-device-profile-dialog-status aria-live="polite"></p></section>
-                            </section>
-                        {{ end }}
                         </div>
                     {{ end }}
                 {{ else }}
@@ -774,21 +779,7 @@
                                 </dl>
                             </section>
 
-                            {{ if not .Device.KeyboardAssignments }}{{ with .Device.DeviceProfiles }}
-                                <section class="lf-overview-panel lf-device-profile-panel" data-lf-device-profiles-workspace data-lf-device-id="{{ $.Device.Serial }}">
-                                    <header class="lf-overview-panel-header">
-                                        <div>
-                                            <p class="lf-section-kicker">Device configuration</p>
-                                            <h2>Device Profile</h2>
-                                        </div>
-                                    </header>
-                                    <p class="lf-device-profile-description">Save or switch a complete device configuration. Device profiles include supported settings across available workspaces, such as performance, assignments, lighting, layouts, and other device-wide controls for this hardware.</p>
-                                    <div class="lf-device-profile-controls"><label class="lf-device-profile-select" for="lf-device-profile"><span>Active Device Profile</span><select id="lf-device-profile" class="lf-buttons-select" data-lf-device-profile aria-label="Device Profile">{{ $activeDeviceProfile := .ActiveProfile }}{{ range .Profiles }}<option value="{{ . }}"{{ if eq . $activeDeviceProfile }} selected{{ end }}>{{ . }}</option>{{ end }}</select></label><button class="lf-button" type="button" data-lf-device-profile-new>Save Device Profile As</button></div>
-                                    {{ if gt (len .Profiles) 1 }}<div class="lf-device-profile-controls"><label class="lf-device-profile-select" for="lf-device-profile-delete"><span>Device Profile to delete</span><select id="lf-device-profile-delete" class="lf-buttons-select" data-lf-device-profile-delete-select aria-label="Device Profile to delete">{{ range .Profiles }}{{ if ne . $activeDeviceProfile }}<option value="{{ . }}">{{ . }}</option>{{ end }}{{ end }}</select></label><button class="lf-button lf-button-secondary" type="button" data-lf-device-profile-delete>Delete Device Profile</button></div>{{ end }}
-                                    <p class="lf-range-control-status" data-lf-device-profile-status aria-live="polite"></p>
-                                    <section class="lf-device-profile-dialog" data-lf-device-profile-dialog hidden role="dialog" aria-modal="true" aria-label="Save Device Profile"><label>Device Profile name <input type="text" data-lf-device-profile-name autocomplete="off"></label><button class="lf-button" type="button" data-lf-device-profile-create>Save Device Profile</button><button class="lf-button lf-button-secondary" type="button" data-lf-device-profile-cancel>Cancel</button><p class="lf-range-control-status" data-lf-device-profile-dialog-status aria-live="polite"></p></section>
-                                </section>
-                            {{ end }}{{ end }}
+                            {{ with .Device.DeviceProfiles }}{{ if eq .Scope "device" }}{{ template "lf-device-profile-panel" $ }}{{ end }}{{ end }}
 
                             {{ with .Device.OpenRGB }}
                                 <section class="lf-openrgb-overview">

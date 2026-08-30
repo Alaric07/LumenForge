@@ -1,4 +1,4 @@
-package k95platinum
+package scimitarrgbelite
 
 import (
 	"LumenForge/src/deviceprofilepresentation"
@@ -18,6 +18,7 @@ func (d *Device) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bo
 	if d == nil {
 		return deviceprofilepresentation.Snapshot{}, false
 	}
+
 	snapshot := deviceprofilepresentation.Snapshot{Supported: true}
 	for name, profile := range d.UserProfiles {
 		if profile == nil {
