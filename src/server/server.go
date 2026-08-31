@@ -145,6 +145,12 @@ type nativeDeviceLightingChannelTarget interface {
 	SetLightingChannelEffect(string, string) error
 }
 
+type nativeDeviceLightingChannelSettingsTarget interface {
+	ResolveLightingChannelEffectSettings(string, string) (lightingsettings.EffectSettings, error)
+	SetLightingChannelEffectSettings(string, string, lightingsettings.EffectSettings) error
+	ResetLightingChannelEffectSettings(string, string) error
+}
+
 type nativeDeviceAuthoredZoneLightingTarget interface {
 	nativeDeviceLightingTarget
 	SetLightingZoneColor(string, string, string, string, rgb.Color) error
@@ -3781,11 +3787,21 @@ func validateNativeDeviceLightingEffect(target nativeDeviceLightingTarget, effec
 	return nil
 }
 
-func updateNativeDeviceLightingSettings(target nativeDeviceLightingTarget, effect string, mutate func(*lightingsettings.EffectSettings)) error {
+func updateNativeDeviceLightingSettings(target nativeDeviceLightingTarget, targetID, effect string, mutate func(*lightingsettings.EffectSettings)) error {
 	if err := validateNativeDeviceLightingEffect(target, effect); err != nil {
 		return err
 	}
-	settings, err := target.ResolveLightingEffectSettings(effect)
+	channelSettings, isChannelTarget := target.(nativeDeviceLightingChannelSettingsTarget)
+	var settings lightingsettings.EffectSettings
+	var err error
+	if targetID != "" {
+		if !isChannelTarget {
+			return fmt.Errorf("native lighting channel settings are unavailable")
+		}
+		settings, err = channelSettings.ResolveLightingChannelEffectSettings(targetID, effect)
+	} else {
+		settings, err = target.ResolveLightingEffectSettings(effect)
+	}
 	if err != nil {
 		return err
 	}
@@ -3796,6 +3812,9 @@ func updateNativeDeviceLightingSettings(target nativeDeviceLightingTarget, effec
 	mutate(&settings)
 	if err := lightingsettings.Validate(settings); err != nil {
 		return err
+	}
+	if targetID != "" {
+		return channelSettings.SetLightingChannelEffectSettings(targetID, effect, settings)
 	}
 	return target.SetLightingEffectSettings(effect, settings)
 }
@@ -4095,7 +4114,11 @@ func setNativeDeviceLightingSpeed(w http.ResponseWriter, r *http.Request) {
 	target, err := nativeDeviceLightingTargetForEffect(*req.Serial, *req.Effect)
 	minimum, maximum := rgb.ProfileSpeedRange(*req.Effect)
 	descriptor, known := rgb.SoftwareEffectDescriptorByID(*req.Effect)
-	if err != nil || !known || !descriptor.SupportsSpeed || *req.Speed < minimum || *req.Speed > maximum || updateNativeDeviceLightingSettings(target, *req.Effect, func(settings *lightingsettings.EffectSettings) { speed := *req.Speed; settings.Speed = &speed }) != nil {
+	targetID := ""
+	if req.TargetID != nil {
+		targetID = *req.TargetID
+	}
+	if err != nil || !known || !descriptor.SupportsSpeed || *req.Speed < minimum || *req.Speed > maximum || updateNativeDeviceLightingSettings(target, targetID, *req.Effect, func(settings *lightingsettings.EffectSettings) { speed := *req.Speed; settings.Speed = &speed }) != nil {
 		nativeDeviceLightingFailure(w, "Invalid speed request")
 		return
 	}
@@ -4114,7 +4137,7 @@ func setNativeDeviceLightingSingleColor(w http.ResponseWriter, r *http.Request) 
 	}
 	color, colorErr := parseHexColor(req.Color)
 	target, targetErr := nativeDeviceLightingTargetForEffect(req.Serial, req.Effect)
-	if req.Serial == "" || req.Effect == "" || req.Color == "" || colorErr != nil || targetErr != nil || updateNativeDeviceLightingSettings(target, req.Effect, func(settings *lightingsettings.EffectSettings) {
+	if req.Serial == "" || req.Effect == "" || req.Color == "" || colorErr != nil || targetErr != nil || updateNativeDeviceLightingSettings(target, req.TargetID, req.Effect, func(settings *lightingsettings.EffectSettings) {
 		settings.SingleColor = &lightingsettings.SingleColorSettings{Color: color}
 	}) != nil {
 		nativeDeviceLightingFailure(w, "Invalid color request")
@@ -4137,7 +4160,7 @@ func setNativeDeviceLightingTwoColor(w http.ResponseWriter, r *http.Request) {
 	start, startErr := parseHexColor(req.Start)
 	end, endErr := parseHexColor(req.End)
 	target, targetErr := nativeDeviceLightingTargetForEffect(req.Serial, req.Effect)
-	if req.Serial == "" || req.Effect == "" || req.Start == "" || req.End == "" || startErr != nil || endErr != nil || targetErr != nil || updateNativeDeviceLightingSettings(target, req.Effect, func(settings *lightingsettings.EffectSettings) {
+	if req.Serial == "" || req.Effect == "" || req.Start == "" || req.End == "" || startErr != nil || endErr != nil || targetErr != nil || updateNativeDeviceLightingSettings(target, req.TargetID, req.Effect, func(settings *lightingsettings.EffectSettings) {
 		settings.TwoColor = &lightingsettings.TwoColorSettings{Start: start, End: end}
 	}) != nil {
 		nativeDeviceLightingFailure(w, "Invalid color request")
@@ -4178,7 +4201,7 @@ func setNativeDeviceLightingTemperature(w http.ResponseWriter, r *http.Request) 
 	highColor, highErr := parseHexColor(*req.High.Color)
 	low, middle, high := *req.Low.Celsius, *req.Middle.Celsius, *req.High.Celsius
 	target, targetErr := nativeDeviceLightingTargetForEffect(req.Serial, req.Effect)
-	if lowErr != nil || middleErr != nil || highErr != nil || math.IsNaN(low) || math.IsInf(low, 0) || math.IsNaN(middle) || math.IsInf(middle, 0) || math.IsNaN(high) || math.IsInf(high, 0) || !(low < middle && middle < high) || targetErr != nil || updateNativeDeviceLightingSettings(target, req.Effect, func(settings *lightingsettings.EffectSettings) {
+	if lowErr != nil || middleErr != nil || highErr != nil || math.IsNaN(low) || math.IsInf(low, 0) || math.IsNaN(middle) || math.IsInf(middle, 0) || math.IsNaN(high) || math.IsInf(high, 0) || !(low < middle && middle < high) || targetErr != nil || updateNativeDeviceLightingSettings(target, req.TargetID, req.Effect, func(settings *lightingsettings.EffectSettings) {
 		settings.Temperature = &lightingsettings.TemperatureSettings{Low: lightingsettings.TemperaturePoint{Color: lowColor, Celsius: low}, Middle: lightingsettings.TemperaturePoint{Color: middleColor, Celsius: middle}, High: lightingsettings.TemperaturePoint{Color: highColor, Celsius: high}}
 	}) != nil {
 		nativeDeviceLightingFailure(w, "Invalid temperature request")
@@ -4218,7 +4241,7 @@ func setNativeDeviceLightingGradient(w http.ResponseWriter, r *http.Request) {
 		previous = position
 	}
 	target, err := nativeDeviceLightingTargetForEffect(req.Serial, req.Effect)
-	if err != nil || updateNativeDeviceLightingSettings(target, req.Effect, func(settings *lightingsettings.EffectSettings) {
+	if err != nil || updateNativeDeviceLightingSettings(target, req.TargetID, req.Effect, func(settings *lightingsettings.EffectSettings) {
 		settings.Gradient = &lightingsettings.GradientSettings{Stops: stops}
 	}) != nil {
 		nativeDeviceLightingFailure(w, "Invalid Gradient request")
@@ -4237,7 +4260,8 @@ func resetNativeDeviceLightingEffectSettings(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	target, err := nativeDeviceLightingTargetForEffect(req.Serial, req.Effect)
-	if req.Serial == "" || req.Effect == "" || err != nil || target.ResetLightingEffectSettings(req.Effect) != nil {
+	channelSettings, isChannelTarget := target.(nativeDeviceLightingChannelSettingsTarget)
+	if req.Serial == "" || req.Effect == "" || err != nil || (req.TargetID != "" && (!isChannelTarget || channelSettings.ResetLightingChannelEffectSettings(req.TargetID, req.Effect) != nil)) || (req.TargetID == "" && target.ResetLightingEffectSettings(req.Effect) != nil) {
 		nativeDeviceLightingFailure(w, "Failed to reset effect customization")
 		return
 	}

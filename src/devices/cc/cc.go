@@ -745,10 +745,6 @@ func (d *Device) GetRgbProfile(profile string) *rgb.Profile {
 	if d.Rgb == nil {
 		return nil
 	}
-	if canonical, ok := d.canonicalRendererProfile(profile); ok {
-		return &canonical
-	}
-
 	if val, ok := d.Rgb.Profiles[profile]; ok {
 		return &val
 	}
@@ -1230,16 +1226,15 @@ func (d *Device) setDeviceColor() {
 	// In static mode, we only need to send color once;
 	// there is no need for continuous packet sending.
 	if s == l { // number of devices matches number of devices with static profile
-		profile := d.GetRgbProfile("static")
-		if profile == nil {
-			return
-		}
-
-		profile.StartColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
-		profileColor := rgb.ModifyBrightness(profile.StartColor)
 		m := 0
 
 		for _, k := range keys {
+			profile := d.channelRendererProfile(d.RgbDevices[k], "static")
+			if profile == nil {
+				return
+			}
+			profile.StartColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
+			profileColor := rgb.ModifyBrightness(profile.StartColor)
 			var c *rgb.Color
 			rgbOverride := d.getRgbOverride(k, 0)
 			if !d.canonicalChannel(d.RgbDevices[k]) && rgbOverride != nil && rgbOverride.Enabled && d.RgbDevices[k].LedChannels > 0 {
@@ -1287,8 +1282,7 @@ func (d *Device) setDeviceColor() {
 						continue
 					}
 
-					rgbCustomColor := true
-					profile := d.GetRgbProfile(d.RgbDevices[k].RGB)
+					profile := d.channelRendererProfile(d.RgbDevices[k], d.RgbDevices[k].RGB)
 					if profile == nil {
 						for i := 0; i < int(d.RgbDevices[k].LedChannels); i++ {
 							buff = append(buff, []byte{0, 0, 0}...)
@@ -1296,10 +1290,7 @@ func (d *Device) setDeviceColor() {
 						continue
 					}
 					rgbModeSpeed := common.FClamp(profile.Speed, 0.1, 10)
-					// Check if we have custom colors
-					if (rgb.Color{}) == profile.StartColor || (rgb.Color{}) == profile.EndColor {
-						rgbCustomColor = false
-					}
+					rgbCustomColor := d.channelRendererUsesResolvedColors(d.RgbDevices[k], d.RgbDevices[k].RGB, profile)
 
 					r := rgb.New(
 						int(d.RgbDevices[k].LedChannels),

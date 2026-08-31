@@ -6,6 +6,7 @@ import (
 	"LumenForge/src/lightingsettings"
 	"LumenForge/src/rgb"
 	"LumenForge/src/temperatures"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -260,6 +261,101 @@ func TestCommanderCoreCanonicalChannelMutationHydratesActiveProfileSnapshot(t *t
 	}
 	if err := device.setChannelSelectedEffect(0, "invalid"); err == nil {
 		t.Fatal("invalid canonical effect was accepted")
+	}
+}
+
+func TestCommanderCoreCanonicalChannelEffectSettingsAreIndependent(t *testing.T) {
+	runtime, err := lightingsettings.LoadIndependentDeviceRuntime(filepath.Join(t.TempDir(), "state.json"), filepath.Join(t.TempDir(), "effects.json"), filepath.Join("..", "..", "..", "database", "rgb.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	device := &Device{Serial: "cc-settings", DeviceProfile: &DeviceProfile{}, Rgb: &rgb.RGB{Profiles: map[string]rgb.Profile{"static": {}, "rainbow": {}}}, channelLightingState: runtime.State, channelLightingEffects: runtime.Effects, channelLightingResolver: runtime.Resolver, lightingRestart: func() {}, RgbDevices: map[int]*Devices{
+		0: {ChannelId: 0, Name: "Pump", LedChannels: 8, RGB: "static"},
+		1: {ChannelId: 1, Name: "Fan", LedChannels: 8, RGB: "static"},
+	}}
+	first, second := "cc-settings-rgb-0", "cc-settings-rgb-1"
+	for _, targetID := range []string{first, second} {
+		if err := device.setChannelSelectedEffect(int(targetID[len(targetID)-1]-'0'), "static"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	setColor := func(targetID string, color lightingsettings.Color) {
+		settings, err := device.ResolveLightingChannelEffectSettings(targetID, "static")
+		if err != nil {
+			t.Fatal(err)
+		}
+		settings.SingleColor.Color = color
+		if err = device.SetLightingChannelEffectSettings(targetID, "static", settings); err != nil {
+			t.Fatal(err)
+		}
+	}
+	setColor(first, lightingsettings.Color{Red: 255})
+	setColor(second, lightingsettings.Color{Green: 255})
+	if settings, _ := device.ResolveLightingChannelEffectSettings(first, "static"); settings.SingleColor.Color.Red != 255 || settings.SingleColor.Color.Green != 0 {
+		t.Fatalf("first static settings = %#v", settings)
+	}
+	if settings, _ := device.ResolveLightingChannelEffectSettings(second, "static"); settings.SingleColor.Color.Green != 255 || settings.SingleColor.Color.Red != 0 {
+		t.Fatalf("second static settings = %#v", settings)
+	}
+	for targetID, speed := range map[string]float64{first: 1.5, second: 4.5} {
+		settings, err := device.ResolveLightingChannelEffectSettings(targetID, "rainbow")
+		if err != nil {
+			t.Fatal(err)
+		}
+		settings.Speed = &speed
+		if err = device.SetLightingChannelEffectSettings(targetID, "rainbow", settings); err != nil {
+			t.Fatal(err)
+		}
+	}
+	snapshot, ok := device.LightingSnapshot()
+	if !ok || len(snapshot.Channels) != 2 || snapshot.Channels[0].Lighting.SingleColorHex != "#ff0000" || snapshot.Channels[1].Lighting.SingleColorHex != "#00ff00" {
+		t.Fatalf("channel snapshots = %#v", snapshot)
+	}
+	if err := device.ResetLightingChannelEffectSettings(first, "static"); err != nil {
+		t.Fatal(err)
+	}
+	if settings, _ := device.ResolveLightingChannelEffectSettings(second, "static"); settings.SingleColor.Color.Green != 255 {
+		t.Fatalf("reset of first channel changed second settings: %#v", settings)
+	}
+	if state, _, _ := runtime.State.Resolve(first); state.SelectedEffect != "static" {
+		t.Fatalf("first selected effect = %#v", state)
+	}
+	if state, _, _ := runtime.State.Resolve(second); state.SelectedEffect != "static" {
+		t.Fatalf("second selected effect = %#v", state)
+	}
+}
+
+func TestCommanderCoreMixedRendererKeepsCanonicalSingleColorProfiles(t *testing.T) {
+	device := commanderCoreLightingTestDevice()
+	first, second := device.RgbDevices[1], device.RgbDevices[9]
+	red := &rgb.Profile{StartColor: rgb.Color{Red: 255}}
+	blue := &rgb.Profile{StartColor: rgb.Color{Blue: 255}}
+	if red.StartColor == blue.StartColor {
+		t.Fatal("test setup lost independent static colors")
+	}
+
+	// The all-static path keeps both independently resolved single colors.
+	if !device.channelRendererUsesResolvedColors(first, "static", red) || !device.channelRendererUsesResolvedColors(second, "static", blue) {
+		t.Fatal("canonical static profiles were not treated as resolved colors")
+	}
+	// A generated sibling enters the mixed renderer but must not change the
+	// static channel's resolved-color decision, including after a restart.
+	if device.channelRendererUsesResolvedColors(second, "rainbow", &rgb.Profile{}) {
+		t.Fatal("generated canonical palette was treated as a custom color")
+	}
+	if !device.channelRendererUsesResolvedColors(first, "static", red) {
+		t.Fatal("mixed renderer restart replaced canonical static color semantics")
+	}
+	if !device.channelRendererUsesResolvedColors(first, "arc", &rgb.Profile{StartColor: rgb.Color{Red: 1}, EndColor: rgb.Color{Blue: 1}}) || !device.channelRendererUsesResolvedColors(first, "cpu-temperature", &rgb.Profile{StartColor: rgb.Color{Red: 1}, MiddleColor: rgb.Color{Green: 1}, EndColor: rgb.Color{Blue: 1}}) {
+		t.Fatal("canonical two-color or temperature palette lost resolved-color behavior")
+	}
+	if device.channelRendererUsesResolvedColors(first, "gradient", &rgb.Profile{}) {
+		t.Fatal("canonical gradient changed its existing renderer behavior")
+	}
+	// Legacy/generated topology channels retain their existing heuristic.
+	legacy := &Devices{ChannelId: 7, LedChannels: 8}
+	if device.channelRendererUsesResolvedColors(legacy, "static", red) {
+		t.Fatal("non-canonical channel bypassed legacy color heuristic")
 	}
 }
 

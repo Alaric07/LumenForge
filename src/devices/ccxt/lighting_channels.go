@@ -58,18 +58,49 @@ func (d *Device) SupportsLightingEffect(effect string) bool {
 	return lightingsettings.ValidateIndependentDeviceLightingState(lightingsettings.IndependentDeviceLightingState{SelectedEffect: effect, Brightness: 100}) == nil
 }
 
-func (d *Device) canonicalRendererProfile(effect string) (rgb.Profile, bool) {
+func (d *Device) canonicalRendererProfile(channelID int, effect string) (rgb.Profile, bool) {
 	if d == nil || d.channelLightingResolver == nil {
 		return rgb.Profile{}, false
 	}
 	if _, supported := rgb.SoftwareEffectDescriptorByID(effect); !supported {
 		return rgb.Profile{}, false
 	}
-	resolution, err := d.channelLightingResolver.Resolve(lightingsettings.IndependentDevice(d.Serial), effect)
+	targetID := d.canonicalChannelTargetID(channelID)
+	if targetID == "" {
+		return rgb.Profile{}, false
+	}
+	resolution, err := d.channelLightingResolver.Resolve(lightingsettings.IndependentDevice(targetID), effect)
 	if err != nil || resolution.Settings.EffectID != effect {
 		return rgb.Profile{}, false
 	}
 	return lightingsettings.RendererProfileFromEffectSettings(resolution.Settings), true
+}
+
+func (d *Device) channelRendererProfile(channel *Devices, effect string) *rgb.Profile {
+	if d.canonicalChannel(channel) {
+		if profile, ok := d.canonicalRendererProfile(channel.ChannelId, effect); ok {
+			return &profile
+		}
+	}
+	return d.GetRgbProfile(effect)
+}
+
+// channelRendererUsesResolvedColors preserves the legacy zero-color heuristic
+// for non-canonical channels. Canonical settings use descriptor palette
+// semantics: a single-color profile intentionally has no EndColor.
+func (d *Device) channelRendererUsesResolvedColors(channel *Devices, effect string, profile *rgb.Profile) bool {
+	if d.canonicalChannel(channel) {
+		descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect)
+		if ok {
+			switch descriptor.PaletteKind {
+			case rgb.LightingPaletteStaticSingle, rgb.LightingPaletteTwoColor, rgb.LightingPaletteTemperatureThree:
+				return true
+			case rgb.LightingPaletteGradient, rgb.LightingPaletteGenerated, rgb.LightingPaletteNone:
+				return false
+			}
+		}
+	}
+	return profile != nil && (rgb.Color{}) != profile.StartColor && (rgb.Color{}) != profile.EndColor
 }
 
 func (d *Device) channelSelectedEffect(channelID int) (string, error) {
@@ -186,7 +217,7 @@ func (d *Device) LightingSnapshot() (lightingpresentation.Snapshot, bool) {
 				child.SupportedEffects = append(child.SupportedEffects, lightingpresentation.EffectOption{ID: candidate, Label: candidate})
 			}
 		}
-		if err := d.populateCanonicalChannelSnapshot(&child, effect); err != nil {
+		if err := d.populateCanonicalChannelSnapshot(&child, channel.ChannelId, effect); err != nil {
 			return lightingpresentation.Snapshot{}, false
 		}
 		channelSnapshot := lightingpresentation.Channel{TargetID: d.canonicalChannelTargetID(channel.ChannelId), ChannelID: strconv.Itoa(channel.ChannelId), Name: channel.Name, Label: channel.Label, LEDCount: int(channel.LedChannels), Lighting: child}
@@ -258,7 +289,7 @@ func ccxtLightingColorHex(color lightingsettings.Color) string {
 	return fmt.Sprintf("#%02x%02x%02x", uint8(color.Red), uint8(color.Green), uint8(color.Blue))
 }
 
-func (d *Device) populateCanonicalChannelSnapshot(snapshot *lightingpresentation.Snapshot, effect string) error {
+func (d *Device) populateCanonicalChannelSnapshot(snapshot *lightingpresentation.Snapshot, channelID int, effect string) error {
 	if snapshot == nil {
 		return fmt.Errorf("channel lighting snapshot is unavailable")
 	}
@@ -269,7 +300,7 @@ func (d *Device) populateCanonicalChannelSnapshot(snapshot *lightingpresentation
 	if d.channelLightingResolver == nil {
 		return nil // lightweight snapshot callers retain the existing effect-only view.
 	}
-	resolution, err := d.channelLightingResolver.Resolve(lightingsettings.IndependentDevice(d.Serial), effect)
+	resolution, err := d.channelLightingResolver.Resolve(lightingsettings.IndependentDevice(d.canonicalChannelTargetID(channelID)), effect)
 	if err != nil || resolution.Settings.EffectID != effect {
 		return fmt.Errorf("resolve canonical channel effect settings: %w", err)
 	}
@@ -363,47 +394,68 @@ func (d *Device) SetLightingBrightness(brightness uint8) error {
 }
 
 func (d *Device) ResolveLightingEffectSettings(effect string) (lightingsettings.EffectSettings, error) {
-	if d == nil || !d.SupportsLightingEffect(effect) || d.channelLightingResolver == nil {
+	return lightingsettings.EffectSettings{}, fmt.Errorf("a lighting channel target is required")
+}
+
+func (d *Device) ResolveLightingChannelEffectSettings(targetID, effect string) (lightingsettings.EffectSettings, error) {
+	if d == nil || !d.SupportsLightingEffect(effect) || d.channelLightingResolver == nil || !d.canonicalChannelTargetExists(targetID) {
 		return lightingsettings.EffectSettings{}, fmt.Errorf("channel effect settings are unavailable")
 	}
-	resolution, err := d.channelLightingResolver.Resolve(lightingsettings.IndependentDevice(d.Serial), effect)
+	resolution, err := d.channelLightingResolver.Resolve(lightingsettings.IndependentDevice(targetID), effect)
 	if err != nil {
 		return lightingsettings.EffectSettings{}, err
 	}
 	return resolution.Settings.Clone(), nil
 }
 func (d *Device) SetLightingEffectSettings(effect string, settings lightingsettings.EffectSettings) error {
-	if d == nil || d.DeviceProfile == nil || d.channelLightingEffects == nil || !d.SupportsLightingEffect(effect) || settings.EffectID != effect {
+	return fmt.Errorf("a lighting channel target is required")
+}
+
+func (d *Device) SetLightingChannelEffectSettings(targetID, effect string, settings lightingsettings.EffectSettings) error {
+	if d == nil || d.DeviceProfile == nil || d.channelLightingEffects == nil || !d.SupportsLightingEffect(effect) || settings.EffectID != effect || !d.canonicalChannelTargetExists(targetID) {
 		return fmt.Errorf("channel effect settings are unavailable")
 	}
 	if err := lightingsettings.Validate(settings); err != nil {
 		return err
 	}
-	if err := d.channelLightingEffects.Set(d.Serial, effect, settings.Clone()); err != nil {
+	if err := d.channelLightingEffects.Set(targetID, effect, settings.Clone()); err != nil {
 		return err
 	}
-	if !d.DeviceProfile.RGBCluster && !d.DeviceProfile.OpenRGBIntegration && d.channelEffectSelected(effect) {
+	if !d.DeviceProfile.RGBCluster && !d.DeviceProfile.OpenRGBIntegration && d.channelTargetSelectsEffect(targetID, effect) {
 		d.restartCanonicalChannelLighting()
 	}
 	return nil
 }
 func (d *Device) ResetLightingEffectSettings(effect string) error {
-	if d == nil || d.DeviceProfile == nil || d.channelLightingEffects == nil || !d.SupportsLightingEffect(effect) {
+	return fmt.Errorf("a lighting channel target is required")
+}
+
+func (d *Device) ResetLightingChannelEffectSettings(targetID, effect string) error {
+	if d == nil || d.DeviceProfile == nil || d.channelLightingEffects == nil || !d.SupportsLightingEffect(effect) || !d.canonicalChannelTargetExists(targetID) {
 		return fmt.Errorf("channel effect settings are unavailable")
 	}
-	deleted, err := d.channelLightingEffects.Delete(d.Serial, effect)
+	deleted, err := d.channelLightingEffects.Delete(targetID, effect)
 	if err != nil {
 		return err
 	}
-	if deleted && !d.DeviceProfile.RGBCluster && !d.DeviceProfile.OpenRGBIntegration && d.channelEffectSelected(effect) {
+	if deleted && !d.DeviceProfile.RGBCluster && !d.DeviceProfile.OpenRGBIntegration && d.channelTargetSelectsEffect(targetID, effect) {
 		d.restartCanonicalChannelLighting()
 	}
 	return nil
 }
 
-func (d *Device) channelEffectSelected(effect string) bool {
+func (d *Device) canonicalChannelTargetExists(targetID string) bool {
 	for _, channel := range d.RgbDevices {
-		if d.canonicalChannel(channel) && channel.RGB == effect {
+		if d.canonicalChannel(channel) && d.canonicalChannelTargetID(channel.ChannelId) == targetID {
+			return true
+		}
+	}
+	return false
+}
+
+func (d *Device) channelTargetSelectsEffect(targetID, effect string) bool {
+	for _, channel := range d.RgbDevices {
+		if d.canonicalChannel(channel) && d.canonicalChannelTargetID(channel.ChannelId) == targetID && channel.RGB == effect {
 			return true
 		}
 	}

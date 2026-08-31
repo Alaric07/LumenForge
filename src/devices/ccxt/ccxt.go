@@ -647,10 +647,6 @@ func (d *Device) GetRgbProfile(profile string) *rgb.Profile {
 	if d.Rgb == nil {
 		return nil
 	}
-	if canonical, ok := d.canonicalRendererProfile(profile); ok {
-		return &canonical
-	}
-
 	if val, ok := d.Rgb.Profiles[profile]; ok {
 		return &val
 	}
@@ -1063,16 +1059,15 @@ func (d *Device) setDeviceColor() {
 
 	if s > 0 || l > 0 { // We have some values
 		if s == l { // number of devices matches number of devices with static profile
-			profile := d.GetRgbProfile("static")
-			if profile == nil {
-				return
-			}
-
-			profile.StartColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
-			profileColor := rgb.ModifyBrightness(profile.StartColor)
 			m := 0
 
 			for _, k := range keys {
+				profile := d.channelRendererProfile(d.RgbDevices[k], "static")
+				if profile == nil {
+					return
+				}
+				profile.StartColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
+				profileColor := rgb.ModifyBrightness(profile.StartColor)
 				c := profileColor
 				// Legacy overrides remain only for topology-derived channels that
 				// are outside the canonical channel bridge. Canonical ports never
@@ -1119,8 +1114,7 @@ func (d *Device) setDeviceColor() {
 			default:
 				buff := make([]byte, 0)
 				for _, k := range keys {
-					rgbCustomColor := true
-					profile := d.GetRgbProfile(d.RgbDevices[k].RGB)
+					profile := d.channelRendererProfile(d.RgbDevices[k], d.RgbDevices[k].RGB)
 					if profile == nil {
 						for i := 0; i < int(d.RgbDevices[k].LedChannels); i++ {
 							buff = append(buff, []byte{0, 0, 0}...)
@@ -1128,10 +1122,7 @@ func (d *Device) setDeviceColor() {
 						continue
 					}
 					rgbModeSpeed := common.FClamp(profile.Speed, 0.1, 10)
-					// Check if we have custom colors
-					if (rgb.Color{}) == profile.StartColor || (rgb.Color{}) == profile.EndColor {
-						rgbCustomColor = false
-					}
+					rgbCustomColor := d.channelRendererUsesResolvedColors(d.RgbDevices[k], d.RgbDevices[k].RGB, profile)
 
 					r := rgb.New(
 						int(d.RgbDevices[k].LedChannels),
