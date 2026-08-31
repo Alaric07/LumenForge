@@ -480,8 +480,10 @@ remain intact.
 
 The retained global `/rgb` path uses `eligibleForLegacyGlobalRGB()` as a
 temporary migration bridge: unmigrated native families remain eligible, while
-canonical Device Lighting providers are excluded from its collector and global
-mutations. That runtime boundary does not require immediate deletion of every
+OpenRGB-imported and Cluster devices remain excluded. A native canonical
+Lighting provider is excluded only when its `LightingSnapshot()` and runtime are
+usable; a provider whose canonical runtime did not attach falls back to retained
+`/rgb`. That runtime boundary does not require immediate deletion of every
 package-local legacy-looking helper. Such helpers are not authoritative lighting
 state for a migrated package and cannot make it participate in the global path.
 The bridge and its compatibility machinery remain until the final `/rgb` cleanup
@@ -535,6 +537,16 @@ after every legitimate native consumer has migrated.
 - [x] Remove Scimitar Pro, Scimitar RGB Elite, MM800, and K95 Platinum from
   retained legacy `/rgb` editing and startup compatibility after eliminating
   their remaining legacy RGB persistence and mutation dependencies.
+- [x] Complete Commander Core XT's controller proof: modern Overview, Lighting,
+  and Cooling; full Device Profile; shared Cooling presentation; canonical
+  multi-channel Lighting; backend-owned 3-Pin RGB Port topology; and
+  `probe-temperature` (`040159e9`, `54e32705`, `6f221ab2`, `8715fa62`).
+- [x] Complete Commander CORE's separate controller proof without assuming XT
+  hardware parity: modern Overview, Lighting, and Cooling; full Device Profile;
+  pump/AIO RGB and `liquid-temperature`; FreeLedPorts-based Custom RGB Device
+  fallback; and capability-driven optional Display (`ef7335a6`, `09b7f6f1`,
+  `c20dde8f`, `729aa3d7`). Its LCD path is automated-test validated but awaits
+  supported physical LCD hardware.
 - [ ] Preserve each later family's protocol, packet, topology, lifecycle,
   firmware, device-specific lighting modes, and hardware-specific output
   behavior while repeating migration one family at a time.
@@ -557,10 +569,10 @@ after every legitimate native consumer has migrated.
   Performance providers to other already-native devices where their existing
   implementations expose the required current state, option inventory, and
   mutation methods. Do not treat code-derived support as hardware validation.
-- [ ] Treat memory and Corsair controller workspace migration as separate
-  family-specific milestones because their channels, sensors, cooling, per-LED
-  behavior, and other device-owned capabilities differ materially from mouse and
-  keyboard controls.
+- [ ] Treat memory as a separate upcoming family-specific migration target;
+  future native families still require individual audit and parity because their
+  channels, sensors, cooling, per-LED behavior, and other device-owned
+  capabilities differ materially from existing proofs.
 - [ ] Keep legacy native pages available until the applicable modern workspace
   reaches control parity for that device family.
 
@@ -864,9 +876,10 @@ roadmap does not promise that every duplicate will be deleted.
 after OpenRGB parity.
 23. [~] Migrate native-device families one at a time without changing their
 hardware-specific output behavior. Scimitar Pro RGB, Scimitar RGB Elite, MM800,
-and K95 Platinum are fully migrated to the canonical Device Lighting model and
-no longer participate in legacy `/rgb` lighting persistence or mutation paths.
-Remaining native families are still pending.
+K95 Platinum, Commander Core XT, and Commander CORE are fully migrated to the
+canonical Device Lighting model and no longer participate in legacy `/rgb`
+lighting persistence or mutation paths. Remaining native families are still
+pending.
 24. [x] Add the generic native authored-zone presentation and mutation contract
 for device-owned modes (`ce890f75`).
 25. [ ] Remove `/rgb`, global mutations, remaining target-local RGB copies,

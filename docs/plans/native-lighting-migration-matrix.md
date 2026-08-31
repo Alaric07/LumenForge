@@ -55,9 +55,12 @@ The legacy `/rgb` editor and remaining global RGB mutation infrastructure stay
 available for unmigrated packages until every remaining consumer has parity.
 `eligibleForLegacyGlobalRGB()` is the temporary migration bridge between those
 two states: it admits unmigrated native packages to the retained global path and
-excludes canonical Device Lighting providers from its collector and mutations.
-This is a runtime boundary, not proof that every legacy-looking package-local
-helper has already been deleted. A migrated package can temporarily retain
+excludes OpenRGB-imported and Cluster devices as before. A native canonical
+Lighting provider is excluded only while its `LightingSnapshot()` and runtime
+are usable; a structurally present provider whose runtime did not attach falls
+back to retained `/rgb` rather than stranding lighting. This is a runtime
+boundary, not proof that every legacy-looking package-local helper has already
+been deleted. A migrated package can temporarily retain
 helpers such as `GetRgbProfiles`, `GetRgbProfile`, `loadRgb`, or
 `saveRgbProfile` without making them authoritative lighting state or allowing
 the global `/rgb` path to call them. Once no legitimate native `/rgb` consumers
@@ -66,7 +69,7 @@ with the global system.
 
 ### Completed native migration proofs
 
-`scimitarprorgb`, `scimitarrgbelite`, `mm800`, and `k95platinum` are now
+`scimitarprorgb`, `scimitarrgbelite`, `mm800`, `k95platinum`, `ccxt`, and `cc` are now
 tracked as **Migrated**. Canonical Device Lighting is authoritative and these
 packages no longer participate in retained legacy `/rgb` lighting persistence
 or mutation paths.
@@ -103,6 +106,29 @@ MM800 now uses canonical native Device Lighting and exposes its 15-zone
 device-authored `mousepad` mode through the same authored-zone editor. Legacy
 row grouping and overlapping legacy layout coordinates remain internal profile
 metadata and are not exposed as meaningful shared presentation semantics.
+
+Commander Core XT and Commander CORE establish the separate multi-channel
+controller proof. Both expose modern Overview, Lighting, and Cooling workspaces,
+with full Device Profiles on Overview, shared Cooling presentation, controller
+Brightness, per-channel canonical effects/settings, RGB labels, and Native,
+OpenRGB, or RGB Cluster ownership. Their stable canonical children are physical
+controller channels; generated topology-derived CCXT 3-pin children are not
+stable canonical targets. CCXT keeps its backend-owned 3-Pin RGB Port topology
+and `probe-temperature` capability. Commander CORE keeps pump/AIO RGB on real
+channel 0 where present, `liquid-temperature`, and its FreeLedPorts-based Custom
+RGB Device fallback. Existing RGB Override compatibility may remain in package
+code but is not authoritative for migrated canonical channels.
+
+Commander CORE's literal `default` full Device Profile retains cooling, RGB,
+labels, CustomLED fallback, ownership, and optional LCD state. Canonical child
+effect selections hydrate renderer-facing `RgbDevices[channel].RGB`; structurally
+valid selections made unsupported by hardware changes fall back safely to the
+canonical default. Its existing CPU/GPU temperature effects remain supported.
+
+Available Commander Core XT and Commander CORE controller, cooling, and lighting
+paths received hardware/browser validation. Commander CORE's optional LCD
+Display path has automated backend/frontend coverage but was not physically
+LCD-validated because no supported LCD-equipped AIO was available.
 
 For authored-zone modes, desired colors remain device-owned state rather than
 generic `EffectSettings`. Mutations validate the complete selection before
@@ -147,8 +173,8 @@ Generated as a read-only architecture inventory. This does not declare migration
 
 | Package | Strong | Status | Shape | Legacy RGB | Brightness | Override | Zones | Per LED | Cluster | OpenRGB target | Special modes |
 |---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---|
-| `cc` | Y | Legacy | multi-channel | Y | Y | Y |  |  | Y | Y | led, liquid-temperature |
-| `ccxt` | Y | Legacy | multi-channel | Y | Y | Y |  |  | Y | Y | probe-temperature |
+| `cc` | Y | Migrated | multi-channel |  | Y | Y |  |  | Y | Y | led, liquid-temperature |
+| `ccxt` | Y | Migrated | multi-channel |  | Y | Y |  |  | Y | Y | probe-temperature |
 | `cduo` | Y | Legacy | multi-channel | Y | Y | Y |  |  | Y | Y | probe-temperature |
 | `clipperpromini60` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
 | `cone` | Y | Legacy | multi-channel + per-LED | Y | Y | Y |  | Y | Y | Y | led, liquid-temperature |

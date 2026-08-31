@@ -13,8 +13,8 @@ configuration. It covers:
 This is a deliberate clean break for alpha software. Compatibility with old
 lighting customization data is not required. OpenRGB-imported devices and RGB
 Cluster established the canonical model first. Scimitar Pro RGB, Scimitar RGB
-Elite, MM800, and K95 Platinum now form the completed native migration proof
-set. Remaining native device families still migrate separately and only after their
+Elite, MM800, K95 Platinum, Commander Core XT, and Commander CORE now form the
+completed native migration proof set. Remaining native device families still migrate separately and only after their
 hardware-specific behavior and required controls are understood; they are not
 part of one broad migration milestone.
 
@@ -26,9 +26,10 @@ features to reproduce under new names.
 ### Native-device migration proofs
 
 Scimitar Pro RGB established the first native package on the shared canonical
-independent-device lighting runtime. Scimitar RGB Elite, MM800, and K95 Platinum
-are separate package proofs of the canonical Device Lighting model while
-retaining their own device-specific hardware boundaries.
+independent-device lighting runtime. Scimitar RGB Elite, MM800, K95 Platinum,
+Commander Core XT, and Commander CORE are separate package proofs of the
+canonical Device Lighting model while retaining their own device-specific
+hardware boundaries.
 
 Canonical state is authoritative for migrated native-device software lighting,
 including:
@@ -61,11 +62,30 @@ device-owned persistence. Optional group and geometry metadata are semantic
 presentation data only; devices do not expose legacy row/layout fields merely
 because those fields exist in an old profile.
 
+Controllers may own canonical state per physical child channel below one native
+parent. Physical `ChannelId` provides the stable target identity; renderer-facing
+legacy structures may be hydrated adapters rather than desired-state authority,
+and a full Device Profile can snapshot and restore child selected effects while
+generic effect customization remains canonical target/effect state. Parent
+Native, OpenRGB, or Cluster ownership gates local child mutations. Topology and
+configuration remain device-owned, and topology changes must not manufacture
+unstable canonical identities. CCXT's generated 3-pin topology children are one
+such non-canonical case. Device-specific sensor effects such as
+`probe-temperature` and `liquid-temperature` remain device-owned capabilities
+even where their setting controls use shared presentation.
+
+Pump/AIO RGB, Cooling, and optional LCD are independent capabilities. Optional
+Display presentation is outside generic Lighting state; Commander CORE exposes
+it only when `HasLCD` is available.
+
 ### Device-profile presentation patterns
 
-Full Device Profiles belong on Overview for K95 Platinum and Scimitar RGB Elite.
+Full Device Profiles belong on Overview for K95 Platinum, Scimitar RGB Elite,
+Commander Core XT, and Commander CORE.
 They use existing device backends to save and select complete device
-configurations; `default` remains the displayed profile name for both.
+configurations; `default` remains the displayed profile name for all four.
+For the controllers, those complete profiles also retain topology and optional
+LCD values; they do not expose separate Lighting profiles.
 
 MM800 exposes a scoped Lighting Profile only while its `mousepad` mode is
 selected. Its existing `DeviceProfile` stores the custom mousepad layout and
@@ -89,7 +109,8 @@ Brightness, Speed, supported palette settings, selected-effect Reset, and
 authored-zone mutations without routing native devices through
 `/api/openrgbimport/*`.
 
-Scimitar Pro RGB, Scimitar RGB Elite, MM800, and K95 Platinum no longer retain
+Scimitar Pro RGB, Scimitar RGB Elite, MM800, K95 Platinum, Commander Core XT,
+and Commander CORE no longer retain
 legacy `/rgb` lighting persistence or mutation compatibility. Their canonical
 selected effect, desired Brightness, generic effect customization, authored-zone
 or keyboard-owned state, and modern Devices presentation remain authoritative.
@@ -646,7 +667,8 @@ not promise immediate deletion of shared native-device infrastructure.
 
 The standalone RGB editor now serves only native-device families that have not
 yet completed canonical Device Lighting migration. OpenRGB-imported devices,
-RGB Cluster, Scimitar Pro RGB, Scimitar RGB Elite, MM800, and K95 Platinum no
+RGB Cluster, Scimitar Pro RGB, Scimitar RGB Elite, MM800, K95 Platinum, Commander
+Core XT, and Commander CORE no
 longer depend on it for lighting configuration. Therefore:
 
 - OpenRGB has cut over independently;
@@ -658,9 +680,12 @@ longer depend on it for lighting configuration. Therefore:
 
 `eligibleForLegacyGlobalRGB()` is temporary migration infrastructure for this
 coexistence period. It keeps unmigrated native families on the retained global
-`/rgb` collector and mutation paths while excluding canonical Device Lighting
-providers from those paths. Exclusion is behavioral rather than a requirement to
-delete every legacy-looking package-local helper immediately: a migrated package
+`/rgb` collector and mutation paths while excluding OpenRGB-imported and Cluster
+devices as before. A native canonical Lighting provider is excluded only when
+its `LightingSnapshot()` and runtime are usable; if the canonical runtime did not
+attach and no usable snapshot exists, the native device falls back to retained
+`/rgb`. Exclusion is behavioral rather than a requirement to delete every
+legacy-looking package-local helper immediately: a migrated package
 may retain helpers such as `GetRgbProfiles`, `GetRgbProfile`, `loadRgb`, or
 `saveRgbProfile` without restoring legacy lighting authority. When every
 legitimate native `/rgb` consumer has migrated and the global system is removed,
