@@ -1,6 +1,7 @@
 package cc
 
 import (
+	"LumenForge/src/devices/lcd"
 	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/lightingsettings"
 	"LumenForge/src/rgb"
@@ -8,6 +9,63 @@ import (
 	"reflect"
 	"testing"
 )
+
+func TestCommanderCoreDisplaySnapshotIsGatedOnlyByHasLCD(t *testing.T) {
+	originalImages := displayImages
+	displayImages = func() []lcd.ImageData { return []lcd.ImageData{{Name: "loop"}, {Name: "status"}} }
+	t.Cleanup(func() { displayImages = originalImages })
+
+	device := commanderCoreLightingTestDevice()
+	device.DeviceProfile.LCDMode = lcd.DisplayImage
+	device.DeviceProfile.LCDImage = "status"
+	device.DeviceProfile.LCDRotation = 2
+	device.DeviceProfile.LCDBrightness = 64
+	device.LCDModes = map[int]string{0: "Liquid Temperature", 10: "Image / GIF"}
+	device.LCDRotations = map[int]string{0: "default", 2: "180 degrees"}
+	device.LCDBrightnessLevels = map[int]string{1: "Off", 64: "100 %"}
+
+	if snapshot, ok := device.DisplaySnapshot(); ok || snapshot.Available {
+		t.Fatalf("non-LCD display snapshot = %#v, ok=%t", snapshot, ok)
+	}
+	device.HasLCD = true
+	snapshot, ok := device.DisplaySnapshot()
+	if !ok || !snapshot.Available || !snapshot.ImageMode || snapshot.ChannelID != 0 {
+		t.Fatalf("display snapshot = %#v, ok=%t", snapshot, ok)
+	}
+	if len(snapshot.Modes) != 2 || !snapshot.Modes[1].Selected || len(snapshot.Rotations) != 2 || !snapshot.Rotations[1].Selected || len(snapshot.BrightnessLevels) != 2 || !snapshot.BrightnessLevels[1].Selected {
+		t.Fatalf("display options = %#v", snapshot)
+	}
+	if len(snapshot.Images) != 2 || snapshot.Images[0].Name != "loop" || !snapshot.Images[1].Selected {
+		t.Fatalf("display images = %#v", snapshot.Images)
+	}
+	if device.RgbDevices[1].RGB != "static" || !device.RgbDevices[1].ContainsPump {
+		t.Fatalf("display snapshot changed pump RGB = %#v", device.RgbDevices[1])
+	}
+	if device.Devices[0].ChannelId != 0 || !device.Devices[0].ContainsPump {
+		t.Fatalf("display snapshot changed cooling capability = %#v", device.Devices[0])
+	}
+}
+
+func TestCommanderCoreDisplayMutationsRejectUnadvertisedValues(t *testing.T) {
+	device := commanderCoreLightingTestDevice()
+	device.HasLCD = true
+	device.LCDModes = map[int]string{0: "Liquid Temperature"}
+	device.LCDRotations = map[int]string{0: "default"}
+	device.LCDBrightnessLevels = map[int]string{64: "100 %"}
+	device.DeviceProfile.LCDMode = 0
+	device.DeviceProfile.LCDRotation = 0
+	device.DeviceProfile.LCDBrightness = 64
+
+	if got := device.UpdateDeviceLcd(0, 99); got != 0 || device.DeviceProfile.LCDMode != 0 {
+		t.Fatalf("invalid mode result=%d profile=%#v", got, device.DeviceProfile)
+	}
+	if got := device.UpdateDeviceLcdRotation(0, 3); got != 0 || device.DeviceProfile.LCDRotation != 0 {
+		t.Fatalf("invalid rotation result=%d profile=%#v", got, device.DeviceProfile)
+	}
+	if got := device.UpdateDeviceLcdBrightness(0, 33); got != 0 || device.DeviceProfile.LCDBrightness != 64 {
+		t.Fatalf("invalid brightness result=%d profile=%#v", got, device.DeviceProfile)
+	}
+}
 
 type commanderCoreChannelState struct {
 	values map[string]lightingsettings.IndependentDeviceLightingState

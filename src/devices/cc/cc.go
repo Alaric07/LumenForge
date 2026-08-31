@@ -2397,6 +2397,9 @@ func (d *Device) UpdateRGBDeviceLabel(channelId int, label string) uint8 {
 // UpdateDeviceLcd will update device LCD
 func (d *Device) UpdateDeviceLcd(_ int, mode uint8) uint8 {
 	if d.HasLCD {
+		if _, ok := d.LCDModes[int(mode)]; !ok {
+			return 0
+		}
 		value := d.DeviceProfile.LCDMode
 		if mode == lcd.DisplayImage {
 			if len(lcd.GetLcdImages()) == 0 {
@@ -2468,6 +2471,9 @@ func (d *Device) UpdateDeviceLcdBrightness(channelId int, brightness uint8) uint
 	}
 
 	if d.HasLCD {
+		if _, allowed := d.LCDBrightnessLevels[int(brightness)]; !allowed {
+			return 0
+		}
 		if _, ok := d.Devices[channelId]; ok {
 			d.DeviceProfile.LCDBrightness = brightness
 			d.saveDeviceProfile()
@@ -2498,6 +2504,9 @@ func (d *Device) setLcdBrightness() {
 // UpdateDeviceLcdRotation will update device LCD rotation
 func (d *Device) UpdateDeviceLcdRotation(_ int, rotation uint8) uint8 {
 	if d.HasLCD {
+		if _, ok := d.LCDRotations[int(rotation)]; !ok {
+			return 0
+		}
 		d.DeviceProfile.LCDRotation = rotation
 		d.saveDeviceProfile()
 		d.setLcdRotation()
@@ -3485,6 +3494,7 @@ func (d *Device) saveDeviceProfile() {
 		}
 		deviceProfile.LCDMode = d.DeviceProfile.LCDMode
 		deviceProfile.LCDRotation = d.DeviceProfile.LCDRotation
+		deviceProfile.LCDBrightness = d.DeviceProfile.LCDBrightness
 		deviceProfile.LCDImage = d.DeviceProfile.LCDImage
 		deviceProfile.MultiProfile = d.DeviceProfile.MultiProfile
 		deviceProfile.MultiRGB = d.DeviceProfile.MultiRGB

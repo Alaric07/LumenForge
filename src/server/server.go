@@ -18,6 +18,7 @@ import (
 	"LumenForge/src/devices/lcd"
 	"LumenForge/src/devices/openrgbimport"
 	"LumenForge/src/display"
+	"LumenForge/src/displaypresentation"
 	"LumenForge/src/dpipresentation"
 	"LumenForge/src/externalsources"
 	"LumenForge/src/inputmanager"
@@ -2402,6 +2403,7 @@ type devicesWorkspaceSummary struct {
 	Buttons             *devicesButtonsWorkspaceSummary
 	DeviceProfiles      *devicesDeviceProfileWorkspaceSummary
 	Cooling             *devicesCoolingWorkspaceSummary
+	Display             *devicesDisplayWorkspaceSummary
 	KeyboardAssignments *devicesKeyboardAssignmentsWorkspaceSummary
 	LegacyLighting      bool
 	View                string
@@ -2557,6 +2559,11 @@ type devicesCoolingSnapshotProvider interface {
 	CoolingSnapshot() (coolingpresentation.Snapshot, bool)
 }
 
+type devicesDisplaySnapshotProvider interface {
+	DisplayDeviceID() string
+	DisplaySnapshot() (displaypresentation.Snapshot, bool)
+}
+
 type devicesDeviceProfileWorkspaceSummary struct {
 	Profiles                                 []string
 	ProfileDisplayLabels                     map[string]string
@@ -2585,10 +2592,31 @@ type devicesCoolingWorkspaceSummary struct {
 	TemperatureProbes []devicesCoolingTemperatureProbeSummary
 }
 
+type devicesDisplayOptionSummary struct {
+	ID       int
+	Label    string
+	Selected bool
+}
+
+type devicesDisplayImageSummary struct {
+	Name     string
+	Selected bool
+}
+
+type devicesDisplayWorkspaceSummary struct {
+	ChannelID        int
+	Modes            []devicesDisplayOptionSummary
+	Rotations        []devicesDisplayOptionSummary
+	BrightnessLevels []devicesDisplayOptionSummary
+	Images           []devicesDisplayImageSummary
+	ImageMode        bool
+	ImageModeID      int
+}
+
 const (
 	devicesKeyboardDeviceProfileDescription      = "Saves the complete keyboard configuration, including settings, lockouts, colors, assignments, and presets."
 	devicesScimitarEliteDeviceProfileDescription = "Saves the complete mouse configuration, including performance, DPI, assignments, and lighting."
-	devicesCCXTDeviceProfileDescription          = "Saves the complete controller configuration, including cooling, labels, lighting, and connected-device settings."
+	devicesCCXTDeviceProfileDescription          = "Saves the complete controller configuration, including cooling, labels, lighting, connected-device settings, and optional display settings."
 	devicesGenericDeviceProfileDescription       = "Save or switch a complete device configuration. Device profiles include supported settings across available workspaces, such as performance, assignments, lighting, layouts, and other device-wide controls for this hardware."
 	devicesLightingProfileDescription            = "Saves your custom mousepad lighting layout and colors."
 )
@@ -2631,6 +2659,39 @@ func devicesCoolingWorkspaceSummaryFromSnapshot(snapshot coolingpresentation.Sna
 			return nil
 		}
 		summary.TemperatureProbes = append(summary.TemperatureProbes, devicesCoolingTemperatureProbeSummary{ID: probe.ID, Name: probe.Name, Label: probe.Label, Temperature: probe.Temperature})
+	}
+	return summary
+}
+
+func devicesDisplayWorkspaceSummaryFromSnapshot(snapshot displaypresentation.Snapshot) *devicesDisplayWorkspaceSummary {
+	if !snapshot.Available || len(snapshot.Modes) == 0 || len(snapshot.Rotations) == 0 || len(snapshot.BrightnessLevels) == 0 {
+		return nil
+	}
+	summary := &devicesDisplayWorkspaceSummary{ChannelID: snapshot.ChannelID, ImageMode: snapshot.ImageMode, ImageModeID: snapshot.ImageModeID}
+	convertOptions := func(options []displaypresentation.Option) []devicesDisplayOptionSummary {
+		converted := make([]devicesDisplayOptionSummary, 0, len(options))
+		for _, option := range options {
+			if option.Label == "" {
+				return nil
+			}
+			converted = append(converted, devicesDisplayOptionSummary{ID: option.ID, Label: option.Label, Selected: option.Selected})
+		}
+		return converted
+	}
+	if summary.Modes = convertOptions(snapshot.Modes); summary.Modes == nil {
+		return nil
+	}
+	if summary.Rotations = convertOptions(snapshot.Rotations); summary.Rotations == nil {
+		return nil
+	}
+	if summary.BrightnessLevels = convertOptions(snapshot.BrightnessLevels); summary.BrightnessLevels == nil {
+		return nil
+	}
+	for _, image := range snapshot.Images {
+		if image.Name == "" {
+			return nil
+		}
+		summary.Images = append(summary.Images, devicesDisplayImageSummary{Name: image.Name, Selected: image.Selected})
 	}
 	return summary
 }
@@ -3155,6 +3216,12 @@ func devicesWorkspaceSummaryForSerial(
 			summary.Cooling = devicesCoolingWorkspaceSummaryFromSnapshot(snapshot)
 		}
 	}
+	if displayDevice, ok := device.Instance.(devicesDisplaySnapshotProvider); ok &&
+		displayDevice != nil && displayDevice.DisplayDeviceID() == serial {
+		if snapshot, usable := displayDevice.DisplaySnapshot(); usable {
+			summary.Display = devicesDisplayWorkspaceSummaryFromSnapshot(snapshot)
+		}
+	}
 	if keyboardDevice, ok := device.Instance.(devicesKeyboardAssignmentsSnapshotProvider); ok && keyboardDevice != nil && keyboardDevice.KeyboardAssignmentsDeviceID() == serial {
 		if snapshot, usable := keyboardDevice.KeyboardAssignmentsSnapshot(); usable {
 			summary.KeyboardAssignments = devicesKeyboardAssignmentsWorkspaceSummaryFromSnapshot(snapshot)
@@ -3183,6 +3250,10 @@ func devicesWorkspaceView(views []string, device *devicesWorkspaceSummary) strin
 	case "cooling":
 		if device.Cooling != nil {
 			return "cooling"
+		}
+	case "display":
+		if device.Display != nil {
+			return "display"
 		}
 	case "buttons":
 		if device.Buttons != nil {

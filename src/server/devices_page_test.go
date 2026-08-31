@@ -7,6 +7,7 @@ import (
 	"LumenForge/src/deviceprofilepresentation"
 	"LumenForge/src/devices"
 	"LumenForge/src/devices/openrgbimport"
+	"LumenForge/src/displaypresentation"
 	"LumenForge/src/dpipresentation"
 	"LumenForge/src/keyboardassignmentspresentation"
 	"LumenForge/src/lightingpresentation"
@@ -64,6 +65,16 @@ type devicesPageDeviceProfileSnapshotProvider struct {
 type devicesPageCoolingSnapshotProvider struct {
 	serial   string
 	snapshot coolingpresentation.Snapshot
+}
+
+type devicesPageDisplaySnapshotProvider struct {
+	serial   string
+	snapshot displaypresentation.Snapshot
+}
+
+func (provider devicesPageDisplaySnapshotProvider) DisplayDeviceID() string { return provider.serial }
+func (provider devicesPageDisplaySnapshotProvider) DisplaySnapshot() (displaypresentation.Snapshot, bool) {
+	return provider.snapshot, provider.snapshot.Available
 }
 
 func (provider devicesPageCoolingSnapshotProvider) CoolingDeviceID() string { return provider.serial }
@@ -337,6 +348,43 @@ func TestDevicesCommanderCoreModernCoolingWorkspaceAndLegacyLightingBoundary(t *
 	}
 	if !strings.Contains(rendered.String(), "Native Lighting migration is not complete.") {
 		t.Fatal("Commander CORE lighting placeholder did not render")
+	}
+}
+
+func TestDevicesCommanderCoreOptionalDisplayWorkspace(t *testing.T) {
+	const serial = "cc-display-workspace"
+	cooling := coolingpresentation.Snapshot{Available: true, Channels: []coolingpresentation.Channel{{ID: 0, Name: "H150i", ContainsPump: true, SelectedProfile: "quiet"}}, ProfileOptions: []coolingpresentation.ProfileOption{{ID: "quiet", Label: "quiet"}}}
+	display := displaypresentation.Snapshot{Available: true, ChannelID: 0, ImageMode: true, ImageModeID: 10, Modes: []displaypresentation.Option{{ID: 0, Label: "Liquid Temperature"}, {ID: 10, Label: "Image / GIF", Selected: true}}, Rotations: []displaypresentation.Option{{ID: 0, Label: "default", Selected: true}}, BrightnessLevels: []displaypresentation.Option{{ID: 64, Label: "100 %", Selected: true}}, Images: []displaypresentation.ImageOption{{Name: "status", Selected: true}}}
+	instance := struct {
+		devicesPageCoolingSnapshotProvider
+		devicesPageDisplaySnapshotProvider
+	}{devicesPageCoolingSnapshotProvider{serial: serial, snapshot: cooling}, devicesPageDisplaySnapshotProvider{serial: serial, snapshot: display}}
+	device := &common.Device{Serial: serial, Product: "iCUE COMMANDER CORE", ProductType: common.ProductTypeCC, Instance: instance}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: device}, map[string]stats.BatteryStats{}, serial)
+	if !ok || summary.Cooling == nil || summary.Display == nil {
+		t.Fatalf("summary = %#v, ok=%t", summary, ok)
+	}
+	if got := devicesWorkspaceView([]string{"display"}, summary); got != "display" {
+		t.Fatalf("display view = %q", got)
+	}
+	summary.View = "display"
+	var rendered bytes.Buffer
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: device}, Device: summary, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{"Overview", "Lighting", "Cooling", "Display", "data-lf-display-workspace", "Liquid Temperature", "Image / GIF", "status", "data-lf-display-rotation", "data-lf-display-brightness"} {
+		if !strings.Contains(rendered.String(), expected) {
+			t.Errorf("missing %q", expected)
+		}
+	}
+	if strings.Contains(rendered.String(), "data-lf-cooling-workspace") {
+		t.Fatal("display view unexpectedly rendered cooling workspace")
+	}
+
+	withoutDisplay := &common.Device{Serial: serial, Product: "iCUE COMMANDER CORE", ProductType: common.ProductTypeCC, Instance: devicesPageCoolingSnapshotProvider{serial: serial, snapshot: cooling}}
+	summary, ok = devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: withoutDisplay}, map[string]stats.BatteryStats{}, serial)
+	if !ok || summary.Display != nil || devicesWorkspaceView([]string{"display"}, summary) != "overview" {
+		t.Fatalf("non-LCD display summary = %#v, ok=%t", summary, ok)
 	}
 }
 
