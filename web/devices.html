@@ -145,7 +145,7 @@
                     <div class="lf-device-hero-copy">
                         <p class="lf-device-hero-context">{{ if .Device.OpenRGB }}OpenRGB imported controller{{ else }}Selected device{{ end }}</p>
                         <h1 class="lf-workspace-title">{{ .Device.Product }}</h1>
-                        <p class="lf-workspace-description">{{ if eq .Device.View "lighting" }}Stored lighting configuration and renderer capabilities{{ else if eq .Device.View "cooling" }}Review fan telemetry and assign existing temperature profiles{{ else if eq .Device.View "display" }}Configure the optional LCD using this device's supported display settings{{ else if eq .Device.View "dpi" }}Configure mouse sensitivity, stage colors, and device performance settings{{ else if eq .Device.View "buttons" }}Configure physical button assignments{{ else if eq .Device.View "keyboard" }}Configure keyboard settings, colors, and assignments{{ else }}Device overview and configured hardware details{{ end }}</p>
+                        <p class="lf-workspace-description">{{ if eq .Device.View "lighting" }}{{ if .Device.Memory }}Memory lighting controls are being prepared for canonical migration{{ else }}Stored lighting configuration and renderer capabilities{{ end }}{{ else if eq .Device.View "cooling" }}Review fan telemetry and assign existing temperature profiles{{ else if eq .Device.View "display" }}Configure the optional LCD using this device's supported display settings{{ else if eq .Device.View "dpi" }}Configure mouse sensitivity, stage colors, and device performance settings{{ else if eq .Device.View "buttons" }}Configure physical button assignments{{ else if eq .Device.View "keyboard" }}Configure keyboard settings, colors, and assignments{{ else }}Device overview and configured hardware details{{ end }}</p>
                         <div class="lf-device-hero-facts">
                             {{ if .Device.Unavailable }}<span class="lf-device-hero-fact lf-device-hero-fact-unavailable">Unavailable</span>{{ end }}
                             {{ if eq .Device.View "lighting" }}
@@ -168,7 +168,7 @@
 
                 <nav class="lf-device-workspace-nav" aria-label="Device workspace">
                     <a class="lf-device-workspace-link{{ if and (ne .Device.View "lighting") (ne .Device.View "cooling") (ne .Device.View "display") (ne .Device.View "dpi") (ne .Device.View "buttons") (ne .Device.View "keyboard") }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}"{{ if and (ne .Device.View "lighting") (ne .Device.View "cooling") (ne .Device.View "display") (ne .Device.View "dpi") (ne .Device.View "buttons") (ne .Device.View "keyboard") }} aria-current="page"{{ end }}>Overview</a>
-                    {{ if or .Device.Lighting .Device.LegacyLighting }}
+                    {{ if or .Device.Lighting .Device.LegacyLighting .Device.Memory }}
                         <a class="lf-device-workspace-link{{ if eq .Device.View "lighting" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=lighting"{{ if eq .Device.View "lighting" }} aria-current="page"{{ end }}>Lighting</a>
                     {{ end }}
                     {{ with .Device.Cooling }}
@@ -668,6 +668,8 @@
                     {{ if and .Device.LegacyLighting (not .Device.Lighting) }}
                         <section class="lf-performance-workspace"><h2 class="lf-workspace-section-heading">Lighting</h2><p class="lf-device-profile-description">Native Lighting migration is not complete. Lighting remains in the existing legacy controller workspace.</p></section>
                     {{ end }}
+                {{ else if and (eq .Device.View "lighting") .Device.Memory }}
+                    <section class="lf-performance-workspace" data-lf-memory-lighting-workspace><h2 class="lf-workspace-section-heading">Lighting</h2><p class="lf-device-profile-description">Memory lighting remains in the existing legacy controller workspace while canonical per-DIMM controls are prepared.</p></section>
                 {{ else if eq .Device.View "cooling" }}
                     {{ with .Device.Cooling }}
                         <section class="lf-performance-workspace" data-lf-cooling-workspace data-lf-device-id="{{ $.Device.Serial }}">
@@ -861,6 +863,19 @@
                             </section>
 
                             {{ with .Device.DeviceProfiles }}{{ if eq .Scope "device" }}{{ template "lf-device-profile-panel" $ }}{{ end }}{{ end }}
+
+                            {{ with .Device.Memory }}
+                                <section class="lf-overview-panel" data-lf-memory-workspace data-lf-device-id="{{ $.Device.Serial }}">
+                                    <header class="lf-overview-panel-header"><div><p class="lf-section-kicker">Detected modules</p><h2>Memory</h2></div></header>
+                                    <div class="lf-performance-controls lf-cooling-channel-grid">
+                                        {{ range .Modules }}
+                                            <article class="lf-performance-control lf-cooling-channel" data-lf-memory-module data-lf-channel-id="{{ .ChannelID }}" data-lf-module-name="{{ .Name }}" data-lf-confirmed-label="{{ .Label }}">
+                                                <div><button class="lf-cooling-label-display" type="button" data-lf-memory-label-display aria-label="Edit {{ .Name }} label">{{ if .Label }}{{ .Label }}{{ else }}{{ .Name }}{{ end }}</button><input class="lf-buttons-select" type="text" value="{{ .Label }}" data-lf-memory-label aria-label="{{ .Name }} label" hidden><p class="lf-range-control-status" data-lf-memory-label-status aria-live="polite"></p><p class="lf-device-profile-description">{{ .Name }}{{ if gt .MemoryType 0 }} · DDR{{ .MemoryType }}{{ end }}{{ if .SKU }} · {{ .SKU }}{{ end }}{{ if .Temperature }} · <span data-lf-memory-temperature data-lf-channel-id="{{ .ChannelID }}">{{ .Temperature }}</span>{{ end }}</p></div>
+                                            </article>
+                                        {{ end }}
+                                    </div>
+                                </section>
+                            {{ end }}
 
                             {{ with .Device.OpenRGB }}
                                 <section class="lf-openrgb-overview">

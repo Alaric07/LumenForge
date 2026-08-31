@@ -31,6 +31,7 @@ import (
 	"LumenForge/src/logger"
 	"LumenForge/src/macro"
 	"LumenForge/src/media"
+	"LumenForge/src/memorypresentation"
 	"LumenForge/src/metrics"
 	"LumenForge/src/openrgb"
 	"LumenForge/src/performancepresentation"
@@ -2404,6 +2405,7 @@ type devicesWorkspaceSummary struct {
 	DeviceProfiles      *devicesDeviceProfileWorkspaceSummary
 	Cooling             *devicesCoolingWorkspaceSummary
 	Display             *devicesDisplayWorkspaceSummary
+	Memory              *devicesMemoryWorkspaceSummary
 	KeyboardAssignments *devicesKeyboardAssignmentsWorkspaceSummary
 	LegacyLighting      bool
 	View                string
@@ -2564,10 +2566,29 @@ type devicesDisplaySnapshotProvider interface {
 	DisplaySnapshot() (displaypresentation.Snapshot, bool)
 }
 
+type devicesMemorySnapshotProvider interface {
+	MemoryDeviceID() string
+	MemorySnapshot() (memorypresentation.Snapshot, bool)
+}
+
 type devicesDeviceProfileWorkspaceSummary struct {
 	Profiles                                 []string
 	ProfileDisplayLabels                     map[string]string
 	ActiveProfile, Scope, Label, Description string
+}
+
+type devicesMemoryModuleSummary struct {
+	ChannelID   int
+	Name        string
+	Label       string
+	MemoryType  int
+	SKU         string
+	LEDCount    uint8
+	Temperature string
+}
+
+type devicesMemoryWorkspaceSummary struct {
+	Modules []devicesMemoryModuleSummary
 }
 
 type devicesCoolingProfileOptionSummary struct {
@@ -2722,6 +2743,24 @@ func devicesDeviceProfileWorkspaceSummaryFromSnapshot(snapshot deviceprofilepres
 		}
 	}
 	return nil
+}
+
+func devicesMemoryWorkspaceSummaryFromSnapshot(snapshot memorypresentation.Snapshot) *devicesMemoryWorkspaceSummary {
+	if !snapshot.Available || len(snapshot.Modules) == 0 {
+		return nil
+	}
+	summary := &devicesMemoryWorkspaceSummary{Modules: make([]devicesMemoryModuleSummary, 0, len(snapshot.Modules))}
+	for _, module := range snapshot.Modules {
+		if module.ChannelID < 0 || module.Name == "" {
+			return nil
+		}
+		summary.Modules = append(summary.Modules, devicesMemoryModuleSummary{
+			ChannelID: module.ChannelID, Name: module.Name, Label: module.Label,
+			MemoryType: module.MemoryType, SKU: module.SKU, LEDCount: module.LEDCount,
+			Temperature: module.Temperature,
+		})
+	}
+	return summary
 }
 
 type devicesKeyboardAssignmentTypeSummary struct {
@@ -3222,6 +3261,12 @@ func devicesWorkspaceSummaryForSerial(
 			summary.Display = devicesDisplayWorkspaceSummaryFromSnapshot(snapshot)
 		}
 	}
+	if memoryDevice, ok := device.Instance.(devicesMemorySnapshotProvider); ok &&
+		memoryDevice != nil && memoryDevice.MemoryDeviceID() == serial {
+		if snapshot, usable := memoryDevice.MemorySnapshot(); usable {
+			summary.Memory = devicesMemoryWorkspaceSummaryFromSnapshot(snapshot)
+		}
+	}
 	if keyboardDevice, ok := device.Instance.(devicesKeyboardAssignmentsSnapshotProvider); ok && keyboardDevice != nil && keyboardDevice.KeyboardAssignmentsDeviceID() == serial {
 		if snapshot, usable := keyboardDevice.KeyboardAssignmentsSnapshot(); usable {
 			summary.KeyboardAssignments = devicesKeyboardAssignmentsWorkspaceSummaryFromSnapshot(snapshot)
@@ -3240,7 +3285,7 @@ func devicesWorkspaceView(views []string, device *devicesWorkspaceSummary) strin
 	}
 	switch views[0] {
 	case "lighting":
-		if device.Lighting != nil || device.LegacyLighting {
+		if device.Lighting != nil || device.LegacyLighting || device.Memory != nil {
 			return "lighting"
 		}
 	case "dpi":
