@@ -71,10 +71,31 @@ type Snapshot struct {
 	GradientStops      []GradientStop
 	Customized         bool
 	AuthoredZoneEditor *AuthoredZoneEditor
+	ThreePinPort       *ThreePinPort
 	// Channels is populated by controllers with independently configurable
 	// physical lighting targets. Each entry composes the same immutable lighting
 	// view rather than pretending the controller has one selected effect.
 	Channels []Channel
+}
+
+// ThreePinPort is immutable presentation data for a controller-owned physical
+// RGB-only port. It does not describe or assign canonical lighting targets.
+type ThreePinPort struct {
+	DeviceType       int
+	DeviceOptions    []ThreePinDeviceOption
+	Quantity         int
+	QuantityOptions  []ThreePinQuantityOption
+	QuantityDisabled bool
+}
+
+type ThreePinDeviceOption struct {
+	ID, Label string
+	Selected  bool
+}
+
+type ThreePinQuantityOption struct {
+	Value, Label string
+	Selected     bool
 }
 
 // Channel is an immutable presentation copy of one physical lighting target.

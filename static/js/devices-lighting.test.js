@@ -1428,6 +1428,7 @@ test("multiple brightness controls keep transient success timers isolated", asyn
         if (selector === "[data-lf-gradient-control]") return [];
         if (selector === "[data-lf-reset-button]") return [];
         if (selector === "[data-lf-ccxt-probe-temperature]") return [];
+        if (selector === "[data-lf-ccxt-three-pin-port]") return [];
         if (selector === "[data-lf-channel-editor-toggle]") return [];
         if (selector === "[data-lf-authored-zone-control]") return [];
         if (selector === "[data-lf-lighting-ownership-control]") return [];
@@ -2231,7 +2232,7 @@ test("Lighting initialization tolerates pages without interactive controls", fun
 
     lighting.init(browser);
 
-    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-lighting-channel]", "[data-lf-channel-editor-toggle]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-two-color-control]", "[data-lf-temperature-control]", "[data-lf-gradient-control]", "[data-lf-reset-button]", "[data-lf-ccxt-probe-temperature]", "[data-lf-authored-zone-control]", "[data-lf-lighting-ownership-control]"]);
+    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-lighting-channel]", "[data-lf-channel-editor-toggle]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-two-color-control]", "[data-lf-temperature-control]", "[data-lf-gradient-control]", "[data-lf-reset-button]", "[data-lf-ccxt-probe-temperature]", "[data-lf-ccxt-three-pin-port]", "[data-lf-authored-zone-control]", "[data-lf-lighting-ownership-control]"]);
 });
 
 test("channel editor toggles keep effect selection untouched and preserve a dirty explicit-save editor", function () {
@@ -3637,12 +3638,14 @@ test("enabling Lighting ownership immediately disables local controls before the
         {disabled: false}, {disabled: false}, {disabled: false}
 	];
 	const probeControls = [{disabled: false}, {disabled: false}, {disabled: false}, {disabled: false}];
+	const threePinControls = [{disabled: false}, {disabled: false}];
     const resetButton = {disabled: false};
     const reset = {hidden: false, querySelectorAll: function(selector) { assert.equal(selector, "input, button"); return [resetButton]; }};
     const workspace = {
 		querySelectorAll: function(selector) {
 			if (selector === "[data-lf-reset-control]") return [reset];
 			if (selector === "[data-lf-ccxt-probe-temperature] input, [data-lf-ccxt-probe-temperature] button") return probeControls;
+			if (selector === "[data-lf-ccxt-three-pin-port] select") return threePinControls;
 			return localControls;
         }
     };
@@ -3663,8 +3666,97 @@ test("enabling Lighting ownership immediately disables local controls before the
 
 	for (const local of localControls) assert.equal(local.disabled, true);
 	for (const probe of probeControls) assert.equal(probe.disabled, true);
+	for (const control of threePinControls) assert.equal(control.disabled, true);
     assert.equal(reset.hidden, true);
     assert.equal(resetButton.disabled, true);
     assert.equal(reloads, 0);
     assert.equal(timers.pending(1500), 1);
+});
+
+test("CCXT 3-Pin RGB Port reuses existing hub mutations and reloads after confirmation", async function() {
+    function select(value, confirmedValue, disabled) {
+        const handlers = {};
+        return {
+            dataset: {lfConfirmedValue: confirmedValue},
+            disabled: !!disabled,
+            value,
+            addEventListener: function(event, handler) { handlers[event] = handler; },
+            handlers
+        };
+    }
+    const device = select("6", "0", false);
+    const quantity = select("3", "2", false);
+    const status = {textContent: ""};
+    const port = {
+        dataset: {lfDeviceId: "ccxt-3-pin", lfClusterControlled: "false", lfExternalControlled: "false"},
+        querySelector: function(selector) {
+            if (selector === "[data-lf-three-pin-device]") return device;
+            if (selector === "[data-lf-three-pin-quantity]") return quantity;
+            if (selector === "[data-lf-three-pin-status]") return status;
+            return null;
+        }
+    };
+    const timers = timerFixture();
+    const requests = [];
+    let reloads = 0;
+    const saved = [];
+    const browser = {
+        AbortController,
+        clearTimeout: timers.clearTimeout,
+        fetch: async function(url, options) {
+            requests.push({url, body: JSON.parse(options.body)});
+            return {ok: true, json: async function() { return {status: 1}; }};
+        },
+        LumenForgeDevicesToast: function() { saved.push(Array.from(arguments)); },
+        location: {reload: function() { reloads++; }},
+        setTimeout: timers.setTimeout
+    };
+
+    lighting.bindCCXTThreePinPort(browser, port);
+    await device.handlers.change();
+    assert.deepEqual(requests, [{url: "/api/hub/type", body: {deviceId: "ccxt-3-pin", portId: 0, deviceType: 6}}]);
+    assert.equal(reloads, 0);
+    assert.deepEqual(saved, [["✓ Saved", "success", 1500]]);
+    assert.equal(timers.pending(1500), 1);
+    timers.fireNext(1500);
+    assert.equal(reloads, 1);
+
+    const secondDevice = select("6", "6", false);
+    const secondQuantity = select("3", "2", false);
+    const secondPort = Object.assign({}, port, {querySelector: function(selector) {
+        if (selector === "[data-lf-three-pin-device]") return secondDevice;
+        if (selector === "[data-lf-three-pin-quantity]") return secondQuantity;
+        if (selector === "[data-lf-three-pin-status]") return status;
+        return null;
+    }});
+    lighting.bindCCXTThreePinPort(browser, secondPort);
+    await secondQuantity.handlers.change();
+    assert.deepEqual(requests[1], {url: "/api/hub/amount", body: {deviceId: "ccxt-3-pin", portId: 0, deviceAmount: 3}});
+    assert.equal(reloads, 1);
+    assert.equal(timers.pending(1500), 1);
+    timers.fireNext(1500);
+    assert.equal(reloads, 2);
+});
+
+test("CCXT 3-Pin RGB Port restores the confirmed selection after a failed hub mutation", async function() {
+    const handlers = {};
+    const device = {dataset: {lfConfirmedValue: "0"}, disabled: false, value: "6", addEventListener: function(event, handler) { handlers[event] = handler; }};
+    const quantity = {dataset: {lfConfirmedValue: "0"}, disabled: true, value: "0", addEventListener: function() {}};
+    const status = {textContent: ""};
+    const port = {dataset: {lfDeviceId: "ccxt-3-pin", lfClusterControlled: "false", lfExternalControlled: "false"}, querySelector: function(selector) {
+        if (selector === "[data-lf-three-pin-device]") return device;
+        if (selector === "[data-lf-three-pin-quantity]") return quantity;
+        if (selector === "[data-lf-three-pin-status]") return status;
+        return null;
+    }};
+    const timers = timerFixture();
+    let reloads = 0;
+    lighting.bindCCXTThreePinPort({AbortController, clearTimeout: timers.clearTimeout, fetch: async function() { return {ok: true, json: async function() { return {status: 0}; }}; }, location: {reload: function() { reloads++; }}, setTimeout: timers.setTimeout}, port);
+    await handlers.change();
+    assert.equal(device.value, "0");
+    assert.equal(device.disabled, false);
+    assert.equal(quantity.disabled, true);
+    assert.equal(status.textContent, "Unable to save 3-Pin RGB Port settings. Try again.");
+    assert.equal(reloads, 0);
+    assert.equal(timers.pending(1500), 0);
 });

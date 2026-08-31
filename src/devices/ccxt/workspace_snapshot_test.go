@@ -96,6 +96,55 @@ func TestCCXTExposesCanonicalLightingSnapshotProvider(t *testing.T) {
 	}
 }
 
+func TestCCXTThreePinPortSnapshotUsesExistingExternalHubMetadata(t *testing.T) {
+	device := &Device{DeviceProfile: &DeviceProfile{ExternalHubDeviceType: 6, ExternalHubDeviceAmount: 3}, ExternalLedDevice: []ExternalLedDevice{
+		{Index: 10, Name: "Hydro X XD5", Total: 16},
+		{Index: 0, Name: "No Device"},
+		{Index: 6, Name: "8-LED Series Fan", Total: 8},
+		{Index: 13, Name: "SP120 RGB Elite Kit", Total: 8, Kit: true},
+		{Index: 7, Name: "Hydro X XC7", Total: 16},
+	}}
+
+	port := device.threePinPortSnapshot()
+	if port == nil || port.DeviceType != 6 || port.Quantity != 3 || port.QuantityDisabled {
+		t.Fatalf("ordinary port snapshot = %#v", port)
+	}
+	if got := []string{port.DeviceOptions[0].ID, port.DeviceOptions[1].ID, port.DeviceOptions[2].ID, port.DeviceOptions[3].ID, port.DeviceOptions[4].ID}; !reflect.DeepEqual(got, []string{"0", "6", "7", "10", "13"}) {
+		t.Fatalf("device options = %#v", got)
+	}
+	if got := threePinQuantityValues(port); !reflect.DeepEqual(got, []string{"0", "1", "2", "3", "4", "5", "6"}) {
+		t.Fatalf("ordinary quantity options = %#v", got)
+	}
+
+	device.DeviceProfile.ExternalHubDeviceType = 7
+	if got := threePinQuantityValues(device.threePinPortSnapshot()); !reflect.DeepEqual(got, []string{"0", "1"}) {
+		t.Fatalf("Hydro X single-device options = %#v", got)
+	}
+	device.DeviceProfile.ExternalHubDeviceType = 10
+	if got := threePinQuantityValues(device.threePinPortSnapshot()); !reflect.DeepEqual(got, []string{"0", "1", "2"}) {
+		t.Fatalf("Hydro X two-device options = %#v", got)
+	}
+	device.DeviceProfile.ExternalHubDeviceType = 13
+	port = device.threePinPortSnapshot()
+	if got := threePinQuantityValues(port); !reflect.DeepEqual(got, []string{"1"}) || !port.QuantityDisabled {
+		t.Fatalf("kit quantity options = %#v, disabled=%t", got, port.QuantityDisabled)
+	}
+	device.DeviceProfile.ExternalHubDeviceType = 0
+	device.DeviceProfile.ExternalHubDeviceAmount = 0
+	port = device.threePinPortSnapshot()
+	if got := threePinQuantityValues(port); !reflect.DeepEqual(got, []string{"0"}) || !port.QuantityDisabled {
+		t.Fatalf("no-device quantity options = %#v, disabled=%t", got, port.QuantityDisabled)
+	}
+}
+
+func threePinQuantityValues(port *lightingpresentation.ThreePinPort) []string {
+	values := make([]string, len(port.QuantityOptions))
+	for index, option := range port.QuantityOptions {
+		values[index] = option.Value
+	}
+	return values
+}
+
 func TestCCXTCanonicalChannelsHydrateIndependentEffects(t *testing.T) {
 	state := &ccxtChannelState{values: map[string]lightingsettings.IndependentDeviceLightingState{
 		"ccxt-rgb-0": {SelectedEffect: "static", Brightness: 100},

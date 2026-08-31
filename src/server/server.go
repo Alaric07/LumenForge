@@ -2442,7 +2442,19 @@ type devicesLightingWorkspaceSummary struct {
 	GradientStops           []devicesLightingGradientStopSummary
 	Customized              bool
 	AuthoredZoneEditor      *devicesLightingAuthoredZoneEditorSummary
+	ThreePinPort            *devicesLightingThreePinPortSummary
 	Channels                []devicesLightingChannelSummary
+}
+
+type devicesLightingThreePinPortSummary struct {
+	DeviceOptions    []devicesLightingThreePinOptionSummary
+	QuantityOptions  []devicesLightingThreePinOptionSummary
+	QuantityDisabled bool
+}
+
+type devicesLightingThreePinOptionSummary struct {
+	Value, Label string
+	Selected     bool
 }
 
 type devicesLightingChannelSummary struct {
@@ -2995,6 +3007,15 @@ func devicesLightingWorkspaceSummaryFromSnapshot(snapshot lightingpresentation.S
 					summary.AuthoredZoneEditor.LayoutHeight = bottom
 				}
 			}
+		}
+	}
+	if port := snapshot.ThreePinPort; port != nil {
+		summary.ThreePinPort = &devicesLightingThreePinPortSummary{QuantityDisabled: port.QuantityDisabled, DeviceOptions: make([]devicesLightingThreePinOptionSummary, len(port.DeviceOptions)), QuantityOptions: make([]devicesLightingThreePinOptionSummary, len(port.QuantityOptions))}
+		for index, option := range port.DeviceOptions {
+			summary.ThreePinPort.DeviceOptions[index] = devicesLightingThreePinOptionSummary{Value: option.ID, Label: option.Label, Selected: option.Selected}
+		}
+		for index, option := range port.QuantityOptions {
+			summary.ThreePinPort.QuantityOptions[index] = devicesLightingThreePinOptionSummary{Value: option.Value, Label: option.Label, Selected: option.Selected}
 		}
 	}
 	if snapshot.HasSpeed {

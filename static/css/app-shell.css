@@ -971,6 +971,10 @@
 
 .lf-app-shell .lf-performance-workspace .lf-workspace-section-heading { margin: 0 0 18px; }
 .lf-app-shell .lf-performance-controls { display: grid; gap: 12px; }
+.lf-app-shell .lf-ccxt-three-pin-port { margin-top: 16px; padding: 18px; box-shadow: none; }
+.lf-app-shell .lf-ccxt-three-pin-port .lf-workspace-section-heading { margin-bottom: 12px; }
+.lf-app-shell .lf-ccxt-three-pin-port .lf-performance-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.lf-app-shell .lf-ccxt-three-pin-port .lf-performance-control { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 10px 12px; }
 .lf-app-shell .lf-ccxt-lighting-channel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
 .lf-app-shell .lf-ccxt-lighting-channel-card { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 12px 14px; }
 .lf-app-shell .lf-ccxt-lighting-channel-card > div { min-width: 0; }
@@ -998,6 +1002,7 @@
 @media (max-width: 900px) {
     .lf-app-shell .lf-performance-control { grid-template-columns: minmax(0, 1fr); }
 	.lf-app-shell .lf-performance-control [data-lf-performance-status] { grid-column: auto; }
+	.lf-app-shell .lf-ccxt-three-pin-port .lf-performance-controls { grid-template-columns: minmax(0, 1fr); }
 	.lf-app-shell .lf-ccxt-lighting-channel-grid { grid-template-columns: minmax(0, 1fr); }
 	.lf-app-shell .lf-cooling-channel-grid { grid-template-columns: minmax(0, 1fr); }
 	.lf-app-shell .lf-cooling-channel { grid-template-columns: minmax(0, 1fr); }

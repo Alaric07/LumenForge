@@ -167,6 +167,7 @@ func (d *Device) LightingSnapshot() (lightingpresentation.Snapshot, bool) {
 		ExternalControlled: d.DeviceProfile.OpenRGBIntegration,
 		Channels:           make([]lightingpresentation.Channel, 0, len(d.RgbDevices)),
 	}
+	snapshot.ThreePinPort = d.threePinPortSnapshot()
 	if d.DeviceProfile.BrightnessSlider != nil {
 		snapshot.HasBrightness = true
 		snapshot.Brightness = *d.DeviceProfile.BrightnessSlider
@@ -203,6 +204,54 @@ func (d *Device) LightingSnapshot() (lightingpresentation.Snapshot, bool) {
 	}
 	sort.Slice(snapshot.Channels, func(i, j int) bool { return snapshot.Channels[i].ChannelID < snapshot.Channels[j].ChannelID })
 	return snapshot, len(snapshot.Channels) > 0
+}
+
+func (d *Device) threePinPortSnapshot() *lightingpresentation.ThreePinPort {
+	if d == nil || d.DeviceProfile == nil || len(d.ExternalLedDevice) == 0 {
+		return nil
+	}
+	port := &lightingpresentation.ThreePinPort{DeviceType: d.DeviceProfile.ExternalHubDeviceType, Quantity: d.DeviceProfile.ExternalHubDeviceAmount}
+	options := append([]ExternalLedDevice(nil), d.ExternalLedDevice...)
+	sort.Slice(options, func(i, j int) bool { return options[i].Index < options[j].Index })
+	for _, option := range options {
+		port.DeviceOptions = append(port.DeviceOptions, lightingpresentation.ThreePinDeviceOption{ID: strconv.Itoa(option.Index), Label: option.Name, Selected: option.Index == port.DeviceType})
+	}
+	for _, amount := range d.threePinPortAmounts(port.DeviceType) {
+		label := fmt.Sprintf("%d Devices", amount)
+		if amount == 0 {
+			label = "No Devices"
+		} else if amount == 1 {
+			label = "1 Device"
+		}
+		port.QuantityOptions = append(port.QuantityOptions, lightingpresentation.ThreePinQuantityOption{Value: strconv.Itoa(amount), Label: label, Selected: amount == port.Quantity})
+	}
+	port.QuantityDisabled = port.DeviceType == 0 || len(port.QuantityOptions) <= 1
+	return port
+}
+
+func (d *Device) threePinPortAmounts(deviceType int) []int {
+	if deviceType == 0 {
+		return []int{0}
+	}
+	metadata := d.getExternalLedDevice(deviceType)
+	if metadata == nil {
+		return nil
+	}
+	if metadata.Kit {
+		return []int{1}
+	}
+	maximum := 6
+	switch deviceType {
+	case 7, 8, 9, 15:
+		maximum = 1
+	case 10, 11, 12:
+		maximum = 2
+	}
+	amounts := make([]int, maximum+1)
+	for amount := range amounts {
+		amounts[amount] = amount
+	}
+	return amounts
 }
 
 func ccxtLightingColorHex(color lightingsettings.Color) string {

@@ -781,6 +781,11 @@ func TestDevicesLightingOwnershipControlsFollowTargetKind(t *testing.T) {
 func TestDevicesLightingChannelWorkspaceUsesSharedBottomOwnershipControls(t *testing.T) {
 	summary := devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{
 		TargetKind: "native", ClusterControlled: true,
+		ThreePinPort: &lightingpresentation.ThreePinPort{
+			DeviceOptions:    []lightingpresentation.ThreePinDeviceOption{{ID: "0", Label: "No Device", Selected: true}, {ID: "6", Label: "8-LED Series Fan"}},
+			QuantityOptions:  []lightingpresentation.ThreePinQuantityOption{{Value: "0", Label: "No Devices", Selected: true}},
+			QuantityDisabled: true,
+		},
 		Channels: []lightingpresentation.Channel{{
 			TargetID: "ccxt-port-0", ChannelID: "0", Name: "8-LED Series Fan", Label: "RGB Intake", LEDCount: 8,
 			Lighting: lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "static", EffectSupported: true, ClusterControlled: true, SupportedEffects: []lightingpresentation.EffectOption{{ID: "static", Label: "Static"}}},
@@ -788,9 +793,20 @@ func TestDevicesLightingChannelWorkspaceUsesSharedBottomOwnershipControls(t *tes
 	})
 	body := renderDevicesLightingView(t, summary)
 	channelsAt := strings.Index(body, `data-lf-lighting-channel-list`)
+	threePinAt := strings.Index(body, `data-lf-ccxt-three-pin-port`)
 	ownershipAt := strings.Index(body, `class="lf-lighting-ownership-panel"`)
-	if channelsAt < 0 || ownershipAt <= channelsAt {
-		t.Fatalf("channel ownership placement = channels:%d ownership:%d", channelsAt, ownershipAt)
+	if channelsAt < 0 || threePinAt <= channelsAt || ownershipAt <= threePinAt {
+		t.Fatalf("Lighting section placement = channels:%d three-pin:%d ownership:%d", channelsAt, threePinAt, ownershipAt)
+	}
+	for _, want := range []string{"3-Pin RGB Port", `data-lf-three-pin-device`, `data-lf-three-pin-quantity`, "No Device", "No Devices"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("CCXT 3-Pin RGB Port omitted %q", want)
+		}
+	}
+	threePinDevice := strings.Split(body, `data-lf-three-pin-device`)[1]
+	threePinQuantity := strings.Split(body, `data-lf-three-pin-quantity`)[1]
+	if !strings.Contains(threePinDevice[:strings.Index(threePinDevice, ">")], "disabled") || !strings.Contains(threePinQuantity[:strings.Index(threePinQuantity, ">")], "disabled") {
+		t.Error("CCXT Cluster ownership did not disable 3-Pin RGB Port controls")
 	}
 	for _, want := range []string{`data-lf-ownership-kind="cluster"`, `data-lf-ownership-kind="openrgb-integration"`, `id="lf-lighting-rgb-cluster" type="checkbox" data-lf-lighting-ownership-input checked`, `data-lf-cluster-controlled="true"`} {
 		if !strings.Contains(body, want) {

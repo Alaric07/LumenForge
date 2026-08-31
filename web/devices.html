@@ -619,6 +619,16 @@
                                     </section>
 	                            {{ end }}
 
+	                            {{ with .ThreePinPort }}
+                                    <section class="lf-performance-workspace lf-ccxt-three-pin-port" data-lf-ccxt-three-pin-port data-lf-device-id="{{ $.Device.Serial }}" data-lf-cluster-controlled="{{ $.Device.Lighting.ClusterControlled }}" data-lf-external-controlled="{{ $.Device.Lighting.ExternalControlled }}">
+                                        <h2 class="lf-workspace-section-heading">3-Pin RGB Port</h2>
+                                        <div class="lf-performance-controls">
+                                            <div class="lf-performance-control"><label for="lf-ccxt-three-pin-device">Connected device</label><select id="lf-ccxt-three-pin-device" data-lf-three-pin-device data-lf-confirmed-value="{{ range .DeviceOptions }}{{ if .Selected }}{{ .Value }}{{ end }}{{ end }}" {{ if or $.Device.Lighting.ClusterControlled $.Device.Lighting.ExternalControlled $.Device.Lighting.ReadOnly }}disabled{{ end }}>{{ range .DeviceOptions }}<option value="{{ .Value }}"{{ if .Selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select></div>
+                                            <div class="lf-performance-control"><label for="lf-ccxt-three-pin-quantity">Quantity</label><select id="lf-ccxt-three-pin-quantity" data-lf-three-pin-quantity data-lf-confirmed-value="{{ range .QuantityOptions }}{{ if .Selected }}{{ .Value }}{{ end }}{{ end }}" {{ if or .QuantityDisabled $.Device.Lighting.ClusterControlled $.Device.Lighting.ExternalControlled $.Device.Lighting.ReadOnly }}disabled{{ end }}>{{ range .QuantityOptions }}<option value="{{ .Value }}"{{ if .Selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select></div>
+                                        </div>
+                                        <p class="lf-range-control-status" data-lf-three-pin-status aria-live="polite"></p>
+                                    </section>
+                            {{ end }}
                                     <section class="lf-lighting-ownership-panel" data-lf-lighting-ownership-controls>
                                         <header class="lf-lighting-ownership-header">
                                             <div><p class="lf-section-kicker">Lighting ownership</p><p>Choose which system controls this device's lighting.</p></div>

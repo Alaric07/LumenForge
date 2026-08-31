@@ -386,6 +386,7 @@
 			"[data-lf-temperature-control] input",
 			"[data-lf-gradient-control] input, [data-lf-gradient-control] button",
 			"[data-lf-ccxt-probe-temperature] input, [data-lf-ccxt-probe-temperature] button",
+			"[data-lf-ccxt-three-pin-port] select",
 			"[data-lf-authored-zone-control] input, [data-lf-authored-zone-control] button"
         ];
         for (const selector of selectors) {
@@ -1650,6 +1651,46 @@
         return {save: save};
     }
 
+    function bindCCXTThreePinPort(browser, container) {
+        if (lightingExternallyOwned(container)) return null;
+        const device = container.querySelector("[data-lf-three-pin-device]");
+        const quantity = container.querySelector("[data-lf-three-pin-quantity]");
+        const status = container.querySelector("[data-lf-three-pin-status]");
+        const deviceID = container.dataset.lfDeviceId;
+        if (!device || !quantity || !deviceID) return null;
+        let saving = false;
+        function restore(control) { control.value = control.dataset.lfConfirmedValue; }
+        async function update(control, endpoint, field) {
+            if (saving) return;
+            const value = Number(control.value);
+            if (!Number.isInteger(value) || value < 0 || value === Number(control.dataset.lfConfirmedValue)) return;
+            saving = true;
+            device.disabled = true;
+            quantity.disabled = true;
+            if (status) status.textContent = "Saving…";
+            try {
+                const payload = {deviceId: deviceID, portId: 0};
+                payload[field] = value;
+                await submitLightingMutation(browser, endpoint, payload, effectTimeoutMilliseconds, "topology request failed", "topology mutation was rejected");
+                if (status) status.textContent = "";
+                showOwnershipSaved(browser);
+                if (browser.location && typeof browser.location.reload === "function") {
+                    browser.setTimeout(function () { browser.location.reload(); }, 1500);
+                }
+            } catch (_) {
+                restore(control);
+                if (status) status.textContent = "Unable to save 3-Pin RGB Port settings. Try again.";
+                device.disabled = false;
+                quantity.disabled = quantity.dataset.lfInitiallyDisabled === "true";
+                saving = false;
+            }
+        }
+        quantity.dataset.lfInitiallyDisabled = quantity.disabled ? "true" : "false";
+        device.addEventListener("change", function() { return update(device, "/api/hub/type", "deviceType"); });
+        quantity.addEventListener("change", function() { return update(quantity, "/api/hub/amount", "deviceAmount"); });
+        return {device: device, quantity: quantity};
+    }
+
     function bindResetButton(browser, button) {
         if (lightingExternallyOwned(button)) return null;
         const status = browser.document.getElementById(button.dataset.lfStatusId);
@@ -1833,6 +1874,10 @@
         for (const control of probeTemperatureControls) {
             if (!isReadOnly(control)) bindCCXTProbeTemperature(browser, control);
         }
+        const threePinPorts = browser.document.querySelectorAll("[data-lf-ccxt-three-pin-port]");
+        for (const port of threePinPorts) {
+            if (!isReadOnly(port)) bindCCXTThreePinPort(browser, port);
+        }
 
         const authoredZoneControls = browser.document.querySelectorAll("[data-lf-authored-zone-control]");
         for (const control of authoredZoneControls) {
@@ -1857,6 +1902,7 @@
         bindTemperatureControl,
         bindGradientControl,
         bindCCXTProbeTemperature,
+        bindCCXTThreePinPort,
         bindResetButton,
         bindAuthoredZoneControl,
         bindOwnershipToggle,
