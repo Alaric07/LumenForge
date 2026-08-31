@@ -2449,6 +2449,17 @@ type devicesLightingChannelSummary struct {
 	TargetID, ChannelID, Name, Label string
 	LEDCount                         int
 	Lighting                         *devicesLightingWorkspaceSummary
+	ProbeTemperature                 *devicesLightingProbeTemperatureSummary
+}
+
+type devicesLightingProbeTemperatureSummary struct {
+	ProbeID, Minimum, Maximum string
+	Sources                   []devicesLightingProbeTemperatureSourceSummary
+}
+
+type devicesLightingProbeTemperatureSourceSummary struct {
+	ID, Label string
+	Selected  bool
 }
 
 type devicesLightingAuthoredZoneEditorSummary struct {
@@ -3022,7 +3033,14 @@ func devicesLightingWorkspaceSummaryFromSnapshot(snapshot lightingpresentation.S
 			if lighting == nil || len(lighting.Channels) > 0 {
 				return nil
 			}
-			summary.Channels = append(summary.Channels, devicesLightingChannelSummary{TargetID: channel.TargetID, ChannelID: channel.ChannelID, Name: channel.Name, Label: channel.Label, LEDCount: channel.LEDCount, Lighting: lighting})
+			channelSummary := devicesLightingChannelSummary{TargetID: channel.TargetID, ChannelID: channel.ChannelID, Name: channel.Name, Label: channel.Label, LEDCount: channel.LEDCount, Lighting: lighting}
+			if probe := channel.ProbeTemperature; probe != nil {
+				channelSummary.ProbeTemperature = &devicesLightingProbeTemperatureSummary{ProbeID: strconv.Itoa(probe.ProbeID), Minimum: strconv.FormatFloat(probe.Minimum, 'f', -1, 64), Maximum: strconv.FormatFloat(probe.Maximum, 'f', -1, 64), Sources: make([]devicesLightingProbeTemperatureSourceSummary, len(probe.Sources))}
+				for index, source := range probe.Sources {
+					channelSummary.ProbeTemperature.Sources[index] = devicesLightingProbeTemperatureSourceSummary{ID: strconv.Itoa(source.ID), Label: source.Label, Selected: source.Selected}
+				}
+			}
+			summary.Channels = append(summary.Channels, channelSummary)
 		}
 	}
 	return summary
@@ -3903,9 +3921,10 @@ func setNativeDeviceLightingBrightness(w http.ResponseWriter, r *http.Request) {
 
 func setNativeDeviceLightingSpeed(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Serial *string  `json:"serial"`
-		Effect *string  `json:"effect"`
-		Speed  *float64 `json:"speed"`
+		Serial   *string  `json:"serial"`
+		TargetID *string  `json:"targetId"`
+		Effect   *string  `json:"effect"`
+		Speed    *float64 `json:"speed"`
 	}
 	if !decodeNativeDeviceLightingRequest(w, r, &req) {
 		return
@@ -3926,9 +3945,10 @@ func setNativeDeviceLightingSpeed(w http.ResponseWriter, r *http.Request) {
 
 func setNativeDeviceLightingSingleColor(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Serial string `json:"serial"`
-		Effect string `json:"effect"`
-		Color  string `json:"color"`
+		Serial   string `json:"serial"`
+		TargetID string `json:"targetId"`
+		Effect   string `json:"effect"`
+		Color    string `json:"color"`
 	}
 	if !decodeNativeDeviceLightingRequest(w, r, &req) {
 		return
@@ -3946,10 +3966,11 @@ func setNativeDeviceLightingSingleColor(w http.ResponseWriter, r *http.Request) 
 
 func setNativeDeviceLightingTwoColor(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Serial string `json:"serial"`
-		Effect string `json:"effect"`
-		Start  string `json:"start"`
-		End    string `json:"end"`
+		Serial   string `json:"serial"`
+		TargetID string `json:"targetId"`
+		Effect   string `json:"effect"`
+		Start    string `json:"start"`
+		End      string `json:"end"`
 	}
 	if !decodeNativeDeviceLightingRequest(w, r, &req) {
 		return
@@ -3978,11 +3999,12 @@ type nativeDeviceLightingGradientStopRequest struct {
 
 func setNativeDeviceLightingTemperature(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Serial string                                       `json:"serial"`
-		Effect string                                       `json:"effect"`
-		Low    *nativeDeviceLightingTemperaturePointRequest `json:"low"`
-		Middle *nativeDeviceLightingTemperaturePointRequest `json:"middle"`
-		High   *nativeDeviceLightingTemperaturePointRequest `json:"high"`
+		Serial   string                                       `json:"serial"`
+		TargetID string                                       `json:"targetId"`
+		Effect   string                                       `json:"effect"`
+		Low      *nativeDeviceLightingTemperaturePointRequest `json:"low"`
+		Middle   *nativeDeviceLightingTemperaturePointRequest `json:"middle"`
+		High     *nativeDeviceLightingTemperaturePointRequest `json:"high"`
 	}
 	if !decodeNativeDeviceLightingRequest(w, r, &req) {
 		return
@@ -4008,9 +4030,10 @@ func setNativeDeviceLightingTemperature(w http.ResponseWriter, r *http.Request) 
 
 func setNativeDeviceLightingGradient(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Serial string                                     `json:"serial"`
-		Effect string                                     `json:"effect"`
-		Stops  *[]nativeDeviceLightingGradientStopRequest `json:"stops"`
+		Serial   string                                     `json:"serial"`
+		TargetID string                                     `json:"targetId"`
+		Effect   string                                     `json:"effect"`
+		Stops    *[]nativeDeviceLightingGradientStopRequest `json:"stops"`
 	}
 	if !decodeNativeDeviceLightingRequest(w, r, &req) {
 		return
@@ -4047,8 +4070,9 @@ func setNativeDeviceLightingGradient(w http.ResponseWriter, r *http.Request) {
 
 func resetNativeDeviceLightingEffectSettings(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Serial string `json:"serial"`
-		Effect string `json:"effect"`
+		Serial   string `json:"serial"`
+		TargetID string `json:"targetId"`
+		Effect   string `json:"effect"`
 	}
 	if !decodeNativeDeviceLightingRequest(w, r, &req) {
 		return

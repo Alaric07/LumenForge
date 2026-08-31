@@ -971,11 +971,18 @@
 
 .lf-app-shell .lf-performance-workspace .lf-workspace-section-heading { margin: 0 0 18px; }
 .lf-app-shell .lf-performance-controls { display: grid; gap: 12px; }
+.lf-app-shell .lf-ccxt-lighting-channel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+.lf-app-shell .lf-ccxt-lighting-channel-card { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 12px 14px; }
+.lf-app-shell .lf-ccxt-lighting-channel-card > div { min-width: 0; }
+.lf-app-shell .lf-ccxt-lighting-channel-editor-toggle { margin-top: 2px; }
+.lf-app-shell .lf-ccxt-lighting-channel-editor { display: grid; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--lf-border-subtle); }
+.lf-app-shell .lf-ccxt-lighting-channel-editor[hidden] { display: none; }
 .lf-app-shell .lf-performance-control { display: grid; grid-template-columns: minmax(150px, 0.7fr) minmax(180px, 1fr); align-items: center; gap: 12px 20px; padding: 14px 16px; border: 1px solid var(--lf-border-subtle); border-radius: 10px; background: var(--lf-panel-secondary); }
 .lf-app-shell .lf-performance-control > label { color: var(--lf-text-primary); font-size: 14px; font-weight: 680; }
 .lf-app-shell .lf-performance-control select { width: 100%; padding: 8px 30px 8px 10px; border: 1px solid var(--lf-border-emphasized); border-radius: 7px; color: var(--lf-text-primary); background: var(--lf-surface-subdued); }
 .lf-app-shell .lf-performance-control [data-lf-performance-status] { grid-column: 2; margin: 0; }
 .lf-app-shell .lf-cooling-channel { grid-template-columns: minmax(180px, 0.7fr) minmax(260px, 1fr); }
+.lf-app-shell .lf-cooling-channel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
 .lf-app-shell .lf-cooling-channel-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .lf-app-shell .lf-cooling-channel-controls label { display: grid; gap: 5px; color: var(--lf-text-muted); font-size: 12px; font-weight: 680; }
 .lf-app-shell .lf-cooling-channel-controls select, .lf-app-shell .lf-cooling-channel input { width: 100%; padding: 8px 10px; border: 1px solid var(--lf-border-emphasized); border-radius: 7px; color: var(--lf-text-primary); background: var(--lf-surface-subdued); }
@@ -990,7 +997,9 @@
 
 @media (max-width: 900px) {
     .lf-app-shell .lf-performance-control { grid-template-columns: minmax(0, 1fr); }
-    .lf-app-shell .lf-performance-control [data-lf-performance-status] { grid-column: auto; }
+	.lf-app-shell .lf-performance-control [data-lf-performance-status] { grid-column: auto; }
+	.lf-app-shell .lf-ccxt-lighting-channel-grid { grid-template-columns: minmax(0, 1fr); }
+	.lf-app-shell .lf-cooling-channel-grid { grid-template-columns: minmax(0, 1fr); }
 	.lf-app-shell .lf-cooling-channel { grid-template-columns: minmax(0, 1fr); }
 	.lf-app-shell .lf-cooling-channel-controls { grid-template-columns: minmax(0, 1fr); }
 }

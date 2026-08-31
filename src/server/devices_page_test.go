@@ -297,7 +297,7 @@ func TestDevicesCCXTModernCoolingWorkspaceAndFullProfile(t *testing.T) {
 	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: device}, Device: summary, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{"Overview", "Cooling", "Lighting", "data-lf-cooling-workspace", "Front", "1040 RPM", "quiet", "Temperature probes", "30.0°C"} {
+	for _, expected := range []string{"Overview", "Cooling", "Lighting", "data-lf-cooling-workspace", "lf-cooling-channel-grid", "data-lf-cooling-channel", "data-lf-cooling-profile", "Front", "1040 RPM", "quiet", "Temperature probes", "data-lf-cooling-probe", "30.0°C"} {
 		if !strings.Contains(rendered.String(), expected) {
 			t.Errorf("missing %q", expected)
 		}
@@ -797,6 +797,15 @@ func TestDevicesLightingChannelWorkspaceUsesSharedBottomOwnershipControls(t *tes
 			t.Errorf("CCXT channel Lighting omitted %q", want)
 		}
 	}
+	if !strings.Contains(body, `lf-ccxt-lighting-channel-grid`) || !strings.Contains(body, `data-lf-channel-editor-toggle`) || !strings.Contains(body, `data-lf-channel-editor hidden`) {
+		t.Error("CCXT Lighting did not render its compact expandable channel-card grid")
+	}
+	if strings.Contains(body, `lf-ccxt-lighting-channel-summary`) || !strings.Contains(body, `data-lf-channel-editor-toggle aria-expanded="false" aria-controls="lf-lighting-channel-editor-0">Settings</button>`) {
+		t.Error("CCXT Lighting channel cards retained the collapsed settings summary or incorrect Settings action")
+	}
+	if strings.Count(body, `data-lf-channel-ownership-status`) != 1 || strings.Index(body, `data-lf-channel-ownership-status`) >= channelsAt {
+		t.Error("CCXT Cluster ownership status was not rendered once above the channel grid")
+	}
 	clusterInput := strings.Split(body, `id="lf-lighting-rgb-cluster"`)[1]
 	externalInput := strings.Split(body, `id="lf-lighting-openrgb-integration"`)[1]
 	if strings.Contains(clusterInput[:strings.Index(clusterInput, ">")], "disabled") || !strings.Contains(externalInput[:strings.Index(externalInput, ">")], "disabled") {
@@ -805,6 +814,15 @@ func TestDevicesLightingChannelWorkspaceUsesSharedBottomOwnershipControls(t *tes
 	channelSelect := strings.Split(body, `data-lf-effect-selector`)[1]
 	if !strings.Contains(channelSelect[:strings.Index(channelSelect, ">")], "disabled") {
 		t.Error("CCXT Cluster ownership did not disable its native channel mutation")
+	}
+	nativeSummary := devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", Channels: []lightingpresentation.Channel{{TargetID: "ccxt-port-0", ChannelID: "0", Name: "8-LED Series Fan", LEDCount: 8, Lighting: lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "static", EffectSupported: true, SupportedEffects: []lightingpresentation.EffectOption{{ID: "static", Label: "Static"}}}}}})
+	if strings.Contains(renderDevicesLightingView(t, nativeSummary), `data-lf-channel-ownership-status`) {
+		t.Error("native CCXT Lighting rendered an external ownership status")
+	}
+	externalSummary := devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ExternalControlled: true, Channels: []lightingpresentation.Channel{{TargetID: "ccxt-port-0", ChannelID: "0", Name: "8-LED Series Fan", LEDCount: 8, Lighting: lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "static", EffectSupported: true, ExternalControlled: true, SupportedEffects: []lightingpresentation.EffectOption{{ID: "static", Label: "Static"}}}}}})
+	externalBody := renderDevicesLightingView(t, externalSummary)
+	if strings.Count(externalBody, `data-lf-channel-ownership-status`) != 1 || !strings.Contains(externalBody, `OpenRGB controls this device`) {
+		t.Error("CCXT OpenRGB ownership status was not rendered once above the channel grid")
 	}
 }
 

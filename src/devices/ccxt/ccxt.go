@@ -245,6 +245,8 @@ type Device struct {
 	clusterExpected         []int
 	clusterReceived         map[int]bool
 	channelLightingState    lightingsettings.IndependentDeviceStateAccess
+	channelLightingEffects  *lightingsettings.DeviceStore
+	channelLightingResolver *lightingsettings.Resolver
 	lightingRestart         func()
 }
 
@@ -644,6 +646,9 @@ func (d *Device) upgradeRgbProfile(path string, profiles []string) {
 func (d *Device) GetRgbProfile(profile string) *rgb.Profile {
 	if d.Rgb == nil {
 		return nil
+	}
+	if canonical, ok := d.canonicalRendererProfile(profile); ok {
+		return &canonical
 	}
 
 	if val, ok := d.Rgb.Profiles[profile]; ok {

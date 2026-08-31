@@ -81,6 +81,7 @@
     const resetTimeoutMilliseconds = 10000;
     const resetSuccessMilliseconds = 3000;
     const resetFailureMessage = "Unable to reset effect. Try again.";
+    const ccxtProbeTemperatureEndpoint = "/api/color/setTemperatureProbe";
     const rangeAdjustmentKeys = new Set([
         "ArrowLeft",
         "ArrowRight",
@@ -382,9 +383,10 @@
             "[data-lf-color-input]",
             "[data-lf-color-hex]",
             "[data-lf-two-color-control] input",
-            "[data-lf-temperature-control] input",
-            "[data-lf-gradient-control] input, [data-lf-gradient-control] button",
-            "[data-lf-authored-zone-control] input, [data-lf-authored-zone-control] button"
+			"[data-lf-temperature-control] input",
+			"[data-lf-gradient-control] input, [data-lf-gradient-control] button",
+			"[data-lf-ccxt-probe-temperature] input, [data-lf-ccxt-probe-temperature] button",
+			"[data-lf-authored-zone-control] input, [data-lf-authored-zone-control] button"
         ];
         for (const selector of selectors) {
             for (const control of workspace.querySelectorAll(selector)) {
@@ -955,6 +957,44 @@
         return {open: openLabelEditor, save: saveLabel};
     }
 
+    function bindChannelEditors(browser) {
+        const toggles = Array.from(browser.document.querySelectorAll("[data-lf-channel-editor-toggle]"));
+        let open = null;
+        for (const toggle of toggles) {
+            const editor = browser.document.getElementById(toggle.getAttribute("aria-controls"));
+            if (!editor) continue;
+            toggle.addEventListener("click", function () {
+                if (open && open !== editor) {
+                    if (open.dataset.lfEditorDirty !== "true") {
+                        const openToggle = toggles.find(function (candidate) {
+                            return candidate.getAttribute("aria-controls") === open.id;
+                        });
+                        open.hidden = true;
+                        if (openToggle) {
+                            openToggle.setAttribute("aria-expanded", "false");
+                            openToggle.textContent = "Settings";
+                        }
+                        open = null;
+                    } else {
+                        // Explicit-save controls (notably Gradient) keep their local draft until
+                        // the user intentionally closes that editor.
+                    const openToggle = toggles.find(function (candidate) {
+                        return candidate.getAttribute("aria-controls") === open.id;
+                    });
+                    if (openToggle && typeof openToggle.focus === "function") openToggle.focus();
+                    return;
+                    }
+                }
+                const expanded = editor.hidden;
+                editor.hidden = !expanded;
+                toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+                toggle.textContent = expanded ? "Hide settings" : "Settings";
+                open = expanded ? editor : null;
+            });
+        }
+        return toggles;
+    }
+
     function bindColorControl(browser, colorInput) {
         if (lightingExternallyOwned(colorInput)) return null;
         const hexInput = browser.document.getElementById(colorInput.dataset.lfHexId);
@@ -1325,6 +1365,10 @@
             }
             addButton.disabled = requestInFlight || currentRows.length >= 1024;
             saveButton.disabled = requestInFlight || !draft.stops || equal(normalized(draft.stops), confirmed);
+            if (typeof container.closest === "function") {
+                const editor = container.closest("[data-lf-channel-editor]");
+				if (editor) editor.dataset.lfEditorDirty = !draft.stops || !equal(normalized(draft.stops), confirmed) ? "true" : "false";
+            }
         }
 
         function disableEditor(message) {
@@ -1564,6 +1608,48 @@
         return {addStop: addStop, save: save};
     }
 
+    function bindCCXTProbeTemperature(browser, container) {
+        if (lightingExternallyOwned(container)) return null;
+        const source = container.querySelector("[data-lf-probe-source]");
+        const minimum = container.querySelector("[data-lf-probe-min]");
+        const maximum = container.querySelector("[data-lf-probe-max]");
+        const save = container.querySelector("[data-lf-probe-save]");
+        const status = browser.document.getElementById(container.dataset.lfProbeStatusId);
+        if (!source || !minimum || !maximum || !save) return null;
+        let inFlight = false;
+        save.addEventListener("click", async function () {
+            if (inFlight) return;
+            const probeChannelId = Number(source.value);
+            const minTemp = Number(minimum.value);
+            const maxTemp = Number(maximum.value);
+            if (!Number.isInteger(probeChannelId) || !Number.isFinite(minTemp) || !Number.isFinite(maxTemp) || minTemp < 0 || maxTemp > 100 || maxTemp < minTemp) {
+                if (status) status.textContent = "Choose a probe and a valid temperature range.";
+                return;
+            }
+            inFlight = true;
+            save.disabled = true;
+            if (status) status.textContent = "Saving…";
+            try {
+                await submitLightingMutation(browser, ccxtProbeTemperatureEndpoint, {
+                    deviceId: container.dataset.lfDeviceSerial,
+                    channelId: Number(container.dataset.lfChannelId),
+                    subDeviceId: 0,
+                    probeChannelId: probeChannelId,
+                    rgbMinTemp: minTemp,
+                    rgbMaxTemp: maxTemp
+                }, 10000, "Unable to save probe settings.", "Unable to save probe settings.");
+                if (status) status.textContent = "";
+                showOwnershipSaved(browser);
+            } catch (_) {
+                if (status) status.textContent = "Unable to save probe settings. Try again.";
+            } finally {
+                inFlight = false;
+                save.disabled = false;
+            }
+        });
+        return {save: save};
+    }
+
     function bindResetButton(browser, button) {
         if (lightingExternallyOwned(button)) return null;
         const status = browser.document.getElementById(button.dataset.lfStatusId);
@@ -1700,6 +1786,7 @@
                 bindChannelLabel(browser, channel);
             }
         }
+        bindChannelEditors(browser);
         const sliders = browser.document.querySelectorAll("[data-lf-brightness-slider]");
         for (const slider of sliders) {
             if (!isReadOnly(slider)) {
@@ -1742,6 +1829,10 @@
                 bindResetButton(browser, button);
             }
         }
+        const probeTemperatureControls = browser.document.querySelectorAll("[data-lf-ccxt-probe-temperature]");
+        for (const control of probeTemperatureControls) {
+            if (!isReadOnly(control)) bindCCXTProbeTemperature(browser, control);
+        }
 
         const authoredZoneControls = browser.document.querySelectorAll("[data-lf-authored-zone-control]");
         for (const control of authoredZoneControls) {
@@ -1758,12 +1849,14 @@
     return {
         bindBrightnessSlider,
         bindChannelLabel,
+        bindChannelEditors,
         bindEffectSelector,
         bindSpeedSlider,
         bindColorControl,
         bindTwoColorControl,
         bindTemperatureControl,
         bindGradientControl,
+        bindCCXTProbeTemperature,
         bindResetButton,
         bindAuthoredZoneControl,
         bindOwnershipToggle,

@@ -87,4 +87,23 @@ type Channel struct {
 	Label     string
 	LEDCount  int
 	Lighting  Snapshot
+	// ProbeTemperature is present only for a channel currently using CCXT's
+	// channel-owned probe-temperature effect.
+	ProbeTemperature *ProbeTemperature
+}
+
+// ProbeTemperature describes CCXT's existing channel-owned temperature-probe
+// settings. It deliberately does not participate in canonical effect settings.
+type ProbeTemperature struct {
+	ChannelID string
+	ProbeID   int
+	Minimum   float64
+	Maximum   float64
+	Sources   []ProbeTemperatureSource
+}
+
+type ProbeTemperatureSource struct {
+	ID       int
+	Label    string
+	Selected bool
 }

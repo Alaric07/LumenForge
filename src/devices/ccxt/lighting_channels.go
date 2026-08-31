@@ -9,6 +9,7 @@ import (
 	"LumenForge/src/config"
 	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/lightingsettings"
+	"LumenForge/src/rgb"
 )
 
 // LightingDeviceID identifies the controller in the shared Devices workspace.
@@ -43,6 +44,8 @@ func (d *Device) attachCanonicalChannelLightingRuntime(paths config.Paths) error
 		return fmt.Errorf("canonical channel lighting state is unavailable")
 	}
 	d.channelLightingState = runtime.State
+	d.channelLightingEffects = runtime.Effects
+	d.channelLightingResolver = runtime.Resolver
 	return d.hydrateCanonicalChannels()
 }
 
@@ -53,6 +56,20 @@ func (d *Device) SupportsLightingEffect(effect string) bool {
 	// The selected effect is stored through the shared independent-target state
 	// store, so do not advertise a legacy CCXT RGB profile it cannot persist.
 	return lightingsettings.ValidateIndependentDeviceLightingState(lightingsettings.IndependentDeviceLightingState{SelectedEffect: effect, Brightness: 100}) == nil
+}
+
+func (d *Device) canonicalRendererProfile(effect string) (rgb.Profile, bool) {
+	if d == nil || d.channelLightingResolver == nil {
+		return rgb.Profile{}, false
+	}
+	if _, supported := rgb.SoftwareEffectDescriptorByID(effect); !supported {
+		return rgb.Profile{}, false
+	}
+	resolution, err := d.channelLightingResolver.Resolve(lightingsettings.IndependentDevice(d.Serial), effect)
+	if err != nil || resolution.Settings.EffectID != effect {
+		return rgb.Profile{}, false
+	}
+	return lightingsettings.RendererProfileFromEffectSettings(resolution.Settings), true
 }
 
 func (d *Device) channelSelectedEffect(channelID int) (string, error) {
@@ -150,6 +167,10 @@ func (d *Device) LightingSnapshot() (lightingpresentation.Snapshot, bool) {
 		ExternalControlled: d.DeviceProfile.OpenRGBIntegration,
 		Channels:           make([]lightingpresentation.Channel, 0, len(d.RgbDevices)),
 	}
+	if d.DeviceProfile.BrightnessSlider != nil {
+		snapshot.HasBrightness = true
+		snapshot.Brightness = *d.DeviceProfile.BrightnessSlider
+	}
 	for _, channel := range d.RgbDevices {
 		if !d.canonicalChannel(channel) {
 			continue
@@ -164,10 +185,77 @@ func (d *Device) LightingSnapshot() (lightingpresentation.Snapshot, bool) {
 				child.SupportedEffects = append(child.SupportedEffects, lightingpresentation.EffectOption{ID: candidate, Label: candidate})
 			}
 		}
-		snapshot.Channels = append(snapshot.Channels, lightingpresentation.Channel{TargetID: d.canonicalChannelTargetID(channel.ChannelId), ChannelID: strconv.Itoa(channel.ChannelId), Name: channel.Name, Label: channel.Label, LEDCount: int(channel.LedChannels), Lighting: child})
+		if err := d.populateCanonicalChannelSnapshot(&child, effect); err != nil {
+			return lightingpresentation.Snapshot{}, false
+		}
+		channelSnapshot := lightingpresentation.Channel{TargetID: d.canonicalChannelTargetID(channel.ChannelId), ChannelID: strconv.Itoa(channel.ChannelId), Name: channel.Name, Label: channel.Label, LEDCount: int(channel.LedChannels), Lighting: child}
+		if effect == "probe-temperature" {
+			probe := &lightingpresentation.ProbeTemperature{ChannelID: strconv.Itoa(channel.ChannelId), ProbeID: channel.ProbeId, Minimum: channel.MinTemp, Maximum: channel.MaxTemp}
+			for _, source := range d.Devices {
+				if source != nil && source.IsTemperatureProbe {
+					probe.Sources = append(probe.Sources, lightingpresentation.ProbeTemperatureSource{ID: source.ChannelId, Label: fmt.Sprintf("%s - %s", source.Name, source.Label), Selected: source.ChannelId == channel.ProbeId})
+				}
+			}
+			sort.Slice(probe.Sources, func(i, j int) bool { return probe.Sources[i].ID < probe.Sources[j].ID })
+			channelSnapshot.ProbeTemperature = probe
+		}
+		snapshot.Channels = append(snapshot.Channels, channelSnapshot)
 	}
 	sort.Slice(snapshot.Channels, func(i, j int) bool { return snapshot.Channels[i].ChannelID < snapshot.Channels[j].ChannelID })
 	return snapshot, len(snapshot.Channels) > 0
+}
+
+func ccxtLightingColorHex(color lightingsettings.Color) string {
+	return fmt.Sprintf("#%02x%02x%02x", uint8(color.Red), uint8(color.Green), uint8(color.Blue))
+}
+
+func (d *Device) populateCanonicalChannelSnapshot(snapshot *lightingpresentation.Snapshot, effect string) error {
+	if snapshot == nil {
+		return fmt.Errorf("channel lighting snapshot is unavailable")
+	}
+	descriptor, generic := rgb.SoftwareEffectDescriptorByID(effect)
+	if !generic {
+		return nil // probe-temperature retains its existing channel-owned settings.
+	}
+	if d.channelLightingResolver == nil {
+		return nil // lightweight snapshot callers retain the existing effect-only view.
+	}
+	resolution, err := d.channelLightingResolver.Resolve(lightingsettings.IndependentDevice(d.Serial), effect)
+	if err != nil || resolution.Settings.EffectID != effect {
+		return fmt.Errorf("resolve canonical channel effect settings: %w", err)
+	}
+	settings := resolution.Settings
+	snapshot.Customized = resolution.Customized
+	snapshot.PaletteKind = string(descriptor.PaletteKind)
+	if descriptor.SupportsSpeed && settings.Speed != nil {
+		snapshot.HasSpeed, snapshot.Speed = true, *settings.Speed
+	}
+	switch descriptor.PaletteKind {
+	case rgb.LightingPaletteStaticSingle:
+		if settings.SingleColor != nil {
+			snapshot.SingleColorHex = ccxtLightingColorHex(settings.SingleColor.Color)
+		}
+	case rgb.LightingPaletteTwoColor:
+		if settings.TwoColor != nil {
+			snapshot.TwoColorStartHex, snapshot.TwoColorEndHex = ccxtLightingColorHex(settings.TwoColor.Start), ccxtLightingColorHex(settings.TwoColor.End)
+		}
+	case rgb.LightingPaletteTemperatureThree:
+		if settings.Temperature != nil {
+			snapshot.HasTemperature = true
+			snapshot.TemperatureLow = lightingpresentation.TemperaturePoint{ColorHex: ccxtLightingColorHex(settings.Temperature.Low.Color), Celsius: settings.Temperature.Low.Celsius}
+			snapshot.TemperatureMiddle = lightingpresentation.TemperaturePoint{ColorHex: ccxtLightingColorHex(settings.Temperature.Middle.Color), Celsius: settings.Temperature.Middle.Celsius}
+			snapshot.TemperatureHigh = lightingpresentation.TemperaturePoint{ColorHex: ccxtLightingColorHex(settings.Temperature.High.Color), Celsius: settings.Temperature.High.Celsius}
+		}
+	case rgb.LightingPaletteGradient:
+		if settings.Gradient != nil {
+			snapshot.HasGradient = true
+			snapshot.GradientStops = make([]lightingpresentation.GradientStop, len(settings.Gradient.Stops))
+			for index, stop := range settings.Gradient.Stops {
+				snapshot.GradientStops[index] = lightingpresentation.GradientStop{Position: stop.Position, ColorHex: ccxtLightingColorHex(stop.Color), Intensity: stop.Intensity}
+			}
+		}
+	}
+	return nil
 }
 
 // SetLightingEffect remains the single-target compatibility method. Multi-port
@@ -225,15 +313,50 @@ func (d *Device) SetLightingBrightness(brightness uint8) error {
 	return nil
 }
 
-// The single-target settings surface is intentionally unavailable for this
-// milestone: RGB profile settings are currently controller-owned, while this
-// change establishes only per-channel selected-effect authority.
-func (d *Device) ResolveLightingEffectSettings(string) (lightingsettings.EffectSettings, error) {
-	return lightingsettings.EffectSettings{}, fmt.Errorf("channel effect settings are unavailable")
+func (d *Device) ResolveLightingEffectSettings(effect string) (lightingsettings.EffectSettings, error) {
+	if d == nil || !d.SupportsLightingEffect(effect) || d.channelLightingResolver == nil {
+		return lightingsettings.EffectSettings{}, fmt.Errorf("channel effect settings are unavailable")
+	}
+	resolution, err := d.channelLightingResolver.Resolve(lightingsettings.IndependentDevice(d.Serial), effect)
+	if err != nil {
+		return lightingsettings.EffectSettings{}, err
+	}
+	return resolution.Settings.Clone(), nil
 }
-func (d *Device) SetLightingEffectSettings(string, lightingsettings.EffectSettings) error {
-	return fmt.Errorf("channel effect settings are unavailable")
+func (d *Device) SetLightingEffectSettings(effect string, settings lightingsettings.EffectSettings) error {
+	if d == nil || d.DeviceProfile == nil || d.channelLightingEffects == nil || !d.SupportsLightingEffect(effect) || settings.EffectID != effect {
+		return fmt.Errorf("channel effect settings are unavailable")
+	}
+	if err := lightingsettings.Validate(settings); err != nil {
+		return err
+	}
+	if err := d.channelLightingEffects.Set(d.Serial, effect, settings.Clone()); err != nil {
+		return err
+	}
+	if !d.DeviceProfile.RGBCluster && !d.DeviceProfile.OpenRGBIntegration && d.channelEffectSelected(effect) {
+		d.restartCanonicalChannelLighting()
+	}
+	return nil
 }
-func (d *Device) ResetLightingEffectSettings(string) error {
-	return fmt.Errorf("channel effect settings are unavailable")
+func (d *Device) ResetLightingEffectSettings(effect string) error {
+	if d == nil || d.DeviceProfile == nil || d.channelLightingEffects == nil || !d.SupportsLightingEffect(effect) {
+		return fmt.Errorf("channel effect settings are unavailable")
+	}
+	deleted, err := d.channelLightingEffects.Delete(d.Serial, effect)
+	if err != nil {
+		return err
+	}
+	if deleted && !d.DeviceProfile.RGBCluster && !d.DeviceProfile.OpenRGBIntegration && d.channelEffectSelected(effect) {
+		d.restartCanonicalChannelLighting()
+	}
+	return nil
+}
+
+func (d *Device) channelEffectSelected(effect string) bool {
+	for _, channel := range d.RgbDevices {
+		if d.canonicalChannel(channel) && channel.RGB == effect {
+			return true
+		}
+	}
+	return false
 }

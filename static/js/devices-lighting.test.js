@@ -1427,6 +1427,8 @@ test("multiple brightness controls keep transient success timers isolated", asyn
         if (selector === "[data-lf-temperature-control]") return [];
         if (selector === "[data-lf-gradient-control]") return [];
         if (selector === "[data-lf-reset-button]") return [];
+        if (selector === "[data-lf-ccxt-probe-temperature]") return [];
+        if (selector === "[data-lf-channel-editor-toggle]") return [];
         if (selector === "[data-lf-authored-zone-control]") return [];
         if (selector === "[data-lf-lighting-ownership-control]") return [];
         assert.equal(selector, "[data-lf-brightness-readout]");
@@ -2229,7 +2231,42 @@ test("Lighting initialization tolerates pages without interactive controls", fun
 
     lighting.init(browser);
 
-    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-lighting-channel]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-two-color-control]", "[data-lf-temperature-control]", "[data-lf-gradient-control]", "[data-lf-reset-button]", "[data-lf-authored-zone-control]", "[data-lf-lighting-ownership-control]"]);
+    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-lighting-channel]", "[data-lf-channel-editor-toggle]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-two-color-control]", "[data-lf-temperature-control]", "[data-lf-gradient-control]", "[data-lf-reset-button]", "[data-lf-ccxt-probe-temperature]", "[data-lf-authored-zone-control]", "[data-lf-lighting-ownership-control]"]);
+});
+
+test("channel editor toggles keep effect selection untouched and preserve a dirty explicit-save editor", function () {
+    function toggle(id) {
+        const attributes = {"aria-controls": id, "aria-expanded": "false"};
+        return {
+            handlers: {}, textContent: "Settings",
+            addEventListener: function (name, handler) { this.handlers[name] = handler; },
+            getAttribute: function (name) { return attributes[name]; },
+            setAttribute: function (name, value) { attributes[name] = value; },
+            focus: function () { this.focused = true; }
+        };
+    }
+    const first = {id: "editor-1", hidden: true, dataset: {}};
+    const second = {id: "editor-2", hidden: true, dataset: {}};
+    const firstToggle = toggle("editor-1");
+    const secondToggle = toggle("editor-2");
+    const browser = {document: {
+        querySelectorAll: function (selector) { return selector === "[data-lf-channel-editor-toggle]" ? [firstToggle, secondToggle] : []; },
+        getElementById: function (id) { return id === "editor-1" ? first : id === "editor-2" ? second : null; }
+    }};
+
+    lighting.bindChannelEditors(browser);
+    firstToggle.handlers.click();
+    assert.equal(first.hidden, false);
+	assert.equal(firstToggle.textContent, "Hide settings");
+    secondToggle.handlers.click();
+    assert.equal(first.hidden, true);
+	assert.equal(firstToggle.textContent, "Settings");
+    assert.equal(second.hidden, false);
+    second.dataset.lfEditorDirty = "true";
+    firstToggle.handlers.click();
+    assert.equal(second.hidden, false);
+    assert.equal(first.hidden, true);
+    assert.equal(secondToggle.focused, true);
 });
 
 test("Lighting initialization supports isolated and combined interactive controls", function () {
@@ -3156,6 +3193,35 @@ test("bindGradientControl Add reports invalid drafts without requests or mutatio
     }
 });
 
+test("an incomplete Gradient draft remains dirty and blocks another channel editor", function() {
+    const fixture = gradientBrowserFixture(async function() {});
+    const gradientEditor = {id: "gradient-editor", hidden: true, dataset: {}};
+    fixture.container.closest = function(selector) {
+        assert.equal(selector, "[data-lf-channel-editor]");
+        return gradientEditor;
+    };
+    lighting.bindGradientControl(fixture.browser, fixture.container);
+    const position = fixture.stopRows()[1].querySelector("[data-lf-gradient-position]");
+    position.value = "";
+    position.handlers.input();
+    assert.equal(gradientEditor.dataset.lfEditorDirty, "true");
+
+    const otherEditor = {id: "other-editor", hidden: true, dataset: {}};
+    function toggle(id) {
+        const attributes = {"aria-controls": id};
+        return {handlers: {}, addEventListener: function(event, handler) { this.handlers[event] = handler; }, getAttribute: function(name) { return attributes[name]; }, setAttribute: function(name, value) { attributes[name] = value; }, focus: function() { this.focused = true; }};
+    }
+    const gradientToggle = toggle("gradient-editor");
+    const otherToggle = toggle("other-editor");
+    const browser = {document: {querySelectorAll: function() { return [gradientToggle, otherToggle]; }, getElementById: function(id) { return id === "gradient-editor" ? gradientEditor : otherEditor; }}};
+    lighting.bindChannelEditors(browser);
+    gradientToggle.handlers.click();
+    otherToggle.handlers.click();
+    assert.equal(gradientEditor.hidden, false);
+    assert.equal(otherEditor.hidden, true);
+    assert.equal(gradientToggle.focused, true);
+});
+
 test("bindGradientControl validates malformed drafts without requests", async function(t) {
     const cases = [
         {name: "malformed color", field: "hex", value: "red", message: "Every Gradient stop needs a valid color, position, and intensity."},
@@ -3565,17 +3631,19 @@ test("Lighting ownership availability preserves the active toggle and disables o
 test("enabling Lighting ownership immediately disables local controls before the Saved reload", async function() {
     const cluster = ownershipFixture("cluster", false);
     const external = ownershipFixture("openrgb-integration", false);
-    const localControls = [
+	const localControls = [
         {disabled: false}, {disabled: false}, {disabled: false}, {disabled: false},
         {disabled: false}, {disabled: false}, {disabled: false}, {disabled: false},
         {disabled: false}, {disabled: false}, {disabled: false}
-    ];
+	];
+	const probeControls = [{disabled: false}, {disabled: false}, {disabled: false}, {disabled: false}];
     const resetButton = {disabled: false};
     const reset = {hidden: false, querySelectorAll: function(selector) { assert.equal(selector, "input, button"); return [resetButton]; }};
     const workspace = {
-        querySelectorAll: function(selector) {
-            if (selector === "[data-lf-reset-control]") return [reset];
-            return localControls;
+		querySelectorAll: function(selector) {
+			if (selector === "[data-lf-reset-control]") return [reset];
+			if (selector === "[data-lf-ccxt-probe-temperature] input, [data-lf-ccxt-probe-temperature] button") return probeControls;
+			return localControls;
         }
     };
     const timers = timerFixture();
@@ -3593,7 +3661,8 @@ test("enabling Lighting ownership immediately disables local controls before the
     cluster.input.checked = true;
     await cluster.input.handlers.change();
 
-    for (const local of localControls) assert.equal(local.disabled, true);
+	for (const local of localControls) assert.equal(local.disabled, true);
+	for (const probe of probeControls) assert.equal(probe.disabled, true);
     assert.equal(reset.hidden, true);
     assert.equal(resetButton.disabled, true);
     assert.equal(reloads, 0);
