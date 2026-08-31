@@ -3,6 +3,7 @@ package server
 import (
 	"LumenForge/src/common"
 	"LumenForge/src/config"
+	"LumenForge/src/coolingpresentation"
 	"LumenForge/src/deviceprofilepresentation"
 	"LumenForge/src/devices"
 	"LumenForge/src/devices/openrgbimport"
@@ -58,6 +59,16 @@ func (provider devicesPageKeyboardAssignmentsSnapshotProvider) KeyboardAssignmen
 type devicesPageDeviceProfileSnapshotProvider struct {
 	serial   string
 	snapshot deviceprofilepresentation.Snapshot
+}
+
+type devicesPageCoolingSnapshotProvider struct {
+	serial   string
+	snapshot coolingpresentation.Snapshot
+}
+
+func (provider devicesPageCoolingSnapshotProvider) CoolingDeviceID() string { return provider.serial }
+func (provider devicesPageCoolingSnapshotProvider) CoolingSnapshot() (coolingpresentation.Snapshot, bool) {
+	return provider.snapshot, true
 }
 
 func (provider devicesPageDeviceProfileSnapshotProvider) DeviceProfileDeviceID() string {
@@ -260,6 +271,34 @@ func TestDevicesOverviewScimitarEliteDeviceProfilePresentation(t *testing.T) {
 	body := rendered.String()
 	for _, expected := range []string{"lf-overview-workspace", "data-lf-device-profiles-workspace", "Device Profile", devicesScimitarEliteDeviceProfileDescription, "Save Device Profile As", "Device Profile to delete", "Delete Device Profile", `select id="lf-device-profile" class="lf-buttons-select" data-lf-device-profile`, `option value="default" selected>default`, `option value="studio"`} {
 		if !strings.Contains(body, expected) {
+			t.Errorf("missing %q", expected)
+		}
+	}
+}
+
+func TestDevicesCCXTModernCoolingWorkspaceAndFullProfile(t *testing.T) {
+	const serial = "ccxt-modern-workspace"
+	profile := deviceprofilepresentation.Snapshot{Supported: true, Profiles: []string{"default", "studio"}, ActiveProfile: "default"}
+	cooling := coolingpresentation.Snapshot{Available: true, Channels: []coolingpresentation.Channel{{ID: 1, Name: "Fan 1", Label: "Front", RPM: 1040, SelectedProfile: "quiet"}}, ProfileOptions: []coolingpresentation.ProfileOption{{ID: "quiet", Label: "quiet"}}, TemperatureProbes: []coolingpresentation.TemperatureProbe{{ID: 2, Name: "Probe 1", Label: "Coolant", Temperature: "30.0°C"}}}
+	instance := struct {
+		devicesPageDeviceProfileSnapshotProvider
+		devicesPageCoolingSnapshotProvider
+	}{devicesPageDeviceProfileSnapshotProvider{serial: serial, snapshot: profile}, devicesPageCoolingSnapshotProvider{serial: serial, snapshot: cooling}}
+	device := &common.Device{Serial: serial, Product: "iCUE COMMANDER CORE XT", ProductType: common.ProductTypeCCXT, Instance: instance}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: device}, map[string]stats.BatteryStats{}, serial)
+	if !ok || summary.Cooling == nil || summary.DeviceProfiles == nil || summary.DeviceProfiles.Description != devicesCCXTDeviceProfileDescription || !summary.LegacyLighting {
+		t.Fatalf("summary = %#v, ok=%t", summary, ok)
+	}
+	if summary.DeviceProfiles.ProfileDisplayLabels != nil {
+		t.Fatalf("default profile was relabeled: %#v", summary.DeviceProfiles.ProfileDisplayLabels)
+	}
+	summary.View = devicesWorkspaceView([]string{"cooling"}, summary)
+	var rendered bytes.Buffer
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: device}, Device: summary, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{"Overview", "Cooling", "Lighting", "data-lf-cooling-workspace", "Front", "1040 RPM", "quiet", "Temperature probes", "30.0°C"} {
+		if !strings.Contains(rendered.String(), expected) {
 			t.Errorf("missing %q", expected)
 		}
 	}

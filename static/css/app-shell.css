@@ -975,6 +975,15 @@
 .lf-app-shell .lf-performance-control > label { color: var(--lf-text-primary); font-size: 14px; font-weight: 680; }
 .lf-app-shell .lf-performance-control select { width: 100%; padding: 8px 30px 8px 10px; border: 1px solid var(--lf-border-emphasized); border-radius: 7px; color: var(--lf-text-primary); background: var(--lf-surface-subdued); }
 .lf-app-shell .lf-performance-control [data-lf-performance-status] { grid-column: 2; margin: 0; }
+.lf-app-shell .lf-cooling-channel { grid-template-columns: minmax(180px, 0.7fr) minmax(260px, 1fr); }
+.lf-app-shell .lf-cooling-channel-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.lf-app-shell .lf-cooling-channel-controls label { display: grid; gap: 5px; color: var(--lf-text-muted); font-size: 12px; font-weight: 680; }
+.lf-app-shell .lf-cooling-channel-controls select, .lf-app-shell .lf-cooling-channel input { width: 100%; padding: 8px 10px; border: 1px solid var(--lf-border-emphasized); border-radius: 7px; color: var(--lf-text-primary); background: var(--lf-surface-subdued); }
+.lf-app-shell .lf-cooling-channel-controls [data-lf-cooling-status] { grid-column: 1 / -1; margin: 0; }
+.lf-app-shell .lf-cooling-label-display { padding: 0; border: 0; color: var(--lf-text-primary); background: transparent; font-size: 14px; font-weight: 680; text-align: left; cursor: text; }
+.lf-app-shell .lf-cooling-label-display:hover, .lf-app-shell .lf-cooling-label-display:focus-visible { color: var(--lf-accent-highlight); }
+.lf-app-shell .lf-cooling-probes { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--lf-border-subtle); }
+.lf-app-shell .lf-cooling-probes h3 { margin: 0 0 12px; color: var(--lf-text-primary); font-size: 16px; }
 .lf-app-shell .lf-performance-toggle { display: flex; align-items: center; gap: 10px; }
 .lf-app-shell .lf-performance-toggle input { position: absolute; opacity: 0; }
 .lf-app-shell .lf-performance-toggle input:focus-visible + .toggle-track { outline: 2px solid var(--lf-accent-highlight); outline-offset: 2px; }
@@ -982,6 +991,8 @@
 @media (max-width: 900px) {
     .lf-app-shell .lf-performance-control { grid-template-columns: minmax(0, 1fr); }
     .lf-app-shell .lf-performance-control [data-lf-performance-status] { grid-column: auto; }
+	.lf-app-shell .lf-cooling-channel { grid-template-columns: minmax(0, 1fr); }
+	.lf-app-shell .lf-cooling-channel-controls { grid-template-columns: minmax(0, 1fr); }
 }
 
 .lf-app-shell .lf-dpi-stage-header {

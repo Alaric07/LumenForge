@@ -145,7 +145,7 @@
                     <div class="lf-device-hero-copy">
                         <p class="lf-device-hero-context">{{ if .Device.OpenRGB }}OpenRGB imported controller{{ else }}Selected device{{ end }}</p>
                         <h1 class="lf-workspace-title">{{ .Device.Product }}</h1>
-                        <p class="lf-workspace-description">{{ if eq .Device.View "lighting" }}Stored lighting configuration and renderer capabilities{{ else if eq .Device.View "dpi" }}Configure mouse sensitivity, stage colors, and device performance settings{{ else if eq .Device.View "buttons" }}Configure physical button assignments{{ else if eq .Device.View "keyboard" }}Configure keyboard settings, colors, and assignments{{ else }}Device overview and configured hardware details{{ end }}</p>
+                        <p class="lf-workspace-description">{{ if eq .Device.View "lighting" }}Stored lighting configuration and renderer capabilities{{ else if eq .Device.View "cooling" }}Review fan telemetry and assign existing temperature profiles{{ else if eq .Device.View "dpi" }}Configure mouse sensitivity, stage colors, and device performance settings{{ else if eq .Device.View "buttons" }}Configure physical button assignments{{ else if eq .Device.View "keyboard" }}Configure keyboard settings, colors, and assignments{{ else }}Device overview and configured hardware details{{ end }}</p>
                         <div class="lf-device-hero-facts">
                             {{ if .Device.Unavailable }}<span class="lf-device-hero-fact lf-device-hero-fact-unavailable">Unavailable</span>{{ end }}
                             {{ if eq .Device.View "lighting" }}
@@ -167,8 +167,11 @@
                 </header>
 
                 <nav class="lf-device-workspace-nav" aria-label="Device workspace">
-                    <a class="lf-device-workspace-link{{ if and (ne .Device.View "lighting") (ne .Device.View "dpi") (ne .Device.View "buttons") (ne .Device.View "keyboard") }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}"{{ if and (ne .Device.View "lighting") (ne .Device.View "dpi") (ne .Device.View "buttons") (ne .Device.View "keyboard") }} aria-current="page"{{ end }}>Overview</a>
-                    {{ if .Device.Lighting }}
+                    <a class="lf-device-workspace-link{{ if and (ne .Device.View "lighting") (ne .Device.View "cooling") (ne .Device.View "dpi") (ne .Device.View "buttons") (ne .Device.View "keyboard") }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}"{{ if and (ne .Device.View "lighting") (ne .Device.View "cooling") (ne .Device.View "dpi") (ne .Device.View "buttons") (ne .Device.View "keyboard") }} aria-current="page"{{ end }}>Overview</a>
+                    {{ with .Device.Cooling }}
+                        <a class="lf-device-workspace-link{{ if eq $.Device.View "cooling" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ $.Device.Serial }}&amp;view=cooling"{{ if eq $.Device.View "cooling" }} aria-current="page"{{ end }}>Cooling</a>
+                    {{ end }}
+                    {{ if or .Device.Lighting .Device.LegacyLighting }}
                         <a class="lf-device-workspace-link{{ if eq .Device.View "lighting" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=lighting"{{ if eq .Device.View "lighting" }} aria-current="page"{{ end }}>Lighting</a>
                     {{ end }}
                     {{ if and (not .Device.KeyboardAssignments) (or .Device.DPI .Device.Performance) }}
@@ -613,6 +616,24 @@
                                 </div>
 
                             </div>
+                        </section>
+                    {{ end }}
+                    {{ if and .Device.LegacyLighting (not .Device.Lighting) }}
+                        <section class="lf-performance-workspace"><h2 class="lf-workspace-section-heading">Lighting</h2><p class="lf-device-profile-description">Lighting remains in the existing legacy controller workspace until the Commander Core XT lighting migration is complete.</p></section>
+                    {{ end }}
+                {{ else if eq .Device.View "cooling" }}
+                    {{ with .Device.Cooling }}
+                        <section class="lf-performance-workspace" data-lf-cooling-workspace data-lf-device-id="{{ $.Device.Serial }}">
+                            <h2 class="lf-workspace-section-heading">Cooling</h2>
+                            <div class="lf-performance-controls">
+                                {{ range .Channels }}
+                                    <article class="lf-performance-control lf-cooling-channel" data-lf-cooling-channel data-lf-channel-id="{{ .ID }}" data-lf-channel-name="{{ .Name }}" data-lf-confirmed-profile="{{ .SelectedProfile }}" data-lf-confirmed-label="{{ .Label }}">
+                                        <div><button class="lf-cooling-label-display" type="button" data-lf-cooling-label-display aria-label="Edit {{ .Name }} label">{{ if .Label }}{{ .Label }}{{ else }}{{ .Name }}{{ end }}</button><input class="lf-buttons-select" type="text" value="{{ .Label }}" data-lf-cooling-label aria-label="{{ .Name }} label" hidden><p class="lf-device-profile-description">{{ .Name }}{{ if ge .RPM 0 }} · <span data-lf-cooling-rpm data-lf-channel-id="{{ .ID }}">{{ .RPM }} RPM</span>{{ end }}</p></div>
+                                        <div class="lf-cooling-channel-controls"><label>Temperature profile<select data-lf-cooling-profile aria-label="{{ .Name }} temperature profile">{{ $selected := .SelectedProfile }}{{ range $.Device.Cooling.ProfileOptions }}<option value="{{ .ID }}"{{ if eq .ID $selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select></label><p class="lf-range-control-status" data-lf-cooling-status aria-live="polite"></p></div>
+                                    </article>
+                                {{ end }}
+                            </div>
+                            {{ if .TemperatureProbes }}<section class="lf-cooling-probes"><h3>Temperature probes</h3><dl class="lf-device-summary-meta">{{ range .TemperatureProbes }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label" data-lf-cooling-probe data-lf-channel-id="{{ .ID }}" data-lf-label-name="{{ .Name }}" data-lf-confirmed-label="{{ .Label }}"><button class="lf-cooling-label-display" type="button" data-lf-cooling-label-display aria-label="Edit {{ .Name }} label">{{ if .Label }}{{ .Label }}{{ else }}{{ .Name }}{{ end }}</button><input class="lf-buttons-select" type="text" value="{{ .Label }}" data-lf-cooling-label aria-label="{{ .Name }} label" hidden><p class="lf-range-control-status" data-lf-cooling-status aria-live="polite"></p></dt><dd class="lf-device-summary-value" data-lf-cooling-temperature data-lf-channel-id="{{ .ID }}">{{ .Temperature }}</dd></div>{{ end }}</dl></section>{{ end }}
                         </section>
                     {{ end }}
                 {{ else if eq .Device.View "dpi" }}

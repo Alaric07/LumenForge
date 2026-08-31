@@ -11,6 +11,7 @@ import (
 	"LumenForge/src/cluster"
 	"LumenForge/src/common"
 	"LumenForge/src/config"
+	"LumenForge/src/coolingpresentation"
 	"LumenForge/src/dashboard"
 	"LumenForge/src/deviceprofilepresentation"
 	"LumenForge/src/devices"
@@ -2396,7 +2397,9 @@ type devicesWorkspaceSummary struct {
 	Performance         *devicesPerformanceWorkspaceSummary
 	Buttons             *devicesButtonsWorkspaceSummary
 	DeviceProfiles      *devicesDeviceProfileWorkspaceSummary
+	Cooling             *devicesCoolingWorkspaceSummary
 	KeyboardAssignments *devicesKeyboardAssignmentsWorkspaceSummary
+	LegacyLighting      bool
 	View                string
 }
 
@@ -2507,15 +2510,42 @@ type devicesDeviceProfileSnapshotProvider interface {
 	DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bool)
 }
 
+type devicesCoolingSnapshotProvider interface {
+	CoolingDeviceID() string
+	CoolingSnapshot() (coolingpresentation.Snapshot, bool)
+}
+
 type devicesDeviceProfileWorkspaceSummary struct {
 	Profiles                                 []string
 	ProfileDisplayLabels                     map[string]string
 	ActiveProfile, Scope, Label, Description string
 }
 
+type devicesCoolingProfileOptionSummary struct {
+	ID, Label string
+}
+
+type devicesCoolingChannelSummary struct {
+	ID                           int
+	Name, Label, SelectedProfile string
+	RPM                          int16
+}
+
+type devicesCoolingTemperatureProbeSummary struct {
+	ID                       int
+	Name, Label, Temperature string
+}
+
+type devicesCoolingWorkspaceSummary struct {
+	Channels          []devicesCoolingChannelSummary
+	ProfileOptions    []devicesCoolingProfileOptionSummary
+	TemperatureProbes []devicesCoolingTemperatureProbeSummary
+}
+
 const (
 	devicesKeyboardDeviceProfileDescription      = "Saves the complete keyboard configuration, including settings, lockouts, colors, assignments, and presets."
 	devicesScimitarEliteDeviceProfileDescription = "Saves the complete mouse configuration, including performance, DPI, assignments, and lighting."
+	devicesCCXTDeviceProfileDescription          = "Saves the complete controller configuration, including cooling, labels, lighting, and connected-device settings."
 	devicesGenericDeviceProfileDescription       = "Save or switch a complete device configuration. Device profiles include supported settings across available workspaces, such as performance, assignments, lighting, layouts, and other device-wide controls for this hardware."
 	devicesLightingProfileDescription            = "Saves your custom mousepad lighting layout and colors."
 )
@@ -2530,7 +2560,36 @@ func devicesDeviceProfilePresentation(device *common.Device, hasKeyboardAssignme
 	if device != nil && device.ProductType == common.ProductTypeScimitarRgbElite {
 		return "Device Profile", devicesScimitarEliteDeviceProfileDescription
 	}
+	if device != nil && device.ProductType == common.ProductTypeCCXT {
+		return "Device Profile", devicesCCXTDeviceProfileDescription
+	}
 	return "Device Profile", devicesGenericDeviceProfileDescription
+}
+
+func devicesCoolingWorkspaceSummaryFromSnapshot(snapshot coolingpresentation.Snapshot) *devicesCoolingWorkspaceSummary {
+	if !snapshot.Available || len(snapshot.Channels) == 0 || len(snapshot.ProfileOptions) == 0 {
+		return nil
+	}
+	summary := &devicesCoolingWorkspaceSummary{}
+	for _, option := range snapshot.ProfileOptions {
+		if option.ID == "" || option.Label == "" {
+			return nil
+		}
+		summary.ProfileOptions = append(summary.ProfileOptions, devicesCoolingProfileOptionSummary{ID: option.ID, Label: option.Label})
+	}
+	for _, channel := range snapshot.Channels {
+		if channel.ID < 0 || channel.Name == "" || channel.SelectedProfile == "" {
+			return nil
+		}
+		summary.Channels = append(summary.Channels, devicesCoolingChannelSummary{ID: channel.ID, Name: channel.Name, Label: channel.Label, RPM: channel.RPM, SelectedProfile: channel.SelectedProfile})
+	}
+	for _, probe := range snapshot.TemperatureProbes {
+		if probe.ID < 0 || probe.Name == "" {
+			return nil
+		}
+		summary.TemperatureProbes = append(summary.TemperatureProbes, devicesCoolingTemperatureProbeSummary{ID: probe.ID, Name: probe.Name, Label: probe.Label, Temperature: probe.Temperature})
+	}
+	return summary
 }
 
 func devicesDeviceProfileWorkspaceSummaryFromSnapshot(snapshot deviceprofilepresentation.Snapshot) *devicesDeviceProfileWorkspaceSummary {
@@ -2956,12 +3015,13 @@ func devicesWorkspaceSummaryForSerial(
 	}
 
 	summary := &devicesWorkspaceSummary{
-		Product:     device.Product,
-		Serial:      device.Serial,
-		Firmware:    device.Firmware,
-		Image:       device.Image,
-		Unavailable: device.Unavailable,
-		View:        "overview",
+		Product:        device.Product,
+		Serial:         device.Serial,
+		Firmware:       device.Firmware,
+		Image:          device.Image,
+		Unavailable:    device.Unavailable,
+		View:           "overview",
+		LegacyLighting: device.ProductType == common.ProductTypeCCXT,
 	}
 	if battery, found := batteryStats[serial]; found {
 		summary.HasBattery = true
@@ -3004,6 +3064,12 @@ func devicesWorkspaceSummaryForSerial(
 			summary.DeviceProfiles = devicesDeviceProfileWorkspaceSummaryFromSnapshot(snapshot)
 		}
 	}
+	if coolingDevice, ok := device.Instance.(devicesCoolingSnapshotProvider); ok &&
+		coolingDevice != nil && coolingDevice.CoolingDeviceID() == serial {
+		if snapshot, usable := coolingDevice.CoolingSnapshot(); usable {
+			summary.Cooling = devicesCoolingWorkspaceSummaryFromSnapshot(snapshot)
+		}
+	}
 	if keyboardDevice, ok := device.Instance.(devicesKeyboardAssignmentsSnapshotProvider); ok && keyboardDevice != nil && keyboardDevice.KeyboardAssignmentsDeviceID() == serial {
 		if snapshot, usable := keyboardDevice.KeyboardAssignmentsSnapshot(); usable {
 			summary.KeyboardAssignments = devicesKeyboardAssignmentsWorkspaceSummaryFromSnapshot(snapshot)
@@ -3022,12 +3088,16 @@ func devicesWorkspaceView(views []string, device *devicesWorkspaceSummary) strin
 	}
 	switch views[0] {
 	case "lighting":
-		if device.Lighting != nil {
+		if device.Lighting != nil || device.LegacyLighting {
 			return "lighting"
 		}
 	case "dpi":
 		if device.KeyboardAssignments == nil && (device.DPI != nil || device.Performance != nil) {
 			return "dpi"
+		}
+	case "cooling":
+		if device.Cooling != nil {
+			return "cooling"
 		}
 	case "buttons":
 		if device.Buttons != nil {
