@@ -2,10 +2,33 @@ package ccxt
 
 import (
 	"LumenForge/src/lightingpresentation"
+	"LumenForge/src/lightingsettings"
+	"LumenForge/src/rgb"
 	"LumenForge/src/temperatures"
 	"reflect"
 	"testing"
 )
+
+type ccxtChannelState struct {
+	values map[string]lightingsettings.IndependentDeviceLightingState
+}
+
+func (s *ccxtChannelState) Resolve(id string) (lightingsettings.IndependentDeviceLightingState, bool, error) {
+	v, ok := s.values[id]
+	if !ok {
+		return lightingsettings.DefaultIndependentDeviceLightingState(), false, nil
+	}
+	return v, true, nil
+}
+func (s *ccxtChannelState) Set(id string, state lightingsettings.IndependentDeviceLightingState) error {
+	s.values[id] = state
+	return nil
+}
+func (s *ccxtChannelState) Delete(id string) (bool, error) {
+	_, ok := s.values[id]
+	delete(s.values, id)
+	return ok, nil
+}
 
 func TestCCXTDeviceProfileSnapshotUsesActiveUserProfile(t *testing.T) {
 	device := &Device{Serial: "ccxt-profile", UserProfiles: map[string]*DeviceProfile{
@@ -64,11 +87,44 @@ func TestCCXTCoolingSnapshotUsesExistingChannelState(t *testing.T) {
 	}
 }
 
-func TestCCXTDoesNotExposeCanonicalLightingSnapshot(t *testing.T) {
+func TestCCXTExposesCanonicalLightingSnapshotProvider(t *testing.T) {
 	device := &Device{}
 	if _, ok := interface{}(device).(interface {
 		LightingSnapshot() (lightingpresentation.Snapshot, bool)
-	}); ok {
-		t.Fatal("CCXT unexpectedly exposes canonical lighting")
+	}); !ok {
+		t.Fatal("CCXT does not expose canonical lighting")
+	}
+}
+
+func TestCCXTCanonicalChannelsHydrateIndependentEffects(t *testing.T) {
+	state := &ccxtChannelState{values: map[string]lightingsettings.IndependentDeviceLightingState{
+		"ccxt-rgb-0": {SelectedEffect: "static", Brightness: 100},
+		"ccxt-rgb-1": {SelectedEffect: "rainbow", Brightness: 100},
+	}}
+	device := &Device{Serial: "ccxt", channelLightingState: state, DeviceProfile: &DeviceProfile{RGBCluster: true}, Rgb: &rgb.RGB{Profiles: map[string]rgb.Profile{"static": {}, "rainbow": {}}}, RgbDevices: map[int]*Devices{
+		0: {ChannelId: 0, Name: "Port 1", LedChannels: 8},
+		1: {ChannelId: 1, Name: "Port 2", LedChannels: 16},
+		8: {ChannelId: 8, Name: "Generated", LedChannels: 8, ExternalLed: true},
+	}}
+	if err := device.hydrateCanonicalChannels(); err != nil {
+		t.Fatal(err)
+	}
+	if device.RgbDevices[0].RGB != "static" || device.RgbDevices[1].RGB != "rainbow" {
+		t.Fatalf("hydrated effects = %q, %q", device.RgbDevices[0].RGB, device.RgbDevices[1].RGB)
+	}
+	snapshot, ok := device.LightingSnapshot()
+	if !ok || len(snapshot.Channels) != 2 {
+		t.Fatalf("snapshot = %#v, ok=%t", snapshot, ok)
+	}
+	if !snapshot.ClusterControlled || snapshot.ExternalControlled {
+		t.Fatalf("snapshot ownership = %#v", snapshot)
+	}
+	if snapshot.Channels[0].TargetID != "ccxt-rgb-0" || snapshot.Channels[1].TargetID != "ccxt-rgb-1" || snapshot.Channels[0].Lighting.ConfiguredEffect != "static" || snapshot.Channels[1].Lighting.ConfiguredEffect != "rainbow" || !snapshot.Channels[0].Lighting.ClusterControlled || !snapshot.Channels[1].Lighting.ClusterControlled {
+		t.Fatalf("channels = %#v", snapshot.Channels)
+	}
+	device.DeviceProfile.RGBCluster = false
+	snapshot, ok = device.LightingSnapshot()
+	if !ok || snapshot.ClusterControlled || snapshot.Channels[0].Lighting.ClusterControlled || snapshot.Channels[1].Lighting.ClusterControlled || snapshot.Channels[0].Lighting.ConfiguredEffect != "static" || snapshot.Channels[1].Lighting.ConfiguredEffect != "rainbow" {
+		t.Fatalf("cluster release changed channel state: %#v", snapshot)
 	}
 }

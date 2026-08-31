@@ -139,6 +139,10 @@ type nativeDeviceLightingTarget interface {
 	ResetLightingEffectSettings(string) error
 }
 
+type nativeDeviceLightingChannelTarget interface {
+	SetLightingChannelEffect(string, string) error
+}
+
 type nativeDeviceAuthoredZoneLightingTarget interface {
 	nativeDeviceLightingTarget
 	SetLightingZoneColor(string, string, string, string, rgb.Color) error
@@ -2438,6 +2442,13 @@ type devicesLightingWorkspaceSummary struct {
 	GradientStops           []devicesLightingGradientStopSummary
 	Customized              bool
 	AuthoredZoneEditor      *devicesLightingAuthoredZoneEditorSummary
+	Channels                []devicesLightingChannelSummary
+}
+
+type devicesLightingChannelSummary struct {
+	TargetID, ChannelID, Name, Label string
+	LEDCount                         int
+	Lighting                         *devicesLightingWorkspaceSummary
 }
 
 type devicesLightingAuthoredZoneEditorSummary struct {
@@ -3001,6 +3012,19 @@ func devicesLightingWorkspaceSummaryFromSnapshot(snapshot lightingpresentation.S
 		}
 		return leftLabel < rightLabel
 	})
+	if len(snapshot.Channels) > 0 {
+		summary.Channels = make([]devicesLightingChannelSummary, 0, len(snapshot.Channels))
+		for _, channel := range snapshot.Channels {
+			if channel.TargetID == "" || channel.ChannelID == "" || channel.Name == "" {
+				return nil
+			}
+			lighting := devicesLightingWorkspaceSummaryFromSnapshot(channel.Lighting)
+			if lighting == nil || len(lighting.Channels) > 0 {
+				return nil
+			}
+			summary.Channels = append(summary.Channels, devicesLightingChannelSummary{TargetID: channel.TargetID, ChannelID: channel.ChannelID, Name: channel.Name, Label: channel.Label, LEDCount: channel.LEDCount, Lighting: lighting})
+		}
+	}
 	return summary
 }
 
@@ -3828,8 +3852,9 @@ func saveDevicesDPIWorkspace(w http.ResponseWriter, r *http.Request) {
 
 func setNativeDeviceLightingEffect(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Serial *string `json:"serial"`
-		Effect *string `json:"effect"`
+		Serial   *string `json:"serial"`
+		TargetID *string `json:"targetId"`
+		Effect   *string `json:"effect"`
 	}
 	if !decodeNativeDeviceLightingRequest(w, r, &req) {
 		return
@@ -3838,8 +3863,18 @@ func setNativeDeviceLightingEffect(w http.ResponseWriter, r *http.Request) {
 		nativeDeviceLightingFailure(w, "Invalid effect request")
 		return
 	}
-	target, err := nativeDeviceLightingTargetForEffect(*req.Serial, *req.Effect)
-	if err != nil || target.SetLightingEffect(*req.Effect) != nil {
+	target, err := getNativeDeviceLightingTarget(*req.Serial)
+	if err != nil || !target.SupportsLightingEffect(*req.Effect) {
+		nativeDeviceLightingFailure(w, "Unable to set effect")
+		return
+	}
+	if req.TargetID != nil && *req.TargetID != "" {
+		channelTarget, ok := target.(nativeDeviceLightingChannelTarget)
+		if !ok || channelTarget.SetLightingChannelEffect(*req.TargetID, *req.Effect) != nil {
+			nativeDeviceLightingFailure(w, "Unable to set effect")
+			return
+		}
+	} else if target.SetLightingEffect(*req.Effect) != nil {
 		nativeDeviceLightingFailure(w, "Unable to set effect")
 		return
 	}

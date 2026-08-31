@@ -20,11 +20,12 @@ type authoredZoneTargetCall struct {
 }
 
 type authoredZoneTarget struct {
-	id        string
-	supported bool
-	call      authoredZoneTargetCall
-	calls     int
-	err       error
+	id                             string
+	supported                      bool
+	call                           authoredZoneTargetCall
+	calls                          int
+	err                            error
+	channelTargetID, channelEffect string
 }
 
 func (t *authoredZoneTarget) LightingDeviceID() string { return t.id }
@@ -40,6 +41,13 @@ func (t *authoredZoneTarget) SetLightingEffectSettings(string, lightingsettings.
 	return nil
 }
 func (t *authoredZoneTarget) ResetLightingEffectSettings(string) error { return nil }
+func (t *authoredZoneTarget) SetLightingChannelEffect(targetID, effect string) error {
+	t.channelTargetID, t.channelEffect = targetID, effect
+	if targetID != authoredZoneTestSerial+"-rgb-0" {
+		return errors.New("unknown channel target")
+	}
+	return nil
+}
 func (t *authoredZoneTarget) SetLightingZoneColor(effect, scope, zoneID, groupID string, color rgb.Color) error {
 	t.calls++
 	t.call = authoredZoneTargetCall{
@@ -69,6 +77,20 @@ func (t *authoredZoneTarget) SetLightingZoneColor(effect, scope, zoneID, groupID
 		return errors.New("invalid scope")
 	}
 	return nil
+}
+
+func TestNativeLightingEffectMutationDelegatesChildTargetToProvider(t *testing.T) {
+	target := &authoredZoneTarget{id: authoredZoneTestSerial, supported: true}
+	installAuthoredZoneTarget(t, target, nil)
+	router := setRoutes()
+	response := requireLightingMutationResponse(t, requestOpenRGBLightingMutation(t, router, http.MethodPost, "/api/devices/lighting/effect", `{"serial":"authored-zone-device","targetId":"authored-zone-device-rgb-0","effect":"authored"}`), 1)
+	if response.Status != 1 || target.channelTargetID != authoredZoneTestSerial+"-rgb-0" || target.channelEffect != "authored" {
+		t.Fatalf("response = %#v, target = %#v", response, target)
+	}
+	response = requireLightingMutationResponse(t, requestOpenRGBLightingMutation(t, router, http.MethodPost, "/api/devices/lighting/effect", `{"serial":"authored-zone-device","targetId":"foreign-rgb-0","effect":"authored"}`), 0)
+	if response.Status != 0 {
+		t.Fatalf("foreign target response = %#v", response)
+	}
 }
 
 func (t *authoredZoneTarget) SetLightingZoneColors(effect string, zoneIDs []string, color rgb.Color) error {

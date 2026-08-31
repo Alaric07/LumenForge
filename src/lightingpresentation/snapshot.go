@@ -25,8 +25,8 @@ type GradientStop struct {
 // making it a shared software effect setting.
 type AuthoredZoneEditor struct {
 	EffectID, Heading, Description string
-	HasGroups                       bool
-	Zones                           []AuthoredZone
+	HasGroups                      bool
+	Zones                          []AuthoredZone
 }
 
 // AuthoredZone is an immutable presentation copy of one authored lighting
@@ -71,4 +71,20 @@ type Snapshot struct {
 	GradientStops      []GradientStop
 	Customized         bool
 	AuthoredZoneEditor *AuthoredZoneEditor
+	// Channels is populated by controllers with independently configurable
+	// physical lighting targets. Each entry composes the same immutable lighting
+	// view rather than pretending the controller has one selected effect.
+	Channels []Channel
+}
+
+// Channel is an immutable presentation copy of one physical lighting target.
+// TargetID is the canonical mutation identity; ChannelID remains the device's
+// human/debuggable physical channel identity.
+type Channel struct {
+	TargetID  string
+	ChannelID string
+	Name      string
+	Label     string
+	LEDCount  int
+	Lighting  Snapshot
 }

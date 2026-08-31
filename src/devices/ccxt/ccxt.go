@@ -9,6 +9,7 @@ import (
 	"LumenForge/src/common"
 	"LumenForge/src/config"
 	"LumenForge/src/dashboard"
+	"LumenForge/src/lightingsettings"
 	"LumenForge/src/logger"
 	"LumenForge/src/metrics"
 	"LumenForge/src/openrgb"
@@ -243,6 +244,8 @@ type Device struct {
 	clusterColors           map[int][]byte
 	clusterExpected         []int
 	clusterReceived         map[int]bool
+	channelLightingState    lightingsettings.IndependentDeviceStateAccess
+	lightingRestart         func()
 }
 
 // Init will initialize a new device
@@ -313,6 +316,9 @@ func Init(vendorId, productId uint16, serial, path string) *common.Device {
 	d.getLedDevices()       // Get LED devices
 	d.getDevices()          // Get devices connected to a hub
 	d.getRgbDevices()       // Get RGB devices connected to a hub
+	if err = d.attachCanonicalChannelLightingRuntime(config.GetPaths()); err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to attach canonical channel lighting runtime")
+	}
 	d.retryFanDiscoveryIfNeeded()
 	d.setColorEndpoint()    // Set device color endpoint
 	d.setDefaults()         // Set default speed and color values for fans and pumps
@@ -1062,17 +1068,20 @@ func (d *Device) setDeviceColor() {
 			m := 0
 
 			for _, k := range keys {
-				var c *rgb.Color
-				rgbOverride := d.getRgbOverride(k, 0)
-				if rgbOverride != nil && rgbOverride.Enabled && d.RgbDevices[k].LedChannels > 0 {
-					profileOverride := d.GetRgbProfile("static")
-					if profileOverride == nil {
-						return
+				c := profileColor
+				// Legacy overrides remain only for topology-derived channels that
+				// are outside the canonical channel bridge. Canonical ports never
+				// substitute override colors into their persisted selection.
+				if !d.canonicalChannel(d.RgbDevices[k]) {
+					rgbOverride := d.getRgbOverride(k, 0)
+					if rgbOverride != nil && rgbOverride.Enabled {
+						profileOverride := d.GetRgbProfile("static")
+						if profileOverride == nil {
+							return
+						}
+						profileOverride.StartColor = rgbOverride.RGBStartColor
+						c = rgb.ModifyBrightness(profileOverride.StartColor)
 					}
-					profileOverride.StartColor = rgbOverride.RGBStartColor
-					c = rgb.ModifyBrightness(profileOverride.StartColor)
-				} else {
-					c = profileColor
 				}
 				for i := 0; i < int(d.RgbDevices[k].LedChannels); i++ {
 					reset[m] = []byte{
@@ -1144,13 +1153,14 @@ func (d *Device) setDeviceColor() {
 						r.RGBMiddleColor = &rgb.Color{}
 					}
 
-					index := 0
-					rgbOverride := d.getRgbOverride(k, index)
-					if rgbOverride != nil && rgbOverride.Enabled && d.RgbDevices[k].LedChannels > 0 {
-						r.RGBStartColor = &rgbOverride.RGBStartColor
-						r.RGBEndColor = &rgbOverride.RGBEndColor
-						r.RGBMiddleColor = &rgbOverride.RGBMiddleColor
-						r.RgbModeSpeed = common.FClamp(rgbOverride.RgbModeSpeed, 0.1, 10)
+					if !d.canonicalChannel(d.RgbDevices[k]) {
+						rgbOverride := d.getRgbOverride(k, 0)
+						if rgbOverride != nil && rgbOverride.Enabled {
+							r.RGBStartColor = &rgbOverride.RGBStartColor
+							r.RGBEndColor = &rgbOverride.RGBEndColor
+							r.RGBMiddleColor = &rgbOverride.RGBMiddleColor
+							r.RgbModeSpeed = common.FClamp(rgbOverride.RgbModeSpeed, 0.1, 10)
+						}
 					}
 
 					// Brightness
@@ -3409,6 +3419,10 @@ func (d *Device) SchedulerBrightness(value uint8) uint8 {
 // ChangeDeviceProfile will change device profile
 func (d *Device) ChangeDeviceProfile(profileName string) uint8 {
 	if profile, ok := d.UserProfiles[profileName]; ok {
+		if err := d.restoreCanonicalChannelProfile(profile); err != nil {
+			logger.Log(logger.Fields{"error": err, "serial": d.Serial, "profile": profileName}).Warn("Unable to restore canonical lighting channels from device profile")
+			return 0
+		}
 		currentProfile := d.DeviceProfile
 		currentProfile.Active = false
 		d.DeviceProfile = currentProfile
@@ -3421,9 +3435,6 @@ func (d *Device) ChangeDeviceProfile(profileName string) uint8 {
 		}
 
 		for _, device := range d.RgbDevices {
-			if device.LedChannels > 0 {
-				d.RgbDevices[device.ChannelId].RGB = profile.RGBProfiles[device.ChannelId]
-			}
 			d.RgbDevices[device.ChannelId].Label = profile.RGBLabels[device.ChannelId]
 		}
 

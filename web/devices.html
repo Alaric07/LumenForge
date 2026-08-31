@@ -168,11 +168,11 @@
 
                 <nav class="lf-device-workspace-nav" aria-label="Device workspace">
                     <a class="lf-device-workspace-link{{ if and (ne .Device.View "lighting") (ne .Device.View "cooling") (ne .Device.View "dpi") (ne .Device.View "buttons") (ne .Device.View "keyboard") }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}"{{ if and (ne .Device.View "lighting") (ne .Device.View "cooling") (ne .Device.View "dpi") (ne .Device.View "buttons") (ne .Device.View "keyboard") }} aria-current="page"{{ end }}>Overview</a>
-                    {{ with .Device.Cooling }}
-                        <a class="lf-device-workspace-link{{ if eq $.Device.View "cooling" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ $.Device.Serial }}&amp;view=cooling"{{ if eq $.Device.View "cooling" }} aria-current="page"{{ end }}>Cooling</a>
-                    {{ end }}
                     {{ if or .Device.Lighting .Device.LegacyLighting }}
                         <a class="lf-device-workspace-link{{ if eq .Device.View "lighting" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=lighting"{{ if eq .Device.View "lighting" }} aria-current="page"{{ end }}>Lighting</a>
+                    {{ end }}
+                    {{ with .Device.Cooling }}
+                        <a class="lf-device-workspace-link{{ if eq $.Device.View "cooling" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ $.Device.Serial }}&amp;view=cooling"{{ if eq $.Device.View "cooling" }} aria-current="page"{{ end }}>Cooling</a>
                     {{ end }}
                     {{ if and (not .Device.KeyboardAssignments) (or .Device.DPI .Device.Performance) }}
                         <a class="lf-device-workspace-link{{ if eq .Device.View "dpi" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=dpi"{{ if eq .Device.View "dpi" }} aria-current="page"{{ end }}>Performance</a>
@@ -187,9 +187,19 @@
 
                 {{ if eq .Device.View "lighting" }}
                     {{ with .Device.Lighting }}
-                        <section class="lf-lighting-workspace" data-lf-lighting-read-only="{{ .ReadOnly }}" data-lf-lighting-target="{{ .TargetKind }}">
-                            <div class="lf-lighting-layout lf-lighting-layout-no-rail">
-                                <div class="lf-lighting-main">
+	                        <section class="lf-lighting-workspace" data-lf-lighting-read-only="{{ .ReadOnly }}" data-lf-lighting-target="{{ .TargetKind }}">
+	                            <div class="lf-lighting-layout lf-lighting-layout-no-rail">
+                                    <div class="lf-lighting-main">
+	                            {{ if .Channels }}
+	                                <div class="lf-performance-controls" data-lf-lighting-channel-list>
+	                                    {{ range .Channels }}
+	                                        <article class="lf-performance-control" data-lf-lighting-channel data-lf-channel-id="{{ .ChannelID }}" data-lf-device-serial="{{ $.Device.Serial }}" data-lf-confirmed-label="{{ .Label }}">
+	                                            <div><button class="lf-cooling-label-display" type="button" data-lf-lighting-label-display aria-label="Edit {{ .Name }} label">{{ if .Label }}{{ .Label }}{{ else }}{{ .Name }}{{ end }}</button><input class="lf-buttons-select" type="text" value="{{ .Label }}" data-lf-lighting-label aria-label="{{ .Name }} label" hidden><p class="lf-range-control-status" data-lf-lighting-label-status aria-live="polite"></p><p class="lf-device-profile-description">{{ .Name }} · {{ .LEDCount }} LEDs</p></div>
+	                                            <div><label class="lf-lighting-label" for="lf-lighting-channel-{{ .ChannelID }}">Effect</label><select id="lf-lighting-channel-{{ .ChannelID }}" data-lf-effect-selector data-lf-device-serial="{{ $.Device.Serial }}" data-lf-lighting-target="{{ .Lighting.TargetKind }}" data-lf-lighting-channel-target="{{ .TargetID }}" data-lf-current-effect="{{ .Lighting.ConfiguredEffect }}" data-lf-cluster-controlled="{{ .Lighting.ClusterControlled }}" data-lf-external-controlled="{{ .Lighting.ExternalControlled }}" data-lf-status-id="lf-lighting-channel-status-{{ .ChannelID }}" {{ if or .Lighting.ClusterControlled .Lighting.ExternalControlled $.Device.Lighting.ReadOnly }}disabled{{ end }}>{{ range .Lighting.SupportedEffects }}<option value="{{ .ID }}"{{ if .Selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select><p class="lf-range-control-status" id="lf-lighting-channel-status-{{ .ChannelID }}" aria-live="polite"></p></div>
+	                                        </article>
+	                                    {{ end }}
+	                                </div>
+	                            {{ else }}
                                     <section class="lf-lighting-primary">
                                         <header class="lf-lighting-primary-header">
 								{{ if .ReadOnly }}<p class="lf-lighting-effect-unavailable">This canonical lighting view is read-only.</p>{{ end }}
@@ -595,6 +605,7 @@
                                             </div>
                                         {{ end }}
                                     </section>
+	                            {{ end }}
 
                                     <section class="lf-lighting-ownership-panel" data-lf-lighting-ownership-controls>
                                         <header class="lf-lighting-ownership-header">
@@ -611,12 +622,12 @@
                                                     <p class="lf-range-control-status" data-lf-lighting-ownership-status aria-live="polite"></p>
                                                 </div>
                                             {{ end }}
-                                        </div>
-                                    </section>
-                                </div>
+	                                        </div>
+	                                    </section>
+	                                </div>
 
-                            </div>
-                        </section>
+	                            </div>
+	                        </section>
                     {{ end }}
                     {{ if and .Device.LegacyLighting (not .Device.Lighting) }}
                         <section class="lf-performance-workspace"><h2 class="lf-workspace-section-heading">Lighting</h2><p class="lf-device-profile-description">Lighting remains in the existing legacy controller workspace until the Commander Core XT lighting migration is complete.</p></section>

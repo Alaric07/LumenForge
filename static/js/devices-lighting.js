@@ -293,10 +293,11 @@
         const targetKind = element && element.dataset && element.dataset.lfLightingTarget || "openrgb";
         const cluster = targetKind === "cluster";
         const native = targetKind === "native";
-        return {
-            endpoints: cluster ? clusterLightingEndpoints : native ? nativeLightingEndpoints : openRGBLightingEndpoints,
-            kind: cluster ? "cluster" : native ? "native" : "openrgb",
-            serial: cluster ? "" : element.dataset.lfDeviceSerial
+		return {
+			endpoints: cluster ? clusterLightingEndpoints : native ? nativeLightingEndpoints : openRGBLightingEndpoints,
+			kind: cluster ? "cluster" : native ? "native" : "openrgb",
+			serial: cluster ? "" : element.dataset.lfDeviceSerial,
+			targetId: element.dataset.lfLightingChannelTarget || ""
         };
     }
 
@@ -312,7 +313,8 @@
         if (target.kind === "cluster") {
             return values;
         }
-        return Object.assign({serial: target.serial}, values);
+		const identity = target.targetId ? {serial: target.serial, targetId: target.targetId} : {serial: target.serial};
+		return Object.assign(identity, values);
     }
 
     async function submitLightingMutation(browser, endpoint, payload, timeoutMilliseconds, requestFailure, mutationFailure) {
@@ -865,6 +867,92 @@
 
         selector.addEventListener("change", handleChange);
         return handleChange;
+    }
+
+    function bindChannelLabel(browser, row) {
+        const channelID = Number(row.dataset.lfChannelId);
+        const deviceID = row.dataset.lfDeviceSerial;
+        const label = row.querySelector("[data-lf-lighting-label]");
+        const labelDisplay = row.querySelector("[data-lf-lighting-label-display]");
+        const status = row.querySelector("[data-lf-lighting-label-status]");
+        if (!Number.isInteger(channelID) || !deviceID || !label || !labelDisplay || typeof browser.fetch !== "function") {
+            return null;
+        }
+
+        let confirmedLabel = row.dataset.lfConfirmedLabel || labelDisplay.textContent || "";
+        let labelSaving = false;
+
+        function closeLabelEditor() {
+            label.hidden = true;
+            labelDisplay.hidden = false;
+        }
+
+        function restoreConfirmedLabel() {
+            label.value = confirmedLabel;
+            labelDisplay.textContent = confirmedLabel;
+            closeLabelEditor();
+        }
+
+        function openLabelEditor() {
+            label.value = confirmedLabel;
+            labelDisplay.hidden = true;
+            label.hidden = false;
+            if (typeof label.focus === "function") {
+                label.focus();
+            }
+        }
+
+        async function saveLabel() {
+            if (labelSaving) {
+                return;
+            }
+            const next = label.value.trim();
+            if (!next || next === confirmedLabel) {
+                restoreConfirmedLabel();
+                return;
+            }
+
+            labelSaving = true;
+            label.disabled = true;
+            if (status) {
+                status.textContent = "";
+            }
+            try {
+                await submitLightingMutation(browser, "/api/label", {
+                    deviceId: deviceID,
+                    channelId: channelID,
+                    deviceType: 1,
+                    label: next
+                }, effectTimeoutMilliseconds, "label request failed", "label mutation was rejected");
+                confirmedLabel = next;
+                row.dataset.lfConfirmedLabel = next;
+                labelDisplay.textContent = next;
+                closeLabelEditor();
+                showOwnershipSaved(browser);
+            } catch (_) {
+                restoreConfirmedLabel();
+                if (status) {
+                    status.textContent = "Couldn’t save this lighting label.";
+                }
+            } finally {
+                label.disabled = false;
+                labelSaving = false;
+            }
+        }
+
+        labelDisplay.addEventListener("click", openLabelEditor);
+        label.addEventListener("blur", saveLabel);
+        label.addEventListener("keydown", function (event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                return saveLabel();
+            }
+            if (event.key === "Escape") {
+                event.preventDefault();
+                restoreConfirmedLabel();
+            }
+        });
+        return {open: openLabelEditor, save: saveLabel};
     }
 
     function bindColorControl(browser, colorInput) {
@@ -1606,6 +1694,12 @@
                 bindEffectSelector(browser, selector);
             }
         }
+        const channelLabels = browser.document.querySelectorAll("[data-lf-lighting-channel]");
+        for (const channel of channelLabels) {
+            if (!isReadOnly(channel)) {
+                bindChannelLabel(browser, channel);
+            }
+        }
         const sliders = browser.document.querySelectorAll("[data-lf-brightness-slider]");
         for (const slider of sliders) {
             if (!isReadOnly(slider)) {
@@ -1663,6 +1757,7 @@
 
     return {
         bindBrightnessSlider,
+        bindChannelLabel,
         bindEffectSelector,
         bindSpeedSlider,
         bindColorControl,

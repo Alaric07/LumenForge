@@ -106,6 +106,34 @@ function browserFixture(fetchImplementation, overrides) {
     };
 }
 
+function channelLabelFixture() {
+    const displayHandlers = {};
+    const inputHandlers = {};
+    const display = {
+        hidden: false,
+        textContent: "RGB Intake",
+        addEventListener: function(event, handler) { displayHandlers[event] = handler; }
+    };
+    const input = {
+        disabled: false,
+        hidden: true,
+        value: "RGB Intake",
+        focus: function() { input.focused = true; },
+        addEventListener: function(event, handler) { inputHandlers[event] = handler; }
+    };
+    const status = {textContent: ""};
+    const row = {
+        dataset: {lfChannelId: "1", lfDeviceSerial: "ccxt-1", lfConfirmedLabel: "RGB Intake"},
+        querySelector: function(selector) {
+            if (selector === "[data-lf-lighting-label]") return input;
+            if (selector === "[data-lf-lighting-label-display]") return display;
+            if (selector === "[data-lf-lighting-label-status]") return status;
+            assert.fail("unexpected channel label selector " + selector);
+        }
+    };
+    return {display, displayHandlers, input, inputHandlers, row, status};
+}
+
 function brightnessSliderFixture(overrides) {
     const handlers = {};
     const attributes = {};
@@ -440,6 +468,58 @@ test("read-only authored-zone controls are not bound and cannot submit", functio
     assert.equal(fixture.clearSelection.handlers.click, undefined);
     assert.equal(fixture.clearSelection.disabled, true);
     assert.equal(requests, 0);
+});
+
+test("RGB channel labels use the independent RGB label mutation and restore authoritative text", async function () {
+    const timers = timerFixture();
+    const fixture = channelLabelFixture();
+    const coolingLabel = {textContent: "Cooling Intake"};
+    const requests = [];
+    let rejectLabel = false;
+    const toast = [];
+    const browser = {
+        AbortController,
+        clearTimeout: timers.clearTimeout,
+        fetch: async function(url, options) {
+            requests.push({url, payload: JSON.parse(options.body)});
+            return {ok: true, json: async function() { return {status: rejectLabel ? 0 : 1}; }};
+        },
+        LumenForgeDevicesToast: function() { toast.push(Array.from(arguments)); },
+        setTimeout: timers.setTimeout
+    };
+    lighting.bindChannelLabel(browser, fixture.row);
+
+    fixture.displayHandlers.click();
+    assert.equal(fixture.display.hidden, true);
+    assert.equal(fixture.input.hidden, false);
+    assert.equal(fixture.input.focused, true);
+    fixture.input.value = "RGB Exhaust";
+    await fixture.inputHandlers.keydown({key: "Enter", preventDefault: function() {}});
+
+    assert.deepEqual(requests, [{url: "/api/label", payload: {
+        deviceId: "ccxt-1", channelId: 1, deviceType: 1, label: "RGB Exhaust"
+    }}]);
+    assert.equal(fixture.display.textContent, "RGB Exhaust");
+    assert.equal(fixture.row.dataset.lfConfirmedLabel, "RGB Exhaust");
+    assert.equal(coolingLabel.textContent, "Cooling Intake");
+    assert.deepEqual(toast, [["✓ Saved", "success", 1500]]);
+
+    fixture.displayHandlers.click();
+    fixture.input.value = "Cancelled RGB";
+    await fixture.inputHandlers.keydown({key: "Escape", preventDefault: function() {}});
+    assert.equal(fixture.display.textContent, "RGB Exhaust");
+    assert.equal(requests.length, 1);
+
+    rejectLabel = true;
+    fixture.displayHandlers.click();
+    fixture.input.value = "Rejected RGB";
+    await fixture.inputHandlers.blur();
+    assert.equal(fixture.display.textContent, "RGB Exhaust");
+    assert.equal(fixture.input.value, "RGB Exhaust");
+    assert.equal(fixture.status.textContent, "Couldn’t save this lighting label.");
+    assert.equal(requests.length, 2);
+    assert.equal(coolingLabel.textContent, "Cooling Intake");
+    assert.equal(timers.pending(), 0);
 });
 
 test("effect selector sends the established protected mutation contract and reloads", async function () {
@@ -1337,6 +1417,7 @@ test("multiple brightness controls keep transient success timers isolated", asyn
     };
     browser.document.querySelectorAll = function (selector) {
         if (selector === "[data-lf-effect-selector]") return [];
+        if (selector === "[data-lf-lighting-channel]") return [];
         if (selector === "[data-lf-brightness-slider]") {
             return controls.map(function (control) { return control.slider; });
         }
@@ -2148,7 +2229,7 @@ test("Lighting initialization tolerates pages without interactive controls", fun
 
     lighting.init(browser);
 
-    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-two-color-control]", "[data-lf-temperature-control]", "[data-lf-gradient-control]", "[data-lf-reset-button]", "[data-lf-authored-zone-control]", "[data-lf-lighting-ownership-control]"]);
+    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-lighting-channel]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-two-color-control]", "[data-lf-temperature-control]", "[data-lf-gradient-control]", "[data-lf-reset-button]", "[data-lf-authored-zone-control]", "[data-lf-lighting-ownership-control]"]);
 });
 
 test("Lighting initialization supports isolated and combined interactive controls", function () {
@@ -3281,6 +3362,17 @@ test("native lighting target uses serial-bearing native mutation routes", functi
     });
     assert.deepEqual(lighting.lightingPayload(target, {effect: "wave", speed: 3}), {
         serial: "scimitar-native", effect: "wave", speed: 3
+    });
+});
+
+test("native channel lighting target includes its canonical child target ID", function() {
+    const target = lighting.lightingTarget({dataset: {
+        lfLightingTarget: "native",
+        lfDeviceSerial: "ccxt-target",
+        lfLightingChannelTarget: "ccxt-target-rgb-0"
+    }});
+    assert.deepEqual(lighting.lightingPayload(target, {effect: "circle"}), {
+        serial: "ccxt-target", targetId: "ccxt-target-rgb-0", effect: "circle"
     });
 });
 

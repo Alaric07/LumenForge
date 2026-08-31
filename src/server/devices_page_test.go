@@ -778,6 +778,36 @@ func TestDevicesLightingOwnershipControlsFollowTargetKind(t *testing.T) {
 	}
 }
 
+func TestDevicesLightingChannelWorkspaceUsesSharedBottomOwnershipControls(t *testing.T) {
+	summary := devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{
+		TargetKind: "native", ClusterControlled: true,
+		Channels: []lightingpresentation.Channel{{
+			TargetID: "ccxt-port-0", ChannelID: "0", Name: "8-LED Series Fan", Label: "RGB Intake", LEDCount: 8,
+			Lighting: lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "static", EffectSupported: true, ClusterControlled: true, SupportedEffects: []lightingpresentation.EffectOption{{ID: "static", Label: "Static"}}},
+		}},
+	})
+	body := renderDevicesLightingView(t, summary)
+	channelsAt := strings.Index(body, `data-lf-lighting-channel-list`)
+	ownershipAt := strings.Index(body, `class="lf-lighting-ownership-panel"`)
+	if channelsAt < 0 || ownershipAt <= channelsAt {
+		t.Fatalf("channel ownership placement = channels:%d ownership:%d", channelsAt, ownershipAt)
+	}
+	for _, want := range []string{`data-lf-ownership-kind="cluster"`, `data-lf-ownership-kind="openrgb-integration"`, `id="lf-lighting-rgb-cluster" type="checkbox" data-lf-lighting-ownership-input checked`, `data-lf-cluster-controlled="true"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("CCXT channel Lighting omitted %q", want)
+		}
+	}
+	clusterInput := strings.Split(body, `id="lf-lighting-rgb-cluster"`)[1]
+	externalInput := strings.Split(body, `id="lf-lighting-openrgb-integration"`)[1]
+	if strings.Contains(clusterInput[:strings.Index(clusterInput, ">")], "disabled") || !strings.Contains(externalInput[:strings.Index(externalInput, ">")], "disabled") {
+		t.Error("CCXT Cluster ownership did not preserve shared mutual exclusion")
+	}
+	channelSelect := strings.Split(body, `data-lf-effect-selector`)[1]
+	if !strings.Contains(channelSelect[:strings.Index(channelSelect, ">")], "disabled") {
+		t.Error("CCXT Cluster ownership did not disable its native channel mutation")
+	}
+}
+
 func TestDevicesLightingOwnershipRoutesReuseLegacyHandlers(t *testing.T) {
 	router := setRoutes()
 	for _, route := range []struct {
