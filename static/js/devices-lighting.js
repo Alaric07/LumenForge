@@ -387,6 +387,7 @@
 			"[data-lf-gradient-control] input, [data-lf-gradient-control] button",
 			"[data-lf-ccxt-probe-temperature] input, [data-lf-ccxt-probe-temperature] button",
 			"[data-lf-ccxt-three-pin-port] select",
+			"[data-lf-manual-rgb-device]",
 			"[data-lf-authored-zone-control] input, [data-lf-authored-zone-control] button"
         ];
         for (const selector of selectors) {
@@ -1691,6 +1692,38 @@
         return {device: device, quantity: quantity};
     }
 
+    function bindManualRGBPorts(browser, container) {
+        if (lightingExternallyOwned(container)) return null;
+        const deviceID = container.dataset.lfDeviceId;
+        const status = container.querySelector("[data-lf-manual-rgb-status]");
+        const controls = Array.from(container.querySelectorAll("[data-lf-manual-rgb-device]"));
+        if (!deviceID || controls.length === 0) return null;
+        let saving = false;
+        async function update(control) {
+            if (saving || control.disabled) return;
+            const portId = Number(control.dataset.lfPortId);
+            const deviceType = Number(control.value);
+            const confirmed = control.dataset.lfConfirmedValue;
+            if (!Number.isInteger(portId) || portId < 1 || !Number.isInteger(deviceType) || String(deviceType) === confirmed) return;
+            saving = true;
+            for (const item of controls) item.disabled = true;
+            if (status) status.textContent = "Saving…";
+            try {
+                await submitLightingMutation(browser, "/api/argb", {deviceId: deviceID, portId: portId, deviceType: deviceType}, effectTimeoutMilliseconds, "manual RGB device request failed", "manual RGB device mutation was rejected");
+                if (status) status.textContent = "";
+                showOwnershipSaved(browser);
+                if (browser.location && typeof browser.location.reload === "function") browser.setTimeout(function () { browser.location.reload(); }, 1500);
+            } catch (_) {
+                control.value = confirmed;
+                if (status) status.textContent = "Unable to save Custom RGB Device. Try again.";
+                for (const item of controls) item.disabled = false;
+                saving = false;
+            }
+        }
+        for (const control of controls) control.addEventListener("change", function () { return update(control); });
+        return {controls: controls};
+    }
+
     function bindResetButton(browser, button) {
         if (lightingExternallyOwned(button)) return null;
         const status = browser.document.getElementById(button.dataset.lfStatusId);
@@ -1878,6 +1911,10 @@
         for (const port of threePinPorts) {
             if (!isReadOnly(port)) bindCCXTThreePinPort(browser, port);
         }
+        const manualRGBPorts = browser.document.querySelectorAll("[data-lf-manual-rgb-ports]");
+        for (const ports of manualRGBPorts) {
+            if (!isReadOnly(ports)) bindManualRGBPorts(browser, ports);
+        }
 
         const authoredZoneControls = browser.document.querySelectorAll("[data-lf-authored-zone-control]");
         for (const control of authoredZoneControls) {
@@ -1903,6 +1940,7 @@
         bindGradientControl,
         bindCCXTProbeTemperature,
         bindCCXTThreePinPort,
+        bindManualRGBPorts,
         bindResetButton,
         bindAuthoredZoneControl,
         bindOwnershipToggle,

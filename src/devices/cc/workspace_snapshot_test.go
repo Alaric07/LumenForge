@@ -133,6 +133,22 @@ func TestCommanderCoreCanonicalLightingUsesPhysicalChannelIdentityAndPumpRGB(t *
 	}
 }
 
+func TestCommanderCoreManualRGBPortsUseOnlyBackendFreePortMetadata(t *testing.T) {
+	device := commanderCoreLightingTestDevice()
+	device.FreeLedPorts = map[int]string{0: "Pump", 2: "RGB Port 2", 7: "Invalid"}
+	device.ExternalLedDevice = []ExternalLedDevice{{Index: 0, Name: "No Device"}, {Index: 6, Name: "8-LED Series Fan", Total: 8}}
+	device.DeviceProfile.CustomLEDs = map[int]int{2: 6}
+
+	snapshot, ok := device.LightingSnapshot()
+	if !ok || len(snapshot.ManualRGBPorts) != 1 {
+		t.Fatalf("snapshot = %#v, ok=%t", snapshot, ok)
+	}
+	port := snapshot.ManualRGBPorts[0]
+	if port.PortID != 2 || port.Name != "RGB Port 2" || port.Selected != 6 || len(port.Options) != 2 || !port.Options[1].Selected {
+		t.Fatalf("manual RGB port = %#v", port)
+	}
+}
+
 func TestCommanderCoreCanonicalLightingHydratesAndRestoresProfileState(t *testing.T) {
 	device := commanderCoreLightingTestDevice()
 	state := device.channelLightingState.(*commanderCoreChannelState)

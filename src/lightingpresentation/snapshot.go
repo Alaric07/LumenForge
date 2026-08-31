@@ -72,10 +72,25 @@ type Snapshot struct {
 	Customized         bool
 	AuthoredZoneEditor *AuthoredZoneEditor
 	ThreePinPort       *ThreePinPort
+	ManualRGBPorts     []ManualRGBPort
 	// Channels is populated by controllers with independently configurable
 	// physical lighting targets. Each entry composes the same immutable lighting
 	// view rather than pretending the controller has one selected effect.
 	Channels []Channel
+}
+
+// ManualRGBPort is a backend-reported controller port that may be manually
+// configured when automatic topology detection left it free.
+type ManualRGBPort struct {
+	PortID   int
+	Name     string
+	Selected int
+	Options  []ManualRGBDeviceOption
+}
+
+type ManualRGBDeviceOption struct {
+	ID, Label string
+	Selected  bool
 }
 
 // ThreePinPort is immutable presentation data for a controller-owned physical

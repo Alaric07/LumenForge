@@ -211,6 +211,17 @@
 	                                        </article>
 	                                    {{ end }}
 	                                </div>
+	                                {{ if .ManualRGBPorts }}
+	                                    <section class="lf-performance-workspace" data-lf-manual-rgb-ports data-lf-device-id="{{ $.Device.Serial }}" data-lf-cluster-controlled="{{ .ClusterControlled }}" data-lf-external-controlled="{{ .ExternalControlled }}">
+	                                        <h2 class="lf-workspace-section-heading">Custom RGB Device</h2>
+	                                        <div class="lf-performance-controls lf-ccxt-lighting-channel-grid">
+	                                            {{ range .ManualRGBPorts }}
+	                                                <div class="lf-performance-control"><div><strong>{{ .Name }}</strong></div><label class="lf-lighting-label">Connected device <select data-lf-manual-rgb-device data-lf-port-id="{{ .PortID }}" data-lf-confirmed-value="{{ range .Options }}{{ if .Selected }}{{ .Value }}{{ end }}{{ end }}" {{ if or $.Device.Lighting.ClusterControlled $.Device.Lighting.ExternalControlled $.Device.Lighting.ReadOnly }}disabled{{ end }}>{{ range .Options }}<option value="{{ .Value }}"{{ if .Selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select></label></div>
+	                                            {{ end }}
+	                                        </div>
+	                                        <p class="lf-range-control-status" data-lf-manual-rgb-status aria-live="polite"></p>
+	                                    </section>
+	                                {{ end }}
 	                            {{ else }}
                                     <section class="lf-lighting-primary">
                                         <header class="lf-lighting-primary-header">

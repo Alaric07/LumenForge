@@ -260,10 +260,87 @@ func (d *Device) LightingSnapshot() (lightingpresentation.Snapshot, bool) {
 				child.SupportedEffects = append(child.SupportedEffects, lightingpresentation.EffectOption{ID: candidate, Label: candidate})
 			}
 		}
+		if err := d.populateCanonicalChannelSnapshot(&child, effect); err != nil {
+			return lightingpresentation.Snapshot{}, false
+		}
 		snapshot.Channels = append(snapshot.Channels, lightingpresentation.Channel{TargetID: d.canonicalChannelTargetID(channel.ChannelId), ChannelID: strconv.Itoa(channel.ChannelId), Name: channel.Name, Label: channel.Label, LEDCount: int(channel.LedChannels), ContainsPump: channel.ContainsPump, Lighting: child})
 	}
+	snapshot.ManualRGBPorts = d.manualRGBPortSnapshot()
 	sort.Slice(snapshot.Channels, func(i, j int) bool { return snapshot.Channels[i].ChannelID < snapshot.Channels[j].ChannelID })
 	return snapshot, len(snapshot.Channels) > 0
+}
+
+func ccLightingColorHex(color lightingsettings.Color) string {
+	return fmt.Sprintf("#%02x%02x%02x", uint8(color.Red), uint8(color.Green), uint8(color.Blue))
+}
+
+func (d *Device) populateCanonicalChannelSnapshot(snapshot *lightingpresentation.Snapshot, effect string) error {
+	if snapshot == nil || d.channelLightingResolver == nil {
+		return nil
+	}
+	descriptor, generic := rgb.SoftwareEffectDescriptorByID(effect)
+	if !generic {
+		return nil
+	}
+	resolution, err := d.channelLightingResolver.Resolve(lightingsettings.IndependentDevice(d.Serial), effect)
+	if err != nil || resolution.Settings.EffectID != effect {
+		return fmt.Errorf("resolve canonical channel effect settings: %w", err)
+	}
+	settings := resolution.Settings
+	snapshot.Customized, snapshot.PaletteKind = resolution.Customized, string(descriptor.PaletteKind)
+	if descriptor.SupportsSpeed && settings.Speed != nil {
+		snapshot.HasSpeed, snapshot.Speed = true, *settings.Speed
+	}
+	switch descriptor.PaletteKind {
+	case rgb.LightingPaletteStaticSingle:
+		if settings.SingleColor != nil {
+			snapshot.SingleColorHex = ccLightingColorHex(settings.SingleColor.Color)
+		}
+	case rgb.LightingPaletteTwoColor:
+		if settings.TwoColor != nil {
+			snapshot.TwoColorStartHex, snapshot.TwoColorEndHex = ccLightingColorHex(settings.TwoColor.Start), ccLightingColorHex(settings.TwoColor.End)
+		}
+	case rgb.LightingPaletteTemperatureThree:
+		if settings.Temperature != nil {
+			snapshot.HasTemperature = true
+			snapshot.TemperatureLow = lightingpresentation.TemperaturePoint{ColorHex: ccLightingColorHex(settings.Temperature.Low.Color), Celsius: settings.Temperature.Low.Celsius}
+			snapshot.TemperatureMiddle = lightingpresentation.TemperaturePoint{ColorHex: ccLightingColorHex(settings.Temperature.Middle.Color), Celsius: settings.Temperature.Middle.Celsius}
+			snapshot.TemperatureHigh = lightingpresentation.TemperaturePoint{ColorHex: ccLightingColorHex(settings.Temperature.High.Color), Celsius: settings.Temperature.High.Celsius}
+		}
+	case rgb.LightingPaletteGradient:
+		if settings.Gradient != nil {
+			snapshot.HasGradient, snapshot.GradientStops = true, make([]lightingpresentation.GradientStop, len(settings.Gradient.Stops))
+			for index, stop := range settings.Gradient.Stops {
+				snapshot.GradientStops[index] = lightingpresentation.GradientStop{Position: stop.Position, ColorHex: ccLightingColorHex(stop.Color), Intensity: stop.Intensity}
+			}
+		}
+	}
+	return nil
+}
+
+func (d *Device) manualRGBPortSnapshot() []lightingpresentation.ManualRGBPort {
+	if d == nil || d.DeviceProfile == nil || len(d.FreeLedPorts) == 0 {
+		return nil
+	}
+	ports := make([]int, 0, len(d.FreeLedPorts))
+	for port := range d.FreeLedPorts {
+		if port >= 1 && port <= 6 {
+			ports = append(ports, port)
+		}
+	}
+	sort.Ints(ports)
+	result := make([]lightingpresentation.ManualRGBPort, 0, len(ports))
+	for _, port := range ports {
+		selected := d.DeviceProfile.CustomLEDs[port]
+		item := lightingpresentation.ManualRGBPort{PortID: port, Name: d.FreeLedPorts[port], Selected: selected, Options: make([]lightingpresentation.ManualRGBDeviceOption, 0, len(d.ExternalLedDevice))}
+		for _, option := range d.ExternalLedDevice {
+			item.Options = append(item.Options, lightingpresentation.ManualRGBDeviceOption{ID: strconv.Itoa(option.Index), Label: option.Name, Selected: option.Index == selected})
+		}
+		if len(item.Options) > 0 {
+			result = append(result, item)
+		}
+	}
+	return result
 }
 
 func (d *Device) SetLightingEffect(string) error {

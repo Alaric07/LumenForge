@@ -128,6 +128,7 @@ var softwareEffectRendererSmoothness = map[string]int{
 	"flame":               20,
 	"flickering":          40,
 	"gpu-temperature":     40,
+	"liquid-temperature":  40,
 	"gradient":            0,
 	"marquee":             0,
 	"nebula":              0,
@@ -187,6 +188,7 @@ var softwareEffectDescriptors = []SoftwareEffectDescriptor{
 	newSoftwareEffectDescriptor("flickering", "Flickering", LightingPaletteTwoColor, softwareEffectUsesStart|softwareEffectUsesEnd, true, SoftwareEffectSensorNone, SoftwareEffectTopologyLinear),
 	newTemperatureSoftwareEffectDescriptor("gpu-temperature", "GPU Temperature", SoftwareEffectSensorGPU),
 	newSoftwareEffectDescriptor("gradient", "Gradient", LightingPaletteGradient, 0, true, SoftwareEffectSensorNone, SoftwareEffectTopologyAny),
+	newTemperatureSoftwareEffectDescriptor("liquid-temperature", "Liquid Temperature", SoftwareEffectSensorNone),
 	newSoftwareEffectDescriptor("marquee", "Marquee", LightingPaletteTwoColor, softwareEffectUsesStart|softwareEffectUsesEnd, true, SoftwareEffectSensorNone, SoftwareEffectTopologyLinear),
 	newSoftwareEffectDescriptor("nebula", "Nebula", LightingPaletteGenerated, 0, true, SoftwareEffectSensorNone, SoftwareEffectTopologyLinear),
 	newSoftwareEffectDescriptor("off", "Off", LightingPaletteNone, 0, false, SoftwareEffectSensorNone, SoftwareEffectTopologyAny),
@@ -217,7 +219,7 @@ func validSoftwareEffectTemperaturePointContract(descriptor SoftwareEffectDescri
 	return descriptor.TemperaturePoints == SoftwareEffectTemperaturePointsLowMiddleHigh &&
 		descriptor.UsesStart && descriptor.UsesMiddle && descriptor.UsesEnd &&
 		!descriptor.SupportsSpeed &&
-		(descriptor.Sensor == SoftwareEffectSensorCPU || descriptor.Sensor == SoftwareEffectSensorGPU)
+		(descriptor.Sensor == SoftwareEffectSensorNone || descriptor.Sensor == SoftwareEffectSensorCPU || descriptor.Sensor == SoftwareEffectSensorGPU)
 }
 
 func init() {

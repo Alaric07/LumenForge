@@ -2443,7 +2443,14 @@ type devicesLightingWorkspaceSummary struct {
 	Customized              bool
 	AuthoredZoneEditor      *devicesLightingAuthoredZoneEditorSummary
 	ThreePinPort            *devicesLightingThreePinPortSummary
+	ManualRGBPorts          []devicesLightingManualRGBPortSummary
 	Channels                []devicesLightingChannelSummary
+}
+
+type devicesLightingManualRGBPortSummary struct {
+	PortID  string
+	Name    string
+	Options []devicesLightingThreePinOptionSummary
 }
 
 type devicesLightingThreePinPortSummary struct {
@@ -3018,6 +3025,19 @@ func devicesLightingWorkspaceSummaryFromSnapshot(snapshot lightingpresentation.S
 		}
 		for index, option := range port.QuantityOptions {
 			summary.ThreePinPort.QuantityOptions[index] = devicesLightingThreePinOptionSummary{Value: option.Value, Label: option.Label, Selected: option.Selected}
+		}
+	}
+	if len(snapshot.ManualRGBPorts) > 0 {
+		summary.ManualRGBPorts = make([]devicesLightingManualRGBPortSummary, 0, len(snapshot.ManualRGBPorts))
+		for _, port := range snapshot.ManualRGBPorts {
+			if port.PortID < 1 || port.Name == "" || len(port.Options) == 0 {
+				return nil
+			}
+			item := devicesLightingManualRGBPortSummary{PortID: strconv.Itoa(port.PortID), Name: port.Name, Options: make([]devicesLightingThreePinOptionSummary, len(port.Options))}
+			for index, option := range port.Options {
+				item.Options[index] = devicesLightingThreePinOptionSummary{Value: option.ID, Label: option.Label, Selected: option.Selected}
+			}
+			summary.ManualRGBPorts = append(summary.ManualRGBPorts, item)
 		}
 	}
 	if snapshot.HasSpeed {

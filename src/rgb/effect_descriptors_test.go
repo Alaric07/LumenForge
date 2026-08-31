@@ -87,7 +87,7 @@ func TestSoftwareEffectDescriptorInventory(t *testing.T) {
 		}
 	}
 
-	for _, id := range []string{"colorwave", "led", "liquid-temperature", "probe-temperature", "rainbowwave", "tlk", "tlr"} {
+	for _, id := range []string{"colorwave", "led", "probe-temperature", "rainbowwave", "tlk", "tlr"} {
 		if descriptor, ok := SoftwareEffectDescriptorByID(id); ok {
 			t.Errorf("device-specific ID %q was registered: %+v", id, descriptor)
 		}

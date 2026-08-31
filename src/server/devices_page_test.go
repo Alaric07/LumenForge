@@ -1002,8 +1002,8 @@ func TestDevicesLightingEffectIconInventory(t *testing.T) {
 		}
 	}
 
-	if len(deviceDescriptors) != 35 {
-		t.Fatalf("device-scoped software effect descriptors = %d, want 35", len(deviceDescriptors))
+	if len(deviceDescriptors) != 36 {
+		t.Fatalf("device-scoped software effect descriptors = %d, want 36", len(deviceDescriptors))
 	}
 	for id, wantIcon := range map[string]string{
 		"off":                 "off.svg",

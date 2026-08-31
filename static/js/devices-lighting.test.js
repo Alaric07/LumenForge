@@ -1429,6 +1429,7 @@ test("multiple brightness controls keep transient success timers isolated", asyn
         if (selector === "[data-lf-reset-button]") return [];
         if (selector === "[data-lf-ccxt-probe-temperature]") return [];
         if (selector === "[data-lf-ccxt-three-pin-port]") return [];
+        if (selector === "[data-lf-manual-rgb-ports]") return [];
         if (selector === "[data-lf-channel-editor-toggle]") return [];
         if (selector === "[data-lf-authored-zone-control]") return [];
         if (selector === "[data-lf-lighting-ownership-control]") return [];
@@ -2232,7 +2233,7 @@ test("Lighting initialization tolerates pages without interactive controls", fun
 
     lighting.init(browser);
 
-    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-lighting-channel]", "[data-lf-channel-editor-toggle]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-two-color-control]", "[data-lf-temperature-control]", "[data-lf-gradient-control]", "[data-lf-reset-button]", "[data-lf-ccxt-probe-temperature]", "[data-lf-ccxt-three-pin-port]", "[data-lf-authored-zone-control]", "[data-lf-lighting-ownership-control]"]);
+    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-lighting-channel]", "[data-lf-channel-editor-toggle]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-two-color-control]", "[data-lf-temperature-control]", "[data-lf-gradient-control]", "[data-lf-reset-button]", "[data-lf-ccxt-probe-temperature]", "[data-lf-ccxt-three-pin-port]", "[data-lf-manual-rgb-ports]", "[data-lf-authored-zone-control]", "[data-lf-lighting-ownership-control]"]);
 });
 
 test("channel editor toggles keep effect selection untouched and preserve a dirty explicit-save editor", function () {
@@ -3639,6 +3640,7 @@ test("enabling Lighting ownership immediately disables local controls before the
 	];
 	const probeControls = [{disabled: false}, {disabled: false}, {disabled: false}, {disabled: false}];
 	const threePinControls = [{disabled: false}, {disabled: false}];
+	const manualRGBControls = [{disabled: false}];
     const resetButton = {disabled: false};
     const reset = {hidden: false, querySelectorAll: function(selector) { assert.equal(selector, "input, button"); return [resetButton]; }};
     const workspace = {
@@ -3646,6 +3648,7 @@ test("enabling Lighting ownership immediately disables local controls before the
 			if (selector === "[data-lf-reset-control]") return [reset];
 			if (selector === "[data-lf-ccxt-probe-temperature] input, [data-lf-ccxt-probe-temperature] button") return probeControls;
 			if (selector === "[data-lf-ccxt-three-pin-port] select") return threePinControls;
+			if (selector === "[data-lf-manual-rgb-device]") return manualRGBControls;
 			return localControls;
         }
     };
@@ -3667,6 +3670,7 @@ test("enabling Lighting ownership immediately disables local controls before the
 	for (const local of localControls) assert.equal(local.disabled, true);
 	for (const probe of probeControls) assert.equal(probe.disabled, true);
 	for (const control of threePinControls) assert.equal(control.disabled, true);
+	for (const control of manualRGBControls) assert.equal(control.disabled, true);
     assert.equal(reset.hidden, true);
     assert.equal(resetButton.disabled, true);
     assert.equal(reloads, 0);
@@ -3759,4 +3763,26 @@ test("CCXT 3-Pin RGB Port restores the confirmed selection after a failed hub mu
     assert.equal(status.textContent, "Unable to save 3-Pin RGB Port settings. Try again.");
     assert.equal(reloads, 0);
     assert.equal(timers.pending(1500), 0);
+});
+
+test("manual RGB controls use the shared ownership-disabled state and do not mutate while disabled", async function() {
+    const handlers = {};
+    const selector = {dataset: {lfPortId: "2", lfConfirmedValue: "0"}, disabled: false, value: "6", addEventListener: function(event, handler) { handlers[event] = handler; }};
+    const status = {textContent: ""};
+    const container = {
+        dataset: {lfDeviceId: "controller", lfClusterControlled: "false", lfExternalControlled: "false"},
+        querySelector: function(query) { return query === "[data-lf-manual-rgb-status]" ? status : null; },
+        querySelectorAll: function(query) { assert.equal(query, "[data-lf-manual-rgb-device]"); return [selector]; }
+    };
+    const timers = timerFixture();
+    const requests = [];
+    const browser = {AbortController, clearTimeout: timers.clearTimeout, setTimeout: timers.setTimeout, location: {reload: function() {}}, fetch: async function(url, options) { requests.push({url, body: JSON.parse(options.body)}); return {ok: true, json: async function() { return {status: 1}; }}; }};
+    lighting.bindManualRGBPorts(browser, container);
+    assert.equal(selector.disabled, false);
+    selector.disabled = true;
+    await handlers.change();
+    assert.deepEqual(requests, []);
+    selector.disabled = false;
+    await handlers.change();
+    assert.deepEqual(requests, [{url: "/api/argb", body: {deviceId: "controller", portId: 2, deviceType: 6}}]);
 });
