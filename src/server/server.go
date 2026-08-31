@@ -2460,6 +2460,7 @@ type devicesLightingThreePinOptionSummary struct {
 type devicesLightingChannelSummary struct {
 	TargetID, ChannelID, Name, Label string
 	LEDCount                         int
+	ContainsPump                     bool
 	Lighting                         *devicesLightingWorkspaceSummary
 	ProbeTemperature                 *devicesLightingProbeTemperatureSummary
 }
@@ -3055,7 +3056,7 @@ func devicesLightingWorkspaceSummaryFromSnapshot(snapshot lightingpresentation.S
 			if lighting == nil || len(lighting.Channels) > 0 {
 				return nil
 			}
-			channelSummary := devicesLightingChannelSummary{TargetID: channel.TargetID, ChannelID: channel.ChannelID, Name: channel.Name, Label: channel.Label, LEDCount: channel.LEDCount, Lighting: lighting}
+			channelSummary := devicesLightingChannelSummary{TargetID: channel.TargetID, ChannelID: channel.ChannelID, Name: channel.Name, Label: channel.Label, LEDCount: channel.LEDCount, ContainsPump: channel.ContainsPump, Lighting: lighting}
 			if probe := channel.ProbeTemperature; probe != nil {
 				channelSummary.ProbeTemperature = &devicesLightingProbeTemperatureSummary{ProbeID: strconv.Itoa(probe.ProbeID), Minimum: strconv.FormatFloat(probe.Minimum, 'f', -1, 64), Maximum: strconv.FormatFloat(probe.Maximum, 'f', -1, 64), Sources: make([]devicesLightingProbeTemperatureSourceSummary, len(probe.Sources))}
 				for index, source := range probe.Sources {

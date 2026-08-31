@@ -2,6 +2,7 @@ package devices
 
 import (
 	"LumenForge/src/common"
+	"LumenForge/src/devices/cc"
 	"LumenForge/src/devices/openrgbimport"
 	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/rgb"
@@ -284,6 +285,11 @@ func TestEligibleForLegacyGlobalRGB(t *testing.T) {
 			name:   "canonical native lighting provider",
 			device: &common.Device{Instance: &canonicalLightingProviderTestDevice{}},
 			want:   false,
+		},
+		{
+			name:   "Commander CORE unavailable canonical runtime",
+			device: &common.Device{Instance: &cc.Device{}},
+			want:   true,
 		},
 		{
 			name:   "ordinary native device",

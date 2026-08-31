@@ -89,7 +89,6 @@ import (
 	"LumenForge/src/devices/nightsabreWU"
 	"LumenForge/src/devices/nightswordrgb"
 	"LumenForge/src/devices/openrgbimport"
-	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/devices/platinum"
 	"LumenForge/src/devices/psudongle"
 	"LumenForge/src/devices/psuhid"
@@ -125,6 +124,7 @@ import (
 	"LumenForge/src/devices/xc7"
 	"LumenForge/src/dispatcher"
 	"LumenForge/src/inputmanager"
+	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/logger"
 	"LumenForge/src/metrics"
 	"LumenForge/src/motherboards"
@@ -281,8 +281,12 @@ func eligibleForLegacyGlobalRGB(device *common.Device) bool {
 	if _, imported := device.Instance.(*openrgbimport.Device); imported {
 		return false
 	}
-	_, canonical := device.Instance.(canonicalLightingPresentationProvider)
-	return !canonical
+	canonical, implementsCanonical := device.Instance.(canonicalLightingPresentationProvider)
+	if !implementsCanonical {
+		return true
+	}
+	_, available := canonical.LightingSnapshot()
+	return !available
 }
 
 // ScheduleDeviceBrightness will change device brightness level based on scheduler

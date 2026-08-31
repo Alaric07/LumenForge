@@ -10,6 +10,7 @@ import (
 	"LumenForge/src/config"
 	"LumenForge/src/dashboard"
 	"LumenForge/src/devices/lcd"
+	"LumenForge/src/lightingsettings"
 	"LumenForge/src/logger"
 	"LumenForge/src/metrics"
 	"LumenForge/src/openrgb"
@@ -278,55 +279,60 @@ type Devices struct {
 
 // Device struct contains primary device data
 type Device struct {
-	Debug               bool
-	dev                 *hid.Device
-	lcd                 *hid.Device
-	Manufacturer        string                    `json:"manufacturer"`
-	Product             string                    `json:"product"`
-	Serial              string                    `json:"serial"`
-	Path                string                    `json:"path"`
-	Firmware            string                    `json:"firmware"`
-	AIOType             string                    `json:"-"`
-	Devices             map[int]*Devices          `json:"devices"`
-	RgbDevices          map[int]*Devices          `json:"rgbDevices"`
-	UserProfiles        map[string]*DeviceProfile `json:"userProfiles"`
-	ExternalLedDevice   []ExternalLedDevice
-	DeviceProfile       *DeviceProfile
-	TemperatureProbes   *[]TemperatureProbe
-	activeRgb           *rgb.ActiveRGB
-	Template            string
-	HasLCD              bool
-	VendorId            uint16
-	LCDModes            map[int]string
-	LCDRotations        map[int]string
-	LCDBrightnessLevels map[int]string
-	Brightness          map[int]string
-	CpuTemp             float32
-	GpuTemp             float32
-	FreeLedPorts        map[int]string
-	FreeLedPortLEDs     map[int]string
-	Rgb                 *rgb.RGB
-	rgbMutex            sync.RWMutex
-	LCDImage            *lcd.ImageData
-	Exit                bool
-	mutex               sync.Mutex
-	mutexLcd            sync.Mutex
-	deviceLock          sync.Mutex
-	autoRefreshChan     chan struct{}
-	speedRefreshChan    chan struct{}
-	lcdRefreshChan      chan struct{}
-	lcdImageChan        chan struct{}
-	timer               *time.Ticker
-	timerSpeed          *time.Ticker
-	lcdTimer            *time.Ticker
-	internalLedDevices  map[int]*LedChannel
-	RGBModes            []string
-	queue               chan []byte
-	instance            *common.Device
-	clusterMutex        sync.Mutex
-	clusterColors       map[int][]byte
-	clusterExpected     []int
-	clusterReceived     map[int]bool
+	Debug                            bool
+	dev                              *hid.Device
+	lcd                              *hid.Device
+	Manufacturer                     string                    `json:"manufacturer"`
+	Product                          string                    `json:"product"`
+	Serial                           string                    `json:"serial"`
+	Path                             string                    `json:"path"`
+	Firmware                         string                    `json:"firmware"`
+	AIOType                          string                    `json:"-"`
+	Devices                          map[int]*Devices          `json:"devices"`
+	RgbDevices                       map[int]*Devices          `json:"rgbDevices"`
+	UserProfiles                     map[string]*DeviceProfile `json:"userProfiles"`
+	ExternalLedDevice                []ExternalLedDevice
+	DeviceProfile                    *DeviceProfile
+	TemperatureProbes                *[]TemperatureProbe
+	activeRgb                        *rgb.ActiveRGB
+	Template                         string
+	HasLCD                           bool
+	VendorId                         uint16
+	LCDModes                         map[int]string
+	LCDRotations                     map[int]string
+	LCDBrightnessLevels              map[int]string
+	Brightness                       map[int]string
+	CpuTemp                          float32
+	GpuTemp                          float32
+	FreeLedPorts                     map[int]string
+	FreeLedPortLEDs                  map[int]string
+	Rgb                              *rgb.RGB
+	rgbMutex                         sync.RWMutex
+	LCDImage                         *lcd.ImageData
+	Exit                             bool
+	mutex                            sync.Mutex
+	mutexLcd                         sync.Mutex
+	deviceLock                       sync.Mutex
+	autoRefreshChan                  chan struct{}
+	speedRefreshChan                 chan struct{}
+	lcdRefreshChan                   chan struct{}
+	lcdImageChan                     chan struct{}
+	timer                            *time.Ticker
+	timerSpeed                       *time.Ticker
+	lcdTimer                         *time.Ticker
+	internalLedDevices               map[int]*LedChannel
+	RGBModes                         []string
+	queue                            chan []byte
+	instance                         *common.Device
+	clusterMutex                     sync.Mutex
+	clusterColors                    map[int][]byte
+	clusterExpected                  []int
+	clusterReceived                  map[int]bool
+	channelLightingState             lightingsettings.IndependentDeviceStateAccess
+	channelLightingEffects           *lightingsettings.DeviceStore
+	channelLightingResolver          *lightingsettings.Resolver
+	lightingRestart                  func()
+	suppressCanonicalProfileSnapshot bool
 }
 
 /*
@@ -432,21 +438,24 @@ func Init(vendorId, productId uint16, serial, path string) *common.Device {
 	}
 
 	// Bootstrap
-	d.getDebugMode()        // Debug mode
-	d.getManufacturer()     // Manufacturer
-	d.getProduct()          // Product
-	d.getSerial()           // Serial
-	d.loadRgb()             // Load RGB
-	d.loadDeviceProfiles()  // Load all device profiles
-	d.getDeviceLcd()        // Check if LCD pump cover is installed
-	d.getDeviceProfile()    // Get device profile if any
-	d.getDeviceFirmware()   // Firmware
-	d.setSoftwareMode()     // Activate software mode
-	d.initLedPorts()        // Init LED ports
-	d.getDeviceType()       // Find an AIO device type
-	d.getLedDevices()       // Get LED devices
-	d.getDevices()          // Get devices connected to a hub
-	d.getRgbDevices()       // Get RGB devices connected to a hub
+	d.getDebugMode()       // Debug mode
+	d.getManufacturer()    // Manufacturer
+	d.getProduct()         // Product
+	d.getSerial()          // Serial
+	d.loadRgb()            // Load RGB
+	d.loadDeviceProfiles() // Load all device profiles
+	d.getDeviceLcd()       // Check if LCD pump cover is installed
+	d.getDeviceProfile()   // Get device profile if any
+	d.getDeviceFirmware()  // Firmware
+	d.setSoftwareMode()    // Activate software mode
+	d.initLedPorts()       // Init LED ports
+	d.getDeviceType()      // Find an AIO device type
+	d.getLedDevices()      // Get LED devices
+	d.getDevices()         // Get devices connected to a hub
+	d.getRgbDevices()      // Get RGB devices connected to a hub
+	if err = d.attachCanonicalChannelLightingRuntime(config.GetPaths()); err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to attach canonical channel lighting runtime")
+	}
 	d.saveDeviceProfile()   // Save
 	d.setColorEndpoint()    // Set device color endpoint
 	d.setDefaults()         // Set default speed and color values for fans and pumps
@@ -735,6 +744,9 @@ func (d *Device) upgradeRgbProfile(path string, profiles []string) {
 func (d *Device) GetRgbProfile(profile string) *rgb.Profile {
 	if d.Rgb == nil {
 		return nil
+	}
+	if canonical, ok := d.canonicalRendererProfile(profile); ok {
+		return &canonical
 	}
 
 	if val, ok := d.Rgb.Profiles[profile]; ok {
@@ -1230,7 +1242,7 @@ func (d *Device) setDeviceColor() {
 		for _, k := range keys {
 			var c *rgb.Color
 			rgbOverride := d.getRgbOverride(k, 0)
-			if rgbOverride != nil && rgbOverride.Enabled && d.RgbDevices[k].LedChannels > 0 {
+			if !d.canonicalChannel(d.RgbDevices[k]) && rgbOverride != nil && rgbOverride.Enabled && d.RgbDevices[k].LedChannels > 0 {
 				profileOverride := d.GetRgbProfile("static")
 				if profileOverride == nil {
 					return
@@ -1316,7 +1328,7 @@ func (d *Device) setDeviceColor() {
 
 					index := 0
 					rgbOverride := d.getRgbOverride(k, index)
-					if rgbOverride != nil && rgbOverride.Enabled && d.RgbDevices[k].LedChannels > 0 {
+					if !d.canonicalChannel(d.RgbDevices[k]) && rgbOverride != nil && rgbOverride.Enabled && d.RgbDevices[k].LedChannels > 0 {
 						r.RGBStartColor = &rgbOverride.RGBStartColor
 						r.RGBEndColor = &rgbOverride.RGBEndColor
 						r.RGBMiddleColor = &rgbOverride.RGBMiddleColor
@@ -2572,10 +2584,28 @@ func (d *Device) SchedulerLcdBrightness(value uint8) uint8 {
 // ChangeDeviceProfile will change device profile
 func (d *Device) ChangeDeviceProfile(profileName string) uint8 {
 	if profile, ok := d.UserProfiles[profileName]; ok {
+		// Snapshot the outgoing canonical authority before preparing the target;
+		// this is the full-profile representation that the following save keeps.
+		d.snapshotCanonicalChannelEffects()
+		targetSelections, err := d.canonicalChannelProfileSelections(profile)
+		if err != nil {
+			logger.Log(logger.Fields{"error": err, "serial": d.Serial, "profile": profileName}).Warn("Unable to prepare canonical lighting channels from device profile")
+			return 0
+		}
+		if err = d.applyCanonicalChannelSelections(targetSelections); err != nil {
+			logger.Log(logger.Fields{"error": err, "serial": d.Serial, "profile": profileName}).Warn("Unable to restore canonical lighting channels from device profile")
+			return 0
+		}
+		// The renderer-facing channel state still represents the outgoing
+		// profile here. Keep it intact while persisting that profile inactive;
+		// target canonical state is hydrated only after this save succeeds.
 		currentProfile := d.DeviceProfile
 		currentProfile.Active = false
 		d.DeviceProfile = currentProfile
+		d.suppressCanonicalProfileSnapshot = true
 		d.saveDeviceProfile()
+		d.suppressCanonicalProfileSnapshot = false
+		d.hydrateCanonicalChannelSelections(targetSelections)
 
 		// RGB reset
 		if d.activeRgb != nil {
@@ -2584,7 +2614,7 @@ func (d *Device) ChangeDeviceProfile(profileName string) uint8 {
 		}
 
 		for _, device := range d.RgbDevices {
-			if device.LedChannels > 0 {
+			if !d.canonicalChannel(device) && device.LedChannels > 0 {
 				d.RgbDevices[device.ChannelId].RGB = profile.RGBProfiles[device.ChannelId]
 			}
 			d.RgbDevices[device.ChannelId].Label = profile.RGBLabels[device.ChannelId]
@@ -3277,6 +3307,9 @@ func (d *Device) resetLEDPorts() {
 func (d *Device) saveDeviceProfile() {
 	d.deviceLock.Lock()
 	defer d.deviceLock.Unlock()
+	if !d.suppressCanonicalProfileSnapshot {
+		d.snapshotCanonicalChannelEffects()
+	}
 
 	noOverride := false
 	var defaultBrightness = uint8(100)

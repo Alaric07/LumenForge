@@ -102,12 +102,13 @@ type ThreePinQuantityOption struct {
 // TargetID is the canonical mutation identity; ChannelID remains the device's
 // human/debuggable physical channel identity.
 type Channel struct {
-	TargetID  string
-	ChannelID string
-	Name      string
-	Label     string
-	LEDCount  int
-	Lighting  Snapshot
+	TargetID     string
+	ChannelID    string
+	Name         string
+	Label        string
+	LEDCount     int
+	ContainsPump bool
+	Lighting     Snapshot
 	// ProbeTemperature is present only for a channel currently using CCXT's
 	// channel-owned probe-temperature effect.
 	ProbeTemperature *ProbeTemperature
