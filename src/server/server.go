@@ -2560,9 +2560,10 @@ type devicesCoolingProfileOptionSummary struct {
 }
 
 type devicesCoolingChannelSummary struct {
-	ID                           int
-	Name, Label, SelectedProfile string
-	RPM                          int16
+	ID                                        int
+	Name, Label, Temperature, SelectedProfile string
+	ContainsPump                              bool
+	RPM                                       int16
 }
 
 type devicesCoolingTemperatureProbeSummary struct {
@@ -2594,7 +2595,7 @@ func devicesDeviceProfilePresentation(device *common.Device, hasKeyboardAssignme
 	if device != nil && device.ProductType == common.ProductTypeScimitarRgbElite {
 		return "Device Profile", devicesScimitarEliteDeviceProfileDescription
 	}
-	if device != nil && device.ProductType == common.ProductTypeCCXT {
+	if device != nil && (device.ProductType == common.ProductTypeCC || device.ProductType == common.ProductTypeCCXT) {
 		return "Device Profile", devicesCCXTDeviceProfileDescription
 	}
 	return "Device Profile", devicesGenericDeviceProfileDescription
@@ -2615,7 +2616,7 @@ func devicesCoolingWorkspaceSummaryFromSnapshot(snapshot coolingpresentation.Sna
 		if channel.ID < 0 || channel.Name == "" || channel.SelectedProfile == "" {
 			return nil
 		}
-		summary.Channels = append(summary.Channels, devicesCoolingChannelSummary{ID: channel.ID, Name: channel.Name, Label: channel.Label, RPM: channel.RPM, SelectedProfile: channel.SelectedProfile})
+		summary.Channels = append(summary.Channels, devicesCoolingChannelSummary{ID: channel.ID, Name: channel.Name, Label: channel.Label, RPM: channel.RPM, Temperature: channel.Temperature, ContainsPump: channel.ContainsPump, SelectedProfile: channel.SelectedProfile})
 	}
 	for _, probe := range snapshot.TemperatureProbes {
 		if probe.ID < 0 || probe.Name == "" {
@@ -3084,7 +3085,7 @@ func devicesWorkspaceSummaryForSerial(
 		Image:          device.Image,
 		Unavailable:    device.Unavailable,
 		View:           "overview",
-		LegacyLighting: device.ProductType == common.ProductTypeCCXT,
+		LegacyLighting: device.ProductType == common.ProductTypeCC || device.ProductType == common.ProductTypeCCXT,
 	}
 	if battery, found := batteryStats[serial]; found {
 		summary.HasBattery = true

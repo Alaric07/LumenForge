@@ -304,6 +304,42 @@ func TestDevicesCCXTModernCoolingWorkspaceAndFullProfile(t *testing.T) {
 	}
 }
 
+func TestDevicesCommanderCoreModernCoolingWorkspaceAndLegacyLightingBoundary(t *testing.T) {
+	const serial = "cc-modern-workspace"
+	profile := deviceprofilepresentation.Snapshot{Supported: true, Profiles: []string{"default", "studio"}, ActiveProfile: "default"}
+	cooling := coolingpresentation.Snapshot{Available: true, Channels: []coolingpresentation.Channel{{ID: 0, Name: "H150i", Label: "Pump", RPM: 2440, Temperature: "31.2°C", ContainsPump: true, SelectedProfile: "quiet"}, {ID: 1, Name: "Fan 1", Label: "Front", RPM: 1040, SelectedProfile: "quiet"}}, ProfileOptions: []coolingpresentation.ProfileOption{{ID: "quiet", Label: "quiet"}}, TemperatureProbes: []coolingpresentation.TemperatureProbe{{ID: 7, Name: "Temperature Probe 1", Label: "Coolant", Temperature: "30.0°C"}}}
+	instance := struct {
+		devicesPageDeviceProfileSnapshotProvider
+		devicesPageCoolingSnapshotProvider
+	}{devicesPageDeviceProfileSnapshotProvider{serial: serial, snapshot: profile}, devicesPageCoolingSnapshotProvider{serial: serial, snapshot: cooling}}
+	device := &common.Device{Serial: serial, Product: "iCUE COMMANDER CORE", ProductType: common.ProductTypeCC, Instance: instance}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: device}, map[string]stats.BatteryStats{}, serial)
+	if !ok || summary.Cooling == nil || summary.DeviceProfiles == nil || summary.DeviceProfiles.Description != devicesCCXTDeviceProfileDescription || !summary.LegacyLighting {
+		t.Fatalf("summary = %#v, ok=%t", summary, ok)
+	}
+	if summary.DeviceProfiles.ProfileDisplayLabels != nil || !summary.Cooling.Channels[0].ContainsPump || summary.Cooling.Channels[0].Temperature != "31.2°C" {
+		t.Fatalf("Commander CORE presentation = %#v", summary)
+	}
+	summary.View = devicesWorkspaceView([]string{"cooling"}, summary)
+	var rendered bytes.Buffer
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: device}, Device: summary, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{"Overview", "Cooling", "Lighting", "data-lf-cooling-workspace", "H150i", "Pump", "2440 RPM", "31.2°C", "Fan 1", "Temperature probes", "30.0°C"} {
+		if !strings.Contains(rendered.String(), expected) {
+			t.Errorf("missing %q", expected)
+		}
+	}
+	summary.View = devicesWorkspaceView([]string{"lighting"}, summary)
+	rendered.Reset()
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: device}, Device: summary, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(rendered.String(), "Native Lighting migration is not complete.") {
+		t.Fatal("Commander CORE lighting placeholder did not render")
+	}
+}
+
 func TestDevicesLightingProfilePresentation(t *testing.T) {
 	const serial = "mm800-lighting-profile"
 	profileSnapshot := deviceprofilepresentation.Snapshot{Supported: true, Scope: deviceprofilepresentation.ScopeLighting, Profiles: []string{"default", "studio"}, ActiveProfile: "default", DefaultProfileDisplayLabel: deviceprofilepresentation.WorkingConfigurationLabel}

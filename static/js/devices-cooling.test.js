@@ -73,6 +73,8 @@ async function run() {
 	assert.strictEqual(probeDisplay.textContent, "Loop probe");
 	assert.strictEqual(probeStatus.textContent, "Couldn’t save this cooling setting.");
 	browser.failLabel = false;
+	labelDisplay.listeners.click();
+	label.value = "Editing";
 	await browser.timer.handler();
 
     assert.deepStrictEqual(requests, [
@@ -87,6 +89,8 @@ async function run() {
 	assert.strictEqual(browser.timer.delay, 1500);
 	assert.strictEqual(rpm.textContent, "1200 RPM");
 	assert.strictEqual(temperature.textContent, "33.5°C");
+	assert.strictEqual(label.hidden, false);
+	assert.strictEqual(label.value, "Editing");
 }
 
 run().catch(function (error) { console.error(error); process.exitCode = 1; });

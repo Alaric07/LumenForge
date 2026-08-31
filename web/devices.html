@@ -652,7 +652,7 @@
 	                        </section>
                     {{ end }}
                     {{ if and .Device.LegacyLighting (not .Device.Lighting) }}
-                        <section class="lf-performance-workspace"><h2 class="lf-workspace-section-heading">Lighting</h2><p class="lf-device-profile-description">Lighting remains in the existing legacy controller workspace until the Commander Core XT lighting migration is complete.</p></section>
+                        <section class="lf-performance-workspace"><h2 class="lf-workspace-section-heading">Lighting</h2><p class="lf-device-profile-description">Native Lighting migration is not complete. Lighting remains in the existing legacy controller workspace.</p></section>
                     {{ end }}
                 {{ else if eq .Device.View "cooling" }}
                     {{ with .Device.Cooling }}
@@ -661,7 +661,7 @@
 	                            <div class="lf-performance-controls lf-cooling-channel-grid">
                                 {{ range .Channels }}
                                     <article class="lf-performance-control lf-cooling-channel" data-lf-cooling-channel data-lf-channel-id="{{ .ID }}" data-lf-channel-name="{{ .Name }}" data-lf-confirmed-profile="{{ .SelectedProfile }}" data-lf-confirmed-label="{{ .Label }}">
-                                        <div><button class="lf-cooling-label-display" type="button" data-lf-cooling-label-display aria-label="Edit {{ .Name }} label">{{ if .Label }}{{ .Label }}{{ else }}{{ .Name }}{{ end }}</button><input class="lf-buttons-select" type="text" value="{{ .Label }}" data-lf-cooling-label aria-label="{{ .Name }} label" hidden><p class="lf-device-profile-description">{{ .Name }}{{ if ge .RPM 0 }} · <span data-lf-cooling-rpm data-lf-channel-id="{{ .ID }}">{{ .RPM }} RPM</span>{{ end }}</p></div>
+                                        <div><button class="lf-cooling-label-display" type="button" data-lf-cooling-label-display aria-label="Edit {{ .Name }} label">{{ if .Label }}{{ .Label }}{{ else }}{{ .Name }}{{ end }}</button><input class="lf-buttons-select" type="text" value="{{ .Label }}" data-lf-cooling-label aria-label="{{ .Name }} label" hidden><p class="lf-device-profile-description">{{ .Name }}{{ if .ContainsPump }} · Pump{{ end }}{{ if ge .RPM 0 }} · <span data-lf-cooling-rpm data-lf-channel-id="{{ .ID }}">{{ .RPM }} RPM</span>{{ end }}{{ if .Temperature }} · <span data-lf-cooling-temperature data-lf-channel-id="{{ .ID }}">{{ .Temperature }}</span>{{ end }}</p></div>
                                         <div class="lf-cooling-channel-controls"><label>Temperature profile<select data-lf-cooling-profile aria-label="{{ .Name }} temperature profile">{{ $selected := .SelectedProfile }}{{ range $.Device.Cooling.ProfileOptions }}<option value="{{ .ID }}"{{ if eq .ID $selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select></label><p class="lf-range-control-status" data-lf-cooling-status aria-live="polite"></p></div>
                                     </article>
                                 {{ end }}

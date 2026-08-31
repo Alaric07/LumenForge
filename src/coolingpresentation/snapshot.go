@@ -14,6 +14,8 @@ type Channel struct {
 	Name            string
 	Label           string
 	RPM             int16
+	Temperature     string
+	ContainsPump    bool
 	SelectedProfile string
 }
 
