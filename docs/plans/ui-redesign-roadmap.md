@@ -547,6 +547,20 @@ after every legitimate native consumer has migrated.
   fallback; and capability-driven optional Display (`ef7335a6`, `09b7f6f1`,
   `c20dde8f`, `729aa3d7`). Its LCD path is automated-test validated but awaits
   supported physical LCD hardware.
+- [x] Add the Memory workspace foundation with truthful module/profile data and
+  modern Overview/Lighting navigation (`c493d650`).
+- [x] Migrate Memory to canonical per-DIMM Device Lighting with stable physical
+  `ChannelId` targets, parent-wide Brightness and ownership, independent effect
+  settings, and retained device-authored `led` selection (`9be90f03`).
+- [x] Add Memory's indexed per-LED editor over existing `RGBPerLed` state. The
+  editor supports zero or multi-selection, Set All, local draft editing, and one
+  complete persisted Save without making legacy `RGBOverride` authoritative
+  (`065beb93`).
+- [x] Add aggregate native Device Effect controls for Memory, Commander Core XT,
+  and Commander CORE (`aed0d672`). Uniform children report their real effect;
+  divergent children report presentation-only `Mixed`. Bulk mutations operate
+  on the existing canonical children and restart once. Memory excludes `led`
+  from aggregate choices while retaining it per DIMM.
 - [ ] Preserve each later family's protocol, packet, topology, lifecycle,
   firmware, device-specific lighting modes, and hardware-specific output
   behavior while repeating migration one family at a time.
@@ -569,10 +583,13 @@ after every legitimate native consumer has migrated.
   Performance providers to other already-native devices where their existing
   implementations expose the required current state, option inventory, and
   mutation methods. Do not treat code-derived support as hardware validation.
-- [ ] Treat memory as a separate upcoming family-specific migration target;
-  future native families still require individual audit and parity because their
-  channels, sensors, cooling, per-LED behavior, and other device-owned
-  capabilities differ materially from existing proofs.
+- [x] Complete Memory as a separate family-specific migration proof. Its
+  multi-DIMM topology, indexed per-LED `led` mode, parent ownership/Brightness,
+  and existing device profile semantics remain device-owned where appropriate
+  while canonical child lighting is authoritative (`c493d650`, `9be90f03`,
+  `065beb93`). Future native families still require individual audit and parity
+  because their channels, sensors, cooling, per-LED behavior, and other
+  capabilities may differ materially from existing proofs.
 - [ ] Keep legacy native pages available until the applicable modern workspace
   reaches control parity for that device family.
 
@@ -876,10 +893,12 @@ roadmap does not promise that every duplicate will be deleted.
 after OpenRGB parity.
 23. [~] Migrate native-device families one at a time without changing their
 hardware-specific output behavior. Scimitar Pro RGB, Scimitar RGB Elite, MM800,
-K95 Platinum, Commander Core XT, and Commander CORE are fully migrated to the
-canonical Device Lighting model and no longer participate in legacy `/rgb`
-lighting persistence or mutation paths. Remaining native families are still
-pending.
+K95 Platinum, Commander Core XT, Commander CORE, and Memory are fully migrated
+to the canonical Device Lighting model and no longer participate in legacy
+`/rgb` lighting persistence or mutation paths. Aggregate parent controls for
+Memory and both Commander Core families remain convenience mutations over
+existing canonical children rather than new parent effect state (`aed0d672`).
+Remaining native families are still pending.
 24. [x] Add the generic native authored-zone presentation and mutation contract
 for device-owned modes (`ce890f75`).
 25. [ ] Remove `/rgb`, global mutations, remaining target-local RGB copies,
@@ -917,7 +936,6 @@ Record any change and its reason in this document.
 - [!] Whether future renderer dispatch remains switch-based or uses registered
   function references
 - [!] Degree of native-device capability normalization
-- [!] Representation of indexed per-LED palettes in shared metadata
 - [!] Representation of liquid and probe sensors in future capability types
 - [!] Whether short-buffer visual warnings are useful or unnecessarily noisy
 

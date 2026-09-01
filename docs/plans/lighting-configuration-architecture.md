@@ -13,9 +13,9 @@ configuration. It covers:
 This is a deliberate clean break for alpha software. Compatibility with old
 lighting customization data is not required. OpenRGB-imported devices and RGB
 Cluster established the canonical model first. Scimitar Pro RGB, Scimitar RGB
-Elite, MM800, K95 Platinum, Commander Core XT, and Commander CORE now form the
-completed native migration proof set. Remaining native device families still migrate separately and only after their
-hardware-specific behavior and required controls are understood; they are not
+Elite, MM800, K95 Platinum, Commander Core XT, Commander CORE, and Memory now
+form the completed native migration proof set. Remaining native device families
+still migrate separately and only after their hardware-specific behavior and required controls are understood; they are not
 part of one broad migration milestone.
 
 The architecture describes the intended final system. Current global RGB
@@ -27,7 +27,7 @@ features to reproduce under new names.
 
 Scimitar Pro RGB established the first native package on the shared canonical
 independent-device lighting runtime. Scimitar RGB Elite, MM800, K95 Platinum,
-Commander Core XT, and Commander CORE are separate package proofs of the
+Commander Core XT, Commander CORE, and Memory are separate package proofs of the
 canonical Device Lighting model while retaining their own device-specific
 hardware boundaries.
 
@@ -74,6 +74,24 @@ such non-canonical case. Device-specific sensor effects such as
 `probe-temperature` and `liquid-temperature` remain device-owned capabilities
 even where their setting controls use shared presentation.
 
+Memory uses the same aggregate-parent pattern with physical DIMMs as stable
+canonical children. Each DIMM target is keyed by physical `ChannelId` and uses
+`<serial>-rgb-<ChannelId>` identity. Parent Brightness and Native/OpenRGB/Cluster
+ownership remain device-wide. The device-authored `led` mode is intentionally
+not fabricated as generic `EffectSettings`: its existing indexed `RGBPerLed`
+palette remains device-owned and is edited through a canonical per-DIMM indexed
+presentation/mutation surface that validates and persists one complete palette.
+Legacy `RGBOverride` is not authoritative for those canonical DIMMs.
+
+Aggregate native parents may expose a presentation-only Device Effect convenience
+control over their existing canonical children. Uniform children report the real
+shared effect; divergent children report `Mixed`. `Mixed` is never a supported,
+persisted, or renderer-resolved effect. Selecting a real aggregate effect
+validates it for every participating child, updates the existing child targets,
+persists once, and restarts once. Memory excludes per-DIMM-only `led` from this
+aggregate catalogue. Commander Core XT and Commander CORE use the same
+convenience model without creating parent effect state.
+
 Pump/AIO RGB, Cooling, and optional LCD are independent capabilities. Optional
 Display presentation is outside generic Lighting state; Commander CORE exposes
 it only when `HasLCD` is available.
@@ -105,12 +123,14 @@ Device-owned indicators may still use the applicable effective native
 Brightness contract.
 
 The reusable native Device Lighting mutation contract handles effect,
-Brightness, Speed, supported palette settings, selected-effect Reset, and
-authored-zone mutations without routing native devices through
-`/api/openrgbimport/*`.
+Brightness, Speed, supported palette settings, selected-effect Reset,
+authored-zone mutations, optional indexed-color palettes, and optional aggregate
+child-effect mutations without routing native devices through
+`/api/openrgbimport/*`. Aggregate and indexed capabilities are opt-in; devices
+that do not implement them are unaffected.
 
 Scimitar Pro RGB, Scimitar RGB Elite, MM800, K95 Platinum, Commander Core XT,
-and Commander CORE no longer retain
+Commander CORE, and Memory no longer retain
 legacy `/rgb` lighting persistence or mutation compatibility. Their canonical
 selected effect, desired Brightness, generic effect customization, authored-zone
 or keyboard-owned state, and modern Devices presentation remain authoritative.
@@ -326,13 +346,24 @@ No empty palette section or explanatory "generated palette" message is shown.
 
 ## 8. Final page structure
 
-Device Lighting and RGB Cluster use the same conceptual order:
+Single-target Device Lighting and RGB Cluster use the same conceptual order:
 
-1. Effect
+1. Device Effect / Effect
 2. Brightness
 3. Speed, when supported
 4. Applicable color, temperature, or Gradient controls
 5. Reset selected effect to defaults, only when customized
+
+Aggregate native Device Lighting keeps parent-wide controls above child controls:
+
+1. Device Effect — a convenience control over existing canonical children;
+2. parent Brightness;
+3. Individual Effects — each child retains its own Effect selector/settings;
+4. device-specific topology controls, when applicable;
+5. Lighting ownership.
+
+If aggregate children differ, Device Effect displays presentation-only `Mixed`.
+The effect icon follows the displayed real effect or the dedicated Mixed icon.
 
 The final UI removes:
 
@@ -668,8 +699,8 @@ not promise immediate deletion of shared native-device infrastructure.
 The standalone RGB editor now serves only native-device families that have not
 yet completed canonical Device Lighting migration. OpenRGB-imported devices,
 RGB Cluster, Scimitar Pro RGB, Scimitar RGB Elite, MM800, K95 Platinum, Commander
-Core XT, and Commander CORE no
-longer depend on it for lighting configuration. Therefore:
+Core XT, Commander CORE, and Memory no longer depend on it for lighting
+configuration. Therefore:
 
 - OpenRGB has cut over independently;
 - RGB Cluster has cut over independently;
@@ -725,6 +756,10 @@ The intended mutation categories are conceptually:
 - set Gradient data;
 - mutate validated device-authored zones when the selected native mode exposes
   authored-zone controls;
+- replace a validated complete indexed palette when a device-authored mode owns
+  per-LED state;
+- apply one validated real effect across existing canonical children when an
+  aggregate native parent exposes that convenience;
 - reset customization.
 
 Exact route names are intentionally not frozen as a permanent external API
@@ -799,7 +834,12 @@ Speed or another genuine renderer-consumed setting.
     lighting behavior and presentation. `DeviceProfile` retains only profile
     metadata and RGB Cluster membership; membership persistence is intentionally
     left for a later redesign.
-17. Migrate native target families separately.
+17. Migrate native target families separately. Memory completed its workspace
+    foundation, canonical per-DIMM lighting, and indexed `led` editor in
+    `c493d650`, `9be90f03`, and `065beb93`. Aggregate Device Effect convenience
+    controls for Memory, Commander Core XT, and Commander CORE were completed in
+    `aed0d672`; `Mixed` remains presentation-only and no parent effect state was
+    introduced.
 18. Remove `/rgb` after every remaining consumer has parity.
 19. Remove global mutations, target-local RGB copies, remaining override
     infrastructure, duplicate capability adapters, and obsolete CSS and

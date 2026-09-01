@@ -69,9 +69,9 @@ with the global system.
 
 ### Completed native migration proofs
 
-`scimitarprorgb`, `scimitarrgbelite`, `mm800`, `k95platinum`, `ccxt`, and `cc` are now
-tracked as **Migrated**. Canonical Device Lighting is authoritative and these
-packages no longer participate in retained legacy `/rgb` lighting persistence
+`scimitarprorgb`, `scimitarrgbelite`, `mm800`, `k95platinum`, `ccxt`, `cc`, and
+`memory` are now tracked as **Migrated**. Canonical Device Lighting is
+authoritative and these packages no longer participate in retained legacy `/rgb` lighting persistence
 or mutation paths.
 
 Completed shared native work includes:
@@ -129,6 +129,23 @@ Available Commander Core XT and Commander CORE controller, cooling, and lighting
 paths received hardware/browser validation. Commander CORE's optional LCD
 Display path has automated backend/frontend coverage but was not physically
 LCD-validated because no supported LCD-equipped AIO was available.
+
+Memory establishes the separate multi-DIMM + indexed-per-LED proof. Each
+physical DIMM is a stable canonical child keyed by its physical `ChannelId`,
+with target IDs of `<serial>-rgb-<ChannelId>`. Parent Brightness and Native,
+OpenRGB, or RGB Cluster ownership remain device-wide, while each DIMM owns its
+selected effect and generic effect settings. The device-authored `led` mode
+retains Memory's existing indexed `RGBPerLed` state and is edited through the
+modern per-DIMM LED editor with local draft selection, multi-select, Set All,
+and one explicit full-palette Save. Legacy `RGBOverride` data is not
+canonical-authoritative for migrated DIMMs.
+
+Memory, Commander Core XT, and Commander CORE also expose an aggregate
+presentation-only Device Effect control above parent Brightness. A real effect
+selected there is validated and applied across existing canonical children;
+when child selections differ, the UI reports `Mixed` with a dedicated icon.
+`Mixed` is not a persisted or renderer-resolved effect. Memory excludes its
+per-DIMM-only `led` mode from aggregate choices.
 
 For authored-zone modes, desired colors remain device-owned state rather than
 generic `EffectSettings`. Mutations validate the complete selection before
@@ -260,7 +277,7 @@ Generated as a read-only architecture inventory. This does not declare migration
 | `m75WU` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  | mouse |
 | `makr75W` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
 | `makr75WU` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
-| `memory` | Y | Legacy | multi-channel + per-LED | Y | Y | Y |  | Y | Y | Y | led |
+| `memory` | Y | Migrated | multi-channel + per-LED |  | Y | Y |  | Y | Y | Y | led |
 | `mm700` | Y | Legacy | single-profile | Y | Y |  |  |  | Y | Y | mousepad |
 | `mm800` | Y | Migrated | single-profile |  | Y |  |  |  | Y | Y | mousepad |
 | `motherboard` |  | Not a lighting target | weak-marker only |  |  |  |  |  |  |  |  |
