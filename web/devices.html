@@ -197,10 +197,10 @@
 	                                {{ with .BulkEffectControl }}
 	                                    <section class="lf-lighting-primary lf-lighting-aggregate-primary">
 	                                    <div class="lf-lighting-effect-stage">
+	                                        <strong class="lf-lighting-effect-name lf-lighting-device-effect-name">Device Effect</strong>
 	                                        <div class="lf-lighting-effect-identity">
 	                                            {{ template "lf-lighting-effect-icon" . }}
 	                                            <div class="lf-lighting-effect-control">
-	                                                <strong class="lf-lighting-effect-name lf-lighting-device-effect-name">Device Effect</strong>
 	                                                <label class="lf-lighting-label" for="lf-lighting-all-effects"><span class="lf-visually-hidden">Set all lighting effects</span></label>
 	                                                <select class="lf-lighting-effect-selector" id="lf-lighting-all-effects" data-lf-effect-selector data-lf-bulk-effect-control="true" data-lf-device-serial="{{ $.Device.Serial }}" data-lf-lighting-target="native" data-lf-current-effect="{{ .ConfiguredEffect }}" data-lf-cluster-controlled="{{ $.Device.Lighting.ClusterControlled }}" data-lf-external-controlled="{{ $.Device.Lighting.ExternalControlled }}" data-lf-status-id="lf-lighting-all-effects-status" aria-describedby="lf-lighting-all-effects-status" {{ if or $.Device.Lighting.ClusterControlled $.Device.Lighting.ExternalControlled $.Device.Lighting.ReadOnly }}disabled{{ end }}>
 	                                                    {{ if .Mixed }}<option value="" selected disabled>Mixed</option>{{ end }}
@@ -259,13 +259,13 @@
                                             <div class="lf-lighting-owner-banner" role="status"><span aria-hidden="true">⌁</span><strong>OpenRGB controls this device</strong></div>
                                         {{ end }}
 
-                                        <div class="lf-lighting-effect-stage">
-                                            <div class="lf-lighting-effect-identity">
-                                                {{ if .ConfiguredEffect }}{{ template "lf-lighting-effect-icon" . }}{{ end }}
-                                                <div class="lf-lighting-effect-control">
-                                                    {{ if .SupportedEffects }}
-	                                                        <strong class="lf-lighting-effect-name lf-lighting-device-effect-name">Device Effect</strong>
-                                                        <label class="lf-lighting-label" for="lf-lighting-effect-selector"><span class="lf-visually-hidden">Lighting effect</span></label>
+	                                        <div class="lf-lighting-effect-stage">
+	                                            {{ if .SupportedEffects }}<strong class="lf-lighting-effect-name lf-lighting-device-effect-name">Device Effect</strong>{{ end }}
+	                                            <div class="lf-lighting-effect-identity">
+	                                                {{ if .ConfiguredEffect }}{{ template "lf-lighting-effect-icon" . }}{{ end }}
+	                                                <div class="lf-lighting-effect-control">
+	                                                    {{ if .SupportedEffects }}
+	                                                        <label class="lf-lighting-label" for="lf-lighting-effect-selector"><span class="lf-visually-hidden">Lighting effect</span></label>
                                                         <select
                                                         class="lf-lighting-effect-selector"
                                                         id="lf-lighting-effect-selector"

@@ -1280,6 +1280,8 @@
 }
 
 .lf-app-shell .lf-lighting-effect-name.lf-lighting-device-effect-name {
+    display: block;
+    margin: 0 0 18px;
     font-size: 22px;
     font-weight: 720;
     letter-spacing: -0.02em;
