@@ -39,6 +39,7 @@
         effect: "/api/devices/lighting/effect",
         brightness: "/api/devices/lighting/brightness",
         speed: "/api/devices/lighting/speed",
+        indexedColors: "/api/devices/lighting/indexed-colors",
         color: "/api/devices/lighting/single-color",
         twoColor: "/api/devices/lighting/two-color",
         temperature: "/api/devices/lighting/temperature",
@@ -382,6 +383,7 @@
             "[data-lf-speed-slider]",
             "[data-lf-color-input]",
             "[data-lf-color-hex]",
+            "[data-lf-indexed-editor] input, [data-lf-indexed-editor] button",
             "[data-lf-two-color-control] input",
 			"[data-lf-temperature-control] input",
 			"[data-lf-gradient-control] input, [data-lf-gradient-control] button",
@@ -469,6 +471,10 @@
     function submitColorForTarget(browser, target, effect, color) {
         return submitLightingMutation(browser, target.endpoints.color, lightingPayload(target, {effect: effect, color: color}),
             colorTimeoutMilliseconds, "color request failed", "color mutation was rejected");
+    }
+
+    function submitIndexedColorsForTarget(browser, target, colors) {
+        return submitLightingMutation(browser, target.endpoints.indexedColors, lightingPayload(target, {colors: colors}), colorTimeoutMilliseconds, "indexed colors request failed", "indexed colors mutation was rejected");
     }
 
     async function submitColor(browser, serial, effect, color) {
@@ -1056,6 +1062,129 @@
             }
         });
         return commit;
+    }
+
+    function bindIndexedColorEditor(browser, container) {
+        const selectorButtons = Array.from(container.querySelectorAll("[data-lf-indexed-led]"));
+        const picker = container.querySelector("[data-lf-indexed-picker]");
+        const hex = container.querySelector("[data-lf-indexed-hex]");
+        const applyAllButton = container.querySelector("[data-lf-indexed-apply-all]");
+        const saveButton = container.querySelector("[data-lf-indexed-save]");
+        const cancelButton = container.querySelector("[data-lf-indexed-cancel]");
+        const activeLabel = container.querySelector("[data-lf-indexed-active-label]");
+        const status = container.querySelector("[data-lf-indexed-status]");
+        if (!picker || !hex || !applyAllButton || !saveButton || !cancelButton || !activeLabel || !status || selectorButtons.length === 0) return null;
+        const normalize = function (value) { return /^#[0-9a-fA-F]{6}$/.test(value) ? value.toLowerCase() : null; };
+        const indexes = selectorButtons.map(function (button) { return Number(button.dataset.lfIndex); });
+        let confirmedColors = selectorButtons.map(function (button) { return normalize(button.dataset.lfCurrentColor || ""); });
+        if (indexes.some(function (index, position) { return !Number.isInteger(index) || index !== position; }) || confirmedColors.some(function (color) { return color === null; })) return null;
+        confirmedColors = confirmedColors.slice();
+        let draftColors = confirmedColors.slice();
+        let selectedIndexes = new Set();
+        let referenceIndex = null;
+        let currentColor = confirmedColors[0];
+        let requestInFlight = false;
+        const target = lightingTarget(container);
+        const setStatus = createStatusController(browser, status, colorSuccessMilliseconds);
+
+        function dirty() { return draftColors.some(function (color, index) { return color !== confirmedColors[index]; }); }
+        function setEditorDirty() {
+            if (typeof container.closest !== "function") return;
+            const editor = container.closest("[data-lf-channel-editor]");
+            if (editor) editor.dataset.lfEditorDirty = dirty() ? "true" : "false";
+        }
+        function render() {
+            picker.value = currentColor;
+            hex.value = currentColor;
+            const selected = Array.from(selectedIndexes).sort(function (left, right) { return left - right; }).map(function (index) { return index + 1; });
+            activeLabel.textContent = selected.length === 0 ? "Selected: None" : "Selected: " + selected.join(", ");
+            selectorButtons.forEach(function (button, index) {
+                const selected = selectedIndexes.has(index);
+                button.style.backgroundColor = draftColors[index];
+                button.setAttribute("aria-pressed", String(selected));
+                button.setAttribute("aria-selected", String(selected));
+                if (button.classList) button.classList.toggle("lf-indexed-led-selected", selected);
+            });
+            const isDirty = dirty();
+            saveButton.disabled = requestInFlight || !isDirty;
+            cancelButton.disabled = requestInFlight || !isDirty;
+            setEditorDirty();
+        }
+        function setSaving(saving) {
+            requestInFlight = saving;
+            for (const control of selectorButtons.concat([picker, hex, applyAllButton, saveButton, cancelButton])) control.disabled = saving;
+            if (!saving) render();
+        }
+        function updateDraft(value, revertInvalid) {
+            const color = normalize(value);
+            if (color === null) {
+                if (revertInvalid) render();
+                return;
+            }
+            if (requestInFlight) return;
+            currentColor = color;
+            for (const index of selectedIndexes) draftColors[index] = color;
+            render();
+        }
+        function applyAll() {
+            if (requestInFlight) return;
+            const color = normalize(picker.value);
+            if (color === null) return;
+            currentColor = color;
+            draftColors = draftColors.map(function () { return color; });
+            render();
+        }
+        async function save() {
+            if (requestInFlight || !dirty()) return;
+            setSaving(true);
+            setStatus("Saving LED colors…", false);
+            try {
+                await submitIndexedColorsForTarget(browser, target, draftColors.map(function (color, index) { return {index: index, color: color}; }));
+                confirmedColors = draftColors.slice();
+                selectorButtons.forEach(function (button, index) { button.dataset.lfCurrentColor = confirmedColors[index]; });
+                setStatus("LED colors saved.", true);
+            } catch (_) {
+                setStatus("Unable to save LED colors. Try again.", false);
+            }
+            setSaving(false);
+        }
+        function cancel() {
+            if (requestInFlight || !dirty()) return;
+            draftColors = confirmedColors.slice();
+            if (referenceIndex !== null && selectedIndexes.has(referenceIndex)) currentColor = draftColors[referenceIndex];
+            render();
+            setStatus("", false);
+        }
+        if (lightingExternallyOwned(container)) {
+            for (const control of selectorButtons.concat([picker, hex, applyAllButton, saveButton, cancelButton])) control.disabled = true;
+            return null;
+        }
+        for (const button of selectorButtons) button.addEventListener("click", function () {
+            if (requestInFlight) return;
+            const index = Number(button.dataset.lfIndex);
+            if (selectedIndexes.has(index)) {
+                selectedIndexes.delete(index);
+                if (referenceIndex === index) {
+                    referenceIndex = selectedIndexes.size > 0 ? Array.from(selectedIndexes).pop() : null;
+                    if (referenceIndex !== null) currentColor = draftColors[referenceIndex];
+                }
+            } else {
+                selectedIndexes.add(index);
+                referenceIndex = index;
+                currentColor = draftColors[index];
+            }
+            render();
+        });
+        picker.addEventListener("input", function (event) { updateDraft(event && event.currentTarget ? event.currentTarget.value : picker.value); });
+        picker.addEventListener("change", function (event) { updateDraft(event && event.currentTarget ? event.currentTarget.value : picker.value, true); });
+        hex.addEventListener("input", function () { updateDraft(hex.value); });
+        hex.addEventListener("change", function () { updateDraft(hex.value, true); });
+        hex.addEventListener("keydown", function (event) { if (event.key === "Enter") { event.preventDefault(); save(); } });
+        applyAllButton.addEventListener("click", applyAll);
+        saveButton.addEventListener("click", save);
+        cancelButton.addEventListener("click", cancel);
+        render();
+        return {save: save, cancel: cancel, state: function () { return {confirmedColors: confirmedColors.slice(), draftColors: draftColors.slice(), selectedIndexes: Array.from(selectedIndexes).sort(function (left, right) { return left - right; }), referenceIndex: referenceIndex, currentColor: currentColor}; }};
     }
 
     function bindTwoColorControl(browser, container) {
@@ -1879,6 +2008,10 @@
                 bindColorControl(browser, input);
             }
         }
+        const indexedEditors = browser.document.querySelectorAll("[data-lf-indexed-editor]");
+        for (const editor of indexedEditors) {
+            if (!isReadOnly(editor)) bindIndexedColorEditor(browser, editor);
+        }
         const twoColorControls = browser.document.querySelectorAll("[data-lf-two-color-control]");
         for (const control of twoColorControls) {
             if (!isReadOnly(control)) {
@@ -1935,6 +2068,7 @@
         bindEffectSelector,
         bindSpeedSlider,
         bindColorControl,
+        bindIndexedColorEditor,
         bindTwoColorControl,
         bindTemperatureControl,
         bindGradientControl,

@@ -292,9 +292,15 @@ func (d *Device) GetRgbProfiles() interface{} {
 
 // getLedProfileColor will get RGB color based on channelId and ledId
 func (d *Device) getLedProfileColor(channelId, deviceIndex int) map[int]rgb.Color {
+	d.deviceLock.Lock()
+	defer d.deviceLock.Unlock()
 	if ledChannel, ok := d.DeviceProfile.RGBPerLed[channelId]; ok {
 		if ledIndex, found := ledChannel[deviceIndex]; found {
-			return ledIndex
+			colors := make(map[int]rgb.Color, len(ledIndex))
+			for index, color := range ledIndex {
+				colors[index] = color
+			}
+			return colors
 		}
 	}
 	return nil

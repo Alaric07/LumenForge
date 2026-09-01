@@ -151,6 +151,14 @@ type nativeDeviceLightingChannelSettingsTarget interface {
 	ResetLightingChannelEffectSettings(string, string) error
 }
 
+type nativeDeviceLightingIndexedColorTarget interface {
+	SetLightingIndexedColor(string, int, lightingsettings.Color) error
+}
+
+type nativeDeviceLightingIndexedColorsTarget interface {
+	SetLightingIndexedColors(string, []lightingsettings.IndexedColor) error
+}
+
 type nativeDeviceAuthoredZoneLightingTarget interface {
 	nativeDeviceLightingTarget
 	SetLightingZoneColor(string, string, string, string, rgb.Color) error
@@ -2454,7 +2462,13 @@ type devicesLightingWorkspaceSummary struct {
 	AuthoredZoneEditor      *devicesLightingAuthoredZoneEditorSummary
 	ThreePinPort            *devicesLightingThreePinPortSummary
 	ManualRGBPorts          []devicesLightingManualRGBPortSummary
+	IndexedColors           []devicesLightingIndexedColorSummary
 	Channels                []devicesLightingChannelSummary
+}
+
+type devicesLightingIndexedColorSummary struct {
+	Index           int
+	Label, ColorHex string
 }
 
 type devicesLightingManualRGBPortSummary struct {
@@ -3107,6 +3121,12 @@ func devicesLightingWorkspaceSummaryFromSnapshot(snapshot lightingpresentation.S
 				Number: index + 1, Position: strconv.FormatFloat(stop.Position, 'f', -1, 64),
 				ColorHex: stop.ColorHex, Intensity: strconv.FormatFloat(stop.Intensity, 'f', -1, 64),
 			}
+		}
+	}
+	if len(snapshot.IndexedColors) > 0 {
+		summary.IndexedColors = make([]devicesLightingIndexedColorSummary, len(snapshot.IndexedColors))
+		for index, color := range snapshot.IndexedColors {
+			summary.IndexedColors[index] = devicesLightingIndexedColorSummary{Index: color.Index, Label: color.Label, ColorHex: color.ColorHex}
 		}
 	}
 	if editor := snapshot.AuthoredZoneEditor; editor != nil {
@@ -4046,6 +4066,65 @@ func saveDevicesDPIWorkspace(w http.ResponseWriter, r *http.Request) {
 	(&Response{Code: http.StatusOK, Status: 1, Message: "DPI settings saved"}).Send(w)
 }
 
+func setNativeDeviceLightingIndexedColor(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Serial, TargetID, Color *string
+		Index                   *int `json:"index"`
+	}
+	if !decodeNativeDeviceLightingRequest(w, r, &req) {
+		return
+	}
+	if req.Serial == nil || req.TargetID == nil || req.Index == nil || req.Color == nil || *req.Serial == "" || *req.TargetID == "" {
+		nativeDeviceLightingFailure(w, "Invalid indexed color request")
+		return
+	}
+	color, colorErr := parseHexColor(*req.Color)
+	target, targetErr := getNativeDeviceLightingTarget(*req.Serial)
+	indexed, ok := target.(nativeDeviceLightingIndexedColorTarget)
+	if colorErr != nil || targetErr != nil || !ok || indexed.SetLightingIndexedColor(*req.TargetID, *req.Index, color) != nil {
+		nativeDeviceLightingFailure(w, "Invalid indexed color request")
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Indexed color set"}).Send(w)
+}
+
+func setNativeDeviceLightingIndexedColors(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Serial   *string `json:"serial"`
+		TargetID *string `json:"targetId"`
+		Colors   *[]struct {
+			Index *int    `json:"index"`
+			Color *string `json:"color"`
+		} `json:"colors"`
+	}
+	if !decodeNativeDeviceLightingRequest(w, r, &req) {
+		return
+	}
+	if req.Serial == nil || req.TargetID == nil || req.Colors == nil || *req.Serial == "" || *req.TargetID == "" {
+		nativeDeviceLightingFailure(w, "Invalid indexed colors request")
+		return
+	}
+	colors := make([]lightingsettings.IndexedColor, len(*req.Colors))
+	for i, color := range *req.Colors {
+		if color.Index == nil || color.Color == nil {
+			nativeDeviceLightingFailure(w, "Invalid indexed colors request")
+			return
+		}
+		if _, err := parseHexColor(*color.Color); err != nil {
+			nativeDeviceLightingFailure(w, "Invalid indexed colors request")
+			return
+		}
+		colors[i] = lightingsettings.IndexedColor{Index: *color.Index, ColorHex: *color.Color}
+	}
+	target, targetErr := getNativeDeviceLightingTarget(*req.Serial)
+	indexed, ok := target.(nativeDeviceLightingIndexedColorsTarget)
+	if targetErr != nil || !ok || indexed.SetLightingIndexedColors(*req.TargetID, colors) != nil {
+		nativeDeviceLightingFailure(w, "Invalid indexed colors request")
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Indexed colors set"}).Send(w)
+}
+
 func setNativeDeviceLightingEffect(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Serial   *string `json:"serial"`
@@ -4896,6 +4975,8 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/openrgbimport/effect", http.MethodPost, setOpenRGBImportEffect)
 	handleFunc(r, "/api/openrgbimport/brightness", http.MethodPost, setOpenRGBImportBrightness)
 	handleFunc(r, "/api/devices/lighting/effect", http.MethodPost, setNativeDeviceLightingEffect)
+	handleFunc(r, "/api/devices/lighting/indexed-color", http.MethodPost, setNativeDeviceLightingIndexedColor)
+	handleFunc(r, "/api/devices/lighting/indexed-colors", http.MethodPost, setNativeDeviceLightingIndexedColors)
 	handleFunc(r, "/api/devices/lighting/brightness", http.MethodPost, setNativeDeviceLightingBrightness)
 	handleFunc(r, "/api/devices/lighting/speed", http.MethodPost, setNativeDeviceLightingSpeed)
 	handleFunc(r, "/api/devices/lighting/single-color", http.MethodPost, setNativeDeviceLightingSingleColor)

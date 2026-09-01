@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 
 	"LumenForge/src/config"
 	"LumenForge/src/lightingpresentation"
@@ -223,6 +224,17 @@ func (d *Device) LightingSnapshot() (lightingpresentation.Snapshot, bool) {
 		if err := d.populateCanonicalChannelSnapshot(&child, channel.ChannelId, effect); err != nil {
 			return lightingpresentation.Snapshot{}, false
 		}
+		if effect == "led" {
+			child.IndexedColors = make([]lightingpresentation.IndexedColor, int(channel.LedChannels))
+			colors := d.getLedProfileColor(channel.ChannelId, 0)
+			for index := range child.IndexedColors {
+				color := rgb.Color{}
+				if colors != nil {
+					color = colors[index]
+				}
+				child.IndexedColors[index] = lightingpresentation.IndexedColor{Index: index, Label: fmt.Sprintf("LED %d", index+1), ColorHex: fmt.Sprintf("#%02x%02x%02x", uint8(color.Red), uint8(color.Green), uint8(color.Blue))}
+			}
+		}
 		channelSnapshot := lightingpresentation.Channel{TargetID: d.canonicalChannelTargetID(channel.ChannelId), ChannelID: strconv.Itoa(channel.ChannelId), Name: channel.Name, Label: channel.Label, LEDCount: int(channel.LedChannels), Lighting: child}
 		snapshot.Channels = append(snapshot.Channels, channelSnapshot)
 	}
@@ -315,6 +327,82 @@ func (d *Device) SetLightingChannelEffect(targetID, effect string) error {
 		return nil
 	}
 	return fmt.Errorf("lighting channel is unavailable")
+}
+
+func (d *Device) SetLightingIndexedColor(targetID string, index int, color lightingsettings.Color) error {
+	if d == nil || d.DeviceProfile == nil || d.DeviceProfile.RGBCluster || d.DeviceProfile.OpenRGBIntegration {
+		return fmt.Errorf("lighting is externally owned")
+	}
+	for _, channel := range d.Devices {
+		if !d.canonicalChannel(channel) || d.canonicalChannelTargetID(channel.ChannelId) != targetID {
+			continue
+		}
+		effect, err := d.channelSelectedEffect(channel.ChannelId)
+		if err != nil || effect != "led" || index < 0 || index >= int(channel.LedChannels) {
+			return fmt.Errorf("indexed lighting color is unavailable")
+		}
+		d.deviceLock.Lock()
+		if d.DeviceProfile.RGBPerLed == nil {
+			d.DeviceProfile.RGBPerLed = make(map[int]map[int]map[int]rgb.Color)
+		}
+		if d.DeviceProfile.RGBPerLed[channel.ChannelId] == nil {
+			d.DeviceProfile.RGBPerLed[channel.ChannelId] = make(map[int]map[int]rgb.Color)
+		}
+		if colors := d.DeviceProfile.RGBPerLed[channel.ChannelId][0]; colors == nil || len(colors) != int(channel.LedChannels) {
+			d.DeviceProfile.RGBPerLed[channel.ChannelId][0] = d.generateLedObject(channel.LedChannels)
+		}
+		d.DeviceProfile.RGBPerLed[channel.ChannelId][0][index] = rgb.Color{Red: color.Red, Green: color.Green, Blue: color.Blue, Hex: fmt.Sprintf("#%02x%02x%02x", uint8(color.Red), uint8(color.Green), uint8(color.Blue))}
+		d.deviceLock.Unlock()
+		d.saveDeviceProfile()
+		d.restartCanonicalChannelLighting()
+		return nil
+	}
+	return fmt.Errorf("indexed lighting target is unavailable")
+}
+
+func (d *Device) SetLightingIndexedColors(targetID string, colors []lightingsettings.IndexedColor) error {
+	if d == nil || d.DeviceProfile == nil || d.DeviceProfile.RGBCluster || d.DeviceProfile.OpenRGBIntegration {
+		return fmt.Errorf("lighting is externally owned")
+	}
+	for _, channel := range d.Devices {
+		if !d.canonicalChannel(channel) || d.canonicalChannelTargetID(channel.ChannelId) != targetID {
+			continue
+		}
+		effect, err := d.channelSelectedEffect(channel.ChannelId)
+		if err != nil || effect != "led" || len(colors) != int(channel.LedChannels) {
+			return fmt.Errorf("indexed lighting colors are unavailable")
+		}
+		next := make(map[int]rgb.Color, len(colors))
+		for _, item := range colors {
+			if item.Index < 0 || item.Index >= int(channel.LedChannels) || len(item.ColorHex) != 7 || item.ColorHex[0] != '#' {
+				return fmt.Errorf("indexed lighting colors are invalid")
+			}
+			value, parseErr := strconv.ParseUint(item.ColorHex[1:], 16, 32)
+			if parseErr != nil || !strings.EqualFold(fmt.Sprintf("#%06x", value), item.ColorHex) {
+				return fmt.Errorf("indexed lighting colors are invalid")
+			}
+			if _, duplicate := next[item.Index]; duplicate {
+				return fmt.Errorf("indexed lighting colors are invalid")
+			}
+			next[item.Index] = rgb.Color{Red: float64(uint8(value >> 16)), Green: float64(uint8(value >> 8)), Blue: float64(uint8(value)), Hex: item.ColorHex}
+		}
+		if len(next) != int(channel.LedChannels) {
+			return fmt.Errorf("indexed lighting colors are invalid")
+		}
+		d.deviceLock.Lock()
+		if d.DeviceProfile.RGBPerLed == nil {
+			d.DeviceProfile.RGBPerLed = make(map[int]map[int]map[int]rgb.Color)
+		}
+		if d.DeviceProfile.RGBPerLed[channel.ChannelId] == nil {
+			d.DeviceProfile.RGBPerLed[channel.ChannelId] = make(map[int]map[int]rgb.Color)
+		}
+		d.DeviceProfile.RGBPerLed[channel.ChannelId][0] = next
+		d.deviceLock.Unlock()
+		d.saveDeviceProfile()
+		d.restartCanonicalChannelLighting()
+		return nil
+	}
+	return fmt.Errorf("indexed lighting target is unavailable")
 }
 
 func (d *Device) restartCanonicalChannelLighting() {

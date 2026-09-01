@@ -34,6 +34,12 @@ type Color struct {
 	Blue  float64 `json:"blue"`
 }
 
+// IndexedColor is one requested color in a complete indexed LED palette.
+type IndexedColor struct {
+	Index    int
+	ColorHex string
+}
+
 // UnmarshalJSON distinguishes a complete black color from an incomplete
 // persisted color whose zero-valued channels were merely omitted.
 func (color *Color) UnmarshalJSON(data []byte) error {

@@ -26,6 +26,8 @@ type authoredZoneTarget struct {
 	calls                          int
 	err                            error
 	channelTargetID, channelEffect string
+	indexedColors                  []lightingsettings.IndexedColor
+	indexedErr                     error
 }
 
 func (t *authoredZoneTarget) LightingDeviceID() string { return t.id }
@@ -47,6 +49,14 @@ func (t *authoredZoneTarget) SetLightingChannelEffect(targetID, effect string) e
 		return errors.New("unknown channel target")
 	}
 	return nil
+}
+
+func (t *authoredZoneTarget) SetLightingIndexedColors(targetID string, colors []lightingsettings.IndexedColor) error {
+	if targetID != authoredZoneTestSerial+"-rgb-0" {
+		return errors.New("unknown channel target")
+	}
+	t.indexedColors = append([]lightingsettings.IndexedColor(nil), colors...)
+	return t.indexedErr
 }
 func (t *authoredZoneTarget) SetLightingZoneColor(effect, scope, zoneID, groupID string, color rgb.Color) error {
 	t.calls++
@@ -182,6 +192,27 @@ func TestNativeAuthoredZoneLightingMutation(t *testing.T) {
 			t.Fatalf("response = %#v", response)
 		}
 	})
+}
+
+func TestNativeLightingIndexedColorsMutation(t *testing.T) {
+	target := &authoredZoneTarget{id: authoredZoneTestSerial, supported: true}
+	installAuthoredZoneTarget(t, target, nil)
+	router := setRoutes()
+	response := requireLightingMutationResponse(t, requestOpenRGBLightingMutation(t, router, http.MethodPost, "/api/devices/lighting/indexed-colors", `{"serial":"authored-zone-device","targetId":"authored-zone-device-rgb-0","colors":[{"index":0,"color":"#010203"},{"index":1,"color":"#aabbcc"}]}`), 1)
+	if response.Status != 1 || len(target.indexedColors) != 2 || target.indexedColors[1].Index != 1 || target.indexedColors[1].ColorHex != "#aabbcc" {
+		t.Fatalf("response = %#v, colors = %#v", response, target.indexedColors)
+	}
+	for _, body := range []string{
+		`{"serial":"authored-zone-device","targetId":"authored-zone-device-rgb-0","colors":[{"index":0,"color":"blue"}]}`,
+		`{"serial":"authored-zone-device","targetId":"authored-zone-device-rgb-0","colors":[{"color":"#010203"}]}`,
+		`{"serial":"authored-zone-device","targetId":"authored-zone-device-rgb-0"}`,
+	} {
+		target.indexedColors = nil
+		response = requireLightingMutationResponse(t, requestOpenRGBLightingMutation(t, router, http.MethodPost, "/api/devices/lighting/indexed-colors", body), 0)
+		if len(target.indexedColors) != 0 {
+			t.Fatalf("invalid request delegated colors: %#v", target.indexedColors)
+		}
+	}
 }
 
 func TestNativeAuthoredZoneLightingTargetLookupRejectsUnavailableAndMismatchedTargets(t *testing.T) {

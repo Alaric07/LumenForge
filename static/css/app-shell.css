@@ -1688,6 +1688,71 @@
     background: color-mix(in srgb, var(--lf-panel-secondary) 92%, transparent);
 }
 
+.lf-app-shell .lf-indexed-led-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.lf-app-shell .lf-indexed-led-swatch {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0;
+    border: 2px solid var(--lf-border-emphasized);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.lf-app-shell .lf-indexed-led-swatch:hover {
+    border-color: var(--lf-text-primary);
+    transform: translateY(-1px);
+}
+
+.lf-app-shell .lf-indexed-led-swatch.lf-indexed-led-selected,
+.lf-app-shell .lf-indexed-led-swatch[aria-selected="true"] {
+    border-color: var(--lf-accent-highlight);
+    outline: 3px solid var(--lf-focus-ring);
+    outline-offset: 2px;
+}
+
+.lf-app-shell .lf-indexed-led-swatch:focus-visible {
+    outline: 3px solid var(--lf-focus-ring);
+    outline-offset: 3px;
+}
+
+.lf-app-shell .lf-indexed-led-swatch:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.lf-app-shell .lf-indexed-led-fields,
+.lf-app-shell .lf-indexed-led-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.lf-app-shell .lf-indexed-led-fields > p {
+    width: 100%;
+    margin: 0;
+    color: var(--lf-text-primary);
+    font-weight: 720;
+}
+
+.lf-app-shell .lf-indexed-led-fields label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.lf-app-shell .lf-indexed-led-actions {
+    margin-top: 14px;
+}
+
 .lf-app-shell .lf-authored-zone-list {
     display: flex;
     flex-wrap: wrap;

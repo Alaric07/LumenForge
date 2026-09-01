@@ -1423,6 +1423,7 @@ test("multiple brightness controls keep transient success timers isolated", asyn
         }
         if (selector === "[data-lf-speed-slider]") return [];
         if (selector === "[data-lf-color-input]") return [];
+		if (selector === "[data-lf-indexed-editor]") return [];
         if (selector === "[data-lf-two-color-control]") return [];
         if (selector === "[data-lf-temperature-control]") return [];
         if (selector === "[data-lf-gradient-control]") return [];
@@ -2233,7 +2234,7 @@ test("Lighting initialization tolerates pages without interactive controls", fun
 
     lighting.init(browser);
 
-    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-lighting-channel]", "[data-lf-channel-editor-toggle]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-two-color-control]", "[data-lf-temperature-control]", "[data-lf-gradient-control]", "[data-lf-reset-button]", "[data-lf-ccxt-probe-temperature]", "[data-lf-ccxt-three-pin-port]", "[data-lf-manual-rgb-ports]", "[data-lf-authored-zone-control]", "[data-lf-lighting-ownership-control]"]);
+    assert.deepEqual(selectors, ["[data-lf-effect-selector]", "[data-lf-lighting-channel]", "[data-lf-channel-editor-toggle]", "[data-lf-brightness-slider]", "[data-lf-speed-slider]", "[data-lf-color-input]", "[data-lf-indexed-editor]", "[data-lf-two-color-control]", "[data-lf-temperature-control]", "[data-lf-gradient-control]", "[data-lf-reset-button]", "[data-lf-ccxt-probe-temperature]", "[data-lf-ccxt-three-pin-port]", "[data-lf-manual-rgb-ports]", "[data-lf-authored-zone-control]", "[data-lf-lighting-ownership-control]"]);
 });
 
 test("channel editor toggles keep effect selection untouched and preserve a dirty explicit-save editor", function () {
@@ -3421,6 +3422,7 @@ test("native lighting target uses serial-bearing native mutation routes", functi
         effect: "/api/devices/lighting/effect",
         brightness: "/api/devices/lighting/brightness",
         speed: "/api/devices/lighting/speed",
+        indexedColors: "/api/devices/lighting/indexed-colors",
         color: "/api/devices/lighting/single-color",
         twoColor: "/api/devices/lighting/two-color",
         temperature: "/api/devices/lighting/temperature",
@@ -3431,6 +3433,127 @@ test("native lighting target uses serial-bearing native mutation routes", functi
     assert.deepEqual(lighting.lightingPayload(target, {effect: "wave", speed: 3}), {
         serial: "scimitar-native", effect: "wave", speed: 3
     });
+});
+
+function indexedEditorFixture(colors, options) {
+    const opts = options || {};
+    function control(dataset) {
+        const handlers = {};
+        const attributes = {};
+        return {
+            dataset: dataset || {}, handlers: handlers, disabled: false, value: "", style: {},
+            addEventListener: function (event, handler) { handlers[event] = handler; },
+            setAttribute: function (name, value) { attributes[name] = value; },
+            getAttribute: function (name) { return attributes[name]; },
+            classList: {toggle: function () {}}
+        };
+    }
+    const buttons = colors.map(function (color, index) { return control({lfIndex: String(index), lfCurrentColor: color}); });
+    const picker = control();
+    const hex = control();
+    const applyAll = control();
+    const save = control();
+    const cancel = control();
+    const active = {textContent: ""};
+    const status = {textContent: ""};
+    const editor = {dataset: {}};
+    const elements = {
+        "[data-lf-indexed-picker]": picker, "[data-lf-indexed-hex]": hex,
+        "[data-lf-indexed-apply-all]": applyAll, "[data-lf-indexed-save]": save, "[data-lf-indexed-cancel]": cancel,
+        "[data-lf-indexed-active-label]": active, "[data-lf-indexed-status]": status
+    };
+    const container = {
+        dataset: {lfLightingTarget: "native", lfDeviceSerial: "memory-test", lfLightingChannelTarget: "memory-test-rgb-0", lfClusterControlled: opts.cluster ? "true" : "false", lfExternalControlled: opts.external ? "true" : "false"},
+        querySelectorAll: function (selector) { return selector === "[data-lf-indexed-led]" ? buttons : []; },
+        querySelector: function (selector) { return elements[selector] || null; },
+        closest: function () { return editor; }
+    };
+    return {container, buttons, picker, hex, applyAll, save, cancel, active, status, editor};
+}
+
+test("indexed LED editor starts unselected and keeps a local current color", function () {
+    const fixture = indexedEditorFixture(["#010203", "#040506", "#070809"]);
+    let requests = 0;
+    const browser = {AbortController, clearTimeout, setTimeout, fetch: async function () { requests++; return {ok: true, json: async function () { return {status: 1}; }}; }};
+    const binding = lighting.bindIndexedColorEditor(browser, fixture.container);
+    assert.deepEqual(binding.state().selectedIndexes, []);
+    assert.equal(fixture.active.textContent, "Selected: None");
+    fixture.picker.value = "#aabbcc";
+    fixture.picker.handlers.input();
+    assert.equal(fixture.hex.value, "#aabbcc");
+    assert.equal(binding.state().currentColor, "#aabbcc");
+    assert.deepEqual(binding.state().draftColors, ["#010203", "#040506", "#070809"]);
+    assert.equal(fixture.save.disabled, true);
+    assert.equal(requests, 0);
+    fixture.buttons[1].handlers.click();
+    assert.deepEqual(binding.state().selectedIndexes, [1]);
+    assert.equal(fixture.active.textContent, "Selected: 2");
+    fixture.hex.value = "#112233";
+    fixture.hex.handlers.input();
+    assert.deepEqual(binding.state().draftColors, ["#010203", "#112233", "#070809"]);
+    fixture.buttons[1].handlers.click();
+    assert.deepEqual(binding.state().selectedIndexes, []);
+    assert.equal(fixture.active.textContent, "Selected: None");
+    assert.equal(requests, 0);
+});
+
+test("indexed LED editor batch save confirms only successful palettes and retains failed drafts", async function () {
+    const fixture = indexedEditorFixture(["#010203", "#040506"]);
+    const requests = [];
+    let fail = false;
+    const browser = {AbortController, clearTimeout, setTimeout, fetch: async function (url, init) {
+        requests.push({url: url, body: JSON.parse(init.body)});
+        if (fail) throw new Error("failed");
+        return {ok: true, json: async function () { return {status: 1}; }};
+    }};
+    const binding = lighting.bindIndexedColorEditor(browser, fixture.container);
+    fixture.buttons[0].handlers.click();
+    fixture.picker.value = "#aabbcc";
+    fixture.picker.handlers.input();
+    await fixture.save.handlers.click();
+    assert.deepEqual(requests, [{url: "/api/devices/lighting/indexed-colors", body: {serial: "memory-test", targetId: "memory-test-rgb-0", colors: [{index: 0, color: "#aabbcc"}, {index: 1, color: "#040506"}]}}]);
+    assert.deepEqual(binding.state().confirmedColors, ["#aabbcc", "#040506"]);
+    assert.equal(fixture.save.disabled, true);
+    fixture.hex.value = "#ddeeff";
+    fixture.hex.handlers.input();
+    fail = true;
+    await fixture.save.handlers.click();
+    assert.deepEqual(binding.state().confirmedColors, ["#aabbcc", "#040506"]);
+    assert.deepEqual(binding.state().draftColors, ["#ddeeff", "#040506"]);
+    assert.equal(fixture.save.disabled, false);
+    assert.equal(fixture.status.textContent, "Unable to save LED colors. Try again.");
+});
+
+test("indexed LED editor Set All works with no selected LEDs and Cancel restores the palette", function () {
+    const fixture = indexedEditorFixture(["#010203", "#040506", "#070809"]);
+    let requests = 0;
+    const browser = {AbortController, clearTimeout, setTimeout, fetch: async function () { requests++; return {ok: true, json: async function () { return {status: 1}; }}; }};
+    const binding = lighting.bindIndexedColorEditor(browser, fixture.container);
+    fixture.picker.value = "#aabbcc";
+    fixture.applyAll.handlers.click();
+    assert.deepEqual(binding.state().draftColors, ["#aabbcc", "#aabbcc", "#aabbcc"]);
+    assert.deepEqual(binding.state().selectedIndexes, []);
+    assert.equal(requests, 0);
+    assert.equal(fixture.save.disabled, false);
+    fixture.cancel.handlers.click();
+    assert.deepEqual(binding.state().draftColors, ["#010203", "#040506", "#070809"]);
+    assert.equal(fixture.save.disabled, true);
+});
+
+test("indexed LED editors respect ownership and remain isolated per DIMM", function () {
+    const owned = indexedEditorFixture(["#010203"], {cluster: true});
+    const browser = {AbortController, clearTimeout, setTimeout, fetch: async function () { throw new Error("unexpected"); }};
+    assert.equal(lighting.bindIndexedColorEditor(browser, owned.container), null);
+    for (const control of owned.buttons.concat([owned.picker, owned.hex, owned.applyAll, owned.save, owned.cancel])) assert.equal(control.disabled, true);
+    const first = indexedEditorFixture(["#010203"]);
+    const second = indexedEditorFixture(["#040506"]);
+    lighting.bindIndexedColorEditor(browser, first.container);
+    lighting.bindIndexedColorEditor(browser, second.container);
+    first.buttons[0].handlers.click();
+    first.picker.value = "#aabbcc";
+    first.picker.handlers.input();
+    assert.equal(first.picker.value, "#aabbcc");
+    assert.equal(second.picker.value, "#040506");
 });
 
 test("native channel lighting target includes its canonical child target ID", function() {

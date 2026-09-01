@@ -21,6 +21,12 @@ type GradientStop struct {
 	Intensity float64
 }
 
+// IndexedColor is one device-authored physical LED color.
+type IndexedColor struct {
+	Index           int
+	Label, ColorHex string
+}
+
 // AuthoredZoneEditor describes a device-owned authored-color mode without
 // making it a shared software effect setting.
 type AuthoredZoneEditor struct {
@@ -73,6 +79,7 @@ type Snapshot struct {
 	AuthoredZoneEditor *AuthoredZoneEditor
 	ThreePinPort       *ThreePinPort
 	ManualRGBPorts     []ManualRGBPort
+	IndexedColors      []IndexedColor
 	// Channels is populated by controllers with independently configurable
 	// physical lighting targets. Each entry composes the same immutable lighting
 	// view rather than pretending the controller has one selected effect.
