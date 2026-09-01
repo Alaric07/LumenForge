@@ -335,6 +335,8 @@ func Init(vendorId, productId uint16, serial, path string) *common.Device {
 	} else {
 		d.updateDeviceSpeed()
 	}
+	// Allow CCXT lighting hardware to settle before the first software frame.
+	time.Sleep(500 * time.Millisecond)
 	d.setDeviceColor()         // Device color
 	d.setupOpenRGBController() // OpenRGB Controller
 	d.setupClusterController() // RGB Cluster
