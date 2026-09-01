@@ -192,12 +192,33 @@
                     {{ with .Device.Lighting }}
 	                        <section class="lf-lighting-workspace" data-lf-lighting-read-only="{{ .ReadOnly }}" data-lf-lighting-target="{{ .TargetKind }}">
 	                            <div class="lf-lighting-layout lf-lighting-layout-no-rail">
-                                    <div class="lf-lighting-main">
+	                                    <div class="lf-lighting-main">
 	                            {{ if .Channels }}
-	                                {{ if .HasBrightness }}
+	                                {{ with .BulkEffectControl }}
+	                                    <section class="lf-lighting-primary lf-lighting-aggregate-primary">
+	                                    <div class="lf-lighting-effect-stage">
+	                                        <div class="lf-lighting-effect-identity">
+	                                            {{ template "lf-lighting-effect-icon" . }}
+	                                            <div class="lf-lighting-effect-control">
+	                                                <strong class="lf-lighting-effect-name lf-lighting-device-effect-name">Device Effect</strong>
+	                                                <label class="lf-lighting-label" for="lf-lighting-all-effects"><span class="lf-visually-hidden">Set all lighting effects</span></label>
+	                                                <select class="lf-lighting-effect-selector" id="lf-lighting-all-effects" data-lf-effect-selector data-lf-bulk-effect-control="true" data-lf-device-serial="{{ $.Device.Serial }}" data-lf-lighting-target="native" data-lf-current-effect="{{ .ConfiguredEffect }}" data-lf-cluster-controlled="{{ $.Device.Lighting.ClusterControlled }}" data-lf-external-controlled="{{ $.Device.Lighting.ExternalControlled }}" data-lf-status-id="lf-lighting-all-effects-status" aria-describedby="lf-lighting-all-effects-status" {{ if or $.Device.Lighting.ClusterControlled $.Device.Lighting.ExternalControlled $.Device.Lighting.ReadOnly }}disabled{{ end }}>
+	                                                    {{ if .Mixed }}<option value="" selected disabled>Mixed</option>{{ end }}
+	                                                    {{ range .SupportedEffects }}<option value="{{ .ID }}"{{ if .Selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}
+	                                                </select>
+	                                                <p class="lf-lighting-effect-status" id="lf-lighting-all-effects-status" aria-live="polite"></p>
+	                                            </div>
+	                                        </div>
+	                                    </div>
+	                                    {{ if $.Device.Lighting.HasBrightness }}
+	                                        <div class="lf-range-control"><div class="lf-range-control-header"><label class="lf-range-control-label" for="lf-lighting-brightness-slider">Brightness</label><span class="lf-range-control-value"><input class="lf-range-control-number" id="lf-lighting-brightness-number" type="number" min="0" max="100" step="1" value="{{ $.Device.Lighting.Brightness }}" data-lf-brightness-number aria-label="Brightness percentage" aria-describedby="lf-lighting-brightness-status" {{ if or $.Device.Lighting.ClusterControlled $.Device.Lighting.ExternalControlled $.Device.Lighting.ReadOnly }}disabled{{ end }}><span class="lf-range-control-suffix" aria-hidden="true">%</span></span></div><input class="lf-range-control-input" id="lf-lighting-brightness-slider" type="range" min="0" max="100" step="1" value="{{ $.Device.Lighting.Brightness }}" style="--lf-range-progress: {{ $.Device.Lighting.Brightness }}%;" data-lf-brightness-slider data-lf-current-brightness="{{ $.Device.Lighting.Brightness }}" data-lf-device-serial="{{ $.Device.Serial }}" data-lf-lighting-target="{{ $.Device.Lighting.TargetKind }}" data-lf-cluster-controlled="{{ $.Device.Lighting.ClusterControlled }}" data-lf-external-controlled="{{ $.Device.Lighting.ExternalControlled }}" data-lf-number-id="lf-lighting-brightness-number" data-lf-status-id="lf-lighting-brightness-status" aria-valuetext="{{ $.Device.Lighting.Brightness }} percent" aria-describedby="lf-lighting-brightness-status" {{ if or $.Device.Lighting.ClusterControlled $.Device.Lighting.ExternalControlled $.Device.Lighting.ReadOnly }}disabled{{ end }}><div class="lf-range-control-scale" aria-hidden="true"><span>0%</span><span>100%</span></div><p class="lf-range-control-status" id="lf-lighting-brightness-status" aria-live="polite"></p></div>
+	                                    {{ end }}
+	                                    </section>
+	                                {{ end }}
+	                                {{ if and .HasBrightness (not .BulkEffectControl) }}
 	                                    <div class="lf-range-control"><div class="lf-range-control-header"><label class="lf-range-control-label" for="lf-lighting-brightness-slider">Brightness</label><span class="lf-range-control-value"><input class="lf-range-control-number" id="lf-lighting-brightness-number" type="number" min="0" max="100" step="1" value="{{ .Brightness }}" data-lf-brightness-number aria-label="Brightness percentage" aria-describedby="lf-lighting-brightness-status" {{ if or .ClusterControlled .ExternalControlled .ReadOnly }}disabled{{ end }}><span class="lf-range-control-suffix" aria-hidden="true">%</span></span></div><input class="lf-range-control-input" id="lf-lighting-brightness-slider" type="range" min="0" max="100" step="1" value="{{ .Brightness }}" style="--lf-range-progress: {{ .Brightness }}%;" data-lf-brightness-slider data-lf-current-brightness="{{ .Brightness }}" data-lf-device-serial="{{ $.Device.Serial }}" data-lf-lighting-target="{{ .TargetKind }}" data-lf-cluster-controlled="{{ .ClusterControlled }}" data-lf-external-controlled="{{ .ExternalControlled }}" data-lf-number-id="lf-lighting-brightness-number" data-lf-status-id="lf-lighting-brightness-status" aria-valuetext="{{ .Brightness }} percent" aria-describedby="lf-lighting-brightness-status" {{ if or .ClusterControlled .ExternalControlled .ReadOnly }}disabled{{ end }}><div class="lf-range-control-scale" aria-hidden="true"><span>0%</span><span>100%</span></div><p class="lf-range-control-status" id="lf-lighting-brightness-status" aria-live="polite"></p></div>
 	                                {{ end }}
-	                                {{ if .ClusterControlled }}<div class="lf-lighting-owner-banner" role="status" data-lf-channel-ownership-status><span aria-hidden="true">⌁</span><strong>RGB Cluster controls this device</strong></div>{{ else if .ExternalControlled }}<div class="lf-lighting-owner-banner" role="status" data-lf-channel-ownership-status><span aria-hidden="true">⌁</span><strong>OpenRGB controls this device</strong></div>{{ end }}
+	                                {{ if .BulkEffectControl }}<h2 class="lf-workspace-section-heading lf-lighting-individual-effects-heading">Individual Effects</h2>{{ end }}
 	                                <div class="lf-performance-controls lf-ccxt-lighting-channel-grid" data-lf-lighting-channel-list>
 	                                    {{ range .Channels }}{{ $lightingChannel := . }}
 	                                        <article class="lf-performance-control lf-ccxt-lighting-channel-card" data-lf-lighting-channel data-lf-channel-id="{{ .ChannelID }}" data-lf-device-serial="{{ $.Device.Serial }}" data-lf-confirmed-label="{{ .Label }}">
@@ -226,6 +247,7 @@
 	                                        <p class="lf-range-control-status" data-lf-manual-rgb-status aria-live="polite"></p>
 	                                    </section>
 	                                {{ end }}
+	                                {{ if .ClusterControlled }}<div class="lf-lighting-owner-banner" role="status" data-lf-channel-ownership-status><span aria-hidden="true">⌁</span><strong>RGB Cluster controls this device</strong></div>{{ else if .ExternalControlled }}<div class="lf-lighting-owner-banner" role="status" data-lf-channel-ownership-status><span aria-hidden="true">⌁</span><strong>OpenRGB controls this device</strong></div>{{ end }}
 	                            {{ else }}
                                     <section class="lf-lighting-primary">
                                         <header class="lf-lighting-primary-header">
@@ -242,7 +264,7 @@
                                                 {{ if .ConfiguredEffect }}{{ template "lf-lighting-effect-icon" . }}{{ end }}
                                                 <div class="lf-lighting-effect-control">
                                                     {{ if .SupportedEffects }}
-                                                        {{ if .ConfiguredEffect }}<strong class="lf-lighting-effect-name">{{ if .ConfiguredEffectLabel }}{{ .ConfiguredEffectLabel }}{{ else }}{{ .ConfiguredEffect }}{{ end }}</strong>{{ end }}
+	                                                        <strong class="lf-lighting-effect-name lf-lighting-device-effect-name">Device Effect</strong>
                                                         <label class="lf-lighting-label" for="lf-lighting-effect-selector"><span class="lf-visually-hidden">Lighting effect</span></label>
                                                         <select
                                                         class="lf-lighting-effect-selector"

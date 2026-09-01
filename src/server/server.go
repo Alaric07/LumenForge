@@ -145,6 +145,10 @@ type nativeDeviceLightingChannelTarget interface {
 	SetLightingChannelEffect(string, string) error
 }
 
+type nativeDeviceLightingAllChannelTarget interface {
+	SetLightingAllChannelEffects(string) error
+}
+
 type nativeDeviceLightingChannelSettingsTarget interface {
 	ResolveLightingChannelEffectSettings(string, string) (lightingsettings.EffectSettings, error)
 	SetLightingChannelEffectSettings(string, string, lightingsettings.EffectSettings) error
@@ -2464,6 +2468,15 @@ type devicesLightingWorkspaceSummary struct {
 	ManualRGBPorts          []devicesLightingManualRGBPortSummary
 	IndexedColors           []devicesLightingIndexedColorSummary
 	Channels                []devicesLightingChannelSummary
+	BulkEffectControl       *devicesLightingBulkEffectControlSummary
+}
+
+type devicesLightingBulkEffectControlSummary struct {
+	ConfiguredEffect        string
+	ConfiguredEffectLabel   string
+	ConfiguredEffectIconURL string
+	Mixed                   bool
+	SupportedEffects        []devicesLightingEffectSummary
 }
 
 type devicesLightingIndexedColorSummary struct {
@@ -3079,6 +3092,13 @@ func devicesLightingEffectIconURL(id string) string {
 	return "/static/img/icons/rgb/" + stem + ".svg"
 }
 
+func devicesLightingBulkEffectIconURL(effect string, mixed bool) string {
+	if mixed {
+		return "/static/img/icons/rgb/mixed.svg"
+	}
+	return devicesLightingEffectIconURL(effect)
+}
+
 func devicesLightingWorkspaceSummaryFromSnapshot(snapshot lightingpresentation.Snapshot) *devicesLightingWorkspaceSummary {
 	summary := &devicesLightingWorkspaceSummary{
 		TargetKind:         snapshot.TargetKind,
@@ -3183,6 +3203,24 @@ func devicesLightingWorkspaceSummaryFromSnapshot(snapshot lightingpresentation.S
 				summary.ConfiguredEffectIconURL = devicesLightingEffectIconURL(effect.ID)
 			}
 		}
+	}
+	if bulk := snapshot.BulkEffectControl; bulk != nil && len(bulk.SupportedEffects) > 0 {
+		summary.BulkEffectControl = &devicesLightingBulkEffectControlSummary{
+			ConfiguredEffect: bulk.ConfiguredEffect,
+			Mixed:            bulk.Mixed,
+			SupportedEffects: make([]devicesLightingEffectSummary, len(bulk.SupportedEffects)),
+		}
+		for index, effect := range bulk.SupportedEffects {
+			label := devicesLightingEffectDisplayLabel(effect.ID, effect.Label)
+			summary.BulkEffectControl.SupportedEffects[index] = devicesLightingEffectSummary{ID: effect.ID, Label: label, Selected: !bulk.Mixed && effect.ID == bulk.ConfiguredEffect}
+			if effect.ID == bulk.ConfiguredEffect {
+				summary.BulkEffectControl.ConfiguredEffectLabel = label
+			}
+		}
+		summary.BulkEffectControl.ConfiguredEffectIconURL = devicesLightingBulkEffectIconURL(bulk.ConfiguredEffect, bulk.Mixed)
+		sort.Slice(summary.BulkEffectControl.SupportedEffects, func(i, j int) bool {
+			return strings.ToLower(summary.BulkEffectControl.SupportedEffects[i].Label) < strings.ToLower(summary.BulkEffectControl.SupportedEffects[j].Label)
+		})
 	}
 	sort.Slice(summary.SupportedEffects, func(i, j int) bool {
 		leftLabel := strings.ToLower(summary.SupportedEffects[i].Label)
@@ -4156,6 +4194,27 @@ func setNativeDeviceLightingEffect(w http.ResponseWriter, r *http.Request) {
 	(&Response{Code: http.StatusOK, Status: 1, Message: "Effect set"}).Send(w)
 }
 
+func setNativeDeviceLightingAllChannelEffects(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Serial *string `json:"serial"`
+		Effect *string `json:"effect"`
+	}
+	if !decodeNativeDeviceLightingRequest(w, r, &req) {
+		return
+	}
+	if req.Serial == nil || *req.Serial == "" || req.Effect == nil || *req.Effect == "" {
+		nativeDeviceLightingFailure(w, "Invalid effect request")
+		return
+	}
+	target, err := getNativeDeviceLightingTarget(*req.Serial)
+	bulk, ok := target.(nativeDeviceLightingAllChannelTarget)
+	if err != nil || !ok || bulk.SetLightingAllChannelEffects(*req.Effect) != nil {
+		nativeDeviceLightingFailure(w, "Unable to set effects")
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Effects set"}).Send(w)
+}
+
 func setNativeDeviceLightingBrightness(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Serial     *string `json:"serial"`
@@ -4975,6 +5034,7 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/openrgbimport/effect", http.MethodPost, setOpenRGBImportEffect)
 	handleFunc(r, "/api/openrgbimport/brightness", http.MethodPost, setOpenRGBImportBrightness)
 	handleFunc(r, "/api/devices/lighting/effect", http.MethodPost, setNativeDeviceLightingEffect)
+	handleFunc(r, "/api/devices/lighting/effect-all", http.MethodPost, setNativeDeviceLightingAllChannelEffects)
 	handleFunc(r, "/api/devices/lighting/indexed-color", http.MethodPost, setNativeDeviceLightingIndexedColor)
 	handleFunc(r, "/api/devices/lighting/indexed-colors", http.MethodPost, setNativeDeviceLightingIndexedColors)
 	handleFunc(r, "/api/devices/lighting/brightness", http.MethodPost, setNativeDeviceLightingBrightness)

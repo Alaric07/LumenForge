@@ -37,6 +37,7 @@
     });
     const nativeLightingEndpoints = Object.freeze({
         effect: "/api/devices/lighting/effect",
+		effectAll: "/api/devices/lighting/effect-all",
         brightness: "/api/devices/lighting/brightness",
         speed: "/api/devices/lighting/speed",
         indexedColors: "/api/devices/lighting/indexed-colors",
@@ -299,7 +300,8 @@
 			endpoints: cluster ? clusterLightingEndpoints : native ? nativeLightingEndpoints : openRGBLightingEndpoints,
 			kind: cluster ? "cluster" : native ? "native" : "openrgb",
 			serial: cluster ? "" : element.dataset.lfDeviceSerial,
-			targetId: element.dataset.lfLightingChannelTarget || ""
+			targetId: element.dataset.lfLightingChannelTarget || "",
+			bulk: native && element.dataset.lfBulkEffectControl === "true"
         };
     }
 
@@ -442,7 +444,8 @@
     }
 
     function submitEffectForTarget(browser, target, effect) {
-        return submitLightingMutation(browser, target.endpoints.effect, lightingPayload(target, {effect: effect}),
+		const endpoint = target.bulk ? target.endpoints.effectAll : target.endpoints.effect;
+		return submitLightingMutation(browser, endpoint, lightingPayload(target, {effect: effect}),
             effectTimeoutMilliseconds, "effect request failed", "effect mutation was rejected");
     }
 

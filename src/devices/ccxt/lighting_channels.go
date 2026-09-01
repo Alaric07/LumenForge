@@ -234,6 +234,22 @@ func (d *Device) LightingSnapshot() (lightingpresentation.Snapshot, bool) {
 		snapshot.Channels = append(snapshot.Channels, channelSnapshot)
 	}
 	sort.Slice(snapshot.Channels, func(i, j int) bool { return snapshot.Channels[i].ChannelID < snapshot.Channels[j].ChannelID })
+	if len(snapshot.Channels) > 0 {
+		bulk := &lightingpresentation.BulkEffectControl{SupportedEffects: make([]lightingpresentation.EffectOption, 0, len(rgbModes))}
+		for _, candidate := range rgbModes {
+			if d.SupportsLightingEffect(candidate) {
+				bulk.SupportedEffects = append(bulk.SupportedEffects, lightingpresentation.EffectOption{ID: candidate, Label: candidate})
+			}
+		}
+		bulk.ConfiguredEffect = snapshot.Channels[0].Lighting.ConfiguredEffect
+		for _, channel := range snapshot.Channels[1:] {
+			if channel.Lighting.ConfiguredEffect != bulk.ConfiguredEffect {
+				bulk.ConfiguredEffect, bulk.Mixed = "", true
+				break
+			}
+		}
+		snapshot.BulkEffectControl = bulk
+	}
 	return snapshot, len(snapshot.Channels) > 0
 }
 
@@ -370,6 +386,44 @@ func (d *Device) SetLightingChannelEffect(targetID, effect string) error {
 		return nil
 	}
 	return fmt.Errorf("lighting channel is unavailable")
+}
+
+// SetLightingAllChannelEffects applies one real effect to every canonical RGB
+// port. It remains a convenience mutation over child state.
+func (d *Device) SetLightingAllChannelEffects(effect string) error {
+	if d == nil || d.DeviceProfile == nil || d.DeviceProfile.RGBCluster || d.DeviceProfile.OpenRGBIntegration {
+		return fmt.Errorf("lighting is externally owned")
+	}
+	if !d.SupportsLightingEffect(effect) {
+		return fmt.Errorf("unsupported bulk lighting effect %q", effect)
+	}
+	channels := make([]*Devices, 0, len(d.RgbDevices))
+	for _, channel := range d.RgbDevices {
+		if d.canonicalChannel(channel) {
+			if _, err := d.channelSelectedEffect(channel.ChannelId); err != nil {
+				return err
+			}
+			channels = append(channels, channel)
+		}
+	}
+	if len(channels) == 0 {
+		return fmt.Errorf("lighting channels are unavailable")
+	}
+	for _, channel := range channels {
+		if err := d.setChannelSelectedEffect(channel.ChannelId, effect); err != nil {
+			return err
+		}
+	}
+	if d.DeviceProfile.RGBProfiles == nil {
+		d.DeviceProfile.RGBProfiles = make(map[int]string)
+	}
+	for _, channel := range channels {
+		channel.RGB = effect
+		d.DeviceProfile.RGBProfiles[channel.ChannelId] = effect
+	}
+	d.saveDeviceProfile()
+	d.restartCanonicalChannelLighting()
+	return nil
 }
 
 func (d *Device) restartCanonicalChannelLighting() {

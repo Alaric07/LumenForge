@@ -903,8 +903,8 @@ func TestDevicesLightingChannelWorkspaceUsesSharedBottomOwnershipControls(t *tes
 	if strings.Contains(body, `lf-ccxt-lighting-channel-summary`) || !strings.Contains(body, `data-lf-channel-editor-toggle aria-expanded="false" aria-controls="lf-lighting-channel-editor-0">Settings</button>`) {
 		t.Error("CCXT Lighting channel cards retained the collapsed settings summary or incorrect Settings action")
 	}
-	if strings.Count(body, `data-lf-channel-ownership-status`) != 1 || strings.Index(body, `data-lf-channel-ownership-status`) >= channelsAt {
-		t.Error("CCXT Cluster ownership status was not rendered once above the channel grid")
+	if strings.Count(body, `data-lf-channel-ownership-status`) != 1 || strings.Index(body, `data-lf-channel-ownership-status`) <= channelsAt {
+		t.Error("CCXT Cluster ownership status was not rendered once after the channel grid")
 	}
 	clusterInput := strings.Split(body, `id="lf-lighting-rgb-cluster"`)[1]
 	externalInput := strings.Split(body, `id="lf-lighting-openrgb-integration"`)[1]
@@ -1721,7 +1721,7 @@ func runDevicesLightingEffectSelectorTemplateAssertions(t *testing.T) {
 	for _, expected := range []string{
 		`<span class="lf-lighting-effect-icon-frame" aria-hidden="true">`,
 		`class="lf-lighting-effect-icon-art" style="--lf-lighting-effect-mask: url('/static/img/icons/rgb/wave.svg');"`,
-		`<strong class="lf-lighting-effect-name">Wave &lt;Bright&gt; &amp; Wide</strong>`,
+		`<strong class="lf-lighting-effect-name lf-lighting-device-effect-name">Device Effect</strong>`,
 		`data-lf-effect-selector`,
 		`data-lf-device-serial="lighting-template-device"`,
 		`data-lf-current-effect="wave"`,
@@ -2204,7 +2204,7 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"class=\"lf-device-workspace-link\" href=\"/devices?device=" + visibleSerial + "\">Overview</a>",
 		"class=\"lf-device-workspace-link lf-device-workspace-link-active\" href=\"/devices?device=" + visibleSerial + "&amp;view=lighting\" aria-current=\"page\">Lighting</a>",
 		">Static</strong>",
-		"class=\"lf-lighting-effect-name\">Static</strong>",
+		"class=\"lf-lighting-effect-name lf-lighting-device-effect-name\">Device Effect</strong>",
 		"data-lf-device-serial=\"" + visibleSerial + "\"",
 		"data-lf-current-effect=\"static\"",
 		"/static/img/icons/rgb/static.svg",

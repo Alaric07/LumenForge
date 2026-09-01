@@ -298,7 +298,37 @@ func (d *Device) LightingSnapshot() (lightingpresentation.Snapshot, bool) {
 	}
 	snapshot.ManualRGBPorts = d.manualRGBPortSnapshot()
 	sort.Slice(snapshot.Channels, func(i, j int) bool { return snapshot.Channels[i].ChannelID < snapshot.Channels[j].ChannelID })
+	if len(snapshot.Channels) > 0 {
+		bulk := &lightingpresentation.BulkEffectControl{SupportedEffects: make([]lightingpresentation.EffectOption, 0, len(rgbModes))}
+		for _, candidate := range rgbModes {
+			if d.supportsBulkLightingEffect(candidate, snapshot.Channels) {
+				bulk.SupportedEffects = append(bulk.SupportedEffects, lightingpresentation.EffectOption{ID: candidate, Label: candidate})
+			}
+		}
+		bulk.ConfiguredEffect = snapshot.Channels[0].Lighting.ConfiguredEffect
+		for _, channel := range snapshot.Channels[1:] {
+			if channel.Lighting.ConfiguredEffect != bulk.ConfiguredEffect {
+				bulk.ConfiguredEffect, bulk.Mixed = "", true
+				break
+			}
+		}
+		snapshot.BulkEffectControl = bulk
+	}
 	return snapshot, len(snapshot.Channels) > 0
+}
+
+func (d *Device) supportsBulkLightingEffect(effect string, channels []lightingpresentation.Channel) bool {
+	if !d.SupportsLightingEffect(effect) {
+		return false
+	}
+	if effect == "liquid-temperature" {
+		for _, channel := range channels {
+			if !channel.ContainsPump {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func ccLightingColorHex(color lightingsettings.Color) string {
@@ -396,6 +426,33 @@ func (d *Device) SetLightingChannelEffect(targetID, effect string) error {
 		return nil
 	}
 	return fmt.Errorf("lighting channel is unavailable")
+}
+
+// SetLightingAllChannelEffects applies a real effect to each canonical RGB
+// target using the existing rollback-capable child selection path.
+func (d *Device) SetLightingAllChannelEffects(effect string) error {
+	if d == nil || d.DeviceProfile == nil || d.DeviceProfile.RGBCluster || d.DeviceProfile.OpenRGBIntegration {
+		return fmt.Errorf("lighting is externally owned")
+	}
+	channels := make([]lightingpresentation.Channel, 0, len(d.RgbDevices))
+	selections := make([]canonicalChannelSelection, 0, len(d.RgbDevices))
+	for _, channel := range d.RgbDevices {
+		if !d.canonicalChannel(channel) {
+			continue
+		}
+		channels = append(channels, lightingpresentation.Channel{ContainsPump: channel.ContainsPump})
+		selections = append(selections, canonicalChannelSelection{id: channel.ChannelId, effect: effect})
+	}
+	if len(selections) == 0 || !d.supportsBulkLightingEffect(effect, channels) {
+		return fmt.Errorf("unsupported bulk lighting effect %q", effect)
+	}
+	if err := d.applyCanonicalChannelSelections(selections); err != nil {
+		return err
+	}
+	d.hydrateCanonicalChannelSelections(selections)
+	d.saveDeviceProfile()
+	d.restartCanonicalChannelLighting()
+	return nil
 }
 
 func (d *Device) restartCanonicalChannelLighting() {

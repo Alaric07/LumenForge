@@ -106,6 +106,55 @@ func TestMemoryExposesCanonicalDIMMLighting(t *testing.T) {
 	}
 }
 
+func TestMemoryBulkEffectControlExcludesLedAndMutatesCanonicalChildren(t *testing.T) {
+	device, runtime := memoryCanonicalLightingTestDevice(t)
+	installMemoryProfilePersistenceTestRoot(t)
+	if err := runtime.State.Set("i2c0-rgb-0", lightingsettings.IndependentDeviceLightingState{SelectedEffect: "static", Brightness: 100}); err != nil {
+		t.Fatal(err)
+	}
+	if err := runtime.State.Set("i2c0-rgb-1", lightingsettings.IndependentDeviceLightingState{SelectedEffect: "rainbow", Brightness: 100}); err != nil {
+		t.Fatal(err)
+	}
+	if err := device.hydrateCanonicalChannels(); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, ok := device.LightingSnapshot()
+	if !ok || snapshot.BulkEffectControl == nil || !snapshot.BulkEffectControl.Mixed || snapshot.BulkEffectControl.ConfiguredEffect != "" {
+		t.Fatalf("mixed bulk snapshot = %#v", snapshot.BulkEffectControl)
+	}
+	for _, effect := range snapshot.BulkEffectControl.SupportedEffects {
+		if effect.ID == "led" {
+			t.Fatal("bulk control exposed led")
+		}
+	}
+	if len(snapshot.Channels[0].Lighting.SupportedEffects) == len(snapshot.BulkEffectControl.SupportedEffects) {
+		t.Fatal("per-DIMM led selection was removed")
+	}
+	if err := device.SetLightingAllChannelEffects("led"); err == nil {
+		t.Fatal("bulk led was accepted")
+	}
+	if err := device.SetLightingAllChannelEffects("static"); err != nil {
+		t.Fatal(err)
+	}
+	for _, channelID := range []int{0, 1} {
+		state, _, err := runtime.State.Resolve(device.canonicalChannelTargetID(channelID))
+		if err != nil || state.SelectedEffect != "static" || device.DeviceProfile.RGBProfiles[channelID] != "static" {
+			t.Fatalf("channel %d = %#v, profile=%q, err=%v", channelID, state, device.DeviceProfile.RGBProfiles[channelID], err)
+		}
+	}
+	snapshot, ok = device.LightingSnapshot()
+	if !ok || snapshot.BulkEffectControl.Mixed || snapshot.BulkEffectControl.ConfiguredEffect != "static" {
+		t.Fatalf("uniform bulk snapshot = %#v", snapshot.BulkEffectControl)
+	}
+	device.DeviceProfile.RGBCluster = true
+	if err := device.SetLightingAllChannelEffects("rainbow"); err == nil {
+		t.Fatal("cluster ownership accepted bulk mutation")
+	}
+	if err := device.SetLightingChannelEffect("i2c0-rgb-1", "led"); err == nil {
+		t.Fatal("cluster ownership unexpectedly changed child")
+	}
+}
+
 func TestMemoryIndexedColorsAreIsolatedAndRequireLed(t *testing.T) {
 	device, runtime := memoryCanonicalLightingTestDevice(t)
 	installMemoryProfilePersistenceTestRoot(t)

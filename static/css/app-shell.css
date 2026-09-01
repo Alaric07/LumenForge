@@ -1275,6 +1275,25 @@
     margin-top: 30px;
 }
 
+.lf-app-shell .lf-lighting-aggregate-primary .lf-lighting-effect-stage {
+    margin-top: 0;
+}
+
+.lf-app-shell .lf-lighting-effect-name.lf-lighting-device-effect-name {
+    font-size: 22px;
+    font-weight: 720;
+    letter-spacing: -0.02em;
+}
+
+.lf-app-shell .lf-lighting-aggregate-primary .lf-range-control {
+    margin-top: 24px;
+    padding: 24px 0 0;
+    border: 0;
+    border-top: 1px solid var(--lf-border-subtle);
+    border-radius: 0;
+    background: transparent;
+}
+
 .lf-app-shell .lf-lighting-owner-banner {
     width: fit-content;
     max-width: 100%;

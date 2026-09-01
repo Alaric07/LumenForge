@@ -84,6 +84,17 @@ type Snapshot struct {
 	// physical lighting targets. Each entry composes the same immutable lighting
 	// view rather than pretending the controller has one selected effect.
 	Channels []Channel
+	// BulkEffectControl is aggregate presentation for independently configured
+	// native child targets. It is not parent lighting state.
+	BulkEffectControl *BulkEffectControl
+}
+
+// BulkEffectControl describes a convenience operation across all canonical
+// child targets. Mixed is presentation-only and never identifies an effect.
+type BulkEffectControl struct {
+	ConfiguredEffect string
+	Mixed            bool
+	SupportedEffects []EffectOption
 }
 
 // ManualRGBPort is a backend-reported controller port that may be manually

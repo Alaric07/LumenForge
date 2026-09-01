@@ -552,6 +552,25 @@ test("effect selector sends the established protected mutation contract and relo
     assert.equal(fixture.status.textContent, "");
 });
 
+test("aggregate native effect selector sends one bulk mutation and never submits Mixed", async function () {
+    let request;
+    const fixture = browserFixture(async function (url, options) {
+        request = {url: url, body: JSON.parse(options.body)};
+        return {ok: true, json: async function () { return {status: 1}; }};
+    });
+    const control = selectorFixture({dataset: {
+        lfBulkEffectControl: "true",
+        lfClusterControlled: "false",
+        lfCurrentEffect: "",
+        lfDeviceSerial: "memory-test-device",
+        lfLightingTarget: "native",
+        lfStatusId: "effect-status"
+    }});
+    lighting.bindEffectSelector(fixture.browser, control.selector);
+    await control.handler()();
+    assert.deepEqual(request, {url: "/api/devices/lighting/effect-all", body: {serial: "memory-test-device", effect: "wave"}});
+});
+
 test("effect selector restores its server-rendered value after application failure", async function () {
     const timers = timerFixture();
     const fixture = browserFixture(async function () {
@@ -3420,6 +3439,7 @@ test("native lighting target uses serial-bearing native mutation routes", functi
     assert.equal(target.serial, "scimitar-native");
     assert.deepEqual(target.endpoints, {
         effect: "/api/devices/lighting/effect",
+		effectAll: "/api/devices/lighting/effect-all",
         brightness: "/api/devices/lighting/brightness",
         speed: "/api/devices/lighting/speed",
         indexedColors: "/api/devices/lighting/indexed-colors",

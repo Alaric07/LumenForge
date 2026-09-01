@@ -26,6 +26,8 @@ type authoredZoneTarget struct {
 	calls                          int
 	err                            error
 	channelTargetID, channelEffect string
+	allEffect                      string
+	allErr                         error
 	indexedColors                  []lightingsettings.IndexedColor
 	indexedErr                     error
 }
@@ -49,6 +51,11 @@ func (t *authoredZoneTarget) SetLightingChannelEffect(targetID, effect string) e
 		return errors.New("unknown channel target")
 	}
 	return nil
+}
+
+func (t *authoredZoneTarget) SetLightingAllChannelEffects(effect string) error {
+	t.allEffect = effect
+	return t.allErr
 }
 
 func (t *authoredZoneTarget) SetLightingIndexedColors(targetID string, colors []lightingsettings.IndexedColor) error {
@@ -100,6 +107,21 @@ func TestNativeLightingEffectMutationDelegatesChildTargetToProvider(t *testing.T
 	response = requireLightingMutationResponse(t, requestOpenRGBLightingMutation(t, router, http.MethodPost, "/api/devices/lighting/effect", `{"serial":"authored-zone-device","targetId":"foreign-rgb-0","effect":"authored"}`), 0)
 	if response.Status != 0 {
 		t.Fatalf("foreign target response = %#v", response)
+	}
+}
+
+func TestNativeLightingAllEffectsMutationDelegatesOnlyToAggregateProvider(t *testing.T) {
+	target := &authoredZoneTarget{id: authoredZoneTestSerial, supported: true}
+	installAuthoredZoneTarget(t, target, nil)
+	router := setRoutes()
+	response := requireLightingMutationResponse(t, requestOpenRGBLightingMutation(t, router, http.MethodPost, "/api/devices/lighting/effect-all", `{"serial":"authored-zone-device","effect":"authored"}`), 1)
+	if response.Status != 1 || target.allEffect != "authored" {
+		t.Fatalf("response = %#v, target = %#v", response, target)
+	}
+	target.allErr = errors.New("owned")
+	response = requireLightingMutationResponse(t, requestOpenRGBLightingMutation(t, router, http.MethodPost, "/api/devices/lighting/effect-all", `{"serial":"authored-zone-device","effect":"authored"}`), 0)
+	if response.Status != 0 {
+		t.Fatalf("ownership failure response = %#v", response)
 	}
 }
 

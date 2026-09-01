@@ -4,8 +4,10 @@ import (
 	"LumenForge/src/devices/lcd"
 	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/lightingsettings"
+	"LumenForge/src/logger"
 	"LumenForge/src/rgb"
 	"LumenForge/src/temperatures"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -91,6 +93,17 @@ func (s *commanderCoreChannelState) Delete(id string) (bool, error) {
 
 func commanderCoreLightingTestDevice() *Device {
 	return &Device{Serial: "cc-lighting", DeviceProfile: &DeviceProfile{RGBProfiles: map[int]string{}, RGBLabels: map[int]string{}, LCDMode: 4, CustomLEDs: map[int]int{4: 6}}, Devices: map[int]*Devices{0: {ChannelId: 0, ContainsPump: true}}, Rgb: &rgb.RGB{Profiles: map[string]rgb.Profile{"static": {}, "rainbow": {}, "liquid-temperature": {}, "led": {}}}, channelLightingState: &commanderCoreChannelState{values: map[string]lightingsettings.IndependentDeviceLightingState{"cc-lighting-rgb-0": {SelectedEffect: "rainbow", Brightness: 100}, "cc-lighting-rgb-4": {SelectedEffect: "static", Brightness: 100}}}, RgbDevices: map[int]*Devices{9: {ChannelId: 4, Name: "Configured port", LedChannels: 8, RGB: "static"}, 1: {ChannelId: 0, Name: "H100i ELITE CAPELLIX", LedChannels: 24, ContainsPump: true, RGB: "static"}, 7: {ChannelId: 6, Name: "No LEDs", LedChannels: 0}}}
+}
+
+func installCommanderCoreProfilePersistenceTestRoot(t *testing.T) {
+	t.Helper()
+	previous := pwd
+	pwd = t.TempDir()
+	if err := os.MkdirAll(filepath.Join(pwd, "database", "profiles"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { pwd = previous })
+	logger.Init()
 }
 
 func TestCommanderCoreDeviceProfileSnapshotUsesActiveUserProfile(t *testing.T) {
@@ -243,6 +256,68 @@ func TestCommanderCoreCanonicalLightingOwnershipBlocksMutation(t *testing.T) {
 	device.DeviceProfile.OpenRGBIntegration = true
 	if err := device.SetLightingChannelEffect("cc-lighting-rgb-0", "static"); err == nil {
 		t.Fatal("OpenRGB ownership allowed mutation")
+	}
+}
+
+func TestCommanderCoreBulkEffectControlUsesCanonicalChildTransaction(t *testing.T) {
+	device := commanderCoreLightingTestDevice()
+	installCommanderCoreProfilePersistenceTestRoot(t)
+	restarts := 0
+	device.lightingRestart = func() { restarts++ }
+	state := device.channelLightingState.(*commanderCoreChannelState)
+
+	snapshot, ok := device.LightingSnapshot()
+	if !ok || snapshot.BulkEffectControl == nil || !snapshot.BulkEffectControl.Mixed || snapshot.BulkEffectControl.ConfiguredEffect != "" {
+		t.Fatalf("mixed bulk snapshot = %#v", snapshot.BulkEffectControl)
+	}
+	for _, option := range snapshot.BulkEffectControl.SupportedEffects {
+		if option.ID == "led" || option.ID == "keyboard" || option.ID == "liquid-temperature" {
+			t.Fatalf("unsupported bulk option = %q", option.ID)
+		}
+	}
+	if err := device.SetLightingAllChannelEffects("led"); err == nil {
+		t.Fatal("invalid bulk effect accepted")
+	}
+	if state.values["cc-lighting-rgb-0"].SelectedEffect != "rainbow" || state.values["cc-lighting-rgb-4"].SelectedEffect != "static" {
+		t.Fatalf("invalid bulk mutation changed state: %#v", state.values)
+	}
+	if err := device.SetLightingAllChannelEffects("static"); err != nil {
+		t.Fatal(err)
+	}
+	for _, channelID := range []int{0, 4} {
+		if state.values[device.canonicalChannelTargetID(channelID)].SelectedEffect != "static" || device.DeviceProfile.RGBProfiles[channelID] != "static" {
+			t.Fatalf("channel %d state/profile = %#v/%q", channelID, state.values, device.DeviceProfile.RGBProfiles[channelID])
+		}
+	}
+	if restarts != 1 {
+		t.Fatalf("restarts = %d", restarts)
+	}
+	if _, err := os.Stat(filepath.Join(pwd, "database", "profiles", "cc-lighting.json")); err != nil {
+		t.Fatalf("bulk profile was not saved: %v", err)
+	}
+	snapshot, ok = device.LightingSnapshot()
+	if !ok || snapshot.BulkEffectControl.Mixed || snapshot.BulkEffectControl.ConfiguredEffect != "static" {
+		t.Fatalf("uniform bulk snapshot = %#v", snapshot.BulkEffectControl)
+	}
+	if err := device.SetLightingChannelEffect("cc-lighting-rgb-4", "rainbow"); err != nil {
+		t.Fatal(err)
+	}
+	if state.values["cc-lighting-rgb-4"].SelectedEffect != "rainbow" || state.values["cc-lighting-rgb-0"].SelectedEffect != "static" {
+		t.Fatalf("child edit after bulk = %#v", state.values)
+	}
+	device.DeviceProfile.RGBCluster = true
+	if err := device.SetLightingAllChannelEffects("static"); err == nil {
+		t.Fatal("Cluster ownership allowed bulk mutation")
+	}
+	device.DeviceProfile.RGBCluster = false
+	device.DeviceProfile.OpenRGBIntegration = true
+	if err := device.SetLightingAllChannelEffects("static"); err == nil {
+		t.Fatal("OpenRGB ownership allowed bulk mutation")
+	}
+	for _, value := range state.values {
+		if value.SelectedEffect == "mixed" {
+			t.Fatal("Mixed was stored as a lighting effect")
+		}
 	}
 }
 

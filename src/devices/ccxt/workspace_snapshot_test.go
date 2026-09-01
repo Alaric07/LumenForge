@@ -172,10 +172,21 @@ func TestCCXTCanonicalChannelsHydrateIndependentEffects(t *testing.T) {
 	if snapshot.Channels[0].TargetID != "ccxt-rgb-0" || snapshot.Channels[1].TargetID != "ccxt-rgb-1" || snapshot.Channels[0].Lighting.ConfiguredEffect != "static" || snapshot.Channels[1].Lighting.ConfiguredEffect != "rainbow" || !snapshot.Channels[0].Lighting.ClusterControlled || !snapshot.Channels[1].Lighting.ClusterControlled {
 		t.Fatalf("channels = %#v", snapshot.Channels)
 	}
+	if snapshot.BulkEffectControl == nil || !snapshot.BulkEffectControl.Mixed || snapshot.BulkEffectControl.ConfiguredEffect != "" {
+		t.Fatalf("mixed bulk effect = %#v", snapshot.BulkEffectControl)
+	}
 	device.DeviceProfile.RGBCluster = false
 	snapshot, ok = device.LightingSnapshot()
 	if !ok || snapshot.ClusterControlled || snapshot.Channels[0].Lighting.ClusterControlled || snapshot.Channels[1].Lighting.ClusterControlled || snapshot.Channels[0].Lighting.ConfiguredEffect != "static" || snapshot.Channels[1].Lighting.ConfiguredEffect != "rainbow" {
 		t.Fatalf("cluster release changed channel state: %#v", snapshot)
+	}
+	state.values["ccxt-rgb-1"] = lightingsettings.IndependentDeviceLightingState{SelectedEffect: "static", Brightness: 100}
+	if err := device.hydrateCanonicalChannels(); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, ok = device.LightingSnapshot()
+	if !ok || snapshot.BulkEffectControl == nil || snapshot.BulkEffectControl.Mixed || snapshot.BulkEffectControl.ConfiguredEffect != "static" {
+		t.Fatalf("uniform bulk effect = %#v", snapshot.BulkEffectControl)
 	}
 }
 
