@@ -9,6 +9,7 @@ import (
 	"LumenForge/src/common"
 	"LumenForge/src/config"
 	"LumenForge/src/dashboard"
+	"LumenForge/src/lightingsettings"
 	"LumenForge/src/logger"
 	"LumenForge/src/openrgb"
 	"LumenForge/src/rgb"
@@ -86,39 +87,43 @@ type DeviceProfile struct {
 }
 
 type Device struct {
-	Debug             bool
-	Product           string                    `json:"product"`
-	Serial            string                    `json:"serial"`
-	AIO               bool                      `json:"aio"`
-	UserProfiles      map[string]*DeviceProfile `json:"userProfiles"`
-	Devices           map[int]*Devices          `json:"devices"`
-	DeviceProfile     *DeviceProfile
-	TemperatureProbes *[]TemperatureProbe
-	OriginalProfile   *DeviceProfile
-	activeRgb         *rgb.ActiveRGB
-	Template          string
-	HasLCD            bool
-	Brightness        map[int]string
-	GlobalBrightness  float64
-	LEDChannels       int
-	CpuTemp           float32
-	GpuTemp           float32
-	dev               *smbus.Connection
-	Rgb               *rgb.RGB
-	rgbMutex          sync.RWMutex
-	Exit              bool
-	timer             *time.Ticker
-	mutex             sync.Mutex
-	deviceLock        sync.Mutex
-	autoRefreshChan   chan struct{}
-	enhancementKits   map[byte]bool
-	RGBModes          []string
-	Path              string
-	queue             chan map[int][]byte
-	SkuLine           string
-	RuntimeMemoryType int
-	instance          *common.Device
-	supportedDevices  []SupportedDevice
+	Debug                   bool
+	Product                 string                    `json:"product"`
+	Serial                  string                    `json:"serial"`
+	AIO                     bool                      `json:"aio"`
+	UserProfiles            map[string]*DeviceProfile `json:"userProfiles"`
+	Devices                 map[int]*Devices          `json:"devices"`
+	DeviceProfile           *DeviceProfile
+	TemperatureProbes       *[]TemperatureProbe
+	OriginalProfile         *DeviceProfile
+	activeRgb               *rgb.ActiveRGB
+	Template                string
+	HasLCD                  bool
+	Brightness              map[int]string
+	GlobalBrightness        float64
+	LEDChannels             int
+	CpuTemp                 float32
+	GpuTemp                 float32
+	dev                     *smbus.Connection
+	Rgb                     *rgb.RGB
+	rgbMutex                sync.RWMutex
+	Exit                    bool
+	timer                   *time.Ticker
+	mutex                   sync.Mutex
+	deviceLock              sync.Mutex
+	autoRefreshChan         chan struct{}
+	enhancementKits         map[byte]bool
+	RGBModes                []string
+	Path                    string
+	queue                   chan map[int][]byte
+	SkuLine                 string
+	RuntimeMemoryType       int
+	instance                *common.Device
+	supportedDevices        []SupportedDevice
+	channelLightingState    lightingsettings.IndependentDeviceStateAccess
+	channelLightingEffects  *lightingsettings.DeviceStore
+	channelLightingResolver *lightingsettings.Resolver
+	lightingRestart         func()
 }
 
 type SupportedDevice struct {
@@ -232,6 +237,9 @@ func Init(_, _ uint16, _, path string) *common.Device {
 	count := d.getDevices()
 	if count == 0 {
 		return nil // Nothing found
+	}
+	if err := d.attachCanonicalChannelLightingRuntime(config.GetPaths()); err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to attach canonical channel lighting runtime")
 	}
 
 	d.setAutoRefresh()         // Set auto device refresh
@@ -1236,31 +1244,16 @@ func (d *Device) setDeviceColor() {
 	}
 
 	if d.isRgbStatic() {
-		profile := d.GetRgbProfile("static")
-		if profile == nil {
-			return
-		}
-		profile.StartColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
-
-		// Global override
-		if d.GlobalBrightness != 0 {
-			profile.StartColor.Brightness = d.GlobalBrightness
-		}
-
-		profileColor := rgb.ModifyBrightness(profile.StartColor)
 		for _, k := range keys {
-			var c *rgb.Color
-			rgbOverride := d.getRgbOverride(k, 0)
-			if rgbOverride != nil && rgbOverride.Enabled && d.Devices[k].LedChannels > 0 {
-				profileOverride := d.GetRgbProfile("static")
-				if profileOverride == nil {
-					return
-				}
-				profileOverride.StartColor = rgbOverride.RGBStartColor
-				c = rgb.ModifyBrightness(profileOverride.StartColor)
-			} else {
-				c = profileColor
+			profile := d.channelRendererProfile(d.Devices[k], "static")
+			if profile == nil {
+				return
 			}
+			profile.StartColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
+			if d.GlobalBrightness != 0 {
+				profile.StartColor.Brightness = d.GlobalBrightness
+			}
+			c := rgb.ModifyBrightness(profile.StartColor)
 
 			static := map[int][]byte{}
 			for i := 0; i < int(d.Devices[k].LedChannels); i++ {
@@ -1293,7 +1286,7 @@ func (d *Device) setDeviceColor() {
 				buff := make([]byte, 0)
 				for _, k := range keys {
 					rgbCustomColor := true
-					profile := d.GetRgbProfile(d.Devices[k].RGB)
+					profile := d.channelRendererProfile(d.Devices[k], d.Devices[k].RGB)
 					if profile == nil {
 						for i := 0; i < int(d.Devices[k].LedChannels); i++ {
 							buff = append(buff, []byte{0, 0, 0}...)
@@ -1303,9 +1296,7 @@ func (d *Device) setDeviceColor() {
 
 					rgbModeSpeed := common.FClamp(profile.Speed, 0.1, 10)
 					// Check if we have custom colors
-					if (rgb.Color{}) == profile.StartColor || (rgb.Color{}) == profile.EndColor {
-						rgbCustomColor = false
-					}
+					rgbCustomColor = d.channelRendererUsesResolvedColors(d.Devices[k], d.Devices[k].RGB, profile)
 
 					r := rgb.New(
 						int(d.Devices[k].LedChannels),
@@ -1334,7 +1325,7 @@ func (d *Device) setDeviceColor() {
 
 					index := 0
 					rgbOverride := d.getRgbOverride(k, index)
-					if rgbOverride != nil && rgbOverride.Enabled && d.Devices[k].LedChannels > 0 {
+					if !d.canonicalChannel(d.Devices[k]) && rgbOverride != nil && rgbOverride.Enabled && d.Devices[k].LedChannels > 0 {
 						r.RGBStartColor = &rgbOverride.RGBStartColor
 						r.RGBEndColor = &rgbOverride.RGBEndColor
 						r.RGBMiddleColor = &rgbOverride.RGBMiddleColor
@@ -1751,6 +1742,11 @@ func (d *Device) SchedulerBrightness(value uint8) uint8 {
 // ChangeDeviceProfile will change device profile
 func (d *Device) ChangeDeviceProfile(profileName string) uint8 {
 	if profile, ok := d.UserProfiles[profileName]; ok {
+		if d.channelLightingState != nil {
+			if err := d.restoreCanonicalChannelProfile(profile); err != nil {
+				return 0
+			}
+		}
 		currentProfile := d.DeviceProfile
 		currentProfile.Active = false
 		d.DeviceProfile = currentProfile
@@ -1763,7 +1759,7 @@ func (d *Device) ChangeDeviceProfile(profileName string) uint8 {
 		}
 
 		for _, device := range d.Devices {
-			if device.LedChannels > 0 {
+			if device.LedChannels > 0 && !d.canonicalChannel(device) {
 				d.Devices[device.ChannelId].RGB = profile.RGBProfiles[device.ChannelId]
 			}
 			d.Devices[device.ChannelId].Label = profile.Labels[device.ChannelId]

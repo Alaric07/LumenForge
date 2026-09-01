@@ -230,3 +230,14 @@ func TestIndependentDeviceStateStoreAcceptsKeyboardSpecialEffectOnly(t *testing.
 		t.Fatal("arbitrary unknown effect was accepted")
 	}
 }
+
+func TestIndependentDeviceStateStoreAcceptsMemoryLedSpecialEffect(t *testing.T) {
+	store, err := LoadIndependentDeviceStateStore(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	led := IndependentDeviceLightingState{SelectedEffect: "led", Brightness: 50}
+	if err := store.Set("i2c0-rgb-0", led); err != nil {
+		t.Fatalf("Set Memory led special effect: %v", err)
+	}
+}

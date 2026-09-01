@@ -668,8 +668,6 @@
                     {{ if and .Device.LegacyLighting (not .Device.Lighting) }}
                         <section class="lf-performance-workspace"><h2 class="lf-workspace-section-heading">Lighting</h2><p class="lf-device-profile-description">Native Lighting migration is not complete. Lighting remains in the existing legacy controller workspace.</p></section>
                     {{ end }}
-                {{ else if and (eq .Device.View "lighting") .Device.Memory }}
-                    <section class="lf-performance-workspace" data-lf-memory-lighting-workspace><h2 class="lf-workspace-section-heading">Lighting</h2><p class="lf-device-profile-description">Memory lighting remains in the existing legacy controller workspace while canonical per-DIMM controls are prepared.</p></section>
                 {{ else if eq .Device.View "cooling" }}
                     {{ with .Device.Cooling }}
                         <section class="lf-performance-workspace" data-lf-cooling-workspace data-lf-device-id="{{ $.Device.Serial }}">
