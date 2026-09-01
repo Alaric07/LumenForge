@@ -11,6 +11,7 @@ import (
 	"LumenForge/src/dpipresentation"
 	"LumenForge/src/keyboardassignmentspresentation"
 	"LumenForge/src/lightingpresentation"
+	"LumenForge/src/memorypresentation"
 	"LumenForge/src/performancepresentation"
 	"LumenForge/src/rgb"
 	"LumenForge/src/stats"
@@ -350,6 +351,155 @@ func TestDevicesOverviewLightingStatusPresentation(t *testing.T) {
 	}
 }
 
+func TestDevicesOverviewCapabilityStatusPresentation(t *testing.T) {
+	const serial = "overview-capabilities"
+	lighting := lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "static", EffectSupported: true, HasBrightness: true, Brightness: 75, SupportedEffects: []lightingpresentation.EffectOption{{ID: "static", Label: "Static"}}}
+	cooling := coolingpresentation.Snapshot{Available: true, ProfileOptions: []coolingpresentation.ProfileOption{{ID: "quiet", Label: "Quiet"}}, Channels: []coolingpresentation.Channel{
+		{ID: 0, Name: "H150i", Label: "Pump", RPM: 2440, Temperature: "31.2°C", ContainsPump: true, SelectedProfile: "quiet"},
+		{ID: 1, Name: "Fan 1", RPM: 820, SelectedProfile: "quiet"},
+		{ID: 2, Name: "Fan 2", Label: "Front Intake", RPM: 1140, SelectedProfile: "quiet"},
+		{ID: 3, Name: "Unavailable fan", RPM: -1, SelectedProfile: "quiet"},
+	}, TemperatureProbes: []coolingpresentation.TemperatureProbe{{ID: 0, Name: "Probe 1", Label: "Coolant", Temperature: "30.0°C"}, {ID: 1, Name: "Probe 2", Temperature: "28.0°C"}}}
+	dpi := dpipresentation.Snapshot{MinimumDPI: 100, MaximumDPI: 18000, ActiveRegularStageID: "stage-2", Stages: []dpipresentation.Stage{{ID: "stage-1", Name: "Stage 1", DPI: 800, ColorHex: "#102030"}, {ID: "stage-2", Name: "Stage 2", DPI: 1600, ColorHex: "#203040", Active: true}, {ID: "sniper", Name: "Sniper", DPI: 400, ColorHex: "#304050", Sniper: true}}}
+	performance := performancepresentation.Snapshot{PollingRate: &performancepresentation.SelectSetting{Value: 2, Options: []performancepresentation.Option{{Value: 1, Label: "500 Hz"}, {Value: 2, Label: "1000 Hz"}}}, AngleSnapping: &performancepresentation.ToggleSetting{Enabled: true}}
+	display := displaypresentation.Snapshot{Available: true, ChannelID: 0, ImageMode: true, ImageModeID: 10, Modes: []displaypresentation.Option{{ID: 0, Label: "Liquid Temperature"}, {ID: 10, Label: "Image / GIF", Selected: true}}, Rotations: []displaypresentation.Option{{ID: 0, Label: "Default", Selected: true}}, BrightnessLevels: []displaypresentation.Option{{ID: 64, Label: "100%", Selected: true}}, Images: []displaypresentation.ImageOption{{Name: "status", Selected: true}}}
+	instance := struct {
+		devicesPageLightingSnapshotProvider
+		devicesPageCoolingSnapshotProvider
+		devicesPageDPISnapshotProvider
+		devicesPagePerformanceSnapshotProvider
+		devicesPageDisplaySnapshotProvider
+	}{
+		devicesPageLightingSnapshotProvider{serial: serial, snapshot: lighting},
+		devicesPageCoolingSnapshotProvider{serial: serial, snapshot: cooling},
+		devicesPageDPISnapshotProvider{serial: serial, snapshot: dpi},
+		devicesPagePerformanceSnapshotProvider{serial: serial, snapshot: performance},
+		devicesPageDisplaySnapshotProvider{serial: serial, snapshot: display},
+	}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "Overview capabilities", Instance: instance}}, map[string]stats.BatteryStats{}, serial)
+	if !ok || summary.OverviewCooling == nil || summary.TemperatureProbes == nil || summary.OverviewPerformance == nil || summary.OverviewDisplay == nil {
+		t.Fatalf("overview status summary = %#v, ok=%t", summary, ok)
+	}
+	if got := summary.OverviewCooling.Fans; len(got) != 2 || got[0].Label != "Fan 1" || got[0].Value != "820 RPM" || got[0].ChannelID != 1 || got[1].Label != "Front Intake" || got[1].Value != "1140 RPM" || got[1].ChannelID != 2 {
+		t.Fatalf("fan rows = %#v", got)
+	}
+	if got := summary.TemperatureProbes[1]; got.Label != "Probe 2" || got.Value != "28.0°C" {
+		t.Fatalf("probe fallback = %#v", got)
+	}
+
+	var rendered bytes.Buffer
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: {Serial: serial, Product: "Overview capabilities"}}, Device: summary, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
+	body := rendered.String()
+	for _, expected := range []string{"<h2>Cooling Status</h2>", "Pump", "2440 RPM", "31.2°C", "Fan 1", "820 RPM", "Front Intake", "1140 RPM", "<h2>Temperature Probes</h2>", "Coolant", "Probe 2", "<h2>Performance Status</h2>", ">1600</span>", "Stage 2", "1000 Hz", "<h2>Display Status</h2>", "Image / GIF", "100%", "status", `data-lf-cooling-workspace data-lf-device-id="overview-capabilities"`, `data-lf-cooling-rpm data-lf-channel-id="0"`, `data-lf-cooling-rpm data-lf-channel-id="1"`, `data-lf-cooling-rpm data-lf-channel-id="2"`, `data-lf-cooling-temperature data-lf-channel-id="0"`, `data-lf-cooling-temperature data-lf-channel-id="1"`, `data-lf-overview-dpi data-lf-device-serial="overview-capabilities"`, `data-lf-overview-dpi-value`, `data-lf-overview-dpi-stage`, `data-lf-overview-dpi-metadata data-lf-stage-id="stage-2" data-lf-stage-name="Stage 2" data-lf-stage-dpi="1600"`, `class="lf-telemetry-value"`} {
+		if !strings.Contains(body, expected) {
+			t.Errorf("Overview omitted %q", expected)
+		}
+	}
+	if strings.Contains(body, "connected ·") {
+		t.Error("Overview retained condensed fan telemetry")
+	}
+	if fanOne, fanTwo := strings.Index(body, "Fan 1"), strings.Index(body, "Front Intake"); fanOne < 0 || fanTwo <= fanOne {
+		t.Error("Overview fan rows did not preserve snapshot order")
+	}
+	for _, unwanted := range []string{"data-lf-cooling-channel", "data-lf-cooling-profile", "data-lf-cooling-label", "data-lf-dpi-slider", "data-lf-performance-kind", "data-lf-display-rotation", "Angle Snapping", "Lift Height"} {
+		if strings.Contains(body, unwanted) {
+			t.Errorf("Overview unexpectedly rendered a control or unrelated setting %q", unwanted)
+		}
+	}
+	if lightingIndex, statusIndex, memoryIndex := strings.Index(body, "<h2>Lighting Status</h2>"), strings.Index(body, "<h2>Cooling Status</h2>"), strings.Index(body, "Detected modules"); lightingIndex < 0 || statusIndex < lightingIndex || memoryIndex >= 0 && memoryIndex < statusIndex {
+		t.Errorf("Overview status ordering is wrong")
+	}
+
+	if devicesOverviewDisplayStatusFromSummary(&devicesDisplayWorkspaceSummary{}) != nil {
+		t.Error("unusable display summary created an empty Overview status section")
+	}
+
+	rendered.Reset()
+	memory := &devicesMemoryWorkspaceSummary{Modules: []devicesMemoryModuleSummary{{ChannelID: 0, Name: "DIMM 1", Label: "Front DIMM", MemoryType: 5, SKU: "CMH64GX5M2B6000C30", LEDCount: 10, Temperature: "42.0°C"}, {ChannelID: 1, Name: "DIMM 2", Temperature: "41.0°C"}}}
+	if preserved := devicesMemoryWorkspaceSummaryFromSnapshot(memorypresentation.Snapshot{Available: true, Modules: []memorypresentation.Module{{ChannelID: 0, Name: "DIMM 1", MemoryType: 5, SKU: "CMH64GX5M2B6000C30"}}}); preserved == nil || preserved.Modules[0].MemoryType != 5 || preserved.Modules[0].SKU != "CMH64GX5M2B6000C30" {
+		t.Fatalf("Memory summary lost retained data: %#v", preserved)
+	}
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{"memory-overview": {Serial: "memory-overview", Product: "Memory"}}, Device: &devicesWorkspaceSummary{Serial: "memory-overview", Product: "Memory", Memory: memory}, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
+	if memoryBody := rendered.String(); !strings.Contains(memoryBody, "Detected modules") || !strings.Contains(memoryBody, "Front DIMM") || !strings.Contains(memoryBody, "DIMM 1") || !strings.Contains(memoryBody, "DIMM 2") || !strings.Contains(memoryBody, `class="lf-telemetry-value" data-lf-memory-temperature`) || strings.Contains(memoryBody, "<h2>Sensors</h2>") || strings.Contains(memoryBody, "data-lf-memory-label") || strings.Contains(memoryBody, "DDR5") || strings.Contains(memoryBody, "CMH64GX5M2B6000C30") {
+		t.Error("Memory Overview temperature presentation changed or gained a generic Sensors section")
+	}
+
+	rendered.Reset()
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{"memory-overview": {Serial: "memory-overview", Product: "Memory"}}, Device: &devicesWorkspaceSummary{Serial: "memory-overview", Product: "Memory", Memory: memory, View: "lighting"}, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
+	if memoryLightingBody := rendered.String(); !strings.Contains(memoryLightingBody, `data-lf-memory-label-workspace data-lf-device-id="memory-overview"`) || !strings.Contains(memoryLightingBody, `data-lf-memory-label-display`) || !strings.Contains(memoryLightingBody, `data-lf-memory-label`) || !strings.Contains(memoryLightingBody, "Front DIMM") || !strings.Contains(memoryLightingBody, "Effect controls are unavailable.") {
+		t.Error("Memory Lighting omitted its editable label presentation")
+	}
+
+	rendered.Reset()
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{"device-details": {Serial: "device-details", Product: "Device Details"}}, Device: &devicesWorkspaceSummary{Serial: "device-details", Product: "Device Details", Firmware: "1.2.3"}, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
+	if detailsBody := rendered.String(); !strings.Contains(detailsBody, "<dd class=\"lf-device-summary-value\">1.2.3</dd>") || strings.Contains(detailsBody, "lf-telemetry-value\">1.2.3") {
+		t.Error("ordinary Device Details text received telemetry styling")
+	}
+}
+
+func TestOpenRGBOverviewGPUTemperaturePresentation(t *testing.T) {
+	for _, test := range []struct {
+		name                             string
+		product, description, identifier string
+		wantGPU                          bool
+	}{
+		{name: "NVIDIA graphics card", product: "NVIDIA GeForce RTX 4080", wantGPU: true},
+		{name: "AMD graphics card description", product: "RGB controller", description: "Radeon graphics card", wantGPU: true},
+		{name: "ASUS motherboard", product: "ROG STRIX X670E-E GAMING WIFI", description: "Motherboard controller"},
+		{name: "ordinary controller", product: "ARGB Controller", description: "USB lighting"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := isOpenRGBGPUController(test.product, test.description, test.identifier); got != test.wantGPU {
+				t.Fatalf("isOpenRGBGPUController() = %t, want %t", got, test.wantGPU)
+			}
+		})
+	}
+
+	originalTemperature := devicesOpenRGBGPUTemperature
+	t.Cleanup(func() { devicesOpenRGBGPUTemperature = originalTemperature })
+	devicesOpenRGBGPUTemperature = func() float32 { return 47 }
+	config := &openrgbimport.DeviceConfig{Vendor: "ASUS", Location: "unsafe-location"}
+	summary := openRGBWorkspaceSummaryFromSnapshot(openrgbimport.DeviceSnapshot{Product: "NVIDIA GeForce RTX 4080", Description: "GPU RGB", Config: config})
+	if summary.GPUTemperature == "" {
+		t.Fatal("GPU controller omitted a temperature from the injected source")
+	}
+	var rendered bytes.Buffer
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{"openrgb-gpu": {Serial: "openrgb-gpu", Product: "NVIDIA GeForce RTX 4080"}}, Device: &devicesWorkspaceSummary{Serial: "openrgb-gpu", Product: "NVIDIA GeForce RTX 4080", OpenRGB: summary}, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
+	body := rendered.String()
+	if !strings.Contains(body, "<h2>Sensors</h2>") || !strings.Contains(body, "GPU Temperature") || !strings.Contains(body, `class="lf-telemetry-value">`+summary.GPUTemperature) {
+		t.Fatalf("GPU Sensors Overview = %q", body)
+	}
+	if strings.Contains(body, "unsafe-location") {
+		t.Fatal("OpenRGB Location leaked into Overview")
+	}
+
+	devicesOpenRGBGPUTemperature = func() float32 { return 0 }
+	unavailable := openRGBWorkspaceSummaryFromSnapshot(openrgbimport.DeviceSnapshot{Product: "NVIDIA GeForce RTX 4080"})
+	if unavailable.GPUTemperature != "" {
+		t.Fatalf("unavailable GPU temperature = %q", unavailable.GPUTemperature)
+	}
+	if nonGPU := openRGBWorkspaceSummaryFromSnapshot(openrgbimport.DeviceSnapshot{Product: "ROG STRIX X670E-E GAMING WIFI", Description: "Motherboard controller", Config: config}); nonGPU.GPUTemperature != "" {
+		t.Fatalf("non-GPU OpenRGB controller received GPU temperature %q", nonGPU.GPUTemperature)
+	}
+	rendered.Reset()
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{"openrgb-unavailable": {Serial: "openrgb-unavailable", Product: "NVIDIA GeForce RTX 4080"}}, Device: &devicesWorkspaceSummary{Serial: "openrgb-unavailable", Product: "NVIDIA GeForce RTX 4080", OpenRGB: unavailable}, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(rendered.String(), "<h2>Sensors</h2>") || strings.Contains(rendered.String(), "GPU Temperature") {
+		t.Error("unavailable GPU temperature rendered an empty Sensors section")
+	}
+}
+
 func TestDevicesCCXTModernCoolingWorkspaceAndFullProfile(t *testing.T) {
 	const serial = "ccxt-modern-workspace"
 	profile := deviceprofilepresentation.Snapshot{Supported: true, Profiles: []string{"default", "studio"}, ActiveProfile: "default"}
@@ -399,7 +549,7 @@ func TestDevicesCommanderCoreModernCoolingWorkspaceAndLegacyLightingBoundary(t *
 	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: device}, Device: summary, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{"Overview", "Cooling", "Lighting", "data-lf-cooling-workspace", "H150i", "Pump", "2440 RPM", "31.2°C", "Fan 1", "Temperature probes", "30.0°C"} {
+	for _, expected := range []string{"Overview", "Cooling", "Lighting", "data-lf-cooling-workspace", "H150i", "Pump", `class="lf-telemetry-value" data-lf-cooling-rpm data-lf-channel-id="0">2440 RPM`, `class="lf-telemetry-value" data-lf-cooling-temperature data-lf-channel-id="0">31.2°C`, "Fan 1", "Temperature probes", `class="lf-device-summary-value lf-telemetry-value" data-lf-cooling-temperature data-lf-channel-id="7">30.0°C`} {
 		if !strings.Contains(rendered.String(), expected) {
 			t.Errorf("missing %q", expected)
 		}
@@ -2462,7 +2612,7 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	}
 	batteryBody := batteryRecorder.Body.String()
 	if !strings.Contains(batteryBody, "<dt class=\"lf-device-summary-label\">Battery</dt>") ||
-		!strings.Contains(batteryBody, "<dd class=\"lf-device-summary-value\">37%</dd>") {
+		!strings.Contains(batteryBody, "<dd class=\"lf-device-summary-value\"><span class=\"lf-telemetry-value\">37%</span></dd>") {
 		t.Error("matching battery record is not rendered in the selected summary")
 	}
 	stats.UpdateBatteryStats(visibleSerial, visibleProduct, 0, 0)
@@ -2470,7 +2620,7 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	if zeroBatteryRecorder.Code != http.StatusOK {
 		t.Fatalf("zero-battery GET /devices status = %d: %s", zeroBatteryRecorder.Code, zeroBatteryRecorder.Body.String())
 	}
-	if !strings.Contains(zeroBatteryRecorder.Body.String(), "<dd class=\"lf-device-summary-value\">0%</dd>") {
+	if !strings.Contains(zeroBatteryRecorder.Body.String(), "<dd class=\"lf-device-summary-value\"><span class=\"lf-telemetry-value\">0%</span></dd>") {
 		t.Error("real zero-level battery record is not rendered in the selected summary")
 	}
 

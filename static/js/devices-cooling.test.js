@@ -91,6 +91,30 @@ async function run() {
 	assert.strictEqual(temperature.textContent, "33.5°C");
 	assert.strictEqual(label.hidden, false);
 	assert.strictEqual(label.value, "Editing");
+
+	const overviewRPM = control("820 RPM"); overviewRPM.dataset = {lfChannelId: "4"};
+	const overviewTemperature = control("29.5°C"); overviewTemperature.dataset = {lfChannelId: "5"};
+	const overviewWorkspace = {
+		dataset: {lfDeviceId: "overview-cooling"},
+		querySelectorAll: function (selector) {
+			if (selector === "[data-lf-cooling-channel]" || selector === "[data-lf-cooling-probe]") { return []; }
+			return selector === "[data-lf-cooling-rpm]" ? [overviewRPM] : [overviewTemperature];
+		}
+	};
+	const overviewBrowser = {
+		document: {querySelector: function () { return overviewWorkspace; }},
+		fetch: async function (url) {
+			assert.strictEqual(url, "/api/devices/overview-cooling");
+			return {ok: true, json: async function () { return {device: {devices: {"4": {channelId: 4, rpm: 861}, "5": {channelId: 5, temperatureString: "31.0°C"}}}}; }};
+		},
+		setInterval: function (handler, delay) { overviewBrowser.timer = {handler: handler, delay: delay}; return overviewBrowser.timer; },
+		clearInterval: function () {}
+	};
+	cooling.init(overviewBrowser);
+	await overviewBrowser.timer.handler();
+	assert.strictEqual(overviewBrowser.timer.delay, 1500);
+	assert.strictEqual(overviewRPM.textContent, "861 RPM");
+	assert.strictEqual(overviewTemperature.textContent, "31.0°C");
 }
 
 run().catch(function (error) { console.error(error); process.exitCode = 1; });

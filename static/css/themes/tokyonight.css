@@ -28,6 +28,7 @@
     --lf-text-secondary: #a9b1d6;
     --lf-text-muted: #7982a9;
     --lf-text-technical: #c0caf5;
+    --lf-telemetry-value: #7dcfff;
     --lf-text-on-accent: #16161e;
     --lf-accent-primary: #7aa2f7;
     --lf-accent-secondary: #bb9af7;
@@ -605,4 +606,3 @@ select option:hover,
     background-color: #292e42 !important;
     color: #c0caf5 !important;
 }
-

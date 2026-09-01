@@ -2404,6 +2404,7 @@ type openRGBWorkspaceSummary struct {
 	Description            string
 	Effect                 string
 	Brightness             uint8
+	GPUTemperature         string
 	Zones                  []openRGBWorkspaceZoneSummary
 }
 
@@ -2424,6 +2425,10 @@ type devicesWorkspaceSummary struct {
 	Cooling             *devicesCoolingWorkspaceSummary
 	Display             *devicesDisplayWorkspaceSummary
 	Memory              *devicesMemoryWorkspaceSummary
+	OverviewCooling     *devicesOverviewCoolingStatusSummary
+	TemperatureProbes   []devicesOverviewStatusRow
+	OverviewPerformance *devicesOverviewPerformanceStatusSummary
+	OverviewDisplay     *devicesOverviewDisplayStatusSummary
 	KeyboardAssignments *devicesKeyboardAssignmentsWorkspaceSummary
 	LegacyLighting      bool
 	View                string
@@ -2646,6 +2651,36 @@ type devicesCoolingWorkspaceSummary struct {
 	TemperatureProbes []devicesCoolingTemperatureProbeSummary
 }
 
+// devicesOverviewStatusRow is a compact read-only fact for the Overview page.
+// It is deliberately derived from an existing capability summary rather than
+// becoming a separate device telemetry model.
+type devicesOverviewStatusRow struct {
+	ChannelID int
+	Label     string
+	Value     string
+	Telemetry bool
+}
+
+type devicesOverviewCoolingPumpSummary struct {
+	ChannelID   int
+	Label       string
+	RPM         string
+	Temperature string
+}
+
+type devicesOverviewCoolingStatusSummary struct {
+	Pumps []devicesOverviewCoolingPumpSummary
+	Fans  []devicesOverviewStatusRow
+}
+
+type devicesOverviewPerformanceStatusSummary struct {
+	Rows []devicesOverviewStatusRow
+}
+
+type devicesOverviewDisplayStatusSummary struct {
+	Rows []devicesOverviewStatusRow
+}
+
 type devicesDisplayOptionSummary struct {
 	ID       int
 	Label    string
@@ -2748,6 +2783,124 @@ func devicesDisplayWorkspaceSummaryFromSnapshot(snapshot displaypresentation.Sna
 		summary.Images = append(summary.Images, devicesDisplayImageSummary{Name: image.Name, Selected: image.Selected})
 	}
 	return summary
+}
+
+func devicesOverviewCoolingStatusFromSummary(summary *devicesCoolingWorkspaceSummary) *devicesOverviewCoolingStatusSummary {
+	if summary == nil {
+		return nil
+	}
+
+	status := &devicesOverviewCoolingStatusSummary{}
+	for _, channel := range summary.Channels {
+		if channel.ContainsPump {
+			pump := devicesOverviewCoolingPumpSummary{ChannelID: channel.ID}
+			if channel.RPM >= 0 {
+				pump.RPM = fmt.Sprintf("%d RPM", channel.RPM)
+			}
+			pump.Temperature = strings.TrimSpace(channel.Temperature)
+			if pump.RPM != "" || pump.Temperature != "" {
+				pump.Label = channel.Label
+				if pump.Label == "" {
+					pump.Label = channel.Name
+				}
+				status.Pumps = append(status.Pumps, pump)
+			}
+			continue
+		}
+		if channel.RPM < 0 {
+			continue
+		}
+		label := channel.Label
+		if label == "" {
+			label = channel.Name
+		}
+		status.Fans = append(status.Fans, devicesOverviewStatusRow{ChannelID: channel.ID, Label: label, Value: fmt.Sprintf("%d RPM", channel.RPM), Telemetry: true})
+	}
+	if len(status.Pumps) == 0 && len(status.Fans) == 0 {
+		return nil
+	}
+	return status
+}
+
+func devicesOverviewTemperatureProbesFromSummary(summary *devicesCoolingWorkspaceSummary) []devicesOverviewStatusRow {
+	if summary == nil {
+		return nil
+	}
+	probes := make([]devicesOverviewStatusRow, 0, len(summary.TemperatureProbes))
+	for _, probe := range summary.TemperatureProbes {
+		temperature := strings.TrimSpace(probe.Temperature)
+		if temperature == "" {
+			continue
+		}
+		label := probe.Label
+		if label == "" {
+			label = probe.Name
+		}
+		probes = append(probes, devicesOverviewStatusRow{ChannelID: probe.ID, Label: label, Value: temperature, Telemetry: true})
+	}
+	if len(probes) == 0 {
+		return nil
+	}
+	return probes
+}
+
+func devicesOverviewPerformanceStatusFromSummaries(dpi *devicesDPIWorkspaceSummary, performance *devicesPerformanceWorkspaceSummary) *devicesOverviewPerformanceStatusSummary {
+	status := &devicesOverviewPerformanceStatusSummary{}
+	if dpi != nil {
+		for _, stage := range dpi.RegularStages {
+			if stage.ID != dpi.ActiveRegularStageID {
+				continue
+			}
+			status.Rows = append(status.Rows, devicesOverviewStatusRow{Label: "DPI", Value: strconv.Itoa(int(stage.DPI)), Telemetry: true})
+			if stage.Name != "" {
+				status.Rows = append(status.Rows, devicesOverviewStatusRow{Label: "Active Stage", Value: stage.Name})
+			}
+			break
+		}
+	}
+	if performance != nil && performance.PollingRate != nil {
+		for _, option := range performance.PollingRate.Options {
+			if option.Value == performance.PollingRate.Value && option.Label != "" {
+				status.Rows = append(status.Rows, devicesOverviewStatusRow{Label: "Polling Rate", Value: option.Label, Telemetry: true})
+				break
+			}
+		}
+	}
+	if len(status.Rows) == 0 {
+		return nil
+	}
+	return status
+}
+
+func devicesOverviewDisplayStatusFromSummary(summary *devicesDisplayWorkspaceSummary) *devicesOverviewDisplayStatusSummary {
+	if summary == nil {
+		return nil
+	}
+	status := &devicesOverviewDisplayStatusSummary{}
+	for _, mode := range summary.Modes {
+		if mode.Selected && mode.Label != "" {
+			status.Rows = append(status.Rows, devicesOverviewStatusRow{Label: "Mode", Value: mode.Label})
+			break
+		}
+	}
+	for _, brightness := range summary.BrightnessLevels {
+		if brightness.Selected && brightness.Label != "" {
+			status.Rows = append(status.Rows, devicesOverviewStatusRow{Label: "Brightness", Value: brightness.Label, Telemetry: true})
+			break
+		}
+	}
+	if summary.ImageMode {
+		for _, image := range summary.Images {
+			if image.Selected && image.Name != "" {
+				status.Rows = append(status.Rows, devicesOverviewStatusRow{Label: "Image", Value: image.Name})
+				break
+			}
+		}
+	}
+	if len(status.Rows) == 0 {
+		return nil
+	}
+	return status
 }
 
 func devicesDeviceProfileWorkspaceSummaryFromSnapshot(snapshot deviceprofilepresentation.Snapshot) *devicesDeviceProfileWorkspaceSummary {
@@ -3040,6 +3193,23 @@ func openRGBWorkspaceDisplayIdentifierLabel(label string) string {
 	}
 }
 
+var devicesOpenRGBGPUTemperature = temperatures.GetGpuTemperature
+
+// isOpenRGBGPUController recognizes only controller metadata that explicitly
+// identifies a graphics processor. Vendor is intentionally not sufficient:
+// motherboard and peripheral controllers commonly share GPU vendor names.
+func isOpenRGBGPUController(product, description, displayIdentifier string) bool {
+	metadata := strings.ToLower(strings.Join([]string{product, description, displayIdentifier}, " "))
+	for _, indicator := range []string{
+		" gpu", "gpu ", "graphics card", "graphics processor", "geforce", "radeon", "intel arc", "quadro", "tesla", "rtx", "gtx",
+	} {
+		if strings.Contains(metadata, indicator) {
+			return true
+		}
+	}
+	return false
+}
+
 func openRGBWorkspaceSummaryFromSnapshot(snapshot openrgbimport.DeviceSnapshot) *openRGBWorkspaceSummary {
 	summary := &openRGBWorkspaceSummary{
 		DisplayIdentifier:      snapshot.DisplaySerial,
@@ -3050,6 +3220,11 @@ func openRGBWorkspaceSummaryFromSnapshot(snapshot openrgbimport.DeviceSnapshot) 
 	}
 	if snapshot.Config == nil {
 		summary.HasMetadata = summary.DisplayIdentifier != "" || summary.Description != ""
+		if isOpenRGBGPUController(snapshot.Product, snapshot.Description, snapshot.DisplaySerial) {
+			if temperature := devicesOpenRGBGPUTemperature(); temperature > 0 {
+				summary.GPUTemperature = dashboard.GetDashboard().TemperatureToString(temperature)
+			}
+		}
 		return summary
 	}
 
@@ -3062,6 +3237,11 @@ func openRGBWorkspaceSummaryFromSnapshot(snapshot openrgbimport.DeviceSnapshot) 
 		summary.Zones[index] = openRGBWorkspaceZoneSummary{
 			Name:     zone.Name,
 			LEDCount: zone.LedCount,
+		}
+	}
+	if isOpenRGBGPUController(snapshot.Product, snapshot.Description, snapshot.DisplaySerial) {
+		if temperature := devicesOpenRGBGPUTemperature(); temperature > 0 {
+			summary.GPUTemperature = dashboard.GetDashboard().TemperatureToString(temperature)
 		}
 	}
 	return summary
@@ -3346,6 +3526,10 @@ func devicesWorkspaceSummaryForSerial(
 			summary.Memory = devicesMemoryWorkspaceSummaryFromSnapshot(snapshot)
 		}
 	}
+	summary.OverviewCooling = devicesOverviewCoolingStatusFromSummary(summary.Cooling)
+	summary.TemperatureProbes = devicesOverviewTemperatureProbesFromSummary(summary.Cooling)
+	summary.OverviewPerformance = devicesOverviewPerformanceStatusFromSummaries(summary.DPI, summary.Performance)
+	summary.OverviewDisplay = devicesOverviewDisplayStatusFromSummary(summary.Display)
 	if keyboardDevice, ok := device.Instance.(devicesKeyboardAssignmentsSnapshotProvider); ok && keyboardDevice != nil && keyboardDevice.KeyboardAssignmentsDeviceID() == serial {
 		if snapshot, usable := keyboardDevice.KeyboardAssignmentsSnapshot(); usable {
 			summary.KeyboardAssignments = devicesKeyboardAssignmentsWorkspaceSummaryFromSnapshot(snapshot)

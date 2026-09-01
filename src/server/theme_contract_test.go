@@ -25,6 +25,7 @@ var devicesThemeContract = []string{
 	"--lf-text-secondary",
 	"--lf-text-muted",
 	"--lf-text-technical",
+	"--lf-telemetry-value",
 	"--lf-text-on-accent",
 	"--lf-accent-primary",
 	"--lf-accent-secondary",
@@ -217,6 +218,7 @@ func TestDevicesThemeIntegrationContract(t *testing.T) {
 		"--lf-text-secondary",
 		"--lf-text-muted",
 		"--lf-text-technical",
+		"--lf-telemetry-value",
 		"--lf-accent-primary",
 		"--lf-accent-secondary",
 		"--lf-accent-highlight",
@@ -255,6 +257,16 @@ func TestDevicesThemeIntegrationContract(t *testing.T) {
 		if _, ok := shellProperties[token]; ok {
 			t.Errorf("app-shell.css redeclares theme-owned token %s", token)
 		}
+	}
+	if strings.Contains(appShell, "--lf-telemetry-value:") {
+		t.Error("app-shell.css declares the theme-owned telemetry token")
+	}
+	telemetryRule := devicesThemeRuleBody(t, appShell, ".lf-app-shell .lf-telemetry-value")
+	if !strings.Contains(telemetryRule, "color: var(--lf-telemetry-value)") {
+		t.Error("shared telemetry CSS does not consume the telemetry theme token")
+	}
+	if literal := regexp.MustCompile(`(?i)#[0-9a-f]{3,8}|rgba?\(`).FindString(telemetryRule); literal != "" {
+		t.Errorf("shared telemetry CSS contains a theme-specific literal color %q", literal)
 	}
 	if match := regexp.MustCompile(`var\(\s*--lf-[a-z0-9-]+\s*,`).FindString(appShell); match != "" {
 		t.Errorf("app-shell.css contains a scattered semantic fallback: %s", match)

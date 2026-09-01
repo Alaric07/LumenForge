@@ -691,6 +691,19 @@
                     {{ if and .Device.LegacyLighting (not .Device.Lighting) }}
                         <section class="lf-performance-workspace"><h2 class="lf-workspace-section-heading">Lighting</h2><p class="lf-device-profile-description">Native Lighting migration is not complete. Lighting remains in the existing legacy controller workspace.</p></section>
                     {{ end }}
+                    {{ with .Device.Memory }}
+                        <section class="lf-performance-workspace" data-lf-memory-label-workspace data-lf-device-id="{{ $.Device.Serial }}">
+                            <h2 class="lf-workspace-section-heading">Memory Modules</h2>
+                            <div class="lf-performance-controls lf-cooling-channel-grid">
+                                {{ range .Modules }}
+                                    <article class="lf-performance-control lf-cooling-channel" data-lf-memory-module data-lf-channel-id="{{ .ChannelID }}" data-lf-module-name="{{ .Name }}" data-lf-confirmed-label="{{ .Label }}">
+                                        <div><button class="lf-cooling-label-display" type="button" data-lf-memory-label-display aria-label="Edit {{ .Name }} label">{{ if .Label }}{{ .Label }}{{ else }}{{ .Name }}{{ end }}</button><input class="lf-buttons-select" type="text" value="{{ .Label }}" data-lf-memory-label aria-label="{{ .Name }} label" hidden><p class="lf-range-control-status" data-lf-memory-label-status aria-live="polite"></p><p class="lf-device-profile-description">{{ .Name }}{{ if gt .LEDCount 0 }} · {{ .LEDCount }} LEDs{{ end }}</p></div>
+                                        <p class="lf-device-profile-description">Effect controls are unavailable.</p>
+                                    </article>
+                                {{ end }}
+                            </div>
+                        </section>
+                    {{ end }}
                 {{ else if eq .Device.View "cooling" }}
                     {{ with .Device.Cooling }}
                         <section class="lf-performance-workspace" data-lf-cooling-workspace data-lf-device-id="{{ $.Device.Serial }}">
@@ -698,12 +711,12 @@
 	                            <div class="lf-performance-controls lf-cooling-channel-grid">
                                 {{ range .Channels }}
                                     <article class="lf-performance-control lf-cooling-channel" data-lf-cooling-channel data-lf-channel-id="{{ .ID }}" data-lf-channel-name="{{ .Name }}" data-lf-confirmed-profile="{{ .SelectedProfile }}" data-lf-confirmed-label="{{ .Label }}">
-                                        <div><button class="lf-cooling-label-display" type="button" data-lf-cooling-label-display aria-label="Edit {{ .Name }} label">{{ if .Label }}{{ .Label }}{{ else }}{{ .Name }}{{ end }}</button><input class="lf-buttons-select" type="text" value="{{ .Label }}" data-lf-cooling-label aria-label="{{ .Name }} label" hidden><p class="lf-device-profile-description">{{ .Name }}{{ if .ContainsPump }} · Pump{{ end }}{{ if ge .RPM 0 }} · <span data-lf-cooling-rpm data-lf-channel-id="{{ .ID }}">{{ .RPM }} RPM</span>{{ end }}{{ if .Temperature }} · <span data-lf-cooling-temperature data-lf-channel-id="{{ .ID }}">{{ .Temperature }}</span>{{ end }}</p></div>
+                                        <div><button class="lf-cooling-label-display" type="button" data-lf-cooling-label-display aria-label="Edit {{ .Name }} label">{{ if .Label }}{{ .Label }}{{ else }}{{ .Name }}{{ end }}</button><input class="lf-buttons-select" type="text" value="{{ .Label }}" data-lf-cooling-label aria-label="{{ .Name }} label" hidden><p class="lf-device-profile-description">{{ .Name }}{{ if .ContainsPump }} · Pump{{ end }}{{ if ge .RPM 0 }} · <span class="lf-telemetry-value" data-lf-cooling-rpm data-lf-channel-id="{{ .ID }}">{{ .RPM }} RPM</span>{{ end }}{{ if .Temperature }} · <span class="lf-telemetry-value" data-lf-cooling-temperature data-lf-channel-id="{{ .ID }}">{{ .Temperature }}</span>{{ end }}</p></div>
                                         <div class="lf-cooling-channel-controls"><label>Temperature profile<select data-lf-cooling-profile aria-label="{{ .Name }} temperature profile">{{ $selected := .SelectedProfile }}{{ range $.Device.Cooling.ProfileOptions }}<option value="{{ .ID }}"{{ if eq .ID $selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select></label><p class="lf-range-control-status" data-lf-cooling-status aria-live="polite"></p></div>
                                     </article>
                                 {{ end }}
                             </div>
-                            {{ if .TemperatureProbes }}<section class="lf-cooling-probes"><h3>Temperature probes</h3><dl class="lf-device-summary-meta">{{ range .TemperatureProbes }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label" data-lf-cooling-probe data-lf-channel-id="{{ .ID }}" data-lf-label-name="{{ .Name }}" data-lf-confirmed-label="{{ .Label }}"><button class="lf-cooling-label-display" type="button" data-lf-cooling-label-display aria-label="Edit {{ .Name }} label">{{ if .Label }}{{ .Label }}{{ else }}{{ .Name }}{{ end }}</button><input class="lf-buttons-select" type="text" value="{{ .Label }}" data-lf-cooling-label aria-label="{{ .Name }} label" hidden><p class="lf-range-control-status" data-lf-cooling-status aria-live="polite"></p></dt><dd class="lf-device-summary-value" data-lf-cooling-temperature data-lf-channel-id="{{ .ID }}">{{ .Temperature }}</dd></div>{{ end }}</dl></section>{{ end }}
+                            {{ if .TemperatureProbes }}<section class="lf-cooling-probes"><h3>Temperature probes</h3><dl class="lf-device-summary-meta">{{ range .TemperatureProbes }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label" data-lf-cooling-probe data-lf-channel-id="{{ .ID }}" data-lf-label-name="{{ .Name }}" data-lf-confirmed-label="{{ .Label }}"><button class="lf-cooling-label-display" type="button" data-lf-cooling-label-display aria-label="Edit {{ .Name }} label">{{ if .Label }}{{ .Label }}{{ else }}{{ .Name }}{{ end }}</button><input class="lf-buttons-select" type="text" value="{{ .Label }}" data-lf-cooling-label aria-label="{{ .Name }} label" hidden><p class="lf-range-control-status" data-lf-cooling-status aria-live="polite"></p></dt><dd class="lf-device-summary-value lf-telemetry-value" data-lf-cooling-temperature data-lf-channel-id="{{ .ID }}">{{ .Temperature }}</dd></div>{{ end }}</dl></section>{{ end }}
                         </section>
                     {{ end }}
                 {{ else if eq .Device.View "display" }}
@@ -884,7 +897,7 @@
                                     {{ if .Device.HasBattery }}
                                         <div class="lf-device-summary-meta-row">
                                             <dt class="lf-device-summary-label">Battery</dt>
-                                            <dd class="lf-device-summary-value">{{ .Device.BatteryLevel }}%</dd>
+                                            <dd class="lf-device-summary-value"><span class="lf-telemetry-value">{{ .Device.BatteryLevel }}%</span></dd>
                                         </div>
                                     {{ end }}
                                     {{ with .Device.OpenRGB }}
@@ -914,13 +927,62 @@
                                 </section>
                             {{ end }}
 
+                            {{ if or .Device.OverviewCooling .Device.TemperatureProbes }}
+                                <div data-lf-cooling-workspace data-lf-device-id="{{ .Device.Serial }}">
+                                    {{ with .Device.OverviewCooling }}
+                                        <section class="lf-overview-panel lf-overview-cooling-status">
+                                            <header class="lf-overview-panel-header"><div><h2>Cooling Status</h2></div></header>
+                                            <dl class="lf-device-summary-meta">
+                                                {{ range .Pumps }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">{{ .Label }}</dt><dd class="lf-device-summary-value">{{ if .RPM }}<span class="lf-telemetry-value" data-lf-cooling-rpm data-lf-channel-id="{{ .ChannelID }}">{{ .RPM }}</span>{{ end }}{{ if and .RPM .Temperature }} · {{ end }}{{ if .Temperature }}<span class="lf-telemetry-value" data-lf-cooling-temperature data-lf-channel-id="{{ .ChannelID }}">{{ .Temperature }}</span>{{ end }}</dd></div>{{ end }}
+                                                {{ range .Fans }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">{{ .Label }}</dt><dd class="lf-device-summary-value"><span class="lf-telemetry-value" data-lf-cooling-rpm data-lf-channel-id="{{ .ChannelID }}">{{ .Value }}</span></dd></div>{{ end }}
+                                            </dl>
+                                        </section>
+                                    {{ end }}
+
+                                    {{ with .Device.TemperatureProbes }}
+                                        <section class="lf-overview-panel lf-overview-temperature-probes">
+                                            <header class="lf-overview-panel-header"><div><h2>Temperature Probes</h2></div></header>
+                                            <dl class="lf-device-summary-meta">
+                                                {{ range . }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">{{ .Label }}</dt><dd class="lf-device-summary-value"><span class="lf-telemetry-value" data-lf-cooling-temperature data-lf-channel-id="{{ .ChannelID }}">{{ .Value }}</span></dd></div>{{ end }}
+                                            </dl>
+                                        </section>
+                                    {{ end }}
+                                </div>
+                            {{ end }}
+
+                            {{ with .Device.OverviewPerformance }}
+                                <section class="lf-overview-panel lf-overview-performance-status"{{ with $.Device.DPI }} data-lf-overview-dpi data-lf-device-serial="{{ $.Device.Serial }}"{{ end }}>
+                                    <header class="lf-overview-panel-header"><div><h2>Performance Status</h2></div></header>
+                                    <dl class="lf-device-summary-meta">
+                                        {{ range .Rows }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">{{ .Label }}</dt><dd class="lf-device-summary-value">{{ if eq .Label "DPI" }}<span class="lf-telemetry-value" data-lf-overview-dpi-value>{{ .Value }}</span>{{ else if eq .Label "Active Stage" }}<span data-lf-overview-dpi-stage>{{ .Value }}</span>{{ else if .Telemetry }}<span class="lf-telemetry-value">{{ .Value }}</span>{{ else }}{{ .Value }}{{ end }}</dd></div>{{ end }}
+                                    </dl>
+                                    {{ with $.Device.DPI }}<div hidden aria-hidden="true">{{ range .RegularStages }}<span data-lf-overview-dpi-metadata data-lf-stage-id="{{ .ID }}" data-lf-stage-name="{{ .Name }}" data-lf-stage-dpi="{{ .DPI }}"></span>{{ end }}</div>{{ end }}
+                                </section>
+                            {{ end }}
+
+                            {{ with .Device.OverviewDisplay }}
+                                <section class="lf-overview-panel lf-overview-display-status">
+                                    <header class="lf-overview-panel-header"><div><h2>Display Status</h2></div></header>
+                                    <dl class="lf-device-summary-meta">
+                                        {{ range .Rows }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">{{ .Label }}</dt><dd class="lf-device-summary-value">{{ if .Telemetry }}<span class="lf-telemetry-value">{{ .Value }}</span>{{ else }}{{ .Value }}{{ end }}</dd></div>{{ end }}
+                                    </dl>
+                                </section>
+                            {{ end }}
+
+                            {{ with .Device.OpenRGB }}{{ if .GPUTemperature }}
+                                <section class="lf-overview-panel lf-overview-sensors">
+                                    <header class="lf-overview-panel-header"><div><h2>Sensors</h2></div></header>
+                                    <dl class="lf-device-summary-meta"><div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">GPU Temperature</dt><dd class="lf-device-summary-value"><span class="lf-telemetry-value">{{ .GPUTemperature }}</span></dd></div></dl>
+                                </section>
+                            {{ end }}{{ end }}
+
                             {{ with .Device.Memory }}
                                 <section class="lf-overview-panel" data-lf-memory-workspace data-lf-device-id="{{ $.Device.Serial }}">
                                     <header class="lf-overview-panel-header"><div><p class="lf-section-kicker">Detected modules</p><h2>Memory</h2></div></header>
                                     <div class="lf-performance-controls lf-cooling-channel-grid">
                                         {{ range .Modules }}
-                                            <article class="lf-performance-control lf-cooling-channel" data-lf-memory-module data-lf-channel-id="{{ .ChannelID }}" data-lf-module-name="{{ .Name }}" data-lf-confirmed-label="{{ .Label }}">
-                                                <div><button class="lf-cooling-label-display" type="button" data-lf-memory-label-display aria-label="Edit {{ .Name }} label">{{ if .Label }}{{ .Label }}{{ else }}{{ .Name }}{{ end }}</button><input class="lf-buttons-select" type="text" value="{{ .Label }}" data-lf-memory-label aria-label="{{ .Name }} label" hidden><p class="lf-range-control-status" data-lf-memory-label-status aria-live="polite"></p><p class="lf-device-profile-description">{{ .Name }}{{ if gt .MemoryType 0 }} · DDR{{ .MemoryType }}{{ end }}{{ if .SKU }} · {{ .SKU }}{{ end }}{{ if .Temperature }} · <span data-lf-memory-temperature data-lf-channel-id="{{ .ChannelID }}">{{ .Temperature }}</span>{{ end }}</p></div>
+                                            <article class="lf-performance-control lf-cooling-channel" data-lf-memory-module data-lf-channel-id="{{ .ChannelID }}">
+                                                <div><strong>{{ if .Label }}{{ .Label }}{{ else }}{{ .Name }}{{ end }}</strong>{{ if and .Label (ne .Label .Name) }}<p class="lf-device-profile-description">{{ .Name }}</p>{{ end }}{{ if .Temperature }}<p class="lf-device-profile-description"><span class="lf-telemetry-value" data-lf-memory-temperature data-lf-channel-id="{{ .ChannelID }}">{{ .Temperature }}</span></p>{{ end }}</div>
                                             </article>
                                         {{ end }}
                                     </div>

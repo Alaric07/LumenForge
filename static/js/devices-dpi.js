@@ -123,6 +123,20 @@
         return setStageActive(sniper, state.sniperActive) || changed;
     }
 
+    function applyOverviewDPIState(workspace, state) {
+        if (!state || typeof state.activeRegularStageId !== "string" || !state.activeRegularStageId) { return false; }
+        const metadata = Array.from(workspace.querySelectorAll("[data-lf-overview-dpi-metadata]")).find(function (element) {
+            return element.dataset.lfStageId === state.activeRegularStageId;
+        });
+        const value = workspace.querySelector("[data-lf-overview-dpi-value]");
+        const stage = workspace.querySelector("[data-lf-overview-dpi-stage]");
+        if (!metadata || !value || !stage) { return false; }
+        let changed = false;
+        if (value.textContent !== metadata.dataset.lfStageDpi) { value.textContent = metadata.dataset.lfStageDpi; changed = true; }
+        if (stage.textContent !== metadata.dataset.lfStageName) { stage.textContent = metadata.dataset.lfStageName; changed = true; }
+        return changed;
+    }
+
     function createStatusPoller(browser, workspace) {
         const serial = workspace.dataset.lfDeviceSerial;
         if (!serial || typeof browser.fetch !== "function") { return null; }
@@ -135,7 +149,9 @@
             try {
                 const response = await browser.fetch(statusEndpoint + "?serial=" + encodeURIComponent(serial));
                 const result = response.ok ? await response.json() : null;
-                return result && result.status === 1 && requestGeneration === generation ? applyActiveStageState(workspace, result) : false;
+                if (!result || result.status !== 1 || requestGeneration !== generation) { return false; }
+                if (workspace.querySelector("[data-lf-overview-dpi-value]")) { return applyOverviewDPIState(workspace, result); }
+                return applyActiveStageState(workspace, result);
             } catch (_) {
                 return false;
             } finally {
@@ -337,7 +353,11 @@
     function init(browser) {
         initPerformance(browser);
         const workspace = browser.document.querySelector("[data-lf-dpi-workspace]");
-        if (!workspace) { return; }
+        const overview = browser.document.querySelector("[data-lf-overview-dpi]");
+        if (!workspace) {
+            if (overview) { createStatusPoller(browser, overview); }
+            return;
+        }
         const minimum = Number(workspace.dataset.lfMinimum);
         const maximum = Number(workspace.dataset.lfMaximum);
         const status = workspace.querySelector("[data-lf-dpi-status]");
@@ -370,7 +390,8 @@
                 save.disabled = false;
             }
         });
+        if (overview) { createStatusPoller(browser, overview); }
     }
 
-    return {applyActiveStageState: applyActiveStageState, createStatusPoller: createStatusPoller, init: init, initPerformance: initPerformance, keyboardPerformanceControls: keyboardPerformanceControls, normalizeColor: normalizeColor, parseDPI: parseDPI, rangeProgress: rangeProgress, saveKeyboardPerformanceControl: saveKeyboardPerformanceControl, savePerformanceControl: savePerformanceControl, selectActiveStage: selectActiveStage, setSniperActive: setSniperActive};
+    return {applyActiveStageState: applyActiveStageState, applyOverviewDPIState: applyOverviewDPIState, createStatusPoller: createStatusPoller, init: init, initPerformance: initPerformance, keyboardPerformanceControls: keyboardPerformanceControls, normalizeColor: normalizeColor, parseDPI: parseDPI, rangeProgress: rangeProgress, saveKeyboardPerformanceControl: saveKeyboardPerformanceControl, savePerformanceControl: savePerformanceControl, selectActiveStage: selectActiveStage, setSniperActive: setSniperActive};
 });

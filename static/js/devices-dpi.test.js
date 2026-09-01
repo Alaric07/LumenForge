@@ -53,6 +53,49 @@ function workspace(rows) {
     return {querySelectorAll: function (selector) { return selector === "[data-lf-dpi-row]" ? rows : []; }};
 }
 
+function overviewDPIWorkspace(activeID, dpiValue, stageName) {
+    const value = {textContent: dpiValue};
+    const stage = {textContent: stageName};
+    const metadata = [
+        {dataset: {lfStageId: "0", lfStageDpi: "800", lfStageName: "Stage 1"}},
+        {dataset: {lfStageId: "1", lfStageDpi: "1600", lfStageName: "Stage 2"}}
+    ];
+    return {
+        dataset: {lfDeviceSerial: "dpi-test"},
+        querySelectorAll: function (selector) { return selector === "[data-lf-overview-dpi-metadata]" ? metadata : []; },
+        querySelector: function (selector) {
+            if (selector === "[data-lf-overview-dpi-value]") { return value; }
+            if (selector === "[data-lf-overview-dpi-stage]") { return stage; }
+            return null;
+        },
+        value: value,
+        stage: stage,
+        activeID: activeID
+    };
+}
+
+test("Overview DPI resolves the existing status stage ID to live value and stage text", async function () {
+    const view = overviewDPIWorkspace("0", "800", "Stage 1");
+    assert.equal(dpi.applyOverviewDPIState(view, {activeRegularStageId: "1"}), true);
+    assert.equal(view.value.textContent, "1600");
+    assert.equal(view.stage.textContent, "Stage 2");
+    assert.equal(dpi.applyOverviewDPIState(view, {activeRegularStageId: "1"}), false);
+
+    const browser = {
+        fetch: function (url) {
+            assert.equal(url, "/api/devices/dpi/status?serial=dpi-test");
+            return Promise.resolve({ok: true, json: async function () { return {status: 1, activeRegularStageId: "0", sniperActive: false}; }});
+        },
+        setInterval: function () { return 1; },
+        clearInterval: function () {}
+    };
+    const poller = dpi.createStatusPoller(browser, view);
+    assert.equal(await poller.poll(), true);
+    assert.equal(view.value.textContent, "800");
+    assert.equal(view.stage.textContent, "Stage 1");
+    poller.stop();
+});
+
 test("DPI active-stage helper follows physical runtime changes without changing drafts", function () {
     const first = stageRow("0", false, true);
     const second = stageRow("1", false, false);

@@ -43,6 +43,7 @@
     --lf-text-secondary: #b5b5ba;
     --lf-text-muted: var(--text-muted);
     --lf-text-technical: #d8dbe4;
+    --lf-telemetry-value: #79c7ff;
     --lf-text-on-accent: #07090c;
     --lf-accent-primary: #1e90ff;
     --lf-accent-secondary: #2ecc71;

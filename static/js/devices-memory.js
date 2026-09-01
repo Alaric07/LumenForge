@@ -87,11 +87,13 @@
     }
 
     function init(browser) {
-        const workspace = browser.document.querySelector("[data-lf-memory-workspace]");
-        if (!workspace) { return; }
-        Array.from(workspace.querySelectorAll("[data-lf-memory-module]")).forEach(function (row) { bindLabel(browser, workspace, row); });
-        createTelemetryPoller(browser, workspace);
+        const labelWorkspace = browser.document.querySelector("[data-lf-memory-label-workspace]");
+        if (labelWorkspace) {
+            Array.from(labelWorkspace.querySelectorAll("[data-lf-memory-module]")).forEach(function (row) { bindLabel(browser, labelWorkspace, row); });
+        }
+        const telemetryWorkspace = browser.document.querySelector("[data-lf-memory-workspace]");
+        if (telemetryWorkspace) { createTelemetryPoller(browser, telemetryWorkspace); }
     }
 
-    return {applyTelemetry: applyTelemetry, createTelemetryPoller: createTelemetryPoller, init: init};
+    return {applyTelemetry: applyTelemetry, bindLabel: bindLabel, createTelemetryPoller: createTelemetryPoller, init: init};
 });

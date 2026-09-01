@@ -796,6 +796,11 @@
     overflow-wrap: break-word;
 }
 
+.lf-app-shell .lf-telemetry-value {
+    color: var(--lf-telemetry-value);
+    font-weight: 620;
+}
+
 .lf-app-shell .lf-openrgb-grid {
     min-width: 0;
     display: grid;
