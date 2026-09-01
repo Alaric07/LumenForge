@@ -67,7 +67,7 @@ func runRGBClusterPageAssertions(t *testing.T) {
 		`src="/static/js/devices-lighting.js?v=4"`,
 		`src="/static/js/cluster.js?v=4"`,
 		`<h1 class="lf-workspace-title">RGB Cluster</h1>`,
-		`data-lf-brightness-readout data-lf-lighting-target="cluster">60%</strong>`,
+		`<h2 class="lf-lighting-title" id="lf-cluster-lighting-title">Cluster Effect</h2>`,
 		`id="lf-cluster-effect-selector"`,
 		`data-lf-lighting-target="cluster"`,
 		`data-lf-current-effect="static"`,

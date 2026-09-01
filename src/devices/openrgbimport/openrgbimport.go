@@ -724,6 +724,11 @@ func (d *Device) SaveDeviceConfig(cfg *DeviceConfig) error {
 			validated.Product = d.Product
 		}
 	}
+	if d.Config != nil {
+		if len(d.Config.Zones) != len(validated.Zones) {
+			return fmt.Errorf("OpenRGB import %q has %d zones; expected %d", d.Serial, len(validated.Zones), len(d.Config.Zones))
+		}
+	}
 	riskyIncrease := hasLEDCountIncrease(savedCfg, &validated)
 
 	previousCfg := cloneDeviceConfig(d.Config)

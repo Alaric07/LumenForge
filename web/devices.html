@@ -932,14 +932,17 @@
                                     <section class="lf-openrgb-zones">
                                         <h3 class="lf-openrgb-subtitle">Configured zones</h3>
                                         {{ if .Zones }}
-                                            <ul class="lf-openrgb-zone-list">
+                                            <p class="lf-openrgb-zone-description">These are the LED counts currently configured in OpenRGB. They do not detect the physical LED count.</p>
+                                            <p class="lf-openrgb-zone-warning" role="note">Incorrect LED counts can cause the OpenRGB device to stop responding until the correct value is restored. Confirm the count in the OpenRGB app before applying changes.</p>
+                                            <ul class="lf-openrgb-zone-list" data-lf-openrgb-zones data-lf-device-serial="{{ $.Device.Serial }}">
                                                 {{ range .Zones }}
                                                     <li class="lf-openrgb-zone-item">
                                                         <span class="lf-openrgb-zone-name">{{ .Name }}</span>
-                                                        <span class="lf-openrgb-zone-led-count">{{ .LEDCount }} {{ if eq .LEDCount 1 }}LED{{ else }}LEDs{{ end }}</span>
+                                                        <label class="lf-openrgb-zone-count-control"><span class="lf-visually-hidden">{{ .Name }} configured LED count</span><input class="lf-openrgb-zone-count" type="number" min="1" step="1" value="{{ .LEDCount }}" data-lf-openrgb-zone-count data-lf-current-led-count="{{ .LEDCount }}" aria-label="{{ .Name }} configured LED count"></label>
                                                     </li>
                                                 {{ end }}
                                             </ul>
+                                            <div class="lf-openrgb-zone-actions"><button class="lf-button lf-button-primary" type="button" data-lf-openrgb-zone-save disabled>Apply LED counts</button><p class="lf-range-control-status" data-lf-openrgb-zone-status aria-live="polite"></p></div>
                                         {{ else }}
                                             <p class="lf-openrgb-zones-empty">No configured zones</p>
                                         {{ end }}

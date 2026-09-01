@@ -854,6 +854,10 @@
     margin-top: 14px;
 }
 
+.lf-app-shell .lf-openrgb-zone-description,
+.lf-app-shell .lf-openrgb-zone-warning { margin: 10px 0 0; color: var(--lf-text-secondary); font-size: 13px; line-height: 1.5; }
+.lf-app-shell .lf-openrgb-zone-warning { padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--lf-accent-highlight) 42%, var(--lf-border-subtle)); border-radius: 8px; background: color-mix(in srgb, var(--lf-accent-highlight) 9%, transparent); }
+
 .lf-app-shell .lf-openrgb-zone-list {
     min-width: 0;
     display: grid;
@@ -888,6 +892,11 @@
     font-size: 11px;
     white-space: nowrap;
 }
+
+.lf-app-shell .lf-openrgb-zone-count-control { flex: 0 0 auto; }
+.lf-app-shell .lf-openrgb-zone-count { width: 86px; }
+.lf-app-shell .lf-openrgb-zone-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 14px; }
+.lf-app-shell .lf-openrgb-zone-actions .lf-range-control-status { margin: 0; }
 
 .lf-app-shell .lf-openrgb-zones-empty {
     margin: 14px 0 0;

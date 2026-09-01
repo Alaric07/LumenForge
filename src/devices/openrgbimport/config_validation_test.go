@@ -344,6 +344,83 @@ func TestSaveDeviceConfigRejectsInvalidLayoutWithoutSideEffects(t *testing.T) {
 	}
 }
 
+func TestSaveDeviceConfigRejectsInvalidConfiguredZoneLayoutsWithoutSideEffects(t *testing.T) {
+	const serial = "openrgb-validation-zone-capabilities"
+	for _, tc := range []struct {
+		configured []ZoneConfig
+		name       string
+		zones      []ZoneConfig
+		wantError  string
+	}{
+		{configured: zonesWithCounts(2, 4), name: "smaller submitted zone count", zones: zonesWithCounts(2), wantError: "has 1 zones; expected 2"},
+		{configured: zonesWithCounts(2, 4), name: "larger submitted zone count", zones: zonesWithCounts(2, 4, 1), wantError: "has 3 zones; expected 2"},
+		{configured: zonesWithCounts(2, 4), name: "zero LED count", zones: zonesWithCounts(0, 4), wantError: "zone 1 has 0 LEDs; expected 1 through 1024"},
+		{configured: zonesWithCounts(2, 4), name: "more than 1024 LEDs in one zone", zones: zonesWithCounts(1025, 4), wantError: "zone 1 has 1025 LEDs; expected 1 through 1024"},
+		{configured: zonesWithCounts(1, 1, 1, 1, 1), name: "more than 4096 total LEDs", zones: zonesWithCounts(1024, 1024, 1024, 1024, 1), wantError: "zone 5 has 1 LEDs and would exceed the permitted total range of 1 through 4096"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			storePath := useStorePath(t)
+			StopManager()
+			setConfiguredDevices(nil)
+			configured := DeviceConfig{Serial: serial, Product: "Configured Device", Zones: tc.configured}
+			if err := saveConfigStore(&ConfigStore{Devices: map[string]DeviceConfig{serial: configured}}); err != nil {
+				t.Fatal(err)
+			}
+			storeBefore, err := os.ReadFile(storePath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			device := testDevice(configured)
+			configBefore := cloneDeviceConfig(device.Config)
+
+			err = device.SaveDeviceConfig(&DeviceConfig{Serial: serial, Zones: tc.zones})
+			if err == nil || !strings.Contains(err.Error(), tc.wantError) {
+				t.Fatalf("SaveDeviceConfig error = %v, want %q", err, tc.wantError)
+			}
+			if !reflect.DeepEqual(device.Config, configBefore) {
+				t.Fatalf("rejected config changed device configuration: got %#v, want %#v", device.Config, configBefore)
+			}
+			storeAfter, readErr := os.ReadFile(storePath)
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			if !bytes.Equal(storeAfter, storeBefore) {
+				t.Fatal("rejected config changed importer store")
+			}
+		})
+	}
+}
+
+func TestSaveDeviceConfigAllowsConfiguredZoneLEDCountEdits(t *testing.T) {
+	useStorePath(t)
+	StopManager()
+	setConfiguredDevices(nil)
+	serial := "openrgb-validation-zone-edit"
+	configured := DeviceConfig{Serial: serial, Product: "Configured Device", Zones: []ZoneConfig{{Name: "Mainboard", LedCount: 3}, {Name: "Addressable 1", LedCount: 1}}}
+	submitted := []ZoneConfig{{Name: "Mainboard", LedCount: 5}, {Name: "Addressable 1", LedCount: 6}}
+	if err := saveConfigStore(&ConfigStore{Devices: map[string]DeviceConfig{serial: configured}}); err != nil {
+		t.Fatal(err)
+	}
+	device := testDevice(configured)
+	if err := device.SaveDeviceConfig(&DeviceConfig{Serial: serial, Zones: submitted}); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(device.Config.Zones, submitted) {
+		t.Fatalf("saved zones = %#v, want %#v", device.Config.Zones, submitted)
+	}
+	store, err := loadConfigStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	persisted, found := store.Devices[serial]
+	if !found {
+		t.Fatalf("persisted device %q was not found", serial)
+	}
+	if !reflect.DeepEqual(persisted.Zones, device.Config.Zones) {
+		t.Fatalf("persisted zones = %#v, want %#v", persisted.Zones, device.Config.Zones)
+	}
+}
+
 func TestSaveDeviceConfigPreservesCallerAndValidBehavior(t *testing.T) {
 	storePath := useStorePath(t)
 	StopManager()

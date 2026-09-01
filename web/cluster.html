@@ -52,42 +52,23 @@
                     <img class="lf-device-hero-image lf-device-hero-image-fallback" src="/static/img/icons/icon-cluster.svg" alt="">
                 </div>
                 <div class="lf-device-hero-copy">
-                    <p class="lf-device-hero-context">Shared lighting target</p>
                     <h1 class="lf-workspace-title">RGB Cluster</h1>
                     <p class="lf-workspace-description">Configure one lighting effect across the current cluster membership.</p>
-                    {{ with .Lighting }}
-                        {{ if .Available }}
-                            <div class="lf-device-hero-facts">
-                                <span class="lf-device-hero-fact"><span>Effect</span><strong>{{ .ConfiguredEffectLabel }}</strong></span>
-                                <span class="lf-device-hero-fact"><span>Brightness</span><strong data-lf-brightness-readout data-lf-lighting-target="cluster">{{ .Brightness }}%</strong></span>
-                                <span class="lf-device-hero-fact"><span>Members</span><strong>{{ .ControllerCount }}</strong></span>
-                                <span class="lf-device-hero-fact">Stored cluster state</span>
-                            </div>
-                        {{ end }}
-                    {{ end }}
                 </div>
             </header>
 
             {{ with .Lighting }}
                 {{ if .Available }}
                     <section class="lf-lighting-workspace" aria-labelledby="lf-cluster-lighting-title">
-                        <div class="lf-lighting-layout">
+                        <div class="lf-lighting-layout lf-lighting-layout-no-rail">
                             <div class="lf-lighting-main">
                                 <section class="lf-lighting-primary" aria-labelledby="lf-cluster-lighting-title">
-                                    <header class="lf-lighting-primary-header">
-                                        <div>
-                                            <p class="lf-section-kicker">Stored configuration</p>
-                                            <h2 class="lf-lighting-title" id="lf-cluster-lighting-title">Lighting</h2>
-                                        </div>
-                                        <span class="lf-lighting-status lf-lighting-status-supported">Supported</span>
-                                    </header>
+                                    <header class="lf-lighting-primary-header"><h2 class="lf-lighting-title" id="lf-cluster-lighting-title">Cluster Effect</h2></header>
 
                                     <div class="lf-lighting-effect-stage">
                                         <div class="lf-lighting-effect-identity">
                                             {{ template "lf-lighting-effect-icon" . }}
                                             <div class="lf-lighting-effect-control">
-                                                <label class="lf-lighting-label" for="lf-cluster-effect-selector">Configured effect</label>
-                                                <strong class="lf-lighting-effect-name">{{ .ConfiguredEffectLabel }}</strong>
                                                 <select
                                                     class="lf-lighting-effect-selector"
                                                     id="lf-cluster-effect-selector"
@@ -102,7 +83,6 @@
                                                         <option value="{{ .ID }}"{{ if .Selected }} selected{{ end }}>{{ .Label }}</option>
                                                     {{ end }}
                                                 </select>
-                                                <span class="lf-lighting-effect-id-label">Stable ID <code class="lf-lighting-effect-id">{{ .ConfiguredEffect }}</code></span>
                                                 <p class="lf-lighting-effect-status" id="lf-cluster-effect-status" aria-live="polite"></p>
                                             </div>
                                         </div>
@@ -370,21 +350,6 @@
                                 </section>
                             </div>
 
-                            <aside class="lf-lighting-rail" aria-label="Cluster lighting information">
-                                <section class="lf-lighting-rail-panel lf-lighting-preview-panel">
-                                    <span class="lf-lighting-rail-icon" aria-hidden="true">⌁</span>
-                                    <p class="lf-section-kicker">Target</p>
-                                    <h2>RGB Cluster</h2>
-                                    <p>Changes apply to the current ordered cluster membership.</p>
-                                </section>
-                                <section class="lf-lighting-rail-panel">
-                                    <p class="lf-section-kicker">Configuration</p>
-                                    <dl class="lf-lighting-rail-facts">
-                                        <div><dt>Members</dt><dd>{{ .ControllerCount }}</dd></div>
-                                        <div><dt>Effect support</dt><dd>Supported</dd></div>
-                                    </dl>
-                                </section>
-                            </aside>
                         </div>
                     </section>
                 {{ else }}

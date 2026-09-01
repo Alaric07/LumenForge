@@ -2135,9 +2135,11 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"<dt class=\"lf-device-summary-label\">Brightness</dt>",
 		"<dd class=\"lf-device-summary-value\">0%</dd>",
 		"Zone &lt;One&gt; &amp; Main",
-		"<span class=\"lf-openrgb-zone-led-count\">1 LED</span>",
+		"data-lf-openrgb-zone-count",
+		"min=\"1\"",
+		"Apply LED counts",
+		"Incorrect LED counts can cause the OpenRGB device to stop responding",
 		visibleZoneTwo,
-		"<span class=\"lf-openrgb-zone-led-count\">12 LEDs</span>",
 		"class=\"lf-device-item lf-device-item-active\" href=\"/devices?device=" + visibleSerial + "\" aria-current=\"page\"",
 		"class=\"lf-device-item\" href=\"/devices?device=" + otherSerial + "\"",
 		"<nav class=\"lf-device-workspace-nav\" aria-label=\"Device workspace\">",
@@ -2147,6 +2149,19 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	} {
 		if !strings.Contains(selectedBody, expected) {
 			t.Errorf("selected GET /devices response does not contain %q", expected)
+		}
+	}
+	if count := strings.Count(selectedBody, "data-lf-openrgb-zone-count"); count != 2 {
+		t.Errorf("selected OpenRGB response contains %d editable zone counts, want 2", count)
+	}
+	firstZone := strings.Index(selectedBody, "Zone &lt;One&gt; &amp; Main")
+	secondZone := strings.Index(selectedBody, visibleZoneTwo)
+	if firstZone < 0 || secondZone < 0 || firstZone >= secondZone {
+		t.Errorf("selected OpenRGB zones are not rendered in configured order: first=%d second=%d", firstZone, secondZone)
+	}
+	for _, value := range []string{"value=\"1\" data-lf-openrgb-zone-count", "value=\"12\" data-lf-openrgb-zone-count"} {
+		if !strings.Contains(selectedBody, value) {
+			t.Errorf("selected OpenRGB response does not preserve configured LED count %q", value)
 		}
 	}
 	for _, excluded := range []string{
@@ -2181,12 +2196,6 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 			t.Errorf("selected OpenRGB response contains %q %d times, want 1", markup, count)
 		}
 	}
-	for _, zoneName := range []string{"Zone &lt;One&gt; &amp; Main", visibleZoneTwo} {
-		if count := strings.Count(selectedBody, zoneName); count != 1 {
-			t.Errorf("selected GET /devices contains zone name %q %d times, want 1", zoneName, count)
-		}
-	}
-
 	lightingRecorder := requestDevicesPage(t, router, "device="+url.QueryEscape(visibleSerial)+"&view=lighting")
 	if lightingRecorder.Code != http.StatusOK {
 		t.Fatalf("Lighting GET /devices status = %d: %s", lightingRecorder.Code, lightingRecorder.Body.String())

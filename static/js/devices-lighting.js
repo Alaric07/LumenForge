@@ -83,6 +83,7 @@
     const resetTimeoutMilliseconds = 10000;
     const resetSuccessMilliseconds = 3000;
     const resetFailureMessage = "Unable to reset effect. Try again.";
+    const openRGBZoneConfigTimeoutMilliseconds = 15000;
     const ccxtProbeTemperatureEndpoint = "/api/color/setTemperatureProbe";
     const rangeAdjustmentKeys = new Set([
         "ArrowLeft",
@@ -1972,6 +1973,55 @@
         return {toggle: toggle};
     }
 
+    function bindOpenRGBZoneEditor(browser) {
+        if (!browser.document || typeof browser.document.querySelector !== "function") return false;
+        const workspace = browser.document.querySelector("[data-lf-openrgb-zones]");
+        if (!workspace || typeof browser.fetch !== "function") return false;
+        const inputs = workspace.querySelectorAll("[data-lf-openrgb-zone-count]");
+        const save = workspace.parentElement.querySelector("[data-lf-openrgb-zone-save]");
+        const status = workspace.parentElement.querySelector("[data-lf-openrgb-zone-status]");
+        if (!inputs.length || !save || !status) return false;
+        let saving = false;
+        const changed = function () { return Array.prototype.filter.call(inputs, function (input) { return Number(input.value) !== Number(input.dataset.lfCurrentLedCount); }); };
+        const sync = function () { save.disabled = saving || changed().length === 0; };
+        Array.prototype.forEach.call(inputs, function (input) { input.addEventListener("input", sync); });
+        save.addEventListener("click", function () {
+            const changedInputs = changed();
+            if (!changedInputs.length || saving) return Promise.resolve();
+            for (const input of changedInputs) {
+                if (!input.validity.valid || !Number.isInteger(Number(input.value))) {
+                    status.textContent = "Enter a whole LED count within the reported range.";
+                    input.focus();
+                    return Promise.resolve();
+                }
+            }
+            const increased = changedInputs.some(function (input) { return Number(input.value) > Number(input.dataset.lfCurrentLedCount); });
+            if (increased && typeof browser.confirm === "function" && !browser.confirm("If you increase the LED count beyond what the hardware actually has, OpenRGB will reject commands and the device may stop responding until the correct value is restored.\n\nIf you are unsure, confirm the exact LED count in the OpenRGB app before continuing.\n\nDo you want to apply these counts?")) return Promise.resolve();
+            const zones = Array.prototype.map.call(workspace.querySelectorAll(".lf-openrgb-zone-item"), function (item) {
+                const input = item.querySelector("[data-lf-openrgb-zone-count]");
+                return {name: item.querySelector(".lf-openrgb-zone-name").textContent.trim(), ledCount: input ? Number(input.value) : Number(item.querySelector(".lf-openrgb-zone-led-count").textContent)};
+            });
+            saving = true;
+            status.textContent = "Applying LED counts…";
+            sync();
+            const controller = typeof browser.AbortController === "function" ? new browser.AbortController() : null;
+            const timeoutID = controller && typeof browser.setTimeout === "function" ? browser.setTimeout(function () { controller.abort(); }, openRGBZoneConfigTimeoutMilliseconds) : null;
+            return browser.fetch("/api/openrgbimport/config", {method: "POST", body: JSON.stringify({serial: workspace.dataset.lfDeviceSerial, zones: zones}), signal: controller ? controller.signal : undefined}).then(async function (response) {
+                const result = response.ok ? await response.json() : null;
+                if (!result || result.status !== 1) throw new Error("OpenRGB rejected the LED counts");
+                if (browser.location && typeof browser.location.reload === "function") browser.location.reload();
+            }).catch(function () {
+                status.textContent = "Couldn’t apply LED counts. The configured values were not refreshed.";
+            }).finally(function () {
+                if (timeoutID !== null && typeof browser.clearTimeout === "function") browser.clearTimeout(timeoutID);
+                saving = false;
+                sync();
+            });
+        });
+        sync();
+        return true;
+    }
+
     function init(browser) {
         function isReadOnly(control) {
             if (typeof control.closest !== "function") {
@@ -2062,6 +2112,7 @@
         for (const control of ownershipControls) {
             bindOwnershipToggle(browser, control, ownershipControls);
         }
+        bindOpenRGBZoneEditor(browser);
     }
 
     return {
@@ -2080,6 +2131,7 @@
         bindManualRGBPorts,
         bindResetButton,
         bindAuthoredZoneControl,
+        bindOpenRGBZoneEditor,
         bindOwnershipToggle,
         lightingTarget,
         lightingPayload,

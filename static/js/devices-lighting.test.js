@@ -3929,3 +3929,79 @@ test("manual RGB controls use the shared ownership-disabled state and do not mut
     await handlers.change();
     assert.deepEqual(requests, [{url: "/api/argb", body: {deviceId: "controller", portId: 2, deviceType: 6}}]);
 });
+
+test("OpenRGB zone editor aborts a stalled configuration save and keeps the draft retryable", async function() {
+    const handlers = {};
+    const input = {
+        dataset: {lfCurrentLedCount: "4"},
+        disabled: false,
+        focus: function() {},
+        validity: {valid: true},
+        value: "6",
+        addEventListener: function(event, handler) { handlers[event] = handler; }
+    };
+    const name = {textContent: "Configured zone"};
+    const item = {
+        querySelector: function(selector) {
+            if (selector === "[data-lf-openrgb-zone-count]") return input;
+            if (selector === ".lf-openrgb-zone-name") return name;
+            assert.fail("unexpected item selector " + selector);
+        }
+    };
+    const saveHandlers = {};
+    const save = {disabled: true, addEventListener: function(event, handler) { saveHandlers[event] = handler; }};
+    const status = {textContent: ""};
+    const workspace = {
+        dataset: {lfDeviceSerial: "openrgb-zone-timeout"},
+        parentElement: {querySelector: function(selector) {
+            if (selector === "[data-lf-openrgb-zone-save]") return save;
+            if (selector === "[data-lf-openrgb-zone-status]") return status;
+            assert.fail("unexpected parent selector " + selector);
+        }},
+        querySelectorAll: function(selector) {
+            if (selector === "[data-lf-openrgb-zone-count]") return [input];
+            if (selector === ".lf-openrgb-zone-item") return [item];
+            assert.fail("unexpected workspace selector " + selector);
+        }
+    };
+    const timers = timerFixture();
+    let reloads = 0;
+    let signal;
+    let attempts = 0;
+    const browser = {
+        AbortController,
+        clearTimeout: timers.clearTimeout,
+        confirm: function() { return true; },
+        document: {querySelector: function(selector) {
+            assert.equal(selector, "[data-lf-openrgb-zones]");
+            return workspace;
+        }},
+        fetch: function(url, options) {
+            attempts++;
+            assert.equal(url, "/api/openrgbimport/config");
+            signal = options.signal;
+            if (attempts === 2) return Promise.resolve({ok: true, json: async function() { return {status: 1}; }});
+            return new Promise(function(_, reject) {
+                options.signal.addEventListener("abort", function() { reject(new Error("timeout")); }, {once: true});
+            });
+        },
+        location: {reload: function() { reloads++; }},
+        setTimeout: timers.setTimeout
+    };
+
+    assert.equal(lighting.bindOpenRGBZoneEditor(browser), true);
+    assert.equal(save.disabled, false);
+    const stalledSave = saveHandlers.click();
+    assert.equal(save.disabled, true);
+    timers.fireNext(15000);
+    await stalledSave;
+    assert.equal(signal.aborted, true);
+    assert.equal(input.value, "6");
+    assert.equal(save.disabled, false);
+    assert.equal(status.textContent, "Couldn’t apply LED counts. The configured values were not refreshed.");
+    assert.equal(reloads, 0);
+
+    await saveHandlers.click();
+    assert.equal(attempts, 2);
+    assert.equal(reloads, 1);
+});
