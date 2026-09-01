@@ -659,9 +659,16 @@
 .lf-app-shell .lf-lighting-layout {
     min-width: 0;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
     gap: 18px;
     margin-top: 24px;
+}
+
+.lf-app-shell .lf-overview-workspace {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.lf-app-shell .lf-lighting-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
 }
 
 .lf-app-shell .lf-lighting-layout-no-rail {
@@ -851,7 +858,7 @@
 }
 
 .lf-app-shell .lf-openrgb-zones {
-    margin-top: 14px;
+    margin-top: 0;
 }
 
 .lf-app-shell .lf-openrgb-zone-description,

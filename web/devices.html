@@ -855,19 +855,26 @@
                 {{ else }}
                     <section class="lf-overview-workspace" aria-label="Selected device overview">
                         <div class="lf-overview-main">
+                            {{ $hasDeviceDetails := not .Device.OpenRGB }}
+                            {{ if or .Device.Firmware .Device.HasBattery }}{{ $hasDeviceDetails = true }}{{ end }}
+                            {{ with .Device.OpenRGB }}{{ if or (and .DisplayIdentifier .DisplayIdentifierLabel) .Vendor .Description }}{{ $hasDeviceDetails = true }}{{ end }}{{ end }}
+                            {{ if $hasDeviceDetails }}
                             <section class="lf-overview-panel lf-overview-identity-panel">
                                 <header class="lf-overview-panel-header">
                                     <div>
-                                        <p class="lf-section-kicker">Device identity</p>
-                                        <h2>Hardware details</h2>
+                                        <h2>Device Details</h2>
                                     </div>
                                     {{ if .Device.Unavailable }}<span class="lf-overview-state lf-overview-state-unavailable">Unavailable</span>{{ end }}
                                 </header>
                                 <dl class="lf-device-summary-meta">
-                                    <div class="lf-device-summary-meta-row">
-                                        <dt class="lf-device-summary-label">{{ if .Device.OpenRGB }}Internal ID{{ else }}Serial{{ end }}</dt>
-                                        <dd class="lf-device-summary-value">{{ .Device.Serial }}</dd>
-                                    </div>
+                                    {{ if .Device.OpenRGB }}
+                                        {{ with .Device.OpenRGB }}{{ if and .DisplayIdentifier .DisplayIdentifierLabel }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">{{ .DisplayIdentifierLabel }}</dt><dd class="lf-device-summary-value">{{ .DisplayIdentifier }}</dd></div>{{ end }}{{ end }}
+                                    {{ else }}
+                                        <div class="lf-device-summary-meta-row">
+                                            <dt class="lf-device-summary-label">Serial</dt>
+                                            <dd class="lf-device-summary-value">{{ .Device.Serial }}</dd>
+                                        </div>
+                                    {{ end }}
                                     {{ if .Device.Firmware }}
                                         <div class="lf-device-summary-meta-row">
                                             <dt class="lf-device-summary-label">Firmware</dt>
@@ -880,10 +887,32 @@
                                             <dd class="lf-device-summary-value">{{ .Device.BatteryLevel }}%</dd>
                                         </div>
                                     {{ end }}
+                                    {{ with .Device.OpenRGB }}
+                                        {{ if .Vendor }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">Vendor</dt><dd class="lf-device-summary-value">{{ .Vendor }}</dd></div>{{ end }}
+                                        {{ if .Description }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">Description</dt><dd class="lf-device-summary-value">{{ .Description }}</dd></div>{{ end }}
+                                    {{ end }}
                                 </dl>
                             </section>
+                            {{ end }}
 
-                            {{ with .Device.DeviceProfiles }}{{ if eq .Scope "device" }}{{ template "lf-device-profile-panel" $ }}{{ end }}{{ end }}
+                            {{ with .Device.Lighting }}
+                                {{ $effect := .ConfiguredEffect }}
+                                {{ if .ConfiguredEffectLabel }}{{ $effect = .ConfiguredEffectLabel }}{{ end }}
+                                {{ if .BulkEffectControl }}
+                                    {{ $effect = .BulkEffectControl.ConfiguredEffect }}
+                                    {{ if .BulkEffectControl.ConfiguredEffectLabel }}{{ $effect = .BulkEffectControl.ConfiguredEffectLabel }}{{ end }}
+                                    {{ if .BulkEffectControl.Mixed }}{{ $effect = "Mixed" }}{{ end }}
+                                {{ end }}
+                                {{ if .ExternalControlled }}{{ $effect = "OpenRGB" }}{{ end }}
+                                {{ if .ClusterControlled }}{{ $effect = "Cluster" }}{{ end }}
+                                <section class="lf-overview-panel lf-overview-lighting-status">
+                                    <header class="lf-overview-panel-header"><div><h2>Lighting Status</h2></div></header>
+                                    <dl class="lf-device-summary-meta">
+                                        {{ if $effect }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">Effect</dt><dd class="lf-device-summary-value">{{ $effect }}</dd></div>{{ end }}
+                                        {{ if .HasBrightness }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">Brightness</dt><dd class="lf-device-summary-value">{{ .Brightness }}%</dd></div>{{ end }}
+                                    </dl>
+                                </section>
+                            {{ end }}
 
                             {{ with .Device.Memory }}
                                 <section class="lf-overview-panel" data-lf-memory-workspace data-lf-device-id="{{ $.Device.Serial }}">
@@ -899,38 +928,8 @@
                             {{ end }}
 
                             {{ with .Device.OpenRGB }}
-                                <section class="lf-openrgb-overview">
-                                    <header class="lf-overview-panel-header">
-                                        <div>
-                                            <p class="lf-section-kicker">Imported controller</p>
-                                            <h2 class="lf-openrgb-title">OpenRGB controller</h2>
-                                        </div>
-                                    </header>
-
-                                    <div class="lf-openrgb-grid{{ if not .HasMetadata }} lf-openrgb-grid-single{{ end }}">
-                                        {{ if .HasMetadata }}
-                                            <section class="lf-openrgb-panel">
-                                                <h3 class="lf-openrgb-subtitle">Controller metadata</h3>
-                                                <dl class="lf-device-summary-meta lf-openrgb-panel-meta">
-                                                    {{ if and .DisplayIdentifier .DisplayIdentifierLabel }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">{{ .DisplayIdentifierLabel }}</dt><dd class="lf-device-summary-value">{{ .DisplayIdentifier }}</dd></div>{{ end }}
-                                                    {{ if .Vendor }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">Vendor</dt><dd class="lf-device-summary-value">{{ .Vendor }}</dd></div>{{ end }}
-                                                    {{ if .Location }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">Location</dt><dd class="lf-device-summary-value">{{ .Location }}</dd></div>{{ end }}
-                                                    {{ if .Description }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">Description</dt><dd class="lf-device-summary-value">{{ .Description }}</dd></div>{{ end }}
-                                                </dl>
-                                            </section>
-                                        {{ end }}
-
-                                        <section class="lf-openrgb-panel lf-openrgb-lighting-summary">
-                                            <h3 class="lf-openrgb-subtitle">Lighting summary</h3>
-                                            <dl class="lf-device-summary-meta lf-openrgb-panel-meta">
-                                                {{ if .Effect }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">Effect</dt><dd class="lf-device-summary-value">{{ .Effect }}</dd></div>{{ end }}
-                                                <div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">Brightness</dt><dd class="lf-device-summary-value">{{ .Brightness }}%</dd></div>
-                                            </dl>
-                                        </section>
-                                    </div>
-
-                                    <section class="lf-openrgb-zones">
-                                        <h3 class="lf-openrgb-subtitle">Configured zones</h3>
+                                <section class="lf-overview-panel lf-openrgb-zones">
+                                    <header class="lf-overview-panel-header"><div><h2>Configured Zones</h2></div></header>
                                         {{ if .Zones }}
                                             <p class="lf-openrgb-zone-description">These are the LED counts currently configured in OpenRGB. They do not detect the physical LED count.</p>
                                             <p class="lf-openrgb-zone-warning" role="note">Incorrect LED counts can cause the OpenRGB device to stop responding until the correct value is restored. Confirm the count in the OpenRGB app before applying changes.</p>
@@ -946,22 +945,11 @@
                                         {{ else }}
                                             <p class="lf-openrgb-zones-empty">No configured zones</p>
                                         {{ end }}
-                                    </section>
                                 </section>
                             {{ end }}
-                        </div>
 
-                        <aside class="lf-overview-rail" aria-label="Device actions">
-                            <section class="lf-overview-rail-panel">
-                                <p class="lf-section-kicker">Selected hardware</p>
-                                <h2>{{ .Device.Product }}</h2>
-                                <p>Open the established device page for the complete controls available for this hardware.</p>
-                            </section>
-                            <a class="lf-legacy-controls-link" href="/device/{{ .Device.Serial }}">
-                                <span>Open full controls</span>
-                                <span aria-hidden="true">↗</span>
-                            </a>
-                        </aside>
+                            {{ with .Device.DeviceProfiles }}{{ if eq .Scope "device" }}{{ template "lf-device-profile-panel" $ }}{{ end }}{{ end }}
+                        </div>
                     </section>
                 {{ end }}
                 <div class="lf-buttons-toast" data-lf-buttons-toast role="status" aria-live="polite" hidden></div>

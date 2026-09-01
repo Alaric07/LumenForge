@@ -3068,7 +3068,22 @@ func openRGBWorkspaceSummaryFromSnapshot(snapshot openrgbimport.DeviceSnapshot) 
 }
 
 func devicesLightingEffectDisplayLabel(id, label string) string {
-	if strings.TrimSpace(label) != "" || id == "" {
+	label = strings.TrimSpace(label)
+	if label != "" && label != id {
+		return label
+	}
+	if descriptor, ok := rgb.SoftwareEffectDescriptorByID(id); ok && descriptor.Label != "" {
+		return descriptor.Label
+	}
+	switch id {
+	case "keyboard":
+		return "Keyboard"
+	case "mousepad":
+		return "Mousepad"
+	case "led":
+		return "LED"
+	}
+	if label != "" || id == "" {
 		return label
 	}
 	return strings.ToUpper(id[:1]) + id[1:]

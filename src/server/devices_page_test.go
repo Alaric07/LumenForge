@@ -287,6 +287,69 @@ func TestDevicesOverviewScimitarEliteDeviceProfilePresentation(t *testing.T) {
 	}
 }
 
+func TestDevicesOverviewLightingStatusPresentation(t *testing.T) {
+	cases := []struct {
+		name     string
+		snapshot lightingpresentation.Snapshot
+		effect   string
+	}{
+		{
+			name: "configured effect",
+			snapshot: lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "static", EffectSupported: true, HasBrightness: true, Brightness: 100,
+				SupportedEffects: []lightingpresentation.EffectOption{{ID: "static", Label: "Static"}}},
+			effect: "Static",
+		},
+		{
+			name: "cluster ownership",
+			snapshot: lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "static", ClusterControlled: true,
+				SupportedEffects: []lightingpresentation.EffectOption{{ID: "static", Label: "Static"}}},
+			effect: "Cluster",
+		},
+		{
+			name: "external ownership",
+			snapshot: lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "static", ExternalControlled: true,
+				SupportedEffects: []lightingpresentation.EffectOption{{ID: "static", Label: "Static"}}},
+			effect: "OpenRGB",
+		},
+		{
+			name: "mixed aggregate",
+			snapshot: lightingpresentation.Snapshot{TargetKind: "native", BulkEffectControl: &lightingpresentation.BulkEffectControl{Mixed: true,
+				SupportedEffects: []lightingpresentation.EffectOption{{ID: "static", Label: "Static"}}}},
+			effect: "Mixed",
+		},
+		{
+			name: "configured aggregate",
+			snapshot: lightingpresentation.Snapshot{TargetKind: "native", BulkEffectControl: &lightingpresentation.BulkEffectControl{ConfiguredEffect: "static",
+				SupportedEffects: []lightingpresentation.EffectOption{{ID: "static", Label: "Static"}}}},
+			effect: "Static",
+		},
+	}
+
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			var rendered bytes.Buffer
+			if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{
+				Devices:      map[string]*common.Device{"overview-lighting": {Serial: "overview-lighting", Product: "Overview Lighting"}},
+				Device:       &devicesWorkspaceSummary{Serial: "overview-lighting", Product: "Overview Lighting", Lighting: devicesLightingWorkspaceSummaryFromSnapshot(test.snapshot), View: "overview"},
+				BatteryStats: map[string]stats.BatteryStats{}, Page: "devices",
+			}); err != nil {
+				t.Fatal(err)
+			}
+			body := rendered.String()
+			if !strings.Contains(body, "<h2>Lighting Status</h2>") || !strings.Contains(body, "<dd class=\"lf-device-summary-value\">"+test.effect+"</dd>") {
+				t.Errorf("Overview Lighting Status = %q", body)
+			}
+			if test.snapshot.HasBrightness {
+				if !strings.Contains(body, "<dd class=\"lf-device-summary-value\">100%</dd>") {
+					t.Error("Overview Lighting Status omitted brightness")
+				}
+			} else if strings.Contains(body, "<dt class=\"lf-device-summary-label\">Brightness</dt>") {
+				t.Error("Overview Lighting Status rendered brightness without a brightness capability")
+			}
+		})
+	}
+}
+
 func TestDevicesCCXTModernCoolingWorkspaceAndFullProfile(t *testing.T) {
 	const serial = "ccxt-modern-workspace"
 	profile := deviceprofilepresentation.Snapshot{Supported: true, Profiles: []string{"default", "studio"}, ActiveProfile: "default"}
@@ -1122,6 +1185,58 @@ func TestDevicesLightingEffectSelectorPresentation(t *testing.T) {
 	})
 	if len(withoutOff.SupportedEffects) != 1 || withoutOff.SupportedEffects[0].ID != "static" {
 		t.Fatalf("presentation fabricated an effect absent from the snapshot: %#v", withoutOff.SupportedEffects)
+	}
+}
+
+func TestDevicesLightingEffectDisplayLabels(t *testing.T) {
+	for _, test := range []struct {
+		id, want string
+	}{
+		{id: "static", want: "Static"},
+		{id: "circleshift", want: "Circle Shift"},
+		{id: "colorpulse", want: "Color Pulse"},
+		{id: "cpu-temperature", want: "CPU Temperature"},
+		{id: "gpu-temperature", want: "GPU Temperature"},
+		{id: "pastelspiralrainbow", want: "Pastel Spiral Rainbow"},
+		{id: "tokyonight", want: "Tokyo Night"},
+		{id: "watercolor", want: "Water Color"},
+		{id: "led", want: "LED"},
+	} {
+		t.Run(test.id, func(t *testing.T) {
+			if got := devicesLightingEffectDisplayLabel(test.id, test.id); got != test.want {
+				t.Errorf("devicesLightingEffectDisplayLabel(%q, %q) = %q, want %q", test.id, test.id, got, test.want)
+			}
+		})
+	}
+	if got := devicesLightingEffectDisplayLabel("wave", "Wave <Label> & More"); got != "Wave <Label> & More" {
+		t.Errorf("custom descriptor label = %q", got)
+	}
+	if got := devicesLightingEffectDisplayLabel("wave", " Wave "); got != "Wave" {
+		t.Errorf("trimmed custom descriptor label = %q", got)
+	}
+
+	root := devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "openrgb", ConfiguredEffect: "circleshift", EffectSupported: true,
+		SupportedEffects: []lightingpresentation.EffectOption{{ID: "circleshift", Label: "circleshift"}}})
+	if root.ConfiguredEffect != "circleshift" || root.ConfiguredEffectLabel != "Circle Shift" || len(root.SupportedEffects) != 1 || root.SupportedEffects[0].ID != "circleshift" || root.SupportedEffects[0].Label != "Circle Shift" {
+		t.Fatalf("root lighting effect presentation = %#v", root)
+	}
+	rootBody := renderDevicesLightingView(t, root)
+	if !strings.Contains(rootBody, `<option value="circleshift" selected>Circle Shift</option>`) {
+		t.Error("device effect selector did not preserve the raw ID and normalized display label")
+	}
+
+	aggregateAndChannel := devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native",
+		BulkEffectControl: &lightingpresentation.BulkEffectControl{ConfiguredEffect: "colorpulse", SupportedEffects: []lightingpresentation.EffectOption{{ID: "colorpulse", Label: "colorpulse"}}},
+		Channels:          []lightingpresentation.Channel{{TargetID: "channel-0", ChannelID: "0", Name: "Channel 1", Lighting: lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "cpu-temperature", EffectSupported: true, SupportedEffects: []lightingpresentation.EffectOption{{ID: "cpu-temperature", Label: "cpu-temperature"}}}}},
+	})
+	if aggregateAndChannel.BulkEffectControl.ConfiguredEffect != "colorpulse" || aggregateAndChannel.BulkEffectControl.ConfiguredEffectLabel != "Color Pulse" || aggregateAndChannel.Channels[0].Lighting.ConfiguredEffect != "cpu-temperature" || aggregateAndChannel.Channels[0].Lighting.ConfiguredEffectLabel != "CPU Temperature" {
+		t.Fatalf("aggregate/channel effect presentation = %#v", aggregateAndChannel)
+	}
+	aggregateAndChannelBody := renderDevicesLightingView(t, aggregateAndChannel)
+	for _, expected := range []string{`<option value="colorpulse" selected>Color Pulse</option>`, `<option value="cpu-temperature" selected>CPU Temperature</option>`} {
+		if !strings.Contains(aggregateAndChannelBody, expected) {
+			t.Errorf("aggregate/channel effect selector does not contain %q", expected)
+		}
 	}
 }
 
@@ -2116,24 +2231,19 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	for _, expected := range []string{
 		"class=\"lf-overview-workspace\"",
 		"Visible &lt;Test&gt; &amp; Device",
-		visibleSerial,
 		"src=\"/static/img/icons/icon-mouse.svg\"",
 		"test-firmware",
-		"href=\"/device/" + visibleSerial + "\"",
-		"Open full controls",
-		"<dt class=\"lf-device-summary-label\">Internal ID</dt>",
-		"<dd class=\"lf-device-summary-value\">" + visibleSerial + "</dd>",
-		"<h2 class=\"lf-openrgb-title\">OpenRGB controller</h2>",
-		"<h3 class=\"lf-openrgb-subtitle\">Controller metadata</h3>",
+		"<h2>Device Details</h2>",
 		"<dt class=\"lf-device-summary-label\">Serial</dt>",
 		"<dd class=\"lf-device-summary-value\">ORGB &lt;Display&gt; &amp; ID</dd>",
 		"Vendor &lt;North&gt; &amp; Co",
-		"Desk &lt;Left&gt; &amp; Rear",
 		"Imported &lt;Controller&gt; &amp; Lighting",
+		"<h2>Lighting Status</h2>",
 		"<dt class=\"lf-device-summary-label\">Effect</dt>",
-		"<dd class=\"lf-device-summary-value\">static</dd>",
+		"<dd class=\"lf-device-summary-value\">Cluster</dd>",
 		"<dt class=\"lf-device-summary-label\">Brightness</dt>",
 		"<dd class=\"lf-device-summary-value\">0%</dd>",
+		"<h2>Configured Zones</h2>",
 		"Zone &lt;One&gt; &amp; Main",
 		"data-lf-openrgb-zone-count",
 		"min=\"1\"",
@@ -2166,6 +2276,7 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	}
 	for _, excluded := range []string{
 		"Visible <Test> & Device",
+		"<dd class=\"lf-device-summary-value\">" + visibleSerial + "</dd>",
 		"class=\"lf-device-item lf-device-item-active\" href=\"/devices?device=" + otherSerial + "\"",
 		"<dt class=\"lf-device-summary-label\">Battery</dt>",
 		"Battery 0%",
@@ -2176,6 +2287,9 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		visibleZoneOne,
 		"class=\"lf-lighting-workspace\"",
 		"Read-only preview",
+		"Internal ID",
+		"Desk &lt;Left&gt; &amp; Rear",
+		"Open full controls",
 	} {
 		if strings.Contains(selectedBody, excluded) {
 			t.Errorf("selected GET /devices response unexpectedly contains %q", excluded)
@@ -2190,11 +2304,8 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	if strings.Count(selectedBody, "<h1 ") != 1 {
 		t.Errorf("selected GET /devices contains %d h1 elements, want 1", strings.Count(selectedBody, "<h1 "))
 	}
-	for _, label := range []string{"Internal ID", "Serial"} {
-		markup := "<dt class=\"lf-device-summary-label\">" + label + "</dt>"
-		if count := strings.Count(selectedBody, markup); count != 1 {
-			t.Errorf("selected OpenRGB response contains %q %d times, want 1", markup, count)
-		}
+	if count := strings.Count(selectedBody, "<dt class=\"lf-device-summary-label\">Serial</dt>"); count != 1 {
+		t.Errorf("selected OpenRGB response contains display serial %d times, want 1", count)
 	}
 	lightingRecorder := requestDevicesPage(t, router, "device="+url.QueryEscape(visibleSerial)+"&view=lighting")
 	if lightingRecorder.Code != http.StatusOK {
@@ -2291,7 +2402,6 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	for _, expected := range []string{
 		"class=\"lf-overview-workspace\"",
 		"class=\"lf-device-item lf-device-item-active\" href=\"/devices?device=" + visibleSerial + "\" aria-current=\"page\"",
-		"href=\"/device/" + visibleSerial + "\"",
 	} {
 		if !strings.Contains(selectedWithUnrelatedBody, expected) {
 			t.Errorf("selected GET /devices with unrelated query does not contain %q", expected)
@@ -2329,9 +2439,8 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	}
 	zeroZoneBody := zeroZoneRecorder.Body.String()
 	for _, expected := range []string{
-		"<h2 class=\"lf-openrgb-title\">OpenRGB controller</h2>",
+		"<h2>Configured Zones</h2>",
 		"No configured zones",
-		"href=\"/device/" + zeroZoneSerial + "\"",
 	} {
 		if !strings.Contains(zeroZoneBody, expected) {
 			t.Errorf("zero-zone OpenRGB response does not contain %q", expected)
@@ -2340,13 +2449,10 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	if strings.Contains(zeroZoneBody, "class=\"lf-openrgb-zone-item\"") {
 		t.Error("zero-zone OpenRGB response renders a fabricated zone item")
 	}
-	for _, excluded := range []string{"Controller metadata", "<dt class=\"lf-device-summary-label\">SERIAL</dt>"} {
+	for _, excluded := range []string{"Controller metadata", "<dt class=\"lf-device-summary-label\">SERIAL</dt>", "Open full controls"} {
 		if strings.Contains(zeroZoneBody, excluded) {
 			t.Errorf("zero-zone OpenRGB response unexpectedly contains %q", excluded)
 		}
-	}
-	if !strings.Contains(zeroZoneBody, "class=\"lf-openrgb-grid lf-openrgb-grid-single\"") {
-		t.Error("zero-zone OpenRGB response does not let the lighting summary use the available width")
 	}
 
 	stats.UpdateBatteryStats(visibleSerial, visibleProduct, 37, 0)
@@ -2531,18 +2637,15 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	}
 	emptyOpenRGBBody := emptyOpenRGBRendered.String()
 	for _, expected := range []string{
-		"OpenRGB controller",
-		"Lighting summary",
-		"100%",
+		"Configured Zones",
 		"No configured zones",
-		"class=\"lf-openrgb-grid lf-openrgb-grid-single\"",
 	} {
 		if !strings.Contains(emptyOpenRGBBody, expected) {
 			t.Errorf("empty OpenRGB template response does not contain %q", expected)
 		}
 	}
 	for _, excluded := range []string{
-		"Controller metadata",
+		"<h2>Device Details</h2>",
 		"<dt class=\"lf-device-summary-label\">Vendor</dt>",
 		"<dt class=\"lf-device-summary-label\">Location</dt>",
 		"<dt class=\"lf-device-summary-label\">Description</dt>",
@@ -2602,7 +2705,6 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	for _, expected := range []string{
 		"href=\"/devices?device=" + url.QueryEscape(escapedSerial) + "\"",
 		"href=\"/devices?device=" + url.QueryEscape(escapedSerial) + "&amp;view=lighting\"",
-		"href=\"/device/" + escapedSerial + "\"",
 	} {
 		if !strings.Contains(lowerEscapedBody, strings.ToLower(expected)) {
 			t.Errorf("escaped template response does not contain %q", expected)
@@ -2614,7 +2716,6 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	for _, expected := range []string{
 		"Identifier &lt;Value&gt; &amp; More",
 		"Vendor &lt;Value&gt; &amp; More",
-		"Location &lt;Value&gt; &amp; More",
 		"Description &lt;Value&gt; &amp; More",
 		"Effect &lt;Value&gt; &amp; More",
 		"Zone &lt;Value&gt; &amp; More",
@@ -2626,13 +2727,17 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 	for _, raw := range []string{
 		"Identifier <Value> & More",
 		"Vendor <Value> & More",
-		"Location <Value> & More",
 		"Description <Value> & More",
 		"Effect <Value> & More",
 		"Zone <Value> & More",
 	} {
 		if strings.Contains(escapedBody, raw) {
 			t.Errorf("escaped OpenRGB response contains raw metadata %q", raw)
+		}
+	}
+	for _, excluded := range []string{"Location &lt;Value&gt; &amp; More", "Internal ID", "Open full controls", "lf-openrgb-lighting-summary", "<h3 class=\"lf-openrgb-subtitle\">Lighting summary</h3>"} {
+		if strings.Contains(escapedBody, excluded) {
+			t.Errorf("escaped OpenRGB response unexpectedly contains %q", excluded)
 		}
 	}
 
