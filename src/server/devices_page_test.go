@@ -411,6 +411,22 @@ func TestDevicesOverviewCapabilityStatusPresentation(t *testing.T) {
 	if lightingIndex, statusIndex, memoryIndex := strings.Index(body, "<h2>Lighting Status</h2>"), strings.Index(body, "<h2>Cooling Status</h2>"), strings.Index(body, "Detected modules"); lightingIndex < 0 || statusIndex < lightingIndex || memoryIndex >= 0 && memoryIndex < statusIndex {
 		t.Errorf("Overview status ordering is wrong")
 	}
+	styles, err := os.ReadFile(filepath.Join("..", "..", "static", "css", "app-shell.css"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	coolingWorkspace := string(styles)
+	start := strings.Index(coolingWorkspace, ".lf-app-shell .lf-overview-main,")
+	if start < 0 {
+		t.Fatal("missing shared Overview section stack CSS rule")
+	}
+	end := strings.Index(coolingWorkspace[start:], "}\n")
+	if end < 0 {
+		t.Fatal("unterminated shared Overview section stack CSS rule")
+	}
+	if rule := coolingWorkspace[start : start+end]; !strings.Contains(rule, ".lf-app-shell [data-lf-cooling-workspace]") || !strings.Contains(rule, "display: flex;") || !strings.Contains(rule, "flex-direction: column;") || !strings.Contains(rule, "gap: 18px;") {
+		t.Error("Overview cooling workspace does not use the standard section stack gap")
+	}
 
 	if devicesOverviewDisplayStatusFromSummary(&devicesDisplayWorkspaceSummary{}) != nil {
 		t.Error("unusable display summary created an empty Overview status section")

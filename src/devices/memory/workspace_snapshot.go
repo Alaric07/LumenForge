@@ -32,7 +32,7 @@ func (d *Device) MemorySnapshot() (memorypresentation.Snapshot, bool) {
 		snapshot.Modules = append(snapshot.Modules, memorypresentation.Module{
 			ChannelID: module.ChannelId, Name: module.Name, Label: module.Label,
 			MemoryType: module.MemoryType, SKU: module.Sku, LEDCount: module.LedChannels,
-			Temperature: temperature,
+			Temperature: temperature, TemperatureCelsius: module.Temperature,
 		})
 	}
 	sort.Slice(snapshot.Modules, func(i, j int) bool { return snapshot.Modules[i].ChannelID < snapshot.Modules[j].ChannelID })

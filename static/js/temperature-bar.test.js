@@ -28,6 +28,10 @@ function documentFor(groups, ids = {}) {
     };
 }
 
+function assertApproximately(actual, expected, epsilon = 1e-9) {
+    assert.ok(Math.abs(actual - expected) <= epsilon, `expected ${actual} to be within ${epsilon} of ${expected}`);
+}
+
 test("CPU telemetry uses numeric Celsius for gauge progress while preserving displayed text", function () {
     const ring = gauge();
     const value = element();
@@ -40,7 +44,7 @@ test("CPU telemetry uses numeric Celsius for gauge progress while preserving dis
     assert.equal(value.textContent, "122.0 °F");
     assert.equal(Number(ring.progress.style.strokeDashoffset).toFixed(4), (Math.PI * 42).toFixed(4));
     assert.equal(telemetry.clampGaugePercent(-5), 0);
-    assert.equal(telemetry.clampGaugePercent(55), 55);
+    assertApproximately(telemetry.clampGaugePercent(55), 55);
 });
 
 test("CPU gauge clamps numeric Celsius progress at the visual bounds", function () {
@@ -71,6 +75,19 @@ test("GPU telemetry updates every reported GPU index and its numeric ring", func
     assert.equal(second.textContent, "149.0 °F");
     assert.equal(Number(firstRing.progress.style.strokeDashoffset).toFixed(4), (2 * Math.PI * 42 * 0.46).toFixed(4));
     assert.equal(Number(secondRing.progress.style.strokeDashoffset).toFixed(4), (2 * Math.PI * 42 * 0.35).toFixed(4));
+});
+
+test("Memory telemetry uses its stable module identity and numeric Celsius gauge progress", function () {
+    const value = element({"data-lf-dashboard-memory-serial": "memory", "data-lf-dashboard-memory-channel": "4"});
+    const ring = gauge({"data-lf-dashboard-memory-serial": "memory", "data-lf-dashboard-memory-channel": "4"});
+    const document = documentFor({
+        "[data-lf-dashboard-memory-temperature]": [value],
+        '[data-lf-dashboard-gauge="memory"]': [ring.gauge]
+    });
+
+    telemetry.updateMemory(document, {serial: "memory", channelId: 4, temperature: "104.0 °F", celsius: 40});
+    assert.equal(value.textContent, "104.0 °F");
+    assert.equal(Number(ring.progress.style.strokeDashoffset).toFixed(4), (2 * Math.PI * 42 * 0.6).toFixed(4));
 });
 
 test("storage telemetry maps updates by stable storage key", function () {

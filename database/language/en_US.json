@@ -255,6 +255,8 @@
     "txtRemove": "Remove",
     "txtDashboardOverview": "Dashboard Overview",
     "txtDashboardDevices": "Dashboard Devices",
+    "txtLighting": "Lighting",
+    "txtOpenRGBDevices": "OpenRGB Devices",
     "txtLightingStatus": "Lighting Status",
     "txtClusterEffect": "Cluster Effect",
     "txtClusterMembers": "Cluster Members",

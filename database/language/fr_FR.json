@@ -255,6 +255,8 @@
         "txtRemove": "Retirer",
         "txtDashboardOverview": "Aperçu du Tableau de bord",
         "txtDashboardDevices": "Périphériques du Tableau de bord",
+        "txtLighting": "Éclairage",
+        "txtOpenRGBDevices": "Périphériques OpenRGB",
         "txtLightingStatus": "Statut de l'éclairage",
         "txtClusterEffect": "Effet de cluster",
         "txtClusterMembers": "Membres du cluster",

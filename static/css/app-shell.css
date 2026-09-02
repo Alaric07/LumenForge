@@ -677,7 +677,8 @@
 
 .lf-app-shell .lf-overview-main,
 .lf-app-shell .lf-lighting-main,
-.lf-app-shell .lf-overview-rail {
+.lf-app-shell .lf-overview-rail,
+.lf-app-shell [data-lf-cooling-workspace] {
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -829,21 +830,31 @@
 
 .lf-dashboard-overview-grid {
     display: grid;
-    grid-template-columns: minmax(255px, 320px) minmax(0, 1fr);
+    grid-template-columns: minmax(230px, 290px) minmax(0, 1fr) minmax(200px, 260px);
     gap: clamp(22px, 3vw, 42px);
     align-items: stretch;
 }
 
 .lf-dashboard-telemetry {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    display: flex;
+    flex-wrap: nowrap;
     align-content: start;
-    gap: 16px;
+    justify-content: space-between;
+    gap: 24px;
     min-width: 0;
+    width: min(100%, 1080px);
+    margin-inline: auto;
+}
+
+.lf-dashboard-thermal-group {
+    min-width: 0;
+    display: block;
+    overflow-x: auto;
 }
 
 .lf-dashboard-gauge {
     display: grid;
+    flex: 0 0 208px;
     justify-items: center;
     gap: 11px;
     min-width: 0;
@@ -888,6 +899,7 @@
     position: absolute;
     inset: 0;
     align-content: center;
+    transform: translateY(-3px);
 }
 
 .lf-dashboard-gauge-label,
@@ -917,7 +929,8 @@
 }
 
 .lf-dashboard-gauge-model {
-    max-width: 100%;
+    width: calc(100% + 16px);
+    margin-inline: -8px;
     text-align: center;
 }
 
@@ -986,8 +999,158 @@
     text-align: center;
 }
 
-.lf-dashboard-workspace #system-cards {
+.lf-dashboard-devices,
+.lf-dashboard-openrgb-devices {
+    margin-top: 24px;
+}
+
+.lf-dashboard-devices-heading {
+    margin-bottom: 12px;
+}
+
+.lf-dashboard-devices-heading h2 {
     margin: 0;
+    color: var(--lf-text-primary);
+    font-size: 16px;
+    font-weight: 720;
+    letter-spacing: -0.015em;
+}
+
+.lf-dashboard-device-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    align-items: start;
+    gap: 12px;
+}
+
+.lf-dashboard-device-card,
+.lf-dashboard-openrgb-panel {
+    border: 1px solid var(--lf-border-subtle);
+    border-radius: var(--lf-shell-radius);
+    background: color-mix(in srgb, var(--lf-panel-secondary) 94%, transparent);
+    box-shadow: var(--lf-shadow-soft);
+}
+
+.lf-dashboard-device-card {
+    min-width: 0;
+    align-self: start;
+    display: block;
+    padding: 15px;
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+
+.lf-dashboard-device-card:hover,
+.lf-dashboard-device-card:focus-visible,
+.lf-dashboard-openrgb-row:hover,
+.lf-dashboard-openrgb-row:focus-visible {
+    border-color: var(--lf-border-selected);
+    background: var(--lf-surface-hover);
+    color: inherit;
+    outline: none;
+    transform: translateY(-1px);
+}
+
+.lf-dashboard-device-title,
+.lf-dashboard-openrgb-name {
+    overflow: hidden;
+    margin: 0;
+    color: var(--lf-text-primary);
+    font-size: 14px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lf-dashboard-device-product {
+    overflow: hidden;
+    margin: 4px 0 0;
+    color: var(--lf-text-muted);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lf-dashboard-device-state,
+.lf-dashboard-device-status {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 12px;
+    color: var(--lf-text-secondary);
+    font-size: 12px;
+}
+
+.lf-dashboard-device-state strong,
+.lf-dashboard-device-status strong {
+    overflow: hidden;
+    color: var(--lf-telemetry-value);
+    font-weight: 650;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lf-dashboard-device-status {
+    margin-top: 7px;
+}
+
+.lf-dashboard-openrgb-panel {
+    overflow: visible;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.lf-dashboard-openrgb-row {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 3px;
+    padding: 14px;
+    border: 1px solid var(--lf-border-subtle);
+    border-radius: var(--lf-shell-radius);
+    background: color-mix(in srgb, var(--lf-panel-secondary) 94%, transparent);
+    box-shadow: var(--lf-shadow-soft);
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+
+.lf-dashboard-openrgb-state {
+    grid-column: 1;
+    overflow: hidden;
+    color: var(--lf-telemetry-value);
+    font-size: 12px;
+    font-weight: 650;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lf-dashboard-openrgb-state small {
+    display: block;
+    margin-top: 2px;
+    color: var(--lf-text-muted);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.lf-dashboard-openrgb-arrow {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    color: var(--lf-text-muted);
+    font-size: 18px;
+    line-height: 1;
 }
 
 @media (max-width: 920px) {
@@ -996,7 +1159,21 @@
     }
 
     .lf-dashboard-telemetry {
+        display: grid;
         grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        width: 100%;
+    }
+
+    .lf-dashboard-thermal-group {
+        overflow-x: visible;
+    }
+
+    .lf-dashboard-gauge {
+        flex-basis: auto;
+    }
+
+    .lf-dashboard-openrgb-panel {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -1008,6 +1185,7 @@
     .lf-dashboard {
         padding: 16px;
     }
+
 }
 
 .lf-app-shell .lf-openrgb-grid {

@@ -255,6 +255,8 @@
     "txtRemove": "Remover",
     "txtDashboardOverview": "Visão Geral do Painel",
     "txtDashboardDevices": "Dispositivos do Painel",
+    "txtLighting": "Iluminação",
+    "txtOpenRGBDevices": "Dispositivos OpenRGB",
     "txtLightingStatus": "Status da Iluminação",
     "txtClusterEffect": "Efeito do Cluster",
     "txtClusterMembers": "Membros do Cluster",

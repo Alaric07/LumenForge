@@ -11,11 +11,12 @@ type Snapshot struct {
 
 // Module is one detected physical DIMM, identified by its existing channel ID.
 type Module struct {
-	ChannelID   int
-	Name        string
-	Label       string
-	MemoryType  int
-	SKU         string
-	LEDCount    uint8
-	Temperature string
+	ChannelID          int
+	Name               string
+	Label              string
+	MemoryType         int
+	SKU                string
+	LEDCount           uint8
+	Temperature        string
+	TemperatureCelsius float32
 }

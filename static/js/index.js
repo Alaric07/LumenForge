@@ -1,101 +1,40 @@
 "use strict";
 
-const dashboardOpenRGBCard = (function () {
-    const markup = `
-        <div class="col-md-2">
-            <div class="card system-card">
-                <div class="card-header header-split">
-                    <span class="header-left" data-dashboard-openrgb-product></span>
-                    <span class="header-right" data-dashboard-openrgb-label></span>
-                </div>
-                <div class="card-body">
-                    <div class="settings-list">
-                        <div class="settings-row">
-                            <span class="settings-label text-ellipsis">Status</span>
-                            <span class="meta-value" style="color: #4CAF50;">Connected</span>
-                        </div>
-                        <div class="settings-row">
-                            <span class="settings-label text-ellipsis">Current Effect</span>
-                            <span class="meta-value text-capitalize" data-dashboard-openrgb-effect></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
+const dashboardDevicePresentation = (function () {
+    function deviceURL(serial) {
+        return "/devices?device=" + encodeURIComponent(serial);
+    }
 
-    function createView(device, label) {
+    function normalize(response) {
         return {
-            isOpenRGB: true,
-            product: device.Product || "OpenRGB Device",
-            label: label || "",
-            effect: device.DeviceProfile?.RGBCluster ? "Clustered" : (device.DeviceProfile?.RGBProfile || "None")
+            native: Array.isArray(response?.native) ? response.native : [],
+            openrgb: Array.isArray(response?.openrgb) ? response.openrgb : [],
+            memory: Array.isArray(response?.memory) ? response.memory : []
         };
     }
 
-    function createColumn(jquery, view) {
-        const column = jquery(markup.trim()).first();
-        column.find("[data-dashboard-openrgb-product]").text(view.product);
-        column.find("[data-dashboard-openrgb-label]").text(view.label);
-        column.find("[data-dashboard-openrgb-effect]").text(view.effect);
-        return column;
-    }
-
-    return {createColumn, createView};
+    return {deviceURL, normalize};
 })();
 
 if (typeof module === "object" && module.exports) {
-    module.exports = dashboardOpenRGBCard;
+    module.exports = dashboardDevicePresentation;
 }
 
 if (typeof window !== "undefined" && window.document) {
 $(document).ready(function () {
-    window.i18n = {
-        locale: null,
-        values: {},
-
-        setTranslations: function (locale, values) {
-            this.locale = locale;
-            this.values = values || {};
-        },
-
-        t: function (key, fallback = '') {
-            return this.values[key] ?? fallback ?? key;
-        }
-    };
-
-    $.ajax({
-        url: '/api/language',
-        method: 'GET',
-        dataType: 'json',
-        success: function (response) {
-            if (response.status === 1 && response.data) {
-                i18n.setTranslations(
-                    response.data.code,
-                    response.data.values
-                );
-            }
-            loadDevices();
-        },
-        error: function () {
-            console.error('Failed to load translations');
-            loadDevices();
-        }
-    });
-
-    let showLabels = false;
+    const dashboardI18n = window.dashboardI18n || {};
 
     function updateLightingStatus() {
         if ($("#lighting-cluster-effect").length === 0) return;
         $.ajax({
-            url: '/api/dashboard/lighting',
-            type: 'GET',
-            dataType: 'json',
+            url: "/api/dashboard/lighting",
+            type: "GET",
+            dataType: "json",
             success: function (data) {
-                $("#lighting-cluster-effect").text(data.effect || 'off');
+                $("#lighting-cluster-effect").text(data.effect || "off");
                 $("#lighting-clustered-devices").text(data.clusteredLightingDevices || 0);
                 $("#lighting-independent-devices").text(data.independentLightingDevices || 0);
-                $("#lighting-brightness").text((data.brightness ?? 0) + '%');
+                $("#lighting-brightness").text((data.brightness ?? 0) + "%");
             },
             error: function (err) {
                 console.error("Failed to fetch lighting status:", err);
@@ -103,716 +42,86 @@ $(document).ready(function () {
         });
     }
 
-    function loadDevices() {
-        const devicePlaceholder = $(".device-placeholder");
-        destroyDashboardSortable(devicePlaceholder);
-        devicePlaceholder
-            .removeClass("ready")
-            .children('.dashboard-device-item, .dashboard-card-placeholder')
-            .remove();
+    function deviceCard(device) {
+        const card = $("<a>", {class: "lf-dashboard-device-card", href: dashboardDevicePresentation.deviceURL(device.serial)});
+        card.append($("<h3>", {class: "lf-dashboard-device-title", text: device.name}));
+        if (device.product && device.product !== device.name) {
+            card.append($("<p>", {class: "lf-dashboard-device-product", text: device.product}));
+        }
+        if (device.lighting) {
+            const state = $("<div>", {class: "lf-dashboard-device-state"});
+            state.append($("<span>", {text: dashboardI18n.lighting}), $("<strong>", {text: device.lighting}));
+            card.append(state);
+        }
+        if (Number.isFinite(device.brightness)) {
+            const brightness = $("<div>", {class: "lf-dashboard-device-status"});
+            brightness.append($("<span>", {text: dashboardI18n.brightness}), $("<strong>", {text: device.brightness + "%"}));
+            card.append(brightness);
+        }
+        (device.statusRows || []).forEach(function (row) {
+            if (!row?.label || !row?.value) return;
+            const status = $("<div>", {class: "lf-dashboard-device-status"});
+            status.append($("<span>", {text: row.label}), $("<strong>", {text: row.value}));
+            card.append(status);
+        });
+        return card;
+    }
 
+    function openRGBRow(device) {
+        const row = $("<a>", {class: "lf-dashboard-openrgb-row", href: dashboardDevicePresentation.deviceURL(device.serial)});
+        row.append($("<span>", {class: "lf-dashboard-openrgb-name", text: device.name}));
+        const state = $("<span>", {class: "lf-dashboard-openrgb-state"});
+        state.append($("<span>", {text: device.lighting || dashboardI18n.lighting}));
+        if (Number.isFinite(device.brightness)) {
+            state.append($("<small>", {text: device.brightness + "%"}));
+        }
+        row.append(state);
+        row.append($("<span>", {class: "lf-dashboard-openrgb-arrow", text: "›", "aria-hidden": "true"}));
+        return row;
+    }
+
+    function renderCurrentDevices(response) {
+        const devices = dashboardDevicePresentation.normalize(response);
+        if (window.dashboardTelemetry) {
+            devices.memory.forEach(function (memory) {
+                window.dashboardTelemetry.updateMemory(window.document, memory);
+            });
+        }
+        const nativeSection = $("[data-lf-dashboard-devices]");
+        const nativeGrid = $("[data-lf-dashboard-native-devices]");
+        nativeGrid.empty();
+        devices.native.forEach(function (device) {
+            nativeGrid.append(deviceCard(device));
+        });
+        nativeSection.prop("hidden", devices.native.length === 0);
+
+        const openRGBSection = $("[data-lf-dashboard-openrgb-devices]");
+        const openRGBList = $("[data-lf-dashboard-openrgb-list]");
+        openRGBList.empty();
+        devices.openrgb.forEach(function (device) {
+            openRGBList.append(openRGBRow(device));
+        });
+        openRGBSection.prop("hidden", devices.openrgb.length === 0);
+    }
+
+    function updateCurrentDevices() {
+        $.ajax({
+            url: "/api/dashboard/devices/current",
+            type: "GET",
+            dataType: "json",
+            success: renderCurrentDevices,
+            error: function (err) {
+                console.error("Failed to fetch current Dashboard devices:", err);
+            }
+        });
+    }
+
+    function refreshDashboard() {
         updateLightingStatus();
-
-        $.ajax({
-            url: '/api/dashboard/devices/get',
-            type: 'GET',
-            success: function (response) {
-                if (response.status !== 1) return;
-
-                const results = new Array(response.devices.length);
-                let completed = 0;
-                const total = response.devices.length;
-
-                if (total === 0) {
-                    devicePlaceholder.addClass("ready");
-                } else {
-                    $.each(response.devices, function (index, value) {
-                        $.ajax({
-                            url: '/api/devices/' + value,
-                            type: 'GET',
-                            success: function (dev) {
-                                if (dev.device) {
-                                    results[index] = {
-                                        serial: value,
-                                        view: renderDevice(dev)
-                                    };
-                                }
-                            },
-                            error: function () {
-                                console.warn("Dashboard device is unavailable:", value);
-                            },
-                            complete: function () {
-                                completed++;
-
-                                if (completed === total) {
-                                    renderDashboardDeviceResults(devicePlaceholder, results);
-                                    initializeDashboardSortable(devicePlaceholder);
-                                    devicePlaceholder.addClass("ready");
-                                }
-                            }
-                        });
-                    });
-                }
-            }
-        });
+        updateCurrentDevices();
     }
 
-    function renderDashboardDeviceResults(devicePlaceholder, results) {
-        results.forEach(function (result) {
-            if (!result?.view) return;
-
-            const item = createDashboardDeviceItem(result.serial, result.view);
-            if (item) {
-                devicePlaceholder.append(item);
-            }
-        });
-    }
-
-    function createDashboardDeviceItem(serial, view) {
-        let columnClasses = "col-12";
-        let content;
-
-        if (typeof view === "object" && view.isOpenRGB) {
-            const column = dashboardOpenRGBCard.createColumn($, view);
-            columnClasses = column.attr("class") || columnClasses;
-            content = column.contents();
-        } else if (typeof view === "string") {
-            const row = $(view.trim()).first();
-            const columns = row.children();
-
-            if (columns.length === 0) return null;
-
-            if (columns.length === 1) {
-                const column = columns.first();
-                columnClasses = column.attr("class") || columnClasses;
-                content = column.contents();
-            } else {
-                content = row;
-            }
-        }
-
-        if (!content || content.length === 0) return null;
-
-        const item = $('<div>')
-            .addClass(columnClasses)
-            .addClass('dashboard-device-item')
-            .attr('data-serial', serial)
-            .append(content);
-
-        const header = item.find('.card-header').first();
-        if (header.length > 0) {
-            header.prepend(`
-                <span class="dashboard-drag-handle drag-handle" title="Drag to reorder" aria-label="Drag to reorder">
-                    <i class="bi bi-grip-vertical" aria-hidden="true"></i>
-                </span>
-            `);
-        }
-
-        return item;
-    }
-
-    function destroyDashboardSortable(devicePlaceholder) {
-        if (devicePlaceholder.hasClass('ui-sortable')) {
-            devicePlaceholder.sortable('destroy');
-        }
-    }
-
-    function initializeDashboardSortable(devicePlaceholder) {
-        destroyDashboardSortable(devicePlaceholder);
-        const items = devicePlaceholder.children('.dashboard-device-item');
-        const handles = items.find('.dashboard-drag-handle');
-        if (items.length < 2) {
-            handles.hide();
-            return;
-        }
-        handles.show();
-
-        devicePlaceholder.sortable({
-            items: '> .dashboard-device-item',
-            handle: '.dashboard-drag-handle',
-            tolerance: 'pointer',
-            placeholder: 'card-placeholder dashboard-card-placeholder',
-            forcePlaceholderSize: true,
-            start: function (_, ui) {
-                ui.placeholder.addClass(ui.item.attr('class'));
-                ui.placeholder.height(ui.item.outerHeight());
-            },
-            update: function () {
-                const deviceOrder = devicePlaceholder.children('.dashboard-device-item').map(function () {
-                    return $(this).attr('data-serial');
-                }).get();
-
-                $.ajax({
-                    url: '/api/dashboard/devices/order',
-                    type: 'PUT',
-                    data: JSON.stringify({deviceOrder: deviceOrder}),
-                    contentType: 'application/json',
-                    success: function (response) {
-                        if (response.status !== 1) {
-                            toast.warning(response.message);
-                            loadDevices();
-                        }
-                    },
-                    error: function () {
-                        toast.warning(i18n.t('txtUnableToSaveDashboardSettings'));
-                        loadDevices();
-                    }
-                });
-            }
-        });
-    }
-
-    function renderDevice(dev) {
-        const groupedHtml = renderGroupedDashboardDevice(dev);
-        if (groupedHtml) {
-            return groupedHtml;
-        }
-        return renderFlatDevice(dev);
-    }
-
-    function renderGroupedDashboardDevice(dev) {
-        if (!isGroupedDashboardDevice(dev)) {
-            return null;
-        }
-
-        const parent = dev.device;
-        const serial = parent.serial;
-        const label = showLabels && parent.DeviceProfile?.Label
-            ? parent.DeviceProfile.Label
-            : "";
-        const childRows = [];
-
-        $.each(parent.devices, function (_, device) {
-            const row = renderGroupedDashboardChildRow(serial, parent, device);
-            if (row !== "") {
-                childRows.push(row);
-            }
-        });
-
-        if (childRows.length === 0) {
-            return null;
-        }
-
-        return `
-        <div class="row g-4 mb-4 align-items-start">
-            <div class="col-md-4 col-lg-3">
-                <div class="card system-card dashboard-grouped-card">
-                    <div class="card-header header-split">
-                        <span class="header-left">${parent.product}</span>
-                        <span class="header-right">${label}</span>
-                    </div>
-                    <div class="card-body">
-                        <div class="settings-list">
-                            ${childRows.join("")}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        `;
-    }
-
-    function isGroupedDashboardDevice(dev) {
-        const parent = dev.device;
-        if (!parent || parent.IsOpenRGB || parent.IsPSU || parent.devices === null || typeof parent.devices === "undefined") {
-            return false;
-        }
-
-        const product = (parent.product || parent.Product || "").toLowerCase();
-        const productLooksSupported = product.includes("commander") ||
-            product.includes("hydro") ||
-            product.includes("h100") ||
-            product.includes("h115") ||
-            product.includes("h150") ||
-            product.includes("h170") ||
-            product.includes("vengeance") ||
-            product.includes("memory");
-
-        let hasGroupedMetric = false;
-        let hasMemoryMetric = false;
-        let hasControllerMetric = false;
-
-        $.each(parent.devices, function (_, device) {
-            if (device.HasSpeed || device.HasTemps || device.temperature > 0 || device.rpm > 0) {
-                hasGroupedMetric = true;
-            }
-            if (device.speed > 0 || device.size > 0 || device.memoryType > 0 || device.sku) {
-                hasMemoryMetric = true;
-            }
-            if (device.IsTemperatureProbe || device.ContainsPump || device.HasSpeed || device.rpm > 0) {
-                hasControllerMetric = true;
-            }
-        });
-
-        if (!hasGroupedMetric) {
-            return false;
-        }
-
-        if (parent.AIO || hasMemoryMetric) {
-            return true;
-        }
-
-        return productLooksSupported && hasControllerMetric;
-    }
-
-    function renderGroupedDashboardChildRow(serial, parent, device) {
-        if (device.HasSpeed === false && device.HasTemps === false && !(device.temperature > 0) && !(device.rpm > 0)) {
-            return "";
-        }
-
-        const rowName = device?.label && device.label !== "Set Label"
-            ? device.label
-            : device.name;
-        const values = [];
-
-        if (device.temperature > 0) {
-            let tempString = i18n.t('txtTemperature');
-            if (device.AIO || device.IsCpuBlock || parent.AIO || device.ContainsPump) {
-                tempString = i18n.t('txtLiquidTemp');
-            }
-            values.push(`<span>${tempString}: <span id="temp-${serial}-${device.channelId}">${device.temperatureString}</span></span>`);
-        }
-
-        if (device.HasSpeed) {
-            values.push(`<span>${i18n.t('txtSpeed')}: <span id="speed-${serial}-${device.channelId}">${device.rpm} RPM</span></span>`);
-        }
-
-        if (device.gpuTemperature > 0) {
-            let tempString = i18n.t('txtTemperature');
-            if (device.AIO || device.IsCpuBlock) {
-                tempString = i18n.t('txtGpuLiquid');
-            }
-            values.push(`<span>${tempString}: <span id="gpuTemp-${serial}-${device.channelId}">${device.gpuTemperatureString}</span></span>`);
-        }
-
-        if (device.gpuRpm > 0) {
-            values.push(`<span>${i18n.t('txtGpuPump')}: <span id="gpuSpeed-${serial}-${device.channelId}">${device.gpuRpm} RPM</span></span>`);
-        }
-
-        if (device.speed > 0) {
-            values.push(`<span>${i18n.t('txtSpeed')}: ${device.speed} MHz</span>`);
-        }
-
-        if (device.size > 0) {
-            values.push(`<span>${i18n.t('txtMemorySize')}: ${device.size} GG</span>`);
-        }
-
-        if (device.HasWatts) {
-            values.push(`<span>${i18n.t('txtWatts')}: <span id="watts-${serial}-${device.channelId}">${device.watts} W</span></span>`);
-        }
-
-        if (device.HasAmps) {
-            values.push(`<span>${i18n.t('txtAmps')}: <span id="amps-${serial}-${device.channelId}">${device.amps} A</span></span>`);
-        }
-
-        if (device.HasVolts) {
-            values.push(`<span>${i18n.t('txtVolts')}: <span id="volts-${serial}-${device.channelId}">${device.volts} V</span></span>`);
-        }
-
-        if (values.length === 0) {
-            return "";
-        }
-
-        return `
-                            <div class="settings-row dashboard-grouped-row">
-                                <span class="settings-label text-ellipsis">${rowName}</span>
-                                <span class="meta-value dashboard-grouped-values">${values.join("")}</span>
-                            </div>
-        `;
-    }
-
-    function renderFlatDevice(dev) {
-        let html = `<div class="row g-4 mb-4 align-items-start">`;
-        const label = showLabels && dev.device.DeviceProfile?.Label
-            ? dev.device.DeviceProfile.Label
-            : "";
-
-        // Single device
-        if (dev.device.devices === null || typeof dev.device.devices === "undefined") {
-            if (dev.device.HasLCD) {
-                html += `
-                <div class="col-md-2">
-                    <div class="card system-card">
-                        <div class="card-header header-split">
-                            <span class="header-left">${dev.device.product}</span>
-                            <span class="header-right">${label}</span>
-                        </div>
-                        <div class="card-body">
-                            <div class="settings-list">
-                `;
-
-                if (dev.device.Temperature > 0) {
-                    let tempString = i18n.t('txtTemperature');
-                    if (dev.device.AIO || dev.device.IsCpuBlock) {
-                        tempString = i18n.t('txtLiquidTemp');
-                    }
-                    html += `
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">${tempString}</span>
-                                    <span class="meta-value" id="temperature-0">${dev.device.temperatureString}</span>
-                                </div>
-                            `;
-                }
-
-                html += `
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            } else if (dev.device.IsOpenRGB) {
-                return dashboardOpenRGBCard.createView(dev.device, label);
-            }
-        } else if (dev.device.IsPSU) {
-            $.each(dev.device.devices, function (_, device) {
-                if (device.IsTemperatureProbe || device.HasSpeed || device.Output) {
-                    return
-                }
-
-                const label = showLabels && device?.label
-                    ? device?.label
-                    : "";
-
-                html += `
-                <div class="col-md-2">
-                    <div class="card system-card">
-                        <div class="card-header header-split">
-                            <span class="header-left">${device.name}</span>
-                            <span class="header-right">${label}</span>
-                        </div>
-                        <div class="card-body">
-                            <div class="settings-list">
-                `;
-
-                if (device.MainPSU) {
-                    html += `
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">${i18n.t('txtSpeed')}</span>
-                                    <span class="meta-value" id="speed-${dev.device.serial}-${device.channelId}">${device.rpm} RPM</span>
-                                </div>
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">${i18n.t('txtVrmTemperature')}</span>
-                                    <span class="meta-value" id="vrm-temp-${dev.device.serial}-${device.channelId}">${device.vrmTemperatureString}</span>
-                                </div>
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">${i18n.t('txtPsuTemperature')}</span>
-                                    <span class="meta-value" id="psu-temp-${dev.device.serial}-${device.channelId}">${device.psuTemperatureString}</span>
-                                </div>
-                            `;
-                }
-
-
-                if (device.HasWatts) {
-                    html += `
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">${i18n.t('txtWatts')}</span>
-                                    <span class="meta-value" id="watts-${dev.device.serial}-${device.channelId}">${device.watts} W</span>
-                                </div>
-                            `;
-                }
-
-                if (device.HasAmps) {
-                    html += `
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">${i18n.t('txtAmps')}</span>
-                                    <span class="meta-value" id="amps-${dev.device.serial}-${device.channelId}">${device.amps} A</span>
-                                </div>
-                            `;
-                }
-
-                if (device.HasVolts) {
-                    html += `
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">${i18n.t('txtVolts')}</span>
-                                    <span class="meta-value" id="volts-${dev.device.serial}-${device.channelId}">${device.volts} V</span>
-                                </div>
-                            `;
-                }
-
-                html += `
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            });
-        } else {
-            $.each(dev.device.devices, function (_, device) {
-                if (device.HasSpeed === false && device.HasTemps === false) {
-                    return
-                }
-                let cssClass = "col-md-2";
-                if (device.volts) {
-                    cssClass = "col-md-3";
-                }
-                const label = showLabels && device?.label
-                    ? device?.label
-                    : "";
-
-                html += `
-                <div class="${cssClass}">
-                    <div class="card system-card">
-                        <div class="card-header header-split">
-                            <span class="header-left">${device.name}</span>
-                            <span class="header-right">${label}</span>
-                        </div>
-                        <div class="card-body">
-                            <div class="settings-list">
-                `;
-
-                if (device.temperature > 0) {
-                    let tempString = i18n.t('txtTemperature');
-                    if (device.AIO || device.IsCpuBlock) {
-                        tempString = i18n.t('txtLiquidTemp');
-                    }
-                    html += `
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">${tempString}</span>
-                                    <span class="meta-value" id="temp-${dev.device.serial}-${device.channelId}">${device.temperatureString}</span>
-                                </div>
-                            `;
-                }
-
-                if (device.HasSpeed) {
-                    html += `
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">${i18n.t('txtSpeed')}</span>
-                                    <span class="meta-value" id="speed-${dev.device.serial}-${device.channelId}">${device.rpm} RPM</span>
-                                </div>
-                            `;
-                }
-
-                if (device.gpuTemperature > 0) {
-                    let tempString = i18n.t('txtTemperature');
-                    if (device.AIO || device.IsCpuBlock) {
-                        tempString = i18n.t('txtGpuLiquid');
-                    }
-                    html += `
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">${tempString}</span>
-                                    <span class="meta-value" id="gpuTemp-${dev.device.serial}-${device.channelId}">${device.gpuTemperatureString}</span>
-                                </div>
-                            `;
-                }
-
-                if (device.gpuRpm > 0) {
-                    html += `
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">${i18n.t('txtGpuPump')}</span>
-                                    <span class="meta-value" id="gpuSpeed-${dev.device.serial}-${device.channelId}">${device.gpuRpm} RPM</span>
-                                </div>
-                            `;
-                }
-
-                if (device.speed > 0) {
-                    html += `
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">${i18n.t('txtSpeed')}</span>
-                                    <span class="meta-value">${device.speed} MHz</span>
-                                </div>
-                            `;
-                }
-
-                if (device.size > 0) {
-                    html += `
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">${i18n.t('txtMemorySize')}</span>
-                                    <span class="meta-value">${device.size} GG</span>
-                                </div>
-                            `;
-                }
-
-                if (device.HasWatts) {
-                    html += `
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">${i18n.t('txtWatts')}</span>
-                                    <span class="meta-value" id="watts-${dev.device.serial}-${device.channelId}">${device.watts} W</span>
-                                </div>
-                            `;
-                }
-
-                if (device.HasAmps) {
-                    html += `
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">${i18n.t('txtAmps')}</span>
-                                    <span class="meta-value" id="amps-${dev.device.serial}-${device.channelId}">${device.amps} A</span>
-                                </div>
-                            `;
-                }
-
-                if (device.HasVolts) {
-                    html += `
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">${i18n.t('txtVolts')}</span>
-                                    <span class="meta-value" id="volts-${dev.device.serial}-${device.channelId}">${device.volts} V</span>
-                                </div>
-                            `;
-                }
-
-                if (device.volts) {
-                    html += `
-                                <div class="settings-row settings-row-equal">
-                                    <span class="settings-label text-ellipsis">${i18n.t('txtOutput')}</span>
-                                    <span class="meta-value text-right" id="powerOut-${device.channelId}">${device.powerOutString} W</span>
-                                </div>
-                        `;
-
-                    $.each(device.volts, function (key, rail) {
-                        const amps = device.amps[key];
-                        const watts = device.watts[key];
-
-                        let railName = "";
-                        switch (parseInt(key)) {
-                            case 0:
-                                railName = "3.3V Rail"
-                                break
-                            case 1:
-                                railName = "5V Rail"
-                                break
-                            case 2:
-                                railName = "12V Rail"
-                                break
-                        }
-                        html += `
-                                <div class="settings-row settings-row-equal">
-                                    <span class="settings-label text-ellipsis">${railName}</span>
-                                    <span class="meta-value text-right" id="volts-${device.channelId}-${key}">${rail.ValueString} V</span>
-                                    <span class="meta-value text-right" id="amps-${device.channelId}-${key}">${amps.ValueString} A</span>
-                                    <span class="meta-value text-right" id="watts-${device.channelId}-${key}">${watts.ValueString} W</span>
-                                </div>
-                        `;
-                    });
-                }
-
-                html += `
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            });
-        }
-
-        html += `</div>`;
-        return html;
-    }
-
-    function autoRefresh() {
-        setInterval(function(){
-            updateLightingStatus();
-            $.ajax({
-                url:'/api/devices/',
-                type:'get',
-                success:function(result){
-                    $.each(result.devices, function( index, value ) {
-                        const serialId = value.Serial
-                        if (value.GetDevice != null) {
-                            if (value.GetDevice.devices == null) {
-                                // Single device, e.g CPU block
-                                const elementTemperatureId = "#temperature-0";
-                                $(elementTemperatureId).html(value.GetDevice.temperatureString);
-                            } else {
-                                $.each(value.GetDevice.devices, function( key, device ) {
-                                    const elementSpeedId = "#speed-" + serialId + "-" + device.channelId;
-                                    const elementTemperatureId = "#temp-" + serialId + "-" + device.channelId;
-                                    const elementVrmTemperatureId = "#vrm-temp-" + serialId + "-" + device.channelId;
-                                    const elementPsuTemperatureId = "#psu-temp-" + serialId + "-" + device.channelId;
-                                    const elementWatts = "#watts-" + serialId + "-" + device.channelId;
-                                    const elementAmps = "#amps-" + serialId + "-" + device.channelId;
-                                    const elementVolts = "#volts-" + serialId + "-" + device.channelId;
-
-                                    $(elementWatts).html(device.watts + " W");
-                                    $(elementAmps).html(device.amps + " A");
-                                    $(elementVolts).html(device.volts + " V");
-                                    $(elementSpeedId).html(device.rpm + " RPM");
-
-                                    $(elementTemperatureId).html(device.temperatureString);
-                                    $(elementVrmTemperatureId).html(device.vrmTemperatureString);
-                                    $(elementPsuTemperatureId).html(device.psuTemperatureString);
-
-                                    if (device.IsPSU) {
-                                        const elementPowerOut = "#powerOut-" + device.channelId;
-                                        if (elementPowerOut != null) {
-                                            $(elementPowerOut).html(device.powerOutString + " W");
-                                        }
-                                    }
-
-                                    if (device.volts) {
-                                        $.each(device.volts, function( index, value ) {
-                                            const amps = device.amps[index];
-                                            const watts = device.watts[index];
-
-                                            const elementVolts = "#volts-" + device.channelId + "-" + index;
-                                            if (elementVolts != null) {
-                                                $(elementVolts).html(value.ValueString + " V");
-                                            }
-
-                                            const elementAmps = "#amps-" + device.channelId + "-" + index;
-                                            if (elementAmps != null) {
-                                                $(elementAmps).html(amps.ValueString + " A");
-                                            }
-
-                                            const elementWatts = "#watts-" + device.channelId + "-" + index;
-                                            if (elementWatts != null) {
-                                                $(elementWatts).html(watts.ValueString + " W");
-                                            }
-                                        });
-                                    }
-                                });
-                            }
-                        }
-                    });
-                }
-            });
-        },3000);
-    }
-    autoRefresh();
-
-    $('.allDevicesRgb').on('change', function () {
-        const profile = $(this).val();
-        if (profile === "none") {
-            return false;
-        }
-        
-        const pf = {
-            "profile": profile
-        };
-
-        const json = JSON.stringify(pf, null, 2);
-
-        $.ajax({
-            url: '/api/color/global',
-            type: 'POST',
-            data: json,
-            cache: false,
-            success: function(response) {
-                try {
-                    if (response.status === 1) {
-                        toast.success(response.message);
-                    } else {
-                        toast.warning(response.message);
-                    }
-                } catch (err) {
-                    toast.warning(response.message);
-                }
-            }
-        });
-    });
-
-    function loadDashboardSettings() {
-        // Load current settings
-        $.ajax({
-            url: '/api/dashboard',
-            type: 'GET',
-            cache: false,
-            success: function (response) {
-                if (response.status === 1) {
-                    showLabels = response.dashboard.showLabels;
-                }
-            }
-        });
-    }
-
-    loadDashboardSettings();
+    refreshDashboard();
+    window.setInterval(refreshDashboard, 3000);
 });
 }

@@ -53,6 +53,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -1587,10 +1588,10 @@ func getDashboardSettings(w http.ResponseWriter, _ *http.Request) {
 // getDashboardLighting will get dashboard lighting status
 func getDashboardLighting(w http.ResponseWriter, _ *http.Request) {
 	type lightingResponse struct {
-		Effect                      string `json:"effect"`
-		Brightness                  int    `json:"brightness"`
-		ClusteredLightingDevices    int    `json:"clusteredLightingDevices"`
-		IndependentLightingDevices  int    `json:"independentLightingDevices"`
+		Effect                     string `json:"effect"`
+		Brightness                 int    `json:"brightness"`
+		ClusteredLightingDevices   int    `json:"clusteredLightingDevices"`
+		IndependentLightingDevices int    `json:"independentLightingDevices"`
 	}
 
 	effect := "off"
@@ -1670,6 +1671,207 @@ func getDashboardDevices(w http.ResponseWriter, _ *http.Request) {
 		Devices: dashboard.GetDevices(),
 	}
 	resp.Send(w)
+}
+
+// dashboardDeviceSummary is the small read-only presentation used by the
+// Dashboard. It deliberately derives its state from the existing Devices
+// workspace adapters rather than the legacy Dashboard membership list.
+type dashboardDeviceSummary struct {
+	Serial     string                     `json:"serial"`
+	Name       string                     `json:"name"`
+	Product    string                     `json:"product,omitempty"`
+	Lighting   string                     `json:"lighting,omitempty"`
+	Brightness *uint8                     `json:"brightness,omitempty"`
+	StatusRows []dashboardDeviceStatusRow `json:"statusRows,omitempty"`
+}
+
+type dashboardDeviceStatusRow struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
+}
+
+type dashboardDevicesCurrentResponse struct {
+	Native  []dashboardDeviceSummary     `json:"native"`
+	OpenRGB []dashboardDeviceSummary     `json:"openrgb"`
+	Memory  []dashboardMemoryTemperature `json:"memory"`
+}
+
+type dashboardMemoryTemperature struct {
+	Serial      string  `json:"serial"`
+	ChannelID   int     `json:"channelId"`
+	Identifier  string  `json:"identifier"`
+	Name        string  `json:"name"`
+	Temperature string  `json:"temperature"`
+	Celsius     float32 `json:"celsius"`
+}
+
+// dashboardDeviceLabel reads the device-level label maintained by the
+// authoritative hardware profile. It intentionally does not read RGB effect
+// fields; lighting state comes from the shared lighting presentation instead.
+func dashboardDeviceLabel(device *common.Device) string {
+	if device == nil || device.Instance == nil {
+		return ""
+	}
+	value := reflect.ValueOf(device.Instance)
+	if value.Kind() == reflect.Ptr {
+		if value.IsNil() {
+			return ""
+		}
+		value = value.Elem()
+	}
+	if value.Kind() != reflect.Struct {
+		return ""
+	}
+	profile := value.FieldByName("DeviceProfile")
+	if !profile.IsValid() || profile.Kind() != reflect.Ptr || profile.IsNil() {
+		return ""
+	}
+	profile = profile.Elem()
+	if profile.Kind() != reflect.Struct {
+		return ""
+	}
+	label := profile.FieldByName("Label")
+	if !label.IsValid() || label.Kind() != reflect.String {
+		return ""
+	}
+	return strings.TrimSpace(label.String())
+}
+
+func dashboardLightingState(lighting *devicesLightingWorkspaceSummary) string {
+	if lighting == nil {
+		return ""
+	}
+	if lighting.ClusterControlled {
+		return "Cluster"
+	}
+	if lighting.ExternalControlled {
+		return "OpenRGB controls this device"
+	}
+	if lighting.BulkEffectControl != nil {
+		if lighting.BulkEffectControl.Mixed {
+			return "Mixed"
+		}
+		if lighting.BulkEffectControl.ConfiguredEffectLabel != "" {
+			return lighting.BulkEffectControl.ConfiguredEffectLabel
+		}
+	}
+	if lighting.ConfiguredEffectLabel != "" {
+		return lighting.ConfiguredEffectLabel
+	}
+	return devicesLightingEffectDisplayLabel(lighting.ConfiguredEffect, "")
+}
+
+func dashboardDeviceStatus(summary *devicesWorkspaceSummary) []dashboardDeviceStatusRow {
+	rows := make([]dashboardDeviceStatusRow, 0)
+	if summary == nil {
+		return rows
+	}
+	if summary.OverviewCooling != nil {
+		for _, pump := range summary.OverviewCooling.Pumps {
+			value := strings.Trim(strings.Join([]string{pump.RPM, pump.Temperature}, " · "), " ·")
+			if value != "" {
+				rows = append(rows, dashboardDeviceStatusRow{Label: pump.Label, Value: value})
+			}
+		}
+		for _, fan := range summary.OverviewCooling.Fans {
+			if fan.Value != "" && fan.Value != "0 RPM" {
+				rows = append(rows, dashboardDeviceStatusRow{Label: fan.Label, Value: fan.Value})
+			}
+		}
+	}
+	for _, probe := range summary.TemperatureProbes {
+		if probe.Value != "" {
+			rows = append(rows, dashboardDeviceStatusRow{Label: probe.Label, Value: probe.Value})
+		}
+	}
+	if len(rows) == 0 && summary.OverviewPerformance != nil {
+		for _, row := range summary.OverviewPerformance.Rows {
+			if row.Label != "" && row.Value != "" {
+				rows = append(rows, dashboardDeviceStatusRow{Label: row.Label, Value: row.Value})
+			}
+		}
+	}
+	return rows
+}
+
+func dashboardMemoryModuleName(module devicesMemoryModuleSummary) string {
+	name := strings.TrimSpace(module.Name)
+	if name != "" && !strings.HasPrefix(strings.ToUpper(name), "DIMM ") {
+		return name
+	}
+	if label := strings.TrimSpace(module.Label); label != "" {
+		return label
+	}
+	return name
+}
+
+func dashboardMemoryTemperatures(serial string, summary *devicesMemoryWorkspaceSummary) []dashboardMemoryTemperature {
+	if summary == nil {
+		return nil
+	}
+	items := make([]dashboardMemoryTemperature, 0, len(summary.Modules))
+	for _, module := range summary.Modules {
+		if module.Temperature == "" || module.TemperatureCelsius <= 0 {
+			continue
+		}
+		items = append(items, dashboardMemoryTemperature{
+			Serial: serial, ChannelID: module.ChannelID, Identifier: fmt.Sprintf("DIMM %d", module.ChannelID+1),
+			Name: dashboardMemoryModuleName(module), Temperature: module.Temperature, Celsius: module.TemperatureCelsius,
+		})
+	}
+	return items
+}
+
+func dashboardCurrentDevices(connected map[string]*common.Device, battery map[string]stats.BatteryStats) dashboardDevicesCurrentResponse {
+	response := dashboardDevicesCurrentResponse{
+		Native:  make([]dashboardDeviceSummary, 0),
+		OpenRGB: make([]dashboardDeviceSummary, 0),
+		Memory:  make([]dashboardMemoryTemperature, 0),
+	}
+	serials := make([]string, 0, len(connected))
+	for serial := range connected {
+		serials = append(serials, serial)
+	}
+	sort.Strings(serials)
+	for _, serial := range serials {
+		device := connected[serial]
+		if device == nil || device.Hidden || device.Unavailable || serial == "cluster" || device.Serial == "cluster" || device.ProductType == common.ProductTypeCluster {
+			continue
+		}
+		summary, present := devicesWorkspaceSummaryForSerial(connected, battery, serial)
+		if !present {
+			continue
+		}
+		isOpenRGB := summary.OpenRGB != nil || (summary.Lighting != nil && summary.Lighting.TargetKind == "openrgb")
+		meaningful := isOpenRGB || summary.Lighting != nil || summary.Memory != nil || summary.OverviewCooling != nil || summary.OverviewPerformance != nil || summary.OverviewDisplay != nil || summary.HasBattery
+		if !meaningful {
+			continue
+		}
+		name := dashboardDeviceLabel(device)
+		if name == "" {
+			name = summary.Product
+		}
+		item := dashboardDeviceSummary{Serial: summary.Serial, Name: name, Product: summary.Product, Lighting: dashboardLightingState(summary.Lighting), StatusRows: dashboardDeviceStatus(summary)}
+		if summary.Lighting != nil && summary.Lighting.HasBrightness {
+			brightness := summary.Lighting.Brightness
+			item.Brightness = &brightness
+		}
+		response.Memory = append(response.Memory, dashboardMemoryTemperatures(summary.Serial, summary.Memory)...)
+		if isOpenRGB {
+			response.OpenRGB = append(response.OpenRGB, item)
+		} else {
+			response.Native = append(response.Native, item)
+		}
+	}
+	return response
+}
+
+// getDashboardCurrentDevices returns current top-level Devices presentation,
+// not the legacy dashboard.Devices membership setting.
+func getDashboardCurrentDevices(w http.ResponseWriter, _ *http.Request) {
+	response := dashboardCurrentDevices(devices.GetDevices(), stats.GetBatteryStats())
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // addDashboardDevice will add dashboard device
@@ -2409,6 +2611,7 @@ func uiDeviceOverview(w http.ResponseWriter, r *http.Request) {
 // uiIndex handles index page
 func uiIndex(w http.ResponseWriter, _ *http.Request) {
 	deviceList := devices.GetDevices()
+	batteryStats := stats.GetBatteryStats()
 	web := templates.Web{}
 	web.Title = dashboard.GetDashboard().PageTitle
 	web.Devices = deviceList
@@ -2418,7 +2621,8 @@ func uiIndex(w http.ResponseWriter, _ *http.Request) {
 	web.CpuTemp = dashboard.GetDashboard().TemperatureToString(web.CpuTempCelsius)
 	web.GpuTemp = dashboard.GetDashboard().TemperatureToString(temperatures.GetGpuTemperature())
 	web.Dashboard = dashboard.GetDashboard()
-	web.BatteryStats = stats.GetBatteryStats()
+	web.BatteryStats = batteryStats
+	web.DashboardMemory = dashboardCurrentDevices(deviceList, batteryStats).Memory
 	web.Page = "index"
 
 	t := templates.GetTemplate()
@@ -2655,13 +2859,14 @@ type devicesDeviceProfileWorkspaceSummary struct {
 }
 
 type devicesMemoryModuleSummary struct {
-	ChannelID   int
-	Name        string
-	Label       string
-	MemoryType  int
-	SKU         string
-	LEDCount    uint8
-	Temperature string
+	ChannelID          int
+	Name               string
+	Label              string
+	MemoryType         int
+	SKU                string
+	LEDCount           uint8
+	Temperature        string
+	TemperatureCelsius float32
 }
 
 type devicesMemoryWorkspaceSummary struct {
@@ -2838,10 +3043,7 @@ func devicesOverviewCoolingStatusFromSummary(summary *devicesCoolingWorkspaceSum
 			}
 			pump.Temperature = strings.TrimSpace(channel.Temperature)
 			if pump.RPM != "" || pump.Temperature != "" {
-				pump.Label = channel.Label
-				if pump.Label == "" {
-					pump.Label = channel.Name
-				}
+				pump.Label = devicesOverviewCoolingLabel(channel.Label, channel.Name)
 				status.Pumps = append(status.Pumps, pump)
 			}
 			continue
@@ -2849,11 +3051,50 @@ func devicesOverviewCoolingStatusFromSummary(summary *devicesCoolingWorkspaceSum
 		if channel.RPM < 0 {
 			continue
 		}
-		label := channel.Label
-		if label == "" {
-			label = channel.Name
-		}
+		label := devicesOverviewCoolingLabel(channel.Label, channel.Name)
 		status.Fans = append(status.Fans, devicesOverviewStatusRow{ChannelID: channel.ID, Label: label, Value: fmt.Sprintf("%d RPM", channel.RPM), Telemetry: true})
+	}
+	if len(status.Pumps) == 0 && len(status.Fans) == 0 {
+		return nil
+	}
+	return status
+}
+
+func devicesOverviewCoolingLabel(label, fallback string) string {
+	label = strings.TrimSpace(label)
+	if label == "" || strings.EqualFold(label, "Set Label") {
+		return strings.TrimSpace(fallback)
+	}
+	return label
+}
+
+// devicesOverviewCoolingStatusFromSnapshot retains read-only controller
+// telemetry even when the Devices cooling workspace cannot expose controls
+// because profile metadata is unavailable.
+func devicesOverviewCoolingStatusFromSnapshot(snapshot coolingpresentation.Snapshot) *devicesOverviewCoolingStatusSummary {
+	if !snapshot.Available {
+		return nil
+	}
+	status := &devicesOverviewCoolingStatusSummary{}
+	for _, channel := range snapshot.Channels {
+		if channel.RPM <= 0 {
+			continue
+		}
+		if channel.ContainsPump {
+			status.Pumps = append(status.Pumps, devicesOverviewCoolingPumpSummary{
+				ChannelID:   channel.ID,
+				Label:       devicesOverviewCoolingLabel(channel.Label, channel.Name),
+				RPM:         fmt.Sprintf("%d RPM", channel.RPM),
+				Temperature: strings.TrimSpace(channel.Temperature),
+			})
+			continue
+		}
+		status.Fans = append(status.Fans, devicesOverviewStatusRow{
+			ChannelID: channel.ID,
+			Label:     devicesOverviewCoolingLabel(channel.Label, channel.Name),
+			Value:     fmt.Sprintf("%d RPM", channel.RPM),
+			Telemetry: true,
+		})
 	}
 	if len(status.Pumps) == 0 && len(status.Fans) == 0 {
 		return nil
@@ -2871,11 +3112,31 @@ func devicesOverviewTemperatureProbesFromSummary(summary *devicesCoolingWorkspac
 		if temperature == "" {
 			continue
 		}
-		label := probe.Label
-		if label == "" {
-			label = probe.Name
-		}
+		label := devicesOverviewCoolingLabel(probe.Label, probe.Name)
 		probes = append(probes, devicesOverviewStatusRow{ChannelID: probe.ID, Label: label, Value: temperature, Telemetry: true})
+	}
+	if len(probes) == 0 {
+		return nil
+	}
+	return probes
+}
+
+func devicesOverviewTemperatureProbesFromSnapshot(snapshot coolingpresentation.Snapshot) []devicesOverviewStatusRow {
+	if !snapshot.Available {
+		return nil
+	}
+	probes := make([]devicesOverviewStatusRow, 0, len(snapshot.TemperatureProbes))
+	for _, probe := range snapshot.TemperatureProbes {
+		temperature := strings.TrimSpace(probe.Temperature)
+		if temperature == "" {
+			continue
+		}
+		probes = append(probes, devicesOverviewStatusRow{
+			ChannelID: probe.ID,
+			Label:     devicesOverviewCoolingLabel(probe.Label, probe.Name),
+			Value:     temperature,
+			Telemetry: true,
+		})
 	}
 	if len(probes) == 0 {
 		return nil
@@ -2982,7 +3243,7 @@ func devicesMemoryWorkspaceSummaryFromSnapshot(snapshot memorypresentation.Snaps
 		summary.Modules = append(summary.Modules, devicesMemoryModuleSummary{
 			ChannelID: module.ChannelID, Name: module.Name, Label: module.Label,
 			MemoryType: module.MemoryType, SKU: module.SKU, LEDCount: module.LEDCount,
-			Temperature: module.Temperature,
+			Temperature: module.Temperature, TemperatureCelsius: module.TemperatureCelsius,
 		})
 	}
 	return summary
@@ -3547,10 +3808,12 @@ func devicesWorkspaceSummaryForSerial(
 			summary.DeviceProfiles = devicesDeviceProfileWorkspaceSummaryFromSnapshot(snapshot)
 		}
 	}
+	var coolingSnapshot *coolingpresentation.Snapshot
 	if coolingDevice, ok := device.Instance.(devicesCoolingSnapshotProvider); ok &&
 		coolingDevice != nil && coolingDevice.CoolingDeviceID() == serial {
 		if snapshot, usable := coolingDevice.CoolingSnapshot(); usable {
 			summary.Cooling = devicesCoolingWorkspaceSummaryFromSnapshot(snapshot)
+			coolingSnapshot = &snapshot
 		}
 	}
 	if displayDevice, ok := device.Instance.(devicesDisplaySnapshotProvider); ok &&
@@ -3565,8 +3828,13 @@ func devicesWorkspaceSummaryForSerial(
 			summary.Memory = devicesMemoryWorkspaceSummaryFromSnapshot(snapshot)
 		}
 	}
-	summary.OverviewCooling = devicesOverviewCoolingStatusFromSummary(summary.Cooling)
-	summary.TemperatureProbes = devicesOverviewTemperatureProbesFromSummary(summary.Cooling)
+	if coolingSnapshot != nil {
+		summary.OverviewCooling = devicesOverviewCoolingStatusFromSnapshot(*coolingSnapshot)
+		summary.TemperatureProbes = devicesOverviewTemperatureProbesFromSnapshot(*coolingSnapshot)
+	} else {
+		summary.OverviewCooling = devicesOverviewCoolingStatusFromSummary(summary.Cooling)
+		summary.TemperatureProbes = devicesOverviewTemperatureProbesFromSummary(summary.Cooling)
+	}
 	summary.OverviewPerformance = devicesOverviewPerformanceStatusFromSummaries(summary.DPI, summary.Performance)
 	summary.OverviewDisplay = devicesOverviewDisplayStatusFromSummary(summary.Display)
 	if keyboardDevice, ok := device.Instance.(devicesKeyboardAssignmentsSnapshotProvider); ok && keyboardDevice != nil && keyboardDevice.KeyboardAssignmentsDeviceID() == serial {
@@ -5238,6 +5506,7 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/macro/keyInfo/", http.MethodGet, getKeyName)
 	handleFunc(r, "/api/dashboard", http.MethodGet, getDashboardSettings)
 	handleFunc(r, "/api/dashboard/lighting", http.MethodGet, getDashboardLighting)
+	handleFunc(r, "/api/dashboard/devices/current", http.MethodGet, getDashboardCurrentDevices)
 	handleFunc(r, "/api/dashboard/devices/get", http.MethodGet, getDashboardDevices)
 	handleFunc(r, "/api/keyboard/assignmentsTypes/", http.MethodGet, getKeyAssignmentTypes)
 	handleFunc(r, "/api/keyboard/assignmentsModifiers/", http.MethodGet, getKeyAssignmentModifiers)

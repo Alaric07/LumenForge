@@ -251,6 +251,8 @@
     "txtRemove": "Ta bort",
     "txtDashboardOverview": "Instrumentpanelsöversikt",
     "txtDashboardDevices": "Instrumentpanelsenheter",
+    "txtLighting": "Belysning",
+    "txtOpenRGBDevices": "OpenRGB-enheter",
     "txtLightingStatus": "Belysningsstatus",
     "txtClusterEffect": "Klastereffekt",
     "txtClusterMembers": "Klastermedlemmar",

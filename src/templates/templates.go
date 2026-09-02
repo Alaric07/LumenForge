@@ -69,6 +69,7 @@ type Web struct {
 	Languages                       map[string]language.Language
 	LanguageCode                    string
 	BatteryStats                    interface{}
+	DashboardMemory                 interface{}
 	RGBModes                        []string
 }
 

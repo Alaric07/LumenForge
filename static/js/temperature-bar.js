@@ -50,6 +50,21 @@ const dashboardTelemetry = (function () {
         });
     }
 
+    function updateMemory(document, memory) {
+        document.querySelectorAll("[data-lf-dashboard-memory-temperature]").forEach(function (element) {
+            if (String(element.getAttribute("data-lf-dashboard-memory-serial")) === String(memory.serial) &&
+                String(element.getAttribute("data-lf-dashboard-memory-channel")) === String(memory.channelId)) {
+                element.textContent = memory.temperature;
+            }
+        });
+        document.querySelectorAll('[data-lf-dashboard-gauge="memory"]').forEach(function (gauge) {
+            if (String(gauge.getAttribute("data-lf-dashboard-memory-serial")) === String(memory.serial) &&
+                String(gauge.getAttribute("data-lf-dashboard-memory-channel")) === String(memory.channelId)) {
+                updateGauge(gauge, memory.celsius);
+            }
+        });
+    }
+
     function updateStorage(document, storage) {
         document.querySelectorAll("[data-lf-dashboard-storage-temperature]").forEach(function (element) {
             if (String(element.getAttribute("data-lf-dashboard-storage-temperature")) === String(storage.Key)) {
@@ -80,12 +95,13 @@ const dashboardTelemetry = (function () {
         return setIntervalFn(function () { fetchTemperatures(ajax, document); }, POLL_INTERVAL_MS);
     }
 
-    return {POLL_INTERVAL_MS, clampGaugePercent, fetchTemperatures, startPolling, updateCPU, updateGPU, updateStorage};
+    return {POLL_INTERVAL_MS, clampGaugePercent, fetchTemperatures, startPolling, updateCPU, updateGPU, updateMemory, updateStorage};
 })();
 
 if (typeof module === "object" && module.exports) module.exports = dashboardTelemetry;
 
 if (typeof window !== "undefined" && window.document) {
+    window.dashboardTelemetry = dashboardTelemetry;
     $(document).ready(function () {
         dashboardTelemetry.startPolling($.ajax, window.document, window.setInterval.bind(window));
     });

@@ -56,13 +56,28 @@
                     </div>
                 </section>
 
-                <!-- Existing movable device cards remain below the fixed overview. -->
-                <div id="system-cards" class="device-placeholder row g-4 align-items-start">
-                </div>
+                <section class="lf-dashboard-devices" aria-labelledby="lf-dashboard-devices-title" data-lf-dashboard-devices hidden>
+                    <div class="lf-dashboard-devices-heading">
+                        <h2 id="lf-dashboard-devices-title">{{ .Lang "txtDashboardDevices" }}</h2>
+                    </div>
+                    <div class="lf-dashboard-device-grid" data-lf-dashboard-native-devices></div>
+                </section>
+                <section class="lf-dashboard-openrgb-devices" aria-labelledby="lf-dashboard-openrgb-title" data-lf-dashboard-openrgb-devices hidden>
+                    <div class="lf-dashboard-devices-heading">
+                        <h2 id="lf-dashboard-openrgb-title">{{ .Lang "txtOpenRGBDevices" }}</h2>
+                    </div>
+                    <div class="lf-dashboard-openrgb-panel" data-lf-dashboard-openrgb-list></div>
+                </section>
             </div>
         </main>
     </div>
-<script src="/static/js/index.js?v=5"></script>
+<script>
+window.dashboardI18n = {
+    lighting: {{ .Lang "txtLighting" }},
+    brightness: {{ .Lang "txtBrightness" }}
+};
+</script>
+<script src="/static/js/index.js?v=7"></script>
 {{ if .Dashboard.TemperatureBar }}
 <script src="/static/js/temperature-bar.js"></script>
 {{ end }}

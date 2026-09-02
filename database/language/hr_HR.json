@@ -255,6 +255,8 @@
     "txtRemove": "Ukloni",
     "txtDashboardOverview": "Pregled nadzorne ploče",
     "txtDashboardDevices": "Uređaji nadzorne ploče",
+    "txtLighting": "Osvjetljenje",
+    "txtOpenRGBDevices": "OpenRGB uređaji",
     "txtLightingStatus": "Status osvjetljenja",
     "txtClusterEffect": "Efekt klastera",
     "txtClusterMembers": "Članovi klastera",

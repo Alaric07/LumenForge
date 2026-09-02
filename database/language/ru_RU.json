@@ -251,6 +251,8 @@
         "txtRemove": "Удалить",
         "txtDashboardOverview": "Обзор панели управления",
         "txtDashboardDevices": "Устройства панели управления",
+        "txtLighting": "Подсветка",
+        "txtOpenRGBDevices": "Устройства OpenRGB",
         "txtLightingStatus": "Статус подсветки",
         "txtClusterEffect": "Эффект кластера",
         "txtClusterMembers": "Участники кластера",

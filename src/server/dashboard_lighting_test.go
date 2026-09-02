@@ -5,13 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"LumenForge/src/cluster"
 	"LumenForge/src/common"
+	"LumenForge/src/coolingpresentation"
 	"LumenForge/src/dashboard"
 	"LumenForge/src/lightingpresentation"
+	"LumenForge/src/memorypresentation"
 	"LumenForge/src/systeminfo"
 	"LumenForge/src/templates"
 	"LumenForge/src/version"
@@ -21,6 +25,45 @@ type dashboardLightingCountProvider struct {
 	id        string
 	snapshot  lightingpresentation.Snapshot
 	available bool
+}
+
+type dashboardDeviceProfileFixture struct {
+	Label string
+}
+
+type dashboardPresentationProvider struct {
+	dashboardLightingCountProvider
+	DeviceProfile *dashboardDeviceProfileFixture
+}
+
+type dashboardMemoryProvider struct {
+	id       string
+	snapshot memorypresentation.Snapshot
+}
+
+type dashboardCoolingProvider struct {
+	id       string
+	snapshot coolingpresentation.Snapshot
+}
+
+func (provider dashboardCoolingProvider) CoolingDeviceID() string { return provider.id }
+func (provider dashboardCoolingProvider) CoolingSnapshot() (coolingpresentation.Snapshot, bool) {
+	return provider.snapshot, true
+}
+
+type dashboardAggregateProvider struct {
+	dashboardLightingCountProvider
+	dashboardCoolingProvider
+}
+
+type dashboardMemoryPresentationProvider struct {
+	dashboardLightingCountProvider
+	dashboardMemoryProvider
+}
+
+func (provider dashboardMemoryProvider) MemoryDeviceID() string { return provider.id }
+func (provider dashboardMemoryProvider) MemorySnapshot() (memorypresentation.Snapshot, bool) {
+	return provider.snapshot, true
 }
 
 func (provider dashboardLightingCountProvider) LightingDeviceID() string { return provider.id }
@@ -70,10 +113,10 @@ func TestDashboardLightingDeviceCountsClassifyPhysicalDevices(t *testing.T) {
 	}
 
 	for _, test := range []struct {
-		name              string
-		connected         map[string]*common.Device
-		clustered         int
-		independent       int
+		name        string
+		connected   map[string]*common.Device
+		clustered   int
+		independent int
 	}{
 		{name: "ten independent", connected: makeDevices(10, 0), independent: 10},
 		{name: "ten clustered", connected: makeDevices(10, 10), clustered: 10},
@@ -117,6 +160,156 @@ func TestDashboardLightingDeviceCountsExcludeNonPhysicalLightingEntries(t *testi
 	}
 }
 
+func TestDashboardCurrentDevicesUseCurrentSharedPresentation(t *testing.T) {
+	connected := map[string]*common.Device{
+		"native-label": {Serial: "native-label", Product: "Commander Core", Instance: dashboardPresentationProvider{
+			dashboardLightingCountProvider: dashboardLightingCountProvider{id: "native-label", available: true, snapshot: lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "rainbow", EffectSupported: true, SupportedEffects: []lightingpresentation.EffectOption{{ID: "rainbow", Label: "Rainbow"}}}},
+			DeviceProfile:                  &dashboardDeviceProfileFixture{Label: "Desk cooling"},
+		}},
+		"native-cluster":  {Serial: "native-cluster", Product: "K95", Instance: dashboardLightingCountProvider{id: "native-cluster", available: true, snapshot: lightingpresentation.Snapshot{TargetKind: "native", ClusterControlled: true}}},
+		"native-external": {Serial: "native-external", Product: "External controller", Instance: dashboardLightingCountProvider{id: "native-external", available: true, snapshot: lightingpresentation.Snapshot{TargetKind: "native", ExternalControlled: true}}},
+		"openrgb":         {Serial: "openrgb", Product: "Nanoleaf", Instance: dashboardLightingCountProvider{id: "openrgb", available: true, snapshot: lightingpresentation.Snapshot{TargetKind: "openrgb", ClusterControlled: true, HasBrightness: true, Brightness: 67}}},
+		"stale":           {Serial: "stale", Product: "Disconnected", Unavailable: true, Instance: dashboardLightingCountProvider{id: "stale", available: true, snapshot: lightingpresentation.Snapshot{TargetKind: "native"}}},
+	}
+
+	response := dashboardCurrentDevices(connected, nil)
+	if len(response.Native) != 3 || len(response.OpenRGB) != 1 {
+		t.Fatalf("dashboard current devices = %#v, want three native and one OpenRGB", response)
+	}
+	if got := response.Native[0]; got.Serial != "native-cluster" || got.Name != "K95" || got.Lighting != "Cluster" {
+		t.Fatalf("unlabeled/clustered device = %#v", got)
+	}
+	if got := response.Native[1]; got.Serial != "native-external" || got.Lighting != "OpenRGB controls this device" {
+		t.Fatalf("externally controlled device = %#v", got)
+	}
+	if got := response.Native[2]; got.Serial != "native-label" || got.Name != "Desk cooling" || got.Product != "Commander Core" || got.Lighting != "Rainbow" {
+		t.Fatalf("labeled/local device = %#v", got)
+	}
+	if got := response.OpenRGB[0]; got.Serial != "openrgb" || got.Name != "Nanoleaf" || got.Lighting != "Cluster" || got.Brightness == nil || *got.Brightness != 67 {
+		t.Fatalf("OpenRGB device = %#v", got)
+	}
+}
+
+func TestDashboardCurrentDevicesKeepTopLevelAggregatesAndMemorySingle(t *testing.T) {
+	connected := map[string]*common.Device{
+		"aggregate": {Serial: "aggregate", Product: "Commander XT", Instance: dashboardLightingCountProvider{id: "aggregate", available: true, snapshot: lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "static", EffectSupported: true, SupportedEffects: []lightingpresentation.EffectOption{{ID: "static", Label: "Static"}}}}},
+		"memory": {Serial: "memory", Product: "Memory kit", Instance: dashboardMemoryPresentationProvider{
+			dashboardLightingCountProvider: dashboardLightingCountProvider{id: "memory", available: true, snapshot: lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "static", EffectSupported: true, HasBrightness: true, Brightness: 80, SupportedEffects: []lightingpresentation.EffectOption{{ID: "static", Label: "Static"}}}},
+			dashboardMemoryProvider:        dashboardMemoryProvider{id: "memory", snapshot: memorypresentation.Snapshot{Available: true, Modules: []memorypresentation.Module{{ChannelID: 0, Name: "DIMM 1", Label: "Left DIMM", Temperature: "32.0 °C", TemperatureCelsius: 32}, {ChannelID: 1, Name: "Trident Z5 RGB", Temperature: "34.0 °C", TemperatureCelsius: 34}}}},
+		}},
+	}
+
+	response := dashboardCurrentDevices(connected, nil)
+	if len(response.Native) != 2 {
+		t.Fatalf("native device count = %d, want two top-level cards", len(response.Native))
+	}
+	if response.Native[0].Serial != "aggregate" || response.Native[1].Serial != "memory" {
+		t.Fatalf("top-level device order = %#v", response.Native)
+	}
+	if len(response.Native[1].StatusRows) != 0 || response.Native[1].Brightness == nil || *response.Native[1].Brightness != 80 {
+		t.Fatalf("memory presentation = %#v", response.Native[1])
+	}
+	if len(response.Memory) != 2 || response.Memory[0].Identifier != "DIMM 1" || response.Memory[0].Name != "Left DIMM" || response.Memory[1].Name != "Trident Z5 RGB" {
+		t.Fatalf("memory gauge presentation = %#v", response.Memory)
+	}
+}
+
+func TestDashboardCurrentDevicesKeepAggregateCoolingRowsInsideOneCard(t *testing.T) {
+	core := coolingpresentation.Snapshot{Available: true, Channels: []coolingpresentation.Channel{
+		{ID: 0, Name: "Pump", Label: "Coolant", RPM: 2400, Temperature: "31.5 °C", ContainsPump: true},
+		{ID: 1, Name: "Fan 1", Label: "Front Intake", RPM: 581},
+		{ID: 2, Name: "Fan 2", RPM: 0},
+	}}
+	coreXT := coolingpresentation.Snapshot{Available: true, Channels: []coolingpresentation.Channel{
+		{ID: 0, Name: "Fan 1", Label: "Set Label", RPM: 581},
+		{ID: 1, Name: "Fan 2", Label: "Rear Exhaust", RPM: 604},
+		{ID: 2, Name: "Fan 3", Label: "Disconnected", RPM: 0},
+	}, TemperatureProbes: []coolingpresentation.TemperatureProbe{{ID: 3, Name: "Probe 1", Label: "Radiator", Temperature: "29.0 °C"}, {ID: 4, Name: "Probe 2", Temperature: ""}}}
+	connected := map[string]*common.Device{
+		"commander-core":    {Serial: "commander-core", Product: "iCUE Commander CORE", Instance: dashboardAggregateProvider{dashboardCoolingProvider: dashboardCoolingProvider{id: "commander-core", snapshot: core}}},
+		"commander-core-xt": {Serial: "commander-core-xt", Product: "COMMANDER CORE XT", Instance: dashboardAggregateProvider{dashboardCoolingProvider: dashboardCoolingProvider{id: "commander-core-xt", snapshot: coreXT}}},
+		"simple":            {Serial: "simple", Product: "Simple Device", Instance: dashboardLightingCountProvider{id: "simple", available: true, snapshot: lightingpresentation.Snapshot{TargetKind: "native"}}},
+	}
+
+	response := dashboardCurrentDevices(connected, nil)
+	if len(response.Native) != 3 {
+		t.Fatalf("aggregate presentation = %#v", response)
+	}
+	if got := response.Native[0]; got.Serial != "commander-core" || len(got.StatusRows) != 2 || got.StatusRows[0].Label != "Coolant" || got.StatusRows[0].Value != "2400 RPM · 31.5 °C" || got.StatusRows[1].Label != "Front Intake" || got.StatusRows[1].Value != "581 RPM" {
+		t.Fatalf("Commander CORE rows = %#v", got)
+	}
+	if got := response.Native[1]; got.Serial != "commander-core-xt" || len(got.StatusRows) != 3 || got.StatusRows[0].Label != "Fan 1" || got.StatusRows[0].Value != "581 RPM" || got.StatusRows[1].Label != "Rear Exhaust" || got.StatusRows[2].Label != "Radiator" {
+		t.Fatalf("Commander CORE XT rows = %#v", got)
+	}
+	if got := response.Native[2]; got.Serial != "simple" || len(got.StatusRows) != 0 {
+		t.Fatalf("simple card = %#v", got)
+	}
+}
+
+func TestDashboardPerformanceStatusKeepsUsefulMouseAndKeyboardFacts(t *testing.T) {
+	mouse := &devicesWorkspaceSummary{
+		OverviewPerformance: &devicesOverviewPerformanceStatusSummary{Rows: []devicesOverviewStatusRow{{Label: "DPI", Value: "1600"}, {Label: "Polling Rate", Value: "1000 Hz"}}},
+		Performance:         &devicesPerformanceWorkspaceSummary{LiftHeight: &devicesPerformanceSelectSummary{Value: 2, Options: []devicesPerformanceOptionSummary{{Value: 2, Label: "Low"}}}},
+	}
+	mouseRows := dashboardDeviceStatus(mouse)
+	if len(mouseRows) != 2 || mouseRows[0].Label != "DPI" || mouseRows[1].Label != "Polling Rate" {
+		t.Fatalf("mouse Dashboard rows = %#v", mouseRows)
+	}
+	for _, row := range mouseRows {
+		if row.Label == "Lift Height" {
+			t.Fatalf("mouse Dashboard retained lift height: %#v", mouseRows)
+		}
+	}
+	if mouse.Performance.LiftHeight == nil || mouse.Performance.LiftHeight.Options[0].Label != "Low" {
+		t.Fatalf("Devices workspace lift height changed: %#v", mouse.Performance)
+	}
+
+	keyboard := &devicesWorkspaceSummary{
+		OverviewPerformance: &devicesOverviewPerformanceStatusSummary{Rows: []devicesOverviewStatusRow{{Label: "Polling Rate", Value: "8000 Hz"}}},
+		KeyboardAssignments: &devicesKeyboardAssignmentsWorkspaceSummary{KeyboardLayouts: []string{"US", "UK"}, ActiveKeyboardLayout: "US"},
+	}
+	keyboardRows := dashboardDeviceStatus(keyboard)
+	if len(keyboardRows) != 1 || keyboardRows[0].Label != "Polling Rate" || keyboardRows[0].Value != "8000 Hz" {
+		t.Fatalf("keyboard Dashboard rows = %#v", keyboardRows)
+	}
+	for _, row := range keyboardRows {
+		if row.Label == "Keyboard Layout" {
+			t.Fatalf("keyboard Dashboard retained keyboard layout: %#v", keyboardRows)
+		}
+	}
+	if len(keyboard.KeyboardAssignments.KeyboardLayouts) != 2 || keyboard.KeyboardAssignments.ActiveKeyboardLayout != "US" {
+		t.Fatalf("Devices workspace keyboard layouts changed: %#v", keyboard.KeyboardAssignments)
+	}
+}
+
+func TestDashboardControllerCardsUseNaturalHeight(t *testing.T) {
+	stylesheet, err := os.ReadFile(filepath.Join("..", "..", "static", "css", "app-shell.css"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rule := func(selector string) string {
+		t.Helper()
+		start := strings.Index(string(stylesheet), selector+" {")
+		if start < 0 {
+			t.Fatalf("missing dashboard CSS rule %q", selector)
+		}
+		end := strings.Index(string(stylesheet[start:]), "}\n")
+		if end < 0 {
+			t.Fatalf("unterminated dashboard CSS rule %q", selector)
+		}
+		return string(stylesheet[start : start+end])
+	}
+
+	if grid := rule(".lf-dashboard-device-grid"); !strings.Contains(grid, "align-items: start;") {
+		t.Errorf("Dashboard device grid still stretches cards: %q", grid)
+	}
+	card := rule(".lf-dashboard-device-card")
+	if !strings.Contains(card, "align-self: start;") || strings.Contains(card, "height:") || strings.Contains(card, "overflow:") {
+		t.Errorf("Dashboard controller card can truncate cooling rows: %q", card)
+	}
+}
+
 func TestDashboardSystemOverviewTemplateUsesFixedTelemetryPresentation(t *testing.T) {
 	initializeDevicesPageTestProcess(t)
 
@@ -127,9 +320,10 @@ func TestDashboardSystemOverviewTemplateUsesFixedTelemetryPresentation(t *testin
 			Celsius:        true,
 			TemperatureBar: true,
 		},
-		CpuTemp:        "36.0 °C",
-		CpuTempCelsius: 36,
-		BuildInfo: &version.BuildInfo{Revision: "test", BuildVersion: "test"},
+		CpuTemp:         "36.0 °C",
+		CpuTempCelsius:  36,
+		DashboardMemory: []dashboardMemoryTemperature{{Serial: "memory", ChannelID: 0, Identifier: "DIMM 1", Name: "Memory family", Temperature: "32.0 °C", Celsius: 32}},
+		BuildInfo:       &version.BuildInfo{Revision: "test", BuildVersion: "test"},
 		SystemInfo: &systeminfo.SystemInfo{
 			CPU: &systeminfo.CpuData{Model: "AMD Ryzen 9"},
 			GPU: map[int]systeminfo.GpuData{
@@ -153,11 +347,21 @@ func TestDashboardSystemOverviewTemplateUsesFixedTelemetryPresentation(t *testin
 		`data-lf-dashboard-cpu-temperature`,
 		`data-lf-dashboard-gpu-temperature="0"`,
 		`data-lf-dashboard-gpu-temperature="1"`,
+		`data-lf-dashboard-gauge="memory"`,
+		`data-lf-dashboard-memory-temperature`,
+		`>DIMM 1<`,
+		`class="lf-dashboard-gauge-model" title="AMD Ryzen 9">AMD Ryzen 9<`,
+		`class="lf-dashboard-gauge-model" title="NVIDIA RTX 4090">NVIDIA RTX 4090<`,
+		`class="lf-dashboard-gauge-model" title="Memory family">Memory family<`,
 		`data-lf-dashboard-storage-temperature="nvme0n1"`,
 		`class="lf-telemetry-value"`,
 		`href="/rgbCluster"`,
-		`id="system-cards" class="device-placeholder`,
+		`data-lf-dashboard-devices`,
+		`data-lf-dashboard-native-devices`,
+		`data-lf-dashboard-openrgb-devices`,
 		`class="lf-dashboard-gauge-visual"`,
+		`lighting: "`,
+		`brightness: "`,
 		`Clustered Lighting Devices`,
 		`Independent Lighting Devices`,
 	} {
@@ -173,8 +377,11 @@ func TestDashboardSystemOverviewTemplateUsesFixedTelemetryPresentation(t *testin
 		`id="dashboardDeviceSelect"`,
 		`id="addDeviceToDashboard"`,
 		`id="deleteDeviceFromDashboard"`,
+		`id="system-cards"`,
 		`Non-Cluster RGB Devices`,
 		`Cluster Members`,
+		`lighting: "\"Lighting\""`,
+		`brightness: "\"Brightness\""`,
 	} {
 		if strings.Contains(html, absent) {
 			t.Errorf("dashboard overview template retained removed control %q", absent)
@@ -186,5 +393,24 @@ func TestDashboardSystemOverviewTemplateUsesFixedTelemetryPresentation(t *testin
 	storageIndex := strings.Index(html, `class="lf-dashboard-storage"`)
 	if lighting == -1 || cpu == -1 || gpu == -1 || storageIndex == -1 || !(lighting < cpu && cpu < gpu && gpu < storageIndex) {
 		t.Errorf("dashboard overview order = lighting:%d cpu:%d gpu:%d storage:%d, want Lighting before CPU before GPU before Storage", lighting, cpu, gpu, storageIndex)
+	}
+}
+
+func TestDashboardLowerSectionsUseLocalizedHeadingsAndLabels(t *testing.T) {
+	templateSource, err := os.ReadFile(filepath.Join("..", "..", "web", "index.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, want := range []string{
+		`<h2 id="lf-dashboard-devices-title">{{ .Lang "txtDashboardDevices" }}</h2>`,
+		`<h2 id="lf-dashboard-openrgb-title">{{ .Lang "txtOpenRGBDevices" }}</h2>`,
+		`window.dashboardI18n = {`,
+		`lighting: {{ .Lang "txtLighting" }},`,
+		`brightness: {{ .Lang "txtBrightness" }}`,
+	} {
+		if !strings.Contains(string(templateSource), want) {
+			t.Errorf("dashboard localization template missing %q", want)
+		}
 	}
 }
