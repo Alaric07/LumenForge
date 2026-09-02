@@ -32,7 +32,7 @@
 <html lang="en">
 {{ template "head" . }}
 <body>
-    <div class="lf-app-shell">
+    <div class="lf-app-shell{{ if .Dashboard.SidebarCollapsed }} lf-global-nav-collapsed{{ end }}">
         {{ $hasSelectedDevice := false }}
         {{ $selectedSerial := "" }}
         {{ if .Device }}
@@ -40,48 +40,9 @@
             {{ $selectedSerial = .Device.Serial }}
         {{ end }}
 
-        <aside class="lf-global-nav" aria-label="Application navigation">
-            <a class="lf-brand" href="/" aria-label="LumenForge dashboard" title="LumenForge dashboard">
-                <span class="lf-brand-mark-frame" aria-hidden="true">
-                    <img class="lf-brand-mark" src="/static/img/lumenforge-main.png" alt="">
-                </span>
-                <span class="lf-brand-name">LumenForge</span>
-            </a>
+        {{ template "modern-nav" . }}
 
-            <nav class="lf-global-links">
-                <a class="lf-global-link" href="/" aria-label="Dashboard" title="Dashboard">
-                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-dashboard.svg" alt=""></span>
-                    <span class="lf-global-label">Dashboard</span>
-                </a>
-                <a class="lf-global-link lf-global-link-active" href="/devices" aria-label="Devices" title="Devices" aria-current="page">
-                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-device.svg" alt=""></span>
-                    <span class="lf-global-label">Devices</span>
-                </a>
-                <a class="lf-global-link" href="/rgbCluster" aria-label="RGB Cluster" title="RGB Cluster">
-                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-cluster.svg" alt=""></span>
-                    <span class="lf-global-label">RGB Cluster</span>
-                </a>
-                <a class="lf-global-link" href="/temperature" aria-label="Cooling profiles" title="Cooling profiles">
-                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-temperature.svg" alt=""></span>
-                    <span class="lf-global-label">Cooling profiles</span>
-                </a>
-                <a class="lf-global-link" href="/lcd" aria-label="LCD" title="LCD">
-                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-lcd.svg" alt=""></span>
-                    <span class="lf-global-label">LCD</span>
-                </a>
-                <a class="lf-global-link" href="/macros" aria-label="Macros" title="Macros">
-                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-macro.svg" alt=""></span>
-                    <span class="lf-global-label">Macros</span>
-                </a>
-                <a class="lf-global-link" href="/settings" aria-label="Settings" title="Settings">
-                    <span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-settings.svg" alt=""></span>
-                    <span class="lf-global-label">Settings</span>
-                </a>
-            </nav>
-
-        </aside>
-
-        <aside class="lf-device-panel" aria-labelledby="lf-device-list-title">
+        <aside class="lf-device-panel{{ if not $hasSelectedDevice }} lf-device-panel-open{{ end }}" id="lf-device-drawer" aria-labelledby="lf-device-list-title" aria-label="Devices" data-lf-device-drawer>
             <header class="lf-panel-header">
                 <div>
                     <p class="lf-section-kicker">Configured hardware</p>

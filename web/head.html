@@ -32,6 +32,9 @@
     <script src="/static/js/devices-profiles.js" defer></script>
     <script src="/static/js/devices-keyboard-assignments.js" defer></script>
     {{ end }}
+    {{ if or (eq .Page "devices") (eq .Page "index") (eq .Page "rgbCluster") }}
+    <script src="/static/js/app-shell.js" defer></script>
+    {{ end }}
 
     <!-- Styles -->
     <link rel="preload" href="/static/css/themes/default.css" as="style">
@@ -42,7 +45,7 @@
     <link href="/static/css/jquery-ui.min.css" rel="stylesheet">
     <link href="/static/css/themes/default.css" rel="stylesheet">
     {{ if ne .Dashboard.Theme "default" }}<link href="/static/css/themes/{{ .Dashboard.Theme }}.css" rel="stylesheet">{{ end }}
-    {{ if or (eq .Page "devices") (eq .Page "index") }}
+    {{ if or (eq .Page "devices") (eq .Page "index") (eq .Page "rgbCluster") }}
     <link href="/static/css/app-shell.css" rel="stylesheet">
     {{ end }}
 

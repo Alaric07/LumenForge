@@ -2397,6 +2397,141 @@
     }
 }
 
+/* Modern shell navigation and Devices drawer.  The legacy sidebar retains its
+ * independent layout and uses the same persisted preference. */
+.lf-app-shell {
+    --lf-global-nav-width: 232px;
+    grid-template-columns: var(--lf-global-nav-width) minmax(0, 1fr);
+}
+
+.lf-app-shell.lf-cluster-shell {
+    grid-template-columns: var(--lf-global-nav-width) minmax(0, 1fr);
+}
+
+.lf-app-shell.lf-global-nav-collapsed {
+    --lf-global-nav-width: 84px;
+}
+
+.lf-app-shell .lf-global-nav-toggle,
+.lf-app-shell .lf-global-devices-toggle {
+    font: inherit;
+}
+
+.lf-app-shell .lf-global-nav-toggle {
+    width: 42px;
+    min-height: 38px;
+    display: grid;
+    place-items: center;
+    align-self: flex-end;
+    margin: -10px 2px 8px 0;
+    padding: 0;
+    border: 1px solid var(--lf-border-subtle);
+    border-radius: var(--lf-shell-radius-sm);
+    color: var(--lf-text-secondary);
+    background: var(--lf-panel-elevated);
+    cursor: pointer;
+}
+
+.lf-app-shell .lf-global-nav-toggle:hover,
+.lf-app-shell .lf-global-nav-toggle:focus-visible {
+    color: var(--lf-text-primary);
+    border-color: var(--lf-border-selected);
+}
+
+.lf-app-shell .lf-global-devices-toggle {
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+}
+
+.lf-app-shell.lf-global-nav-collapsed .lf-global-nav {
+    align-items: center;
+    padding-right: 10px;
+    padding-left: 10px;
+}
+
+.lf-app-shell.lf-global-nav-collapsed .lf-brand {
+    justify-content: center;
+    padding-right: 0;
+    padding-left: 0;
+}
+
+.lf-app-shell.lf-global-nav-collapsed .lf-brand-name,
+.lf-app-shell.lf-global-nav-collapsed .lf-global-label {
+    display: none;
+}
+
+.lf-app-shell.lf-global-nav-collapsed .lf-global-nav-toggle {
+    align-self: center;
+    margin-right: 0;
+}
+
+.lf-app-shell.lf-global-nav-collapsed .lf-global-links {
+    width: 100%;
+}
+
+.lf-app-shell.lf-global-nav-collapsed .lf-global-link {
+    justify-content: center;
+    padding-right: 8px;
+    padding-left: 8px;
+}
+
+.lf-app-shell .lf-device-panel {
+    width: min(350px, calc(100vw - var(--lf-global-nav-width)));
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: var(--lf-global-nav-width);
+    z-index: 2;
+    transform: translateX(-100%);
+    transition: transform 180ms ease;
+}
+
+.lf-app-shell .lf-device-panel.lf-device-panel-open {
+    transform: translateX(0);
+}
+
+@media (max-width: 760px) {
+    .lf-app-shell,
+    .lf-app-shell.lf-cluster-shell {
+        --lf-global-nav-width: auto;
+        display: block;
+    }
+
+    .lf-app-shell.lf-global-nav-collapsed .lf-global-nav {
+        align-items: stretch;
+        padding: 14px;
+    }
+
+    .lf-app-shell.lf-global-nav-collapsed .lf-brand {
+        justify-content: flex-start;
+        padding: 5px 6px 12px;
+    }
+
+    .lf-app-shell.lf-global-nav-collapsed .lf-brand-name {
+        display: inline;
+    }
+
+    .lf-app-shell .lf-global-nav-toggle {
+        display: none;
+    }
+
+    .lf-app-shell .lf-device-panel {
+        width: auto;
+        height: auto;
+        position: static;
+        transform: none;
+        transition: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .lf-app-shell .lf-device-panel,
+    .lf-app-shell .lf-global-link {
+        transition: none;
+    }
+}
+
 .lf-app-shell .lf-color-control-label {
     display: block;
     color: var(--lf-text-primary);
@@ -2877,5 +3012,139 @@
     .lf-app-shell .lf-lighting-palette-concept {
         align-items: flex-start;
         flex-direction: column;
+    }
+}
+
+/* Phase 2.5 overrides are kept last so the old responsive rail rules cannot
+ * override an explicit desktop navigation preference. */
+@media (min-width: 761px) {
+    .lf-app-shell,
+    .lf-app-shell.lf-cluster-shell {
+        --lf-global-nav-width: 232px;
+        grid-template-columns: var(--lf-global-nav-width) minmax(0, 1fr);
+    }
+
+    .lf-app-shell.lf-global-nav-collapsed {
+        --lf-global-nav-width: 84px;
+    }
+
+    .lf-app-shell .lf-device-panel {
+        width: min(350px, calc(100vw - var(--lf-global-nav-width)));
+        height: 100vh;
+        position: fixed;
+        top: 0;
+        left: var(--lf-global-nav-width);
+        z-index: 2;
+        transform: translateX(-100%);
+    }
+
+    .lf-app-shell .lf-device-panel.lf-device-panel-open {
+        transform: translateX(0);
+    }
+
+    .lf-app-shell.lf-global-nav-collapsed .lf-global-nav {
+        align-items: center;
+        padding-right: 10px;
+        padding-left: 10px;
+    }
+
+    .lf-app-shell.lf-global-nav-collapsed .lf-brand {
+        justify-content: center;
+        padding-right: 0;
+        padding-left: 0;
+    }
+
+    .lf-app-shell.lf-global-nav-collapsed .lf-brand-name,
+    .lf-app-shell.lf-global-nav-collapsed .lf-global-label {
+        display: none;
+    }
+
+    .lf-app-shell.lf-global-nav-collapsed .lf-global-links {
+        width: 100%;
+    }
+
+    .lf-app-shell.lf-global-nav-collapsed .lf-global-link {
+        justify-content: center;
+        padding-right: 8px;
+        padding-left: 8px;
+    }
+
+    .lf-app-shell .lf-global-nav-toggle {
+        align-self: center;
+        margin: 0 0 8px;
+    }
+
+    .lf-app-shell:not(.lf-global-nav-collapsed) .lf-brand {
+        flex-direction: column;
+        justify-content: center;
+        gap: 3px;
+        padding-bottom: 12px;
+        text-align: center;
+    }
+
+    .lf-app-shell:not(.lf-global-nav-collapsed) .lf-brand-mark-frame {
+        width: 52px;
+        height: 52px;
+    }
+
+    .lf-app-shell:not(.lf-global-nav-collapsed) .lf-brand-mark {
+        width: 46px;
+        height: 46px;
+    }
+
+    .lf-app-shell:not(.lf-global-nav-collapsed) .lf-brand-name {
+        color: var(--lf-text-primary);
+    }
+
+    @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+        .lf-app-shell:not(.lf-global-nav-collapsed) .lf-brand-name {
+            background: linear-gradient(105deg, var(--lf-accent-primary), var(--lf-accent-secondary), var(--lf-accent-highlight));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+        }
+    }
+
+    .lf-app-shell:not(.lf-global-nav-collapsed) .lf-global-links {
+        align-items: center;
+    }
+
+    .lf-app-shell:not(.lf-global-nav-collapsed) .lf-global-link {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (forced-colors: active) {
+    .lf-app-shell:not(.lf-global-nav-collapsed) .lf-brand-name {
+        -webkit-text-fill-color: currentColor;
+        color: CanvasText;
+        background: none;
+    }
+}
+
+@media (max-width: 760px) {
+    .lf-app-shell.lf-global-nav-collapsed .lf-global-nav {
+        align-items: stretch;
+        padding: 14px;
+    }
+
+    .lf-app-shell.lf-global-nav-collapsed .lf-brand {
+        justify-content: flex-start;
+        padding: 5px 6px 12px;
+    }
+
+    .lf-app-shell.lf-global-nav-collapsed .lf-brand-name {
+        display: inline;
+    }
+
+    .lf-app-shell .lf-global-nav-toggle {
+        display: none;
+    }
+
+    .lf-app-shell .lf-device-panel {
+        transform: none;
+        transition: none;
     }
 }
