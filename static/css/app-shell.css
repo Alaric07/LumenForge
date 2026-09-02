@@ -90,6 +90,12 @@
     margin-top: 30px;
 }
 
+.lf-app-shell .lf-global-utility-links {
+    display: flex;
+    flex-direction: column;
+    margin-top: auto;
+}
+
 .lf-app-shell .lf-global-link {
     min-height: 52px;
     display: flex;
@@ -2567,6 +2573,10 @@
     width: 100%;
 }
 
+.lf-app-shell.lf-global-nav-collapsed .lf-global-utility-links {
+    width: 100%;
+}
+
 .lf-app-shell.lf-global-nav-collapsed .lf-global-link {
     justify-content: center;
     padding-right: 8px;
@@ -2963,6 +2973,13 @@
         margin-top: 8px;
     }
 
+    .lf-app-shell .lf-global-utility-links {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+        margin-top: 8px;
+    }
+
     .lf-app-shell .lf-global-link {
         min-height: 48px;
     }
@@ -3082,6 +3099,10 @@
 
 @media (max-width: 480px) {
     .lf-app-shell .lf-global-links {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .lf-app-shell .lf-global-utility-links {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 

@@ -37,6 +37,13 @@ test("expanded desktop navigation centers only branding while rows retain full l
     assert.match(css, /\.lf-app-shell\.lf-global-nav-collapsed \.lf-global-link \{[\s\S]*?justify-content: center;/);
 });
 
+test("modern navigation keeps Settings in a separate bottom utility group", function () {
+    assert.match(navTemplate, /<nav class="lf-global-links">[\s\S]*?href="\/macros"[\s\S]*?<\/nav>\s*<nav class="lf-global-utility-links"[\s\S]*?href="\/settings"/);
+    assert.match(css, /\.lf-app-shell \.lf-global-utility-links \{[\s\S]*?margin-top: auto;/);
+    assert.match(css, /\.lf-app-shell\.lf-global-nav-collapsed \.lf-global-utility-links \{[\s\S]*?width: 100%;/);
+    assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.lf-app-shell \.lf-global-utility-links \{[\s\S]*?margin-top: 8px;/);
+});
+
 test("Devices drawer reuses the existing panel and has selected/no-selection initial state", function () {
     assert.match(devicesTemplate, /id="lf-device-drawer"/);
     assert.match(devicesTemplate, /if not \$hasSelectedDevice.*lf-device-panel-open/);
