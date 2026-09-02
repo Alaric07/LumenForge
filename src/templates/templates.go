@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -58,6 +59,7 @@ type Web struct {
 	OutputDevices                   interface{}
 	Displays                        interface{}
 	CpuTemp                         string
+	CpuTempCelsius                  float32
 	GpuTemp                         string
 	Page                            string
 	SystemService                   bool
@@ -73,6 +75,15 @@ type Web struct {
 // Lang is called from template files
 func (w Web) Lang(key string) string {
 	return language.GetValue(key)
+}
+
+func (w Web) GaugeStrokeDasharray(radius float64) string {
+	return fmt.Sprintf("%.4f", 2*math.Pi*radius)
+}
+
+func (w Web) GaugeStrokeDashoffset(celsius float32, radius float64) string {
+	progress := math.Max(0, math.Min(100, float64(celsius))) / 100
+	return fmt.Sprintf("%.4f", 2*math.Pi*radius*(1-progress))
 }
 
 // Dict is called from template files

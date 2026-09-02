@@ -2,104 +2,66 @@
 <html lang="en">
 {{ template "head" . }}
 <body>
+    <div class="lf-app-shell lf-cluster-shell lf-dashboard-shell">
+        <aside class="lf-global-nav" aria-label="Application navigation">
+            <a class="lf-brand" href="/" aria-label="LumenForge dashboard" title="LumenForge dashboard">
+                <span class="lf-brand-mark-frame" aria-hidden="true"><img class="lf-brand-mark" src="/static/img/lumenforge-main.png" alt=""></span>
+                <span class="lf-brand-name">LumenForge</span>
+            </a>
+            <nav class="lf-global-links">
+                <a class="lf-global-link lf-global-link-active" href="/" aria-label="Dashboard" title="Dashboard" aria-current="page"><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-dashboard.svg" alt=""></span><span class="lf-global-label">Dashboard</span></a>
+                <a class="lf-global-link" href="/devices" aria-label="Devices" title="Devices"><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-device.svg" alt=""></span><span class="lf-global-label">Devices</span></a>
+                <a class="lf-global-link" href="/rgbCluster" aria-label="RGB Cluster" title="RGB Cluster"><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-cluster.svg" alt=""></span><span class="lf-global-label">RGB Cluster</span></a>
+                <a class="lf-global-link" href="/temperature" aria-label="Cooling profiles" title="Cooling profiles"><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-temperature.svg" alt=""></span><span class="lf-global-label">Cooling profiles</span></a>
+                <a class="lf-global-link" href="/lcd" aria-label="LCD" title="LCD"><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-lcd.svg" alt=""></span><span class="lf-global-label">LCD</span></a>
+                <a class="lf-global-link" href="/macros" aria-label="Macros" title="Macros"><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-macro.svg" alt=""></span><span class="lf-global-label">Macros</span></a>
+                <a class="lf-global-link" href="/settings" aria-label="Settings" title="Settings"><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-settings.svg" alt=""></span><span class="lf-global-label">Settings</span></a>
+            </nav>
+        </aside>
 
-<div class="container-fluid">
-    {{ $root := . }}
-    {{ $deviceList := $root.Devices }}
-    {{ $battery := .BatteryStats }}
-    {{ $dash := .Dashboard }}
-    <div class="row">
-        <!-- Sidebar -->
-        {{ template "sidebar" . }}
-
-        <!-- Main -->
-        <main class="main-content p-4">
-            <!-- Temperature bar -->
-            {{ if .Dashboard.TemperatureBar }}
-            {{ template "temperature-bar" . }}
-            {{ end }}
-
-            <!-- Dashboard -->
-            <div id="system-cards" class="device-placeholder row g-4 align-items-start">
-                <!-- Dashboard Overview Card -->
-                <div class="col-12 col-md-3" id="dashboard-overview-card">
-                    <div class="card system-card">
-                        <div class="card-header header-split">
-                            <span class="header-left">{{ .Lang "txtDashboardOverview" }}</span>
-                            <span class="header-right"></span>
-                        </div>
-                        <div class="card-body">
-                            <!-- Section 1: Lighting Status -->
-                            <div class="mb-3">
-                                <div class="fw-bold mb-2" style="font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted);">
-                                    {{ .Lang "txtLightingStatus" }}
-                                </div>
-                                <div class="settings-list">
-                                    <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">{{ .Lang "txtClusterEffect" }}</span>
-                                        <span class="meta-value text-capitalize" id="lighting-cluster-effect">-</span>
-                                    </div>
-                                    <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">{{ .Lang "txtClusterMembers" }}</span>
-                                        <span class="meta-value" id="lighting-cluster-members">-</span>
-                                    </div>
-                                    <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">{{ .Lang "txtNonClusterRgbDevices" }}</span>
-                                        <span class="meta-value" id="lighting-non-cluster">-</span>
-                                    </div>
-                                    <div class="settings-row">
-                                        <span class="settings-label text-ellipsis">{{ .Lang "txtBrightness" }}</span>
-                                        <span class="meta-value" id="lighting-brightness">-</span>
-                                    </div>
-                                    <div class="settings-row mt-3">
-                                        <a href="/rgbCluster" class="system-button w-100 d-block text-center text-decoration-none">{{ .Lang "txtOpenRgbCluster" }}</a>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Section 2: Dashboard Devices -->
-                            <div id="system-cards-add">
-                                <hr class="my-3" style="border-top: 1px solid var(--border-subtle); opacity: 1;">
-                                <div class="add-device-widget">
-                                    <div class="fw-bold mb-2 align-self-start" style="font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted);">
-                                        {{ .Lang "txtDashboardDevices" }}
-                                    </div>
-                                    <label class="add-device-select w-100 mb-2">
-                                        <select class="system-select w-100" id="dashboardDeviceSelect">
-                                            <option selected disabled>{{ .Lang "txtSelectDevice" }}</option>
-                                            {{ range .Devices }}
-                                            {{ if eq .Hidden true }}
-                                            {{ continue }}
-                                            {{ end }}
-
-                                            {{ if .GetDevice }}
-                                            <option value="{{ .Serial }}">{{ .Product }}</option>
-                                            {{ end }}
-                                            {{ end }}
-                                        </select>
-                                    </label>
-                                    <label class="full-width">
-                                        <div class="settings-list">
-                                            <div class="settings-row">
-                                                <button class="system-button btn-accent add-device-btn addDeviceToDashboard" id="addDeviceToDashboard">
-                                                    {{ .Lang "txtAdd" }}
-                                                </button>
-                                                <button class="system-button danger add-device-btn deleteDeviceFromDashboard" id="deleteDeviceFromDashboard">
-                                                    {{ .Lang "txtRemove" }}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
+        <main class="lf-device-workspace lf-cluster-workspace lf-dashboard-workspace">
+            <div class="lf-dashboard">
+                <section class="lf-dashboard-overview" aria-labelledby="lf-dashboard-overview-title">
+                    <div class="lf-dashboard-overview-heading">
+                        <h1 id="lf-dashboard-overview-title">System Overview</h1>
                     </div>
+                    <div class="lf-dashboard-overview-grid">
+                        <section class="lf-dashboard-lighting-summary" aria-labelledby="lf-dashboard-lighting-title">
+                            <div class="lf-dashboard-section-heading">
+                                <span id="lf-dashboard-lighting-title">{{ .Lang "txtLightingStatus" }}</span>
+                            </div>
+                            <dl class="lf-dashboard-lighting-details">
+                                <div>
+                                    <dt>{{ .Lang "txtClusterEffect" }}</dt>
+                                    <dd class="text-capitalize" id="lighting-cluster-effect">-</dd>
+                                </div>
+                                <div>
+                                    <dt>Clustered Lighting Devices</dt>
+                                    <dd id="lighting-clustered-devices">-</dd>
+                                </div>
+                                <div>
+                                    <dt>Independent Lighting Devices</dt>
+                                    <dd id="lighting-independent-devices">-</dd>
+                                </div>
+                                <div>
+                                    <dt>{{ .Lang "txtBrightness" }}</dt>
+                                    <dd id="lighting-brightness">-</dd>
+                                </div>
+                            </dl>
+                            <a href="/rgbCluster" class="lf-button lf-button-secondary lf-dashboard-cluster-link text-decoration-none">{{ .Lang "txtOpenRgbCluster" }}</a>
+                        </section>
+                        {{ if .Dashboard.TemperatureBar }}
+                        {{ template "temperature-bar" . }}
+                        {{ end }}
+                    </div>
+                </section>
+
+                <!-- Existing movable device cards remain below the fixed overview. -->
+                <div id="system-cards" class="device-placeholder row g-4 align-items-start">
                 </div>
             </div>
         </main>
     </div>
-</div>
-<script src="/static/js/sidebar.js"></script>
 <script src="/static/js/index.js?v=5"></script>
 {{ if .Dashboard.TemperatureBar }}
 <script src="/static/js/temperature-bar.js"></script>

@@ -801,6 +801,215 @@
     font-weight: 620;
 }
 
+.lf-dashboard {
+    min-width: 0;
+    padding: clamp(22px, 3vw, 42px);
+}
+
+.lf-dashboard-overview {
+    margin-bottom: 24px;
+    padding: clamp(22px, 3vw, 34px);
+    border: 1px solid var(--lf-border-subtle);
+    border-radius: var(--lf-shell-radius-lg);
+    color: var(--lf-text-primary);
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--lf-accent-secondary) 8%, transparent), transparent 36%),
+        var(--lf-panel-elevated);
+    box-shadow: var(--lf-shadow-soft);
+}
+
+.lf-dashboard-overview-heading h1 {
+    margin: 0 0 26px;
+    color: var(--lf-text-primary);
+    font-size: 13px;
+    font-weight: 760;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+}
+
+.lf-dashboard-overview-grid {
+    display: grid;
+    grid-template-columns: minmax(255px, 320px) minmax(0, 1fr);
+    gap: clamp(22px, 3vw, 42px);
+    align-items: stretch;
+}
+
+.lf-dashboard-telemetry {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    align-content: start;
+    gap: 16px;
+    min-width: 0;
+}
+
+.lf-dashboard-gauge {
+    display: grid;
+    justify-items: center;
+    gap: 11px;
+    min-width: 0;
+    padding: 8px 8px 12px;
+}
+
+.lf-dashboard-gauge-visual {
+    display: grid;
+    width: min(100%, 184px);
+    aspect-ratio: 1;
+    place-items: center;
+    position: relative;
+}
+
+.lf-dashboard-gauge-ring {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.lf-dashboard-gauge-track,
+.lf-dashboard-gauge-progress {
+    fill: none;
+    stroke-width: 7;
+}
+
+.lf-dashboard-gauge-track {
+    stroke: var(--lf-surface-subdued);
+}
+
+.lf-dashboard-gauge-progress {
+    stroke: var(--lf-telemetry-value);
+    stroke-linecap: round;
+    transition: stroke-dashoffset 220ms ease;
+}
+
+.lf-dashboard-gauge-content {
+    display: grid;
+    place-items: center;
+    gap: 4px;
+    min-width: 0;
+    position: absolute;
+    inset: 0;
+    align-content: center;
+}
+
+.lf-dashboard-gauge-label,
+.lf-dashboard-section-heading {
+    color: var(--lf-text-muted);
+    font-size: 11px;
+    font-weight: 720;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.lf-dashboard-gauge .lf-telemetry-value {
+    color: var(--lf-telemetry-value);
+    font-size: clamp(25px, 2vw, 31px);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+}
+
+.lf-dashboard-gauge-model,
+.lf-dashboard-storage-model {
+    overflow: hidden;
+    color: var(--lf-text-secondary);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lf-dashboard-gauge-model {
+    max-width: 100%;
+    text-align: center;
+}
+
+.lf-dashboard-storage,
+.lf-dashboard-lighting-summary {
+    display: grid;
+    align-content: start;
+    gap: 12px;
+    min-width: min(100%, 220px);
+    padding: 18px 0 0;
+    border-top: 1px solid var(--lf-border-subtle);
+}
+
+.lf-dashboard-lighting-summary {
+    padding: 20px;
+    border: 1px solid var(--lf-border-subtle);
+    border-radius: var(--lf-shell-radius);
+    background: color-mix(in srgb, var(--lf-panel-secondary) 72%, transparent);
+}
+
+.lf-dashboard-storage-list,
+.lf-dashboard-lighting-details {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+}
+
+.lf-dashboard-storage-row,
+.lf-dashboard-lighting-details > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+}
+
+.lf-dashboard-storage-row .lf-telemetry-value,
+.lf-dashboard-lighting-details dd {
+    flex: 0 0 auto;
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.lf-dashboard-storage-row .lf-telemetry-value {
+    color: var(--lf-telemetry-value);
+    font-weight: 620;
+}
+
+.lf-dashboard-lighting-details dt {
+    overflow: hidden;
+    color: var(--lf-text-muted);
+    font-size: 12px;
+    font-weight: 550;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lf-dashboard-lighting-details dd {
+    color: var(--lf-text-primary);
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.lf-dashboard-cluster-link {
+    margin-top: 4px;
+    text-align: center;
+}
+
+.lf-dashboard-workspace #system-cards {
+    margin: 0;
+}
+
+@media (max-width: 920px) {
+    .lf-dashboard-overview-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .lf-dashboard-telemetry {
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    }
+}
+
+@media (max-width: 560px) {
+    .lf-dashboard-overview {
+        padding: 16px;
+    }
+
+    .lf-dashboard {
+        padding: 16px;
+    }
+}
+
 .lf-app-shell .lf-openrgb-grid {
     min-width: 0;
     display: grid;

@@ -1,6 +1,55 @@
 {{ define "temperature-bar" }}
 {{ $root := . }}
 {{ $dash := .Dashboard }}
+{{ if eq .Page "index" }}
+<section class="lf-dashboard-telemetry" aria-label="System temperature telemetry">
+    {{ if .SystemInfo.CPU }}
+    <article class="lf-dashboard-gauge" data-lf-dashboard-gauge="cpu" data-lf-dashboard-celsius="{{ .CpuTempCelsius }}">
+        <div class="lf-dashboard-gauge-visual">
+            <svg class="lf-dashboard-gauge-ring" viewBox="0 0 100 100" aria-hidden="true">
+                <circle class="lf-dashboard-gauge-track" cx="50" cy="50" r="42" pathLength="100"></circle>
+                <circle class="lf-dashboard-gauge-progress" data-lf-dashboard-gauge-progress cx="50" cy="50" r="42" style="stroke-dasharray: {{ .GaugeStrokeDasharray 42 }}; stroke-dashoffset: {{ .GaugeStrokeDashoffset .CpuTempCelsius 42 }}"></circle>
+            </svg>
+            <div class="lf-dashboard-gauge-content">
+                <span class="lf-dashboard-gauge-label">CPU</span>
+                <span class="lf-telemetry-value" data-lf-dashboard-cpu-temperature>{{ .CpuTemp }}</span>
+            </div>
+        </div>
+        <span class="lf-dashboard-gauge-model">{{ .SystemInfo.CPU.Model }}</span>
+    </article>
+    {{ end }}
+
+    {{ range .SystemInfo.GPU }}
+    <article class="lf-dashboard-gauge" data-lf-dashboard-gauge="gpu" data-lf-dashboard-gpu-index="{{ .Index }}" data-lf-dashboard-celsius="{{ .Temperature }}">
+        <div class="lf-dashboard-gauge-visual">
+            <svg class="lf-dashboard-gauge-ring" viewBox="0 0 100 100" aria-hidden="true">
+                <circle class="lf-dashboard-gauge-track" cx="50" cy="50" r="42" pathLength="100"></circle>
+                <circle class="lf-dashboard-gauge-progress" data-lf-dashboard-gauge-progress cx="50" cy="50" r="42" style="stroke-dasharray: {{ $root.GaugeStrokeDasharray 42 }}; stroke-dashoffset: {{ $root.GaugeStrokeDashoffset .Temperature 42 }}"></circle>
+            </svg>
+            <div class="lf-dashboard-gauge-content">
+                <span class="lf-dashboard-gauge-label">GPU</span>
+                <span class="lf-telemetry-value" data-lf-dashboard-gpu-temperature="{{ .Index }}">{{ $dash.TemperatureToString .Temperature }}</span>
+            </div>
+        </div>
+        <span class="lf-dashboard-gauge-model">{{ .Model }}</span>
+    </article>
+    {{ end }}
+
+    {{ if .SystemInfo.Storage }}
+    <section class="lf-dashboard-storage" aria-labelledby="lf-dashboard-storage-title">
+        <div class="lf-dashboard-section-heading" id="lf-dashboard-storage-title">{{ $root.Lang "txtStorageTemperature" }}</div>
+        <div class="lf-dashboard-storage-list">
+            {{ range .SystemInfo.Storage }}
+            <div class="lf-dashboard-storage-row">
+                <span class="lf-dashboard-storage-model">{{ .Model }}</span>
+                <span class="lf-telemetry-value" data-lf-dashboard-storage-temperature="{{ .Key }}">{{ $dash.TemperatureToString .Temperature }}</span>
+            </div>
+            {{ end }}
+        </div>
+    </section>
+    {{ end }}
+</section>
+{{ else }}
 <!-- Temps -->
 <div class="row g-4 mb-4">
     <!-- CPU -->
@@ -37,4 +86,5 @@
     {{ end }}
     {{ end }}
 </div>
+{{ end }}
 {{ end }}

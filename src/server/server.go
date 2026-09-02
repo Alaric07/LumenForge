@@ -69,6 +69,7 @@ type Response struct {
 	Devices   interface{} `json:"devices,omitempty"`
 	Dashboard interface{} `json:"dashboard,omitempty"`
 	Data      interface{} `json:"data,omitempty"` // For dataTables
+	Telemetry interface{} `json:"telemetry,omitempty"`
 }
 
 type Header struct {
@@ -265,10 +266,12 @@ func getOpenRGBStatus(w http.ResponseWriter, _ *http.Request) {
 
 // getCpuTemperature will return current cpu temperature in string format
 func getCpuTemperature(w http.ResponseWriter, _ *http.Request) {
+	temperature := temperatures.GetCpuTemperature()
 	resp := &Response{
-		Code:   http.StatusOK,
-		Status: 1,
-		Data:   dashboard.GetDashboard().TemperatureToString(temperatures.GetCpuTemperature()),
+		Code:      http.StatusOK,
+		Status:    1,
+		Data:      dashboard.GetDashboard().TemperatureToString(temperature),
+		Telemetry: temperature,
 	}
 	resp.Send(w)
 }
@@ -296,13 +299,17 @@ func getGpuTemperature(w http.ResponseWriter, _ *http.Request) {
 // getGpuTemperatures will return current gpu temperature in string format
 func getGpuTemperatures(w http.ResponseWriter, _ *http.Request) {
 	data := make(map[int]interface{})
+	telemetry := make(map[int]float32)
 	for key, val := range systeminfo.GetInfo().GPU {
-		data[key] = dashboard.GetDashboard().TemperatureToString(temperatures.GetGpuTemperatureIndex(val.Index))
+		temperature := temperatures.GetGpuTemperatureIndex(val.Index)
+		data[key] = dashboard.GetDashboard().TemperatureToString(temperature)
+		telemetry[key] = temperature
 	}
 	resp := &Response{
-		Code:   http.StatusOK,
-		Status: 1,
-		Data:   data,
+		Code:      http.StatusOK,
+		Status:    1,
+		Data:      data,
+		Telemetry: telemetry,
 	}
 	resp.Send(w)
 }
@@ -1580,15 +1587,15 @@ func getDashboardSettings(w http.ResponseWriter, _ *http.Request) {
 // getDashboardLighting will get dashboard lighting status
 func getDashboardLighting(w http.ResponseWriter, _ *http.Request) {
 	type lightingResponse struct {
-		Effect               string `json:"effect"`
-		Brightness           int    `json:"brightness"`
-		ClusterMembers       int    `json:"clusterMembers"`
-		NonClusterRgbDevices int    `json:"nonClusterRgbDevices"`
+		Effect                      string `json:"effect"`
+		Brightness                  int    `json:"brightness"`
+		ClusteredLightingDevices    int    `json:"clusteredLightingDevices"`
+		IndependentLightingDevices  int    `json:"independentLightingDevices"`
 	}
 
 	effect := "off"
 	brightness := 0
-	snapshot, clusterMembers := getRGBClusterLightingStatus()
+	snapshot, _ := getRGBClusterLightingStatus()
 	if snapshot.Available {
 		effect = snapshot.SelectedEffect
 		brightness = int(snapshot.Brightness)
@@ -1597,21 +1604,13 @@ func getDashboardLighting(w http.ResponseWriter, _ *http.Request) {
 		effect = "off"
 	}
 
-	nonClusterCount := 0
-	for _, dev := range devices.GetDevices() {
-		if dev.Serial == "cluster" {
-			continue
-		}
-		if devices.CallDeviceMethod(dev.Serial, "GetRgbProfiles") != nil && !devices.GetDeviceClusterStatus(dev.Serial) {
-			nonClusterCount++
-		}
-	}
+	counts := dashboardLightingDeviceCounts(devices.GetDevices())
 
 	res := lightingResponse{
-		Effect:               effect,
-		Brightness:           brightness,
-		ClusterMembers:       clusterMembers,
-		NonClusterRgbDevices: nonClusterCount,
+		Effect:                     effect,
+		Brightness:                 brightness,
+		ClusteredLightingDevices:   counts.Clustered,
+		IndependentLightingDevices: counts.Independent,
 	}
 
 	w.Header().Add("Content-Type", "application/json")
@@ -1622,6 +1621,45 @@ func getDashboardLighting(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	_, _ = w.Write(data)
+}
+
+type dashboardLightingCounts struct {
+	Clustered   int
+	Independent int
+}
+
+// dashboardLightingDeviceCounts classifies connected top-level lighting devices
+// once, using their shared presentation ownership state.
+func dashboardLightingDeviceCounts(connected map[string]*common.Device) dashboardLightingCounts {
+	seen := make(map[string]struct{}, len(connected))
+	counts := dashboardLightingCounts{}
+	for serial, device := range connected {
+		if device == nil || device.Unavailable || serial == "cluster" || device.Serial == "cluster" || device.ProductType == common.ProductTypeCluster {
+			continue
+		}
+		provider, ok := device.Instance.(devicesLightingSnapshotProvider)
+		if !ok {
+			continue
+		}
+		snapshot, available := provider.LightingSnapshot()
+		if !available {
+			continue
+		}
+		identity := provider.LightingDeviceID()
+		if identity == "" {
+			identity = serial
+		}
+		if _, duplicate := seen[identity]; duplicate {
+			continue
+		}
+		seen[identity] = struct{}{}
+		if snapshot.ClusterControlled {
+			counts.Clustered++
+		} else {
+			counts.Independent++
+		}
+	}
+	return counts
 }
 
 // getDashboardDevices will get dashboard devices
@@ -2376,7 +2414,8 @@ func uiIndex(w http.ResponseWriter, _ *http.Request) {
 	web.Devices = deviceList
 	web.BuildInfo = version.GetBuildInfo()
 	web.SystemInfo = systeminfo.GetInfo()
-	web.CpuTemp = dashboard.GetDashboard().TemperatureToString(temperatures.GetCpuTemperature())
+	web.CpuTempCelsius = temperatures.GetCpuTemperature()
+	web.CpuTemp = dashboard.GetDashboard().TemperatureToString(web.CpuTempCelsius)
 	web.GpuTemp = dashboard.GetDashboard().TemperatureToString(temperatures.GetGpuTemperature())
 	web.Dashboard = dashboard.GetDashboard()
 	web.BatteryStats = stats.GetBatteryStats()

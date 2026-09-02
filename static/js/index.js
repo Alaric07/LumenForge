@@ -93,8 +93,8 @@ $(document).ready(function () {
             dataType: 'json',
             success: function (data) {
                 $("#lighting-cluster-effect").text(data.effect || 'off');
-                $("#lighting-cluster-members").text(data.clusterMembers || 0);
-                $("#lighting-non-cluster").text(data.nonClusterRgbDevices || 0);
+                $("#lighting-clustered-devices").text(data.clusteredLightingDevices || 0);
+                $("#lighting-independent-devices").text(data.independentLightingDevices || 0);
                 $("#lighting-brightness").text((data.brightness ?? 0) + '%');
             },
             error: function (err) {
@@ -110,9 +110,6 @@ $(document).ready(function () {
             .removeClass("ready")
             .children('.dashboard-device-item, .dashboard-card-placeholder')
             .remove();
-
-        const devicePlaceholder2 = $("#system-cards-add");
-        devicePlaceholder2.removeClass("ready");
 
         updateLightingStatus();
 
@@ -156,7 +153,6 @@ $(document).ready(function () {
                         });
                     });
                 }
-                devicePlaceholder2.addClass("ready");
             }
         });
     }
@@ -803,56 +799,6 @@ $(document).ready(function () {
         });
     });
 
-    $('.addDeviceToDashboard').on('click', function () {
-        const deviceId = $("#dashboardDeviceSelect").val();
-        const pf = {};
-        pf["deviceId"] = deviceId;
-        const json = JSON.stringify(pf, null, 2);
-
-        $.ajax({
-            url: '/api/dashboard/devices/add',
-            type: 'POST',
-            data: json,
-            cache: false,
-            success: function(response) {
-                try {
-                    if (response.status === 1) {
-                        loadDevices()
-                    } else {
-                        toast.warning(response.message);
-                    }
-                } catch (err) {
-                    toast.warning(response.message);
-                }
-            }
-        });
-    });
-
-    $('.deleteDeviceFromDashboard').on('click', function () {
-        const deviceId = $("#dashboardDeviceSelect").val();
-        const pf = {};
-        pf["deviceId"] = deviceId;
-        const json = JSON.stringify(pf, null, 2);
-
-        $.ajax({
-            url: '/api/dashboard/devices/delete',
-            type: 'DELETE',
-            data: json,
-            cache: false,
-            success: function(response) {
-                try {
-                    if (response.status === 1) {
-                        loadDevices()
-                    } else {
-                        toast.warning(response.message);
-                    }
-                } catch (err) {
-                    toast.warning(response.message);
-                }
-            }
-        });
-    });
-
     function loadDashboardSettings() {
         // Load current settings
         $.ajax({
@@ -862,9 +808,6 @@ $(document).ready(function () {
             success: function (response) {
                 if (response.status === 1) {
                     showLabels = response.dashboard.showLabels;
-                    if (response.dashboard.addDeviceToDashboard !== true) {
-                        $("#system-cards-add").hide();
-                    }
                 }
             }
         });
