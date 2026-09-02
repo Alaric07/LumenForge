@@ -37,7 +37,24 @@ type Dashboard struct {
 	Themes               []string       `json:"themes"`
 	KeyboardLayout       int            `json:"keyboardLayout"`
 	KeyboardLayouts      map[int]string `json:"keyboardLayouts"`
+	DashboardLayout      []LayoutItem   `json:"dashboardLayout"`
 }
+
+// LayoutItem is a logical Dashboard device-card position. Width and height are
+// persisted now so a later card-size phase can extend the same stable schema.
+// Phase 3A accepts only one-cell cards.
+type LayoutItem struct {
+	ID string `json:"id"`
+	X  int    `json:"x"`
+	Y  int    `json:"y"`
+	W  int    `json:"w"`
+	H  int    `json:"h"`
+}
+
+const (
+	layoutColumns       = 4
+	layoutCoordinateMax = 10000
+)
 
 var (
 	location  = ""
@@ -56,6 +73,7 @@ var (
 		"theme":                "default",
 		"keyboardLayout":       0,
 		"keyboardLayouts":      map[int]string{0: "QWERTY", 1: "AZERTY"},
+		"dashboardLayout":      []LayoutItem{},
 	}
 )
 
@@ -110,6 +128,7 @@ func upgradeFile() {
 			Theme:                "default",
 			KeyboardLayout:       0,
 			KeyboardLayouts:      map[int]string{0: "QWERTY", 1: "AZERTY"},
+			DashboardLayout:      []LayoutItem{},
 		}
 		if SaveDashboardSettings(dash, false) == 1 {
 			logger.Log(logger.Fields{"file": location}).Info("Dashboard file is created.")
@@ -154,6 +173,74 @@ func upgradeFile() {
 			logger.Log(logger.Fields{"file": location}).Info("Nothing to upgrade.")
 		}
 	}
+}
+
+// GetDashboardLayout returns a defensive copy of the current Dashboard-only
+// device-card layout. It deliberately has no relationship to Dashboard.Devices.
+func GetDashboardLayout() []LayoutItem {
+	return append([]LayoutItem(nil), dashboard.DashboardLayout...)
+}
+
+func validLayoutItem(item LayoutItem) bool {
+	if len(item.ID) == 0 || len(item.ID) > 256 ||
+		(!strings.HasPrefix(item.ID, "native:") && !strings.HasPrefix(item.ID, "openrgb:")) {
+		return false
+	}
+	serial := ""
+	switch {
+	case strings.HasPrefix(item.ID, "native:"):
+		serial = strings.TrimPrefix(item.ID, "native:")
+	case strings.HasPrefix(item.ID, "openrgb:"):
+		serial = strings.TrimPrefix(item.ID, "openrgb:")
+	}
+	return serial != "" && common.AlphanumericDashRegex.MatchString(serial) &&
+		item.X >= 0 && item.X < layoutColumns && item.Y >= 0 && item.Y <= layoutCoordinateMax &&
+		item.W == 1 && item.H == 1
+}
+
+// UpdateDashboardLayout atomically replaces the new current-device layout.
+// It keeps entries for disconnected devices and intentionally leaves the legacy
+// Dashboard.Devices membership list alone.
+func UpdateDashboardLayout(layout []LayoutItem) (uint8, []LayoutItem) {
+	if len(layout) > 2048 {
+		return 0, GetDashboardLayout()
+	}
+	seen := make(map[string]struct{}, len(layout))
+	used := make(map[[2]int]struct{}, len(layout))
+	normalized := make([]LayoutItem, 0, len(layout))
+	for _, item := range layout {
+		if !validLayoutItem(item) {
+			return 0, GetDashboardLayout()
+		}
+		if _, exists := seen[item.ID]; exists {
+			return 0, GetDashboardLayout()
+		}
+		seen[item.ID] = struct{}{}
+		for {
+			key := [2]int{item.X, item.Y}
+			if _, occupied := used[key]; !occupied {
+				used[key] = struct{}{}
+				break
+			}
+			item.X++
+			if item.X >= layoutColumns {
+				item.X = 0
+				item.Y++
+			}
+			if item.Y > layoutCoordinateMax {
+				return 0, GetDashboardLayout()
+			}
+		}
+		normalized = append(normalized, item)
+	}
+
+	updated := dashboard
+	updated.DashboardLayout = normalized
+	if SaveDashboardSettings(updated, false) == 0 {
+		return 0, GetDashboardLayout()
+	}
+	dashboard = updated
+	return 1, GetDashboardLayout()
 }
 
 // loadThemes will load CSS themes

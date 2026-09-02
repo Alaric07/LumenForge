@@ -46,13 +46,7 @@
                     <div class="lf-dashboard-devices-heading">
                         <h2 id="lf-dashboard-devices-title">{{ .Lang "txtDashboardDevices" }}</h2>
                     </div>
-                    <div class="lf-dashboard-device-grid" data-lf-dashboard-native-devices></div>
-                </section>
-                <section class="lf-dashboard-openrgb-devices" aria-labelledby="lf-dashboard-openrgb-title" data-lf-dashboard-openrgb-devices hidden>
-                    <div class="lf-dashboard-devices-heading">
-                        <h2 id="lf-dashboard-openrgb-title">{{ .Lang "txtOpenRGBDevices" }}</h2>
-                    </div>
-                    <div class="lf-dashboard-openrgb-panel" data-lf-dashboard-openrgb-list></div>
+                    <div class="lf-dashboard-device-grid" data-lf-dashboard-device-grid></div>
                 </section>
             </div>
         </main>
@@ -60,7 +54,10 @@
 <script>
 window.dashboardI18n = {
     lighting: {{ .Lang "txtLighting" }},
-    brightness: {{ .Lang "txtBrightness" }}
+    brightness: {{ .Lang "txtBrightness" }},
+    moveEarlier: "Move earlier",
+    moveLater: "Move later",
+    drag: "Drag to reposition"
 };
 </script>
 <script src="/static/js/index.js?v=7"></script>

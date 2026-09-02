@@ -24,8 +24,17 @@ test("modern navigation exposes a reusable collapse control and preserves icon l
     assert.match(navTemplate, /Collapse navigation/);
     assert.match(navTemplate, /Expand navigation/);
     assert.match(navTemplate, /aria-label="Dashboard"/);
-    assert.match(css, /--lf-global-nav-width: 232px/);
-    assert.match(css, /--lf-global-nav-width: 84px/);
+    assert.match(css, /--lf-global-nav-expanded-width: 248px/);
+    assert.match(css, /--lf-global-nav-collapsed-width: 84px/);
+    assert.match(css, /--lf-global-nav-width: var\(--lf-global-nav-expanded-width\)/);
+    assert.match(css, /--lf-global-nav-width: var\(--lf-global-nav-collapsed-width\)/);
+});
+
+test("expanded desktop navigation centers only branding while rows retain full left-aligned width", function () {
+    assert.match(css, /\.lf-app-shell:not\(\.lf-global-nav-collapsed\) \.lf-brand \{[\s\S]*?justify-content: center;[\s\S]*?text-align: center;/);
+    assert.match(css, /\.lf-app-shell:not\(\.lf-global-nav-collapsed\) \.lf-global-links \{[\s\S]*?align-items: stretch;/);
+    assert.match(css, /\.lf-app-shell:not\(\.lf-global-nav-collapsed\) \.lf-global-link \{[\s\S]*?width: 100%;[\s\S]*?justify-content: flex-start;/);
+    assert.match(css, /\.lf-app-shell\.lf-global-nav-collapsed \.lf-global-link \{[\s\S]*?justify-content: center;/);
 });
 
 test("Devices drawer reuses the existing panel and has selected/no-selection initial state", function () {

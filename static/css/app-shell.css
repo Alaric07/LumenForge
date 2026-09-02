@@ -2,9 +2,11 @@
     --lf-shell-radius-sm: 8px;
     --lf-shell-radius: 12px;
     --lf-shell-radius-lg: 18px;
+    --lf-global-nav-expanded-width: 248px;
+    --lf-global-nav-collapsed-width: 84px;
     min-height: 100vh;
     display: grid;
-    grid-template-columns: 232px minmax(300px, 350px) minmax(0, 1fr);
+    grid-template-columns: var(--lf-global-nav-expanded-width) minmax(300px, 350px) minmax(0, 1fr);
     color: var(--lf-text-primary);
     background: var(--lf-page-background);
     background:
@@ -13,7 +15,7 @@
 }
 
 .lf-app-shell.lf-cluster-shell {
-    grid-template-columns: 232px minmax(0, 1fr);
+    grid-template-columns: var(--lf-global-nav-expanded-width) minmax(0, 1fr);
 }
 
 .lf-app-shell .lf-cluster-workspace {
@@ -999,8 +1001,7 @@
     text-align: center;
 }
 
-.lf-dashboard-devices,
-.lf-dashboard-openrgb-devices {
+.lf-dashboard-devices {
     margin-top: 24px;
 }
 
@@ -1019,16 +1020,9 @@
 .lf-dashboard-device-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    grid-auto-rows: max-content;
     align-items: start;
     gap: 12px;
-}
-
-.lf-dashboard-device-card,
-.lf-dashboard-openrgb-panel {
-    border: 1px solid var(--lf-border-subtle);
-    border-radius: var(--lf-shell-radius);
-    background: color-mix(in srgb, var(--lf-panel-secondary) 94%, transparent);
-    box-shadow: var(--lf-shadow-soft);
 }
 
 .lf-dashboard-device-card {
@@ -1036,9 +1030,89 @@
     align-self: start;
     display: block;
     padding: 15px;
+    border: 1px solid var(--lf-border-subtle);
+    border-radius: var(--lf-shell-radius);
+    background: color-mix(in srgb, var(--lf-panel-secondary) 94%, transparent);
+    box-shadow: var(--lf-shadow-soft);
     color: inherit;
     text-decoration: none;
     transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+
+.lf-dashboard-layout-card {
+    position: relative;
+    min-width: 0;
+    min-height: max-content;
+    height: auto;
+    overflow: visible;
+    align-self: start;
+}
+
+.lf-dashboard-card-actions {
+    position: absolute;
+    z-index: 1;
+    top: 7px;
+    right: 7px;
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 150ms ease;
+}
+
+.lf-dashboard-layout-card:hover .lf-dashboard-card-actions,
+.lf-dashboard-layout-card:focus-within .lf-dashboard-card-actions {
+    opacity: 1;
+}
+
+.lf-dashboard-card-actions button {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid var(--lf-border-subtle);
+    border-radius: 5px;
+    background: var(--lf-panel-primary);
+    color: var(--lf-text-secondary);
+    cursor: pointer;
+    line-height: 1;
+}
+
+.lf-dashboard-card-actions [data-lf-dashboard-drag-handle] {
+    cursor: grab;
+}
+
+.lf-dashboard-card-actions [data-lf-dashboard-drag-handle]:active {
+    cursor: grabbing;
+}
+
+.lf-dashboard-card-dragging {
+    z-index: 2;
+    cursor: grabbing;
+    opacity: 0.76;
+}
+
+.lf-dashboard-card-dragging .lf-dashboard-device-card {
+    transform: translateY(-4px) scale(1.015);
+    box-shadow: var(--lf-shadow-soft), 0 18px 34px color-mix(in srgb, var(--lf-text-primary) 20%, transparent);
+}
+
+.lf-dashboard-drag-ghost {
+    position: fixed;
+    z-index: 50;
+    margin: 0;
+    pointer-events: none;
+    opacity: 0.78;
+    filter: saturate(0.94);
+    box-shadow: var(--lf-shadow-soft), 0 22px 42px color-mix(in srgb, var(--lf-text-primary) 26%, transparent);
+}
+
+.lf-dashboard-drag-ghost .lf-dashboard-card-actions {
+    display: none;
+}
+
+.lf-dashboard-card-drag-target .lf-dashboard-device-card {
+    border-color: var(--lf-border-selected);
+    background: color-mix(in srgb, var(--lf-surface-hover) 90%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--lf-border-selected) 35%, transparent);
 }
 
 .lf-dashboard-device-card:hover,
@@ -1063,6 +1137,19 @@
     white-space: nowrap;
 }
 
+.lf-dashboard-layout-card .lf-dashboard-device-title {
+    min-width: 0;
+    padding-right: 82px;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.lf-dashboard-layout-card .lf-dashboard-openrgb-row {
+    padding-right: 92px;
+}
+
 .lf-dashboard-device-product {
     overflow: hidden;
     margin: 4px 0 0;
@@ -1074,38 +1161,35 @@
 
 .lf-dashboard-device-state,
 .lf-dashboard-device-status {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
     gap: 10px;
     margin-top: 12px;
     color: var(--lf-text-secondary);
     font-size: 12px;
 }
 
+.lf-dashboard-device-state > span,
+.lf-dashboard-device-status > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
 .lf-dashboard-device-state strong,
 .lf-dashboard-device-status strong {
-    overflow: hidden;
+    min-width: 0;
+    overflow: visible;
     color: var(--lf-telemetry-value);
     font-weight: 650;
     text-align: right;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .lf-dashboard-device-status {
     margin-top: 7px;
-}
-
-.lf-dashboard-openrgb-panel {
-    overflow: visible;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 12px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
 }
 
 .lf-dashboard-openrgb-row {
@@ -1172,9 +1256,6 @@
         flex-basis: auto;
     }
 
-    .lf-dashboard-openrgb-panel {
-        grid-template-columns: 1fr;
-    }
 }
 
 @media (max-width: 560px) {
@@ -1186,6 +1267,22 @@
         padding: 16px;
     }
 
+    .lf-dashboard-device-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .lf-dashboard-card-actions [data-lf-dashboard-drag-handle] {
+        display: none;
+    }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .lf-dashboard-device-card,
+    .lf-dashboard-card-actions,
+    .lf-dashboard-drag-ghost {
+        transition: none;
+    }
 }
 
 .lf-app-shell .lf-openrgb-grid {
@@ -2400,7 +2497,7 @@
 /* Modern shell navigation and Devices drawer.  The legacy sidebar retains its
  * independent layout and uses the same persisted preference. */
 .lf-app-shell {
-    --lf-global-nav-width: 232px;
+    --lf-global-nav-width: var(--lf-global-nav-expanded-width);
     grid-template-columns: var(--lf-global-nav-width) minmax(0, 1fr);
 }
 
@@ -2409,7 +2506,7 @@
 }
 
 .lf-app-shell.lf-global-nav-collapsed {
-    --lf-global-nav-width: 84px;
+    --lf-global-nav-width: var(--lf-global-nav-collapsed-width);
 }
 
 .lf-app-shell .lf-global-nav-toggle,
@@ -2754,11 +2851,11 @@
 
 @media (max-width: 1180px) {
     .lf-app-shell {
-        grid-template-columns: 84px minmax(260px, 300px) minmax(0, 1fr);
+        grid-template-columns: var(--lf-global-nav-collapsed-width) minmax(260px, 300px) minmax(0, 1fr);
     }
 
     .lf-app-shell.lf-cluster-shell {
-        grid-template-columns: 84px minmax(0, 1fr);
+        grid-template-columns: var(--lf-global-nav-collapsed-width) minmax(0, 1fr);
     }
 
     .lf-app-shell .lf-global-nav {
@@ -3020,12 +3117,12 @@
 @media (min-width: 761px) {
     .lf-app-shell,
     .lf-app-shell.lf-cluster-shell {
-        --lf-global-nav-width: 232px;
+        --lf-global-nav-width: var(--lf-global-nav-expanded-width);
         grid-template-columns: var(--lf-global-nav-width) minmax(0, 1fr);
     }
 
     .lf-app-shell.lf-global-nav-collapsed {
-        --lf-global-nav-width: 84px;
+        --lf-global-nav-width: var(--lf-global-nav-collapsed-width);
     }
 
     .lf-app-shell .lf-device-panel {
@@ -3107,12 +3204,12 @@
     }
 
     .lf-app-shell:not(.lf-global-nav-collapsed) .lf-global-links {
-        align-items: center;
+        align-items: stretch;
     }
 
     .lf-app-shell:not(.lf-global-nav-collapsed) .lf-global-link {
         width: 100%;
-        justify-content: center;
+        justify-content: flex-start;
     }
 }
 

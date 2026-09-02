@@ -167,3 +167,25 @@ func TestUpdateDeviceOrder(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateDashboardLayoutPersistsWithoutChangingLegacyMembership(t *testing.T) {
+	originalDashboard := dashboard
+	originalLocation := location
+	t.Cleanup(func() { dashboard, location = originalDashboard, originalLocation })
+	location = filepath.Join(t.TempDir(), "dashboard.json")
+	dashboard = Dashboard{Devices: []string{"legacy-device"}}
+	layout := []LayoutItem{{ID: "native:device-a", X: 1, Y: 0, W: 1, H: 1}, {ID: "openrgb:device-b", X: 1, Y: 0, W: 1, H: 1}}
+	status, persisted := UpdateDashboardLayout(layout)
+	if status != 1 || len(persisted) != 2 || persisted[1].X != 2 || !reflect.DeepEqual(dashboard.Devices, []string{"legacy-device"}) {
+		t.Fatalf("layout update = %#v, legacy devices = %#v", persisted, dashboard.Devices)
+	}
+	if status, _ := UpdateDashboardLayout([]LayoutItem{{ID: "native:device-a", X: -1, Y: 0, W: 1, H: 1}}); status != 0 {
+		t.Fatal("invalid coordinate was accepted")
+	}
+	if status, _ := UpdateDashboardLayout([]LayoutItem{{ID: "native:device-a", X: layoutColumns, Y: 0, W: 1, H: 1}}); status != 0 {
+		t.Fatal("out-of-range layout column was accepted")
+	}
+	if status, _ := UpdateDashboardLayout([]LayoutItem{{ID: "native:device-a", X: 0, Y: 0, W: 1, H: 1}, {ID: "native:device-a", X: 1, Y: 0, W: 1, H: 1}}); status != 0 {
+		t.Fatal("duplicate layout ID was accepted")
+	}
+}

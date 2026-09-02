@@ -301,12 +301,36 @@ func TestDashboardControllerCardsUseNaturalHeight(t *testing.T) {
 		return string(stylesheet[start : start+end])
 	}
 
-	if grid := rule(".lf-dashboard-device-grid"); !strings.Contains(grid, "align-items: start;") {
+	if grid := rule(".lf-dashboard-device-grid"); !strings.Contains(grid, "align-items: start;") || !strings.Contains(grid, "grid-auto-rows: max-content;") {
 		t.Errorf("Dashboard device grid still stretches cards: %q", grid)
 	}
 	card := rule(".lf-dashboard-device-card")
 	if !strings.Contains(card, "align-self: start;") || strings.Contains(card, "height:") || strings.Contains(card, "overflow:") {
 		t.Errorf("Dashboard controller card can truncate cooling rows: %q", card)
+	}
+	wrapper := rule(".lf-dashboard-layout-card")
+	if !strings.Contains(wrapper, "min-height: max-content;") || !strings.Contains(wrapper, "height: auto;") || !strings.Contains(wrapper, "overflow: visible;") {
+		t.Errorf("Dashboard movable wrapper can clip card content: %q", wrapper)
+	}
+	statusStart := strings.Index(string(stylesheet), ".lf-dashboard-device-state strong,")
+	if statusStart < 0 {
+		t.Fatal("missing Dashboard telemetry value rule")
+	}
+	statusEnd := strings.Index(string(stylesheet[statusStart:]), "}\n")
+	if statusEnd < 0 {
+		t.Fatal("missing Dashboard telemetry value rule")
+	}
+	status := string(stylesheet[statusStart : statusStart+statusEnd])
+	if !strings.Contains(status, "white-space: normal;") || !strings.Contains(status, "overflow-wrap: anywhere;") || strings.Contains(status, "text-overflow: ellipsis;") {
+		t.Errorf("Dashboard telemetry values can still be truncated: %q", status)
+	}
+	title := rule(".lf-dashboard-layout-card .lf-dashboard-device-title")
+	if !strings.Contains(title, "padding-right: 82px;") || !strings.Contains(title, "white-space: normal;") {
+		t.Errorf("Dashboard device titles can overlap movement controls: %q", title)
+	}
+	dragging := rule(".lf-dashboard-card-dragging .lf-dashboard-device-card")
+	if !strings.Contains(dragging, "translateY(-4px)") || !strings.Contains(dragging, "box-shadow:") {
+		t.Errorf("Dashboard dragged card lacks lifted feedback: %q", dragging)
 	}
 }
 
@@ -357,8 +381,7 @@ func TestDashboardSystemOverviewTemplateUsesFixedTelemetryPresentation(t *testin
 		`class="lf-telemetry-value"`,
 		`href="/rgbCluster"`,
 		`data-lf-dashboard-devices`,
-		`data-lf-dashboard-native-devices`,
-		`data-lf-dashboard-openrgb-devices`,
+		`data-lf-dashboard-device-grid`,
 		`class="lf-dashboard-gauge-visual"`,
 		`lighting: "`,
 		`brightness: "`,
@@ -404,10 +427,10 @@ func TestDashboardLowerSectionsUseLocalizedHeadingsAndLabels(t *testing.T) {
 
 	for _, want := range []string{
 		`<h2 id="lf-dashboard-devices-title">{{ .Lang "txtDashboardDevices" }}</h2>`,
-		`<h2 id="lf-dashboard-openrgb-title">{{ .Lang "txtOpenRGBDevices" }}</h2>`,
 		`window.dashboardI18n = {`,
 		`lighting: {{ .Lang "txtLighting" }},`,
-		`brightness: {{ .Lang "txtBrightness" }}`,
+		`brightness: {{ .Lang "txtBrightness" }},`,
+		`moveEarlier: "Move earlier",`,
 	} {
 		if !strings.Contains(string(templateSource), want) {
 			t.Errorf("dashboard localization template missing %q", want)

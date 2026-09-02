@@ -131,6 +131,7 @@ const (
 	openRGBImportRequestLimit      = 64 << 10
 	openRGBImportBatchLimit        = 64
 	openRGBImportGradientStopLimit = 1024
+	dashboardLayoutRequestLimit    = 64 << 10
 )
 
 type nativeDeviceLightingTarget interface {
@@ -1872,6 +1873,45 @@ func getDashboardCurrentDevices(w http.ResponseWriter, _ *http.Request) {
 	response := dashboardCurrentDevices(devices.GetDevices(), stats.GetBatteryStats())
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)
+}
+
+func getDashboardLayout(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(struct {
+		Layout []dashboard.LayoutItem `json:"layout"`
+	}{Layout: dashboard.GetDashboardLayout()})
+}
+
+func updateDashboardLayout(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Layout []dashboard.LayoutItem `json:"layout"`
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, dashboardLayoutRequestLimit)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil || request.Layout == nil || decoder.Decode(&struct{}{}) != io.EOF {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Invalid dashboard layout"}).Send(w)
+		return
+	}
+	status, layout := dashboard.UpdateDashboardLayout(request.Layout)
+	if status == 0 {
+		(&Response{Code: http.StatusOK, Status: 0, Message: "Unable to save dashboard layout"}).Send(w)
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Data: struct {
+		Layout []dashboard.LayoutItem `json:"layout"`
+	}{Layout: layout}}).Send(w)
+}
+
+func dashboardLayoutRoute(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		getDashboardLayout(w, r)
+	case http.MethodPut:
+		updateDashboardLayout(w, r)
+	default:
+		http.Error(w, language.GetValue("txtMethodNotAllowed"), http.StatusMethodNotAllowed)
+	}
 }
 
 // addDashboardDevice will add dashboard device
@@ -5507,6 +5547,7 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/dashboard", http.MethodGet, getDashboardSettings)
 	handleFunc(r, "/api/dashboard/lighting", http.MethodGet, getDashboardLighting)
 	handleFunc(r, "/api/dashboard/devices/current", http.MethodGet, getDashboardCurrentDevices)
+	r.HandleFunc("/api/dashboard/layout", dashboardLayoutRoute)
 	handleFunc(r, "/api/dashboard/devices/get", http.MethodGet, getDashboardDevices)
 	handleFunc(r, "/api/keyboard/assignmentsTypes/", http.MethodGet, getKeyAssignmentTypes)
 	handleFunc(r, "/api/keyboard/assignmentsModifiers/", http.MethodGet, getKeyAssignmentModifiers)
