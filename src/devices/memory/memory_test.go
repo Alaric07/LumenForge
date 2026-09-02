@@ -1,6 +1,8 @@
 package memory
 
 import (
+	"LumenForge/src/config"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -30,6 +32,56 @@ func TestLoadSupportedDevicesAndLookup(t *testing.T) {
 	}
 	if unknown := device.getDeviceMetadata(5, "X"); unknown != nil {
 		t.Fatalf("unknown metadata = %#v, want nil", unknown)
+	}
+}
+
+func TestUpdateRGBDeviceLabelUsesExistingDIMMLabels(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "database", "profiles"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	paths, err := config.ResolvePaths(config.PathOptions{Mode: config.ServiceModeDevelopment, ApplicationRoot: root, WorkingDirectory: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalPath := pwd
+	pwd = paths.MutableDataRoot
+	t.Cleanup(func() { pwd = originalPath })
+
+	device := &Device{
+		Product:       "Memory",
+		Serial:        "memory-test",
+		DeviceProfile: &DeviceProfile{},
+		Devices: map[int]*Devices{
+			0: {ChannelId: 0, Name: "DIMM 1", Label: "DIMM 1", LedChannels: 10, RGB: "static"},
+			3: {ChannelId: 3, Name: "DIMM 4", Label: "DIMM 4", LedChannels: 10, RGB: "static"},
+		},
+	}
+
+	if got := device.UpdateRGBDeviceLabel(3, "Rear DIMM"); got != 1 {
+		t.Fatalf("UpdateRGBDeviceLabel(3) = %d, want success", got)
+	}
+	if got := device.Devices[3].Label; got != "Rear DIMM" {
+		t.Fatalf("DIMM 3 label = %q, want Rear DIMM", got)
+	}
+	if got := device.Devices[0].Label; got != "DIMM 1" {
+		t.Fatalf("DIMM 0 label changed to %q", got)
+	}
+	if got := device.UpdateRGBDeviceLabel(2, "Missing DIMM"); got != 0 {
+		t.Fatalf("UpdateRGBDeviceLabel(invalid channel) = %d, want rejection", got)
+	}
+
+	profilePath := filepath.Join(root, "database", "profiles", "memory-test.json")
+	profile := &DeviceProfile{}
+	data, err := os.ReadFile(profilePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = json.Unmarshal(data, profile); err != nil {
+		t.Fatal(err)
+	}
+	if got := profile.Labels[3]; got != "Rear DIMM" {
+		t.Fatalf("persisted DIMM 3 label = %q, want Rear DIMM", got)
 	}
 }
 

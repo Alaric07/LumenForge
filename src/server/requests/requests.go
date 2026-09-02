@@ -33,6 +33,8 @@ var (
 	lookupOpenRGBOverrideDevice = devices.LookupOpenRGBImport
 	getRGBOverrideDevice        = devices.GetDevice
 	callRGBOverrideDeviceMethod = devices.CallDeviceMethod
+	getLabelDevice              = devices.GetDevice
+	callLabelDeviceMethod       = devices.CallDeviceMethod
 )
 
 // Payload contains data from a client about device speed change
@@ -2738,15 +2740,15 @@ func ProcessLabelChange(r *http.Request) *Payload {
 		return &Payload{Message: language.GetValue("txtNonExistingChannelId"), Code: http.StatusOK, Status: 0}
 	}
 
-	if devices.GetDevice(req.DeviceId) == nil {
+	if getLabelDevice(req.DeviceId) == nil {
 		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
 	}
 
 	var results []reflect.Value
 	if req.DeviceType == 0 {
-		results = devices.CallDeviceMethod(req.DeviceId, "UpdateDeviceLabel", req.ChannelId, req.Label)
+		results = callLabelDeviceMethod(req.DeviceId, "UpdateDeviceLabel", req.ChannelId, req.Label)
 	} else {
-		results = devices.CallDeviceMethod(req.DeviceId, "UpdateRGBDeviceLabel", req.ChannelId, req.Label)
+		results = callLabelDeviceMethod(req.DeviceId, "UpdateRGBDeviceLabel", req.ChannelId, req.Label)
 	}
 
 	if len(results) > 0 {

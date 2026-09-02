@@ -2140,6 +2140,12 @@ func (d *Device) UpdateDeviceLabel(channelId int, label string) uint8 {
 	return 1
 }
 
+// UpdateRGBDeviceLabel keeps the shared Lighting channel label route aligned
+// with Memory's existing DIMM label persistence.
+func (d *Device) UpdateRGBDeviceLabel(channelId int, label string) uint8 {
+	return d.UpdateDeviceLabel(channelId, label)
+}
+
 // SaveUserProfile will generate a new user profile configuration and save it to a file
 func (d *Device) SaveUserProfile(profileName string) uint8 {
 	if d.DeviceProfile != nil {

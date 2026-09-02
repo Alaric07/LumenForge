@@ -14,8 +14,84 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
+
+type labelMutationTarget struct {
+	labels map[int]string
+}
+
+func (target *labelMutationTarget) update(channelID int, label string) uint8 {
+	if _, ok := target.labels[channelID]; !ok {
+		return 0
+	}
+	target.labels[channelID] = label
+	return 1
+}
+
+func TestProcessLabelChangeRoutesMemoryLightingLabels(t *testing.T) {
+	memory := &labelMutationTarget{labels: map[int]string{0: "DIMM 1", 3: "DIMM 4"}}
+	cooling := &labelMutationTarget{labels: map[int]string{1: "Fan 1"}}
+	originalGet := getLabelDevice
+	originalCall := callLabelDeviceMethod
+	t.Cleanup(func() {
+		getLabelDevice = originalGet
+		callLabelDeviceMethod = originalCall
+	})
+	getLabelDevice = func(deviceID string) interface{} {
+		switch deviceID {
+		case "memory-device":
+			return memory
+		case "cooling-device":
+			return cooling
+		default:
+			return nil
+		}
+	}
+	callLabelDeviceMethod = func(deviceID, methodName string, args ...interface{}) []reflect.Value {
+		channelID, label := args[0].(int), args[1].(string)
+		var target *labelMutationTarget
+		switch deviceID {
+		case "memory-device":
+			target = memory
+		case "cooling-device":
+			target = cooling
+		default:
+			return nil
+		}
+		if methodName != "UpdateDeviceLabel" && methodName != "UpdateRGBDeviceLabel" {
+			return nil
+		}
+		return []reflect.Value{reflect.ValueOf(target.update(channelID, label))}
+	}
+
+	for _, test := range []struct {
+		name       string
+		body       string
+		wantStatus int
+	}{
+		{name: "Memory Lighting non-first DIMM", body: `{"deviceId":"memory-device","channelId":3,"deviceType":1,"label":"Rear DIMM"}`, wantStatus: 1},
+		{name: "invalid Memory DIMM", body: `{"deviceId":"memory-device","channelId":2,"deviceType":1,"label":"Missing DIMM"}`, wantStatus: 0},
+		{name: "Cooling normal label route", body: `{"deviceId":"cooling-device","channelId":1,"deviceType":0,"label":"Front Intake"}`, wantStatus: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			response := ProcessLabelChange(httptest.NewRequest("POST", "/api/label", bytes.NewBufferString(test.body)))
+			if response.Status != test.wantStatus {
+				t.Fatalf("ProcessLabelChange() = %#v, want status %d", response, test.wantStatus)
+			}
+		})
+	}
+	if got := memory.labels[3]; got != "Rear DIMM" {
+		t.Fatalf("Memory DIMM 3 label = %q, want Rear DIMM", got)
+	}
+	if got := memory.labels[0]; got != "DIMM 1" {
+		t.Fatalf("Memory DIMM 0 label changed to %q", got)
+	}
+	if got := cooling.labels[1]; got != "Front Intake" {
+		t.Fatalf("Cooling label = %q, want Front Intake", got)
+	}
+}
 
 func TestValidateKeyAssignmentSniperModes(t *testing.T) {
 	for _, test := range []struct {
