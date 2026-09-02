@@ -42,7 +42,7 @@
     <link href="/static/css/jquery-ui.min.css" rel="stylesheet">
     <link href="/static/css/themes/default.css" rel="stylesheet">
     {{ if ne .Dashboard.Theme "default" }}<link href="/static/css/themes/{{ .Dashboard.Theme }}.css" rel="stylesheet">{{ end }}
-    {{ if eq .Page "devices" }}
+    {{ if or (eq .Page "devices") (eq .Page "index") }}
     <link href="/static/css/app-shell.css" rel="stylesheet">
     {{ end }}
 
