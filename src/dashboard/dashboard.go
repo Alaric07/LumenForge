@@ -18,26 +18,24 @@ import (
 )
 
 type Dashboard struct {
-	ShowCpu              bool           `json:"showCpu"`
-	ShowDisk             bool           `json:"showDisk"`
-	ShowGpu              bool           `json:"showGpu"`
-	ShowDevices          bool           `json:"showDevices"`
-	VerticalUi           bool           `json:"verticalUi"`
-	Celsius              bool           `json:"celsius"`
-	ShowLabels           bool           `json:"showLabels"`
-	ShowBattery          bool           `json:"showBattery"`
-	RgbOff               bool           `json:"rgbOff"`
-	TemperatureBar       bool           `json:"temperatureBar"`
-	AddDeviceToDashboard bool           `json:"addDeviceToDashboard"`
-	SidebarCollapsed     bool           `json:"sidebarCollapsed"`
-	LanguageCode         string         `json:"languageCode"`
-	PageTitle            string         `json:"pageTitle"`
-	Devices              []string       `json:"devices"`
-	Theme                string         `json:"theme"`
-	Themes               []string       `json:"themes"`
-	KeyboardLayout       int            `json:"keyboardLayout"`
-	KeyboardLayouts      map[int]string `json:"keyboardLayouts"`
-	DashboardLayout      []LayoutItem   `json:"dashboardLayout"`
+	ShowCpu          bool           `json:"showCpu"`
+	ShowDisk         bool           `json:"showDisk"`
+	ShowGpu          bool           `json:"showGpu"`
+	ShowDevices      bool           `json:"showDevices"`
+	VerticalUi       bool           `json:"verticalUi"`
+	Celsius          bool           `json:"celsius"`
+	ShowLabels       bool           `json:"showLabels"`
+	ShowBattery      bool           `json:"showBattery"`
+	RgbOff           bool           `json:"rgbOff"`
+	TemperatureBar   bool           `json:"temperatureBar"`
+	SidebarCollapsed bool           `json:"sidebarCollapsed"`
+	LanguageCode     string         `json:"languageCode"`
+	PageTitle        string         `json:"pageTitle"`
+	Theme            string         `json:"theme"`
+	Themes           []string       `json:"themes"`
+	KeyboardLayout   int            `json:"keyboardLayout"`
+	KeyboardLayouts  map[int]string `json:"keyboardLayouts"`
+	DashboardLayout  []LayoutItem   `json:"dashboardLayout"`
 }
 
 // LayoutItem is a logical Dashboard device-card lane and stack position.
@@ -55,20 +53,18 @@ var (
 	location  = ""
 	dashboard Dashboard
 	upgrade   = map[string]any{
-		"celsius":              true,
-		"showLabels":           true,
-		"showBattery":          false,
-		"languageCode":         "en_US",
-		"temperatureBar":       true,
-		"addDeviceToDashboard": true,
-		"rgbOff":               false,
-		"pageTitle":            "LumenForge",
-		"sidebarCollapsed":     false,
-		"devices":              []string{},
-		"theme":                "default",
-		"keyboardLayout":       0,
-		"keyboardLayouts":      map[int]string{0: "QWERTY", 1: "AZERTY"},
-		"dashboardLayout":      []LayoutItem{},
+		"celsius":          true,
+		"showLabels":       true,
+		"showBattery":      false,
+		"languageCode":     "en_US",
+		"temperatureBar":   true,
+		"rgbOff":           false,
+		"pageTitle":        "LumenForge",
+		"sidebarCollapsed": false,
+		"theme":            "default",
+		"keyboardLayout":   0,
+		"keyboardLayouts":  map[int]string{0: "QWERTY", 1: "AZERTY"},
+		"dashboardLayout":  []LayoutItem{},
 	}
 )
 
@@ -105,25 +101,23 @@ func upgradeFile() {
 
 		// File isn't found, create initial one
 		dash := &Dashboard{
-			ShowCpu:              true,
-			ShowDisk:             true,
-			ShowGpu:              true,
-			ShowDevices:          false,
-			VerticalUi:           false,
-			Celsius:              true,
-			ShowLabels:           true,
-			ShowBattery:          false,
-			RgbOff:               false,
-			TemperatureBar:       true,
-			AddDeviceToDashboard: true,
-			SidebarCollapsed:     false,
-			LanguageCode:         "en_US",
-			PageTitle:            "LumenForge",
-			Devices:              []string{},
-			Theme:                "default",
-			KeyboardLayout:       0,
-			KeyboardLayouts:      map[int]string{0: "QWERTY", 1: "AZERTY"},
-			DashboardLayout:      []LayoutItem{},
+			ShowCpu:          true,
+			ShowDisk:         true,
+			ShowGpu:          true,
+			ShowDevices:      false,
+			VerticalUi:       false,
+			Celsius:          true,
+			ShowLabels:       true,
+			ShowBattery:      false,
+			RgbOff:           false,
+			TemperatureBar:   true,
+			SidebarCollapsed: false,
+			LanguageCode:     "en_US",
+			PageTitle:        "LumenForge",
+			Theme:            "default",
+			KeyboardLayout:   0,
+			KeyboardLayouts:  map[int]string{0: "QWERTY", 1: "AZERTY"},
+			DashboardLayout:  []LayoutItem{},
 		}
 		if SaveDashboardSettings(dash, false) == 1 {
 			logger.Log(logger.Fields{"file": location}).Info("Dashboard file is created.")
@@ -171,7 +165,7 @@ func upgradeFile() {
 }
 
 // GetDashboardLayout returns a defensive copy of the current Dashboard-only
-// device-card layout. It deliberately has no relationship to Dashboard.Devices.
+// device-card layout.
 func GetDashboardLayout() []LayoutItem {
 	return append([]LayoutItem(nil), dashboard.DashboardLayout...)
 }
@@ -219,9 +213,8 @@ func (item *LayoutItem) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// UpdateDashboardLayout atomically replaces the new current-device layout.
-// It keeps entries for disconnected devices and intentionally leaves the legacy
-// Dashboard.Devices membership list alone.
+// UpdateDashboardLayout atomically replaces the current-device layout while
+// retaining entries for disconnected devices.
 func UpdateDashboardLayout(layout []LayoutItem) (uint8, []LayoutItem) {
 	if len(layout) > 2048 {
 		return 0, GetDashboardLayout()
@@ -346,87 +339,16 @@ func (d Dashboard) Temperature(celsius float32) []string {
 	return val
 }
 
-func GetDevices() []string {
-	return dashboard.Devices
-}
-
-func AddDevice(serial string) uint8 {
-	if slices.Contains(dashboard.Devices, serial) {
-		return 0
-	}
-	dashboard.Devices = append(dashboard.Devices, serial)
-
-	SaveDashboardSettings(dashboard, true)
-	return 1
-}
-
-func RemoveDevice(serial string) uint8 {
-	if !slices.Contains(dashboard.Devices, serial) {
-		return 0
-	}
-
-	filtered := dashboard.Devices[:0]
-	for _, d := range dashboard.Devices {
-		if d != serial {
-			filtered = append(filtered, d)
-		}
-	}
-	dashboard.Devices = filtered
-
-	SaveDashboardSettings(dashboard, true)
-	return 1
-}
-
-// UpdateDeviceOrder reconciles a requested order with the selected dashboard devices.
-func UpdateDeviceOrder(order []string) (uint8, []string) {
-	selected := make(map[string]struct{}, len(dashboard.Devices))
-	current := make([]string, 0, len(dashboard.Devices))
-	for _, serial := range dashboard.Devices {
-		if _, exists := selected[serial]; exists {
-			continue
-		}
-		selected[serial] = struct{}{}
-		current = append(current, serial)
-	}
-
-	seen := make(map[string]struct{}, len(current))
-	reconciled := make([]string, 0, len(current))
-	for _, serial := range order {
-		if _, exists := selected[serial]; !exists {
-			continue
-		}
-		if _, exists := seen[serial]; exists {
-			continue
-		}
-		seen[serial] = struct{}{}
-		reconciled = append(reconciled, serial)
-	}
-
-	for _, serial := range current {
-		if _, exists := seen[serial]; exists {
-			continue
-		}
-		reconciled = append(reconciled, serial)
-	}
-
-	updated := dashboard
-	updated.Devices = reconciled
-	if SaveDashboardSettings(updated, false) == 0 {
-		return 0, dashboard.Devices
-	}
-	dashboard = updated
-	return 1, dashboard.Devices
-}
-
 func MigrateDeviceSerial(oldSerial, newSerial string) {
+	oldID, newID := "openrgb:"+oldSerial, "openrgb:"+newSerial
 	modified := false
-	for i, d := range dashboard.Devices {
-		if d == oldSerial {
-			dashboard.Devices[i] = newSerial
+	for i := range dashboard.DashboardLayout {
+		if dashboard.DashboardLayout[i].ID == oldID {
+			dashboard.DashboardLayout[i].ID = newID
 			modified = true
 		}
 	}
 	if modified {
-		SaveDashboardSettings(dashboard, true)
+		SaveDashboardSettings(dashboard, false)
 	}
 }

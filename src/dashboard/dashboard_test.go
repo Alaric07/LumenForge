@@ -87,97 +87,47 @@ func TestThemeFallback(t *testing.T) {
 	}
 }
 
-func TestUpdateDeviceOrder(t *testing.T) {
-	originalDashboard := dashboard
-	originalLocation := location
-	t.Cleanup(func() {
-		dashboard = originalDashboard
-		location = originalLocation
-	})
-
-	tests := []struct {
-		name      string
-		current   []string
-		requested []string
-		expected  []string
-	}{
-		{
-			name:      "normal reorder",
-			current:   []string{"a", "b", "c"},
-			requested: []string{"c", "a", "b"},
-			expected:  []string{"c", "a", "b"},
-		},
-		{
-			name:      "duplicate submitted serials",
-			current:   []string{"a", "b", "c"},
-			requested: []string{"b", "b", "a"},
-			expected:  []string{"b", "a", "c"},
-		},
-		{
-			name:      "unknown submitted serials ignored",
-			current:   []string{"a", "b"},
-			requested: []string{"unknown", "b"},
-			expected:  []string{"b", "a"},
-		},
-		{
-			name:      "missing selected serials appended in previous order",
-			current:   []string{"a", "b", "c", "d"},
-			requested: []string{"c", "a"},
-			expected:  []string{"c", "a", "b", "d"},
-		},
-		{
-			name:      "reorder does not add new devices",
-			current:   []string{"a", "b"},
-			requested: []string{"new-device", "b", "a"},
-			expected:  []string{"b", "a"},
-		},
+func TestDashboardIgnoresLegacyMembershipFields(t *testing.T) {
+	var decoded Dashboard
+	if err := json.Unmarshal([]byte(`{"devices":["legacy-device"],"addDeviceToDashboard":true,"dashboardLayout":[{"id":"native:device-a","column":1,"order":0}]}`), &decoded); err != nil {
+		t.Fatal(err)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			location = filepath.Join(t.TempDir(), "dashboard.json")
-			dashboard = Dashboard{Devices: append([]string(nil), tt.current...)}
-
-			status, order := UpdateDeviceOrder(tt.requested)
-			if status != 1 {
-				t.Fatalf("expected successful update, got status %d", status)
-			}
-			if !reflect.DeepEqual(order, tt.expected) {
-				t.Fatalf("expected order %v, got %v", tt.expected, order)
-			}
-			if !reflect.DeepEqual(dashboard.Devices, tt.expected) {
-				t.Fatalf("expected dashboard devices %v, got %v", tt.expected, dashboard.Devices)
-			}
-
-			var persisted Dashboard
-			file, err := os.Open(location)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := json.NewDecoder(file).Decode(&persisted); err != nil {
-				_ = file.Close()
-				t.Fatal(err)
-			}
-			if err := file.Close(); err != nil {
-				t.Fatal(err)
-			}
-			if !reflect.DeepEqual(persisted.Devices, tt.expected) {
-				t.Fatalf("expected persisted order %v, got %v", tt.expected, persisted.Devices)
-			}
-		})
+	if !reflect.DeepEqual(decoded.DashboardLayout, []LayoutItem{{ID: "native:device-a", Column: 1, Order: 0}}) {
+		t.Fatalf("decoded layout = %#v", decoded.DashboardLayout)
+	}
+	encoded, err := json.Marshal(decoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(encoded) == "" || string(encoded) == `{"devices":["legacy-device"]}` || string(encoded) == `{"addDeviceToDashboard":true}` {
+		t.Fatalf("unexpected dashboard serialization: %s", encoded)
+	}
+	var persisted map[string]any
+	if err := json.Unmarshal(encoded, &persisted); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := persisted["devices"]; exists {
+		t.Fatal("legacy devices field was serialized")
+	}
+	if _, exists := persisted["addDeviceToDashboard"]; exists {
+		t.Fatal("legacy add-device field was serialized")
 	}
 }
 
-func TestUpdateDashboardLayoutPersistsWithoutChangingLegacyMembership(t *testing.T) {
+func TestUpdateDashboardLayoutPersistsAndMigratesOpenRGBSerial(t *testing.T) {
 	originalDashboard := dashboard
 	originalLocation := location
 	t.Cleanup(func() { dashboard, location = originalDashboard, originalLocation })
 	location = filepath.Join(t.TempDir(), "dashboard.json")
-	dashboard = Dashboard{Devices: []string{"legacy-device"}}
+	dashboard = Dashboard{}
 	layout := []LayoutItem{{ID: "native:device-a", Column: 1, Order: 0}, {ID: "openrgb:device-b", Column: 1, Order: 0}}
 	status, persisted := UpdateDashboardLayout(layout)
-	if status != 1 || len(persisted) != 2 || persisted[1].Order != 1 || !reflect.DeepEqual(dashboard.Devices, []string{"legacy-device"}) {
-		t.Fatalf("layout update = %#v, legacy devices = %#v", persisted, dashboard.Devices)
+	if status != 1 || len(persisted) != 2 || persisted[1].Order != 1 {
+		t.Fatalf("layout update = %#v", persisted)
+	}
+	MigrateDeviceSerial("device-b", "replacement")
+	if got := GetDashboardLayout()[1].ID; got != "openrgb:replacement" {
+		t.Fatalf("migrated layout ID = %q", got)
 	}
 	if status, _ := UpdateDashboardLayout([]LayoutItem{{ID: "native:device-a", Column: -1, Order: 0}}); status != 0 {
 		t.Fatal("invalid coordinate was accepted")

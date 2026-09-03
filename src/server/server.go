@@ -1664,16 +1664,6 @@ func dashboardLightingDeviceCounts(connected map[string]*common.Device) dashboar
 	return counts
 }
 
-// getDashboardDevices will get dashboard devices
-func getDashboardDevices(w http.ResponseWriter, _ *http.Request) {
-	resp := &Response{
-		Code:    http.StatusOK,
-		Status:  1,
-		Devices: dashboard.GetDevices(),
-	}
-	resp.Send(w)
-}
-
 // dashboardDeviceSummary is the small read-only presentation used by the
 // Dashboard. It deliberately derives its state from the existing Devices
 // workspace adapters rather than the legacy Dashboard membership list.
@@ -1914,8 +1904,7 @@ func dashboardCurrentDevices(connected map[string]*common.Device, battery map[st
 	return response
 }
 
-// getDashboardCurrentDevices returns current top-level Devices presentation,
-// not the legacy dashboard.Devices membership setting.
+// getDashboardCurrentDevices returns current top-level Devices presentation.
 func getDashboardCurrentDevices(w http.ResponseWriter, _ *http.Request) {
 	response := dashboardCurrentDevices(devices.GetDevices(), stats.GetBatteryStats())
 	w.Header().Set("Content-Type", "application/json")
@@ -1959,40 +1948,6 @@ func dashboardLayoutRoute(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, language.GetValue("txtMethodNotAllowed"), http.StatusMethodNotAllowed)
 	}
-}
-
-// addDashboardDevice will add dashboard device
-func addDashboardDevice(w http.ResponseWriter, r *http.Request) {
-	request := requests.ProcessAddDashboardDevice(r)
-	resp := &Response{
-		Code:    request.Code,
-		Status:  request.Status,
-		Message: request.Message,
-	}
-	resp.Send(w)
-}
-
-// removeDashboardDevice will remove dashboard device
-func removeDashboardDevice(w http.ResponseWriter, r *http.Request) {
-	request := requests.ProcessRemoveDashboardDevice(r)
-	resp := &Response{
-		Code:    request.Code,
-		Status:  request.Status,
-		Message: request.Message,
-	}
-	resp.Send(w)
-}
-
-// updateDashboardDeviceOrder persists dashboard devices in the requested order.
-func updateDashboardDeviceOrder(w http.ResponseWriter, r *http.Request) {
-	request := requests.ProcessUpdateDashboardDeviceOrder(r)
-	resp := &Response{
-		Code:    request.Code,
-		Status:  request.Status,
-		Message: request.Message,
-		Devices: request.DeviceOrder,
-	}
-	resp.Send(w)
 }
 
 // setDashboardSettings handles dashboard settings change
@@ -5595,7 +5550,6 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/dashboard/lighting", http.MethodGet, getDashboardLighting)
 	handleFunc(r, "/api/dashboard/devices/current", http.MethodGet, getDashboardCurrentDevices)
 	r.HandleFunc("/api/dashboard/layout", dashboardLayoutRoute)
-	handleFunc(r, "/api/dashboard/devices/get", http.MethodGet, getDashboardDevices)
 	handleFunc(r, "/api/keyboard/assignmentsTypes/", http.MethodGet, getKeyAssignmentTypes)
 	handleFunc(r, "/api/keyboard/assignmentsModifiers/", http.MethodGet, getKeyAssignmentModifiers)
 	handleFunc(r, "/api/keyboard/getPerformance/", http.MethodGet, getKeyboardPerformance)
@@ -5696,7 +5650,6 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/position/update", http.MethodPost, changePosition)
 	handleFunc(r, "/api/dashboard/update", http.MethodPost, setDashboardSettings)
 	handleFunc(r, "/api/dashboard/sidebar", http.MethodPost, setDashboardSidebar)
-	handleFunc(r, "/api/dashboard/devices/add", http.MethodPost, addDashboardDevice)
 	handleFunc(r, "/api/argb", http.MethodPost, setARGBDevice)
 	handleFunc(r, "/api/keyboard/color", http.MethodPost, setKeyboardColor)
 	handleFunc(r, "/api/misc/color", http.MethodPost, setMiscColor)
@@ -5768,7 +5721,6 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/macro/new", http.MethodPut, newMacroProfile)
 	handleFunc(r, "/api/color/change", http.MethodPut, updateRgbProfile)
 	handleFunc(r, "/api/cluster/order", http.MethodPut, updateClusterOrder)
-	handleFunc(r, "/api/dashboard/devices/order", http.MethodPut, updateDashboardDeviceOrder)
 
 	// DELETE
 	handleFunc(r, "/api/keyboard/profile/delete", http.MethodDelete, deleteKeyboardProfile)
@@ -5776,7 +5728,6 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/temperatures/delete", http.MethodDelete, deleteTemperatureProfile)
 	handleFunc(r, "/api/macro/profile", http.MethodDelete, deleteMacroProfile)
 	handleFunc(r, "/api/userProfile/delete", http.MethodDelete, deleteUserProfile)
-	handleFunc(r, "/api/dashboard/devices/delete", http.MethodDelete, removeDashboardDevice)
 
 	// Prometheus metrics
 	if config.GetConfig().Metrics {

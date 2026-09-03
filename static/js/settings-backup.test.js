@@ -10,6 +10,15 @@ const settingsScript = fs.readFileSync(path.join(__dirname, "settings.js"), "utf
 const settingsTemplate = fs.readFileSync(path.join(repositoryRoot, "web/settings.html"), "utf8");
 const languageDirectory = path.join(repositoryRoot, "database/language");
 
+test("Dashboard settings retain active controls without legacy membership state", function () {
+    assert.doesNotMatch(settingsTemplate, /checkbox-addDeviceToDashboard|txtAddDeviceToDashboard/);
+    assert.doesNotMatch(settingsScript, /addDeviceToDashboard|checkboxAddDeviceToDashboard/);
+    assert.match(settingsScript, /response\.dashboard\.temperatureBar/);
+    assert.match(settingsScript, /pf\["temperatureBar"\]/);
+    assert.match(settingsScript, /pf\["languageCode"\]/);
+    assert.match(settingsScript, /pf\["theme"\]/);
+});
+
 test("restore success keeps the server restart message prominent", function () {
     assert.match(settingsScript, /toast\.success\(response\)/);
     assert.match(settingsScript, /restoreRestartWarning/);

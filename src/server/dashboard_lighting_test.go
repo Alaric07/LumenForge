@@ -364,6 +364,28 @@ func TestDashboardControllerCardsUseNaturalHeight(t *testing.T) {
 	}
 }
 
+func TestDashboardMembershipRoutesAreRemovedWhileCurrentRoutesRemain(t *testing.T) {
+	source, err := os.ReadFile("server.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, legacy := range []string{
+		`"/api/dashboard/devices/get"`,
+		`"/api/dashboard/devices/add"`,
+		`"/api/dashboard/devices/order"`,
+		`"/api/dashboard/devices/delete"`,
+	} {
+		if strings.Contains(string(source), legacy) {
+			t.Fatalf("legacy Dashboard membership route remains registered: %s", legacy)
+		}
+	}
+	for _, current := range []string{`"/api/dashboard/devices/current"`, `"/api/dashboard/layout"`} {
+		if !strings.Contains(string(source), current) {
+			t.Fatalf("current Dashboard route was removed: %s", current)
+		}
+	}
+}
+
 func TestDashboardSystemOverviewTemplateUsesFixedTelemetryPresentation(t *testing.T) {
 	initializeDevicesPageTestProcess(t)
 

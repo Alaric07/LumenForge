@@ -3381,7 +3381,6 @@ func ProcessDashboardSettingsChange(r *http.Request) *Payload {
 	dash := dashboard.GetDashboard()
 	dash.Celsius = req.Celsius
 	dash.TemperatureBar = req.TemperatureBar
-	dash.AddDeviceToDashboard = req.AddDeviceToDashboard
 	dash.LanguageCode = req.LanguageCode
 	dash.ShowLabels = req.ShowLabels
 	dash.Theme = req.Theme
@@ -5322,112 +5321,6 @@ func ProcessCommanderDuoOverride(r *http.Request) *Payload {
 		}
 	}
 	return &Payload{Message: language.GetValue("txtUnableToUpdatedCommanderDuoOverride"), Code: http.StatusOK, Status: 0}
-}
-
-// ProcessAddDashboardDevice will process POST request from a client for new dashboard device
-func ProcessAddDashboardDevice(r *http.Request) *Payload {
-	req := &Payload{}
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		logger.Log(map[string]interface{}{"error": err}).Error("Unable to decode JSON")
-		return &Payload{
-			Message: language.GetValue("txtUnableToValidateRequest"),
-			Code:    http.StatusOK,
-			Status:  0,
-		}
-	}
-
-	if len(req.DeviceId) == 0 {
-		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
-	}
-
-	if !common.AlphanumericDashRegex.MatchString(req.DeviceId) {
-		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
-	}
-
-	if devices.GetDevice(req.DeviceId) == nil {
-		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
-	}
-
-	status := dashboard.AddDevice(req.DeviceId)
-	switch status {
-	case 0:
-		return &Payload{Message: language.GetValue("txtDashboardDeviceExists"), Code: http.StatusOK, Status: 0}
-	case 1:
-		return &Payload{Message: language.GetValue("txtDashboardDeviceAdded"), Code: http.StatusOK, Status: 1}
-	}
-	return &Payload{Message: language.GetValue("txtUnableToAddDashboardDevice"), Code: http.StatusOK, Status: 0}
-}
-
-// ProcessRemoveDashboardDevice will process POST request from a client to delete a dashboard device
-func ProcessRemoveDashboardDevice(r *http.Request) *Payload {
-	req := &Payload{}
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		logger.Log(map[string]interface{}{"error": err}).Error("Unable to decode JSON")
-		return &Payload{
-			Message: language.GetValue("txtUnableToValidateRequest"),
-			Code:    http.StatusOK,
-			Status:  0,
-		}
-	}
-
-	if len(req.DeviceId) == 0 {
-		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
-	}
-
-	if !common.AlphanumericDashRegex.MatchString(req.DeviceId) {
-		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
-	}
-
-	if devices.GetDevice(req.DeviceId) == nil {
-		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
-	}
-
-	status := dashboard.RemoveDevice(req.DeviceId)
-	switch status {
-	case 0:
-		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
-	case 1:
-		return &Payload{Message: language.GetValue("txtDashboardDeviceRemoved"), Code: http.StatusOK, Status: 1}
-	}
-	return &Payload{Message: language.GetValue("txtUnableToRemoveDashboardDevice"), Code: http.StatusOK, Status: 0}
-}
-
-// ProcessUpdateDashboardDeviceOrder updates the persisted dashboard device order.
-func ProcessUpdateDashboardDeviceOrder(r *http.Request) *Payload {
-	req := &Payload{}
-	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
-		logger.Log(map[string]interface{}{"error": err}).Error("Unable to decode JSON")
-		return &Payload{Message: language.GetValue("txtUnableToValidateRequest"), Code: http.StatusOK, Status: 0}
-	}
-
-	if req.DeviceOrder == nil {
-		return &Payload{Message: language.GetValue("txtUnableToValidateRequest"), Code: http.StatusOK, Status: 0}
-	}
-
-	for _, serial := range req.DeviceOrder {
-		if len(serial) == 0 || !common.AlphanumericDashRegex.MatchString(serial) {
-			return &Payload{Message: language.GetValue("txtUnableToValidateRequest"), Code: http.StatusOK, Status: 0}
-		}
-	}
-
-	status, order := dashboard.UpdateDeviceOrder(req.DeviceOrder)
-	if status == 0 {
-		return &Payload{
-			Message:     language.GetValue("txtUnableToSaveDashboardSettings"),
-			Code:        http.StatusOK,
-			Status:      0,
-			DeviceOrder: order,
-		}
-	}
-
-	return &Payload{
-		Message:     language.GetValue("txtDashboardSettingsUpdated"),
-		Code:        http.StatusOK,
-		Status:      1,
-		DeviceOrder: order,
-	}
 }
 
 // ProcessUpdateDeviceEqualizer will process POST request from a client to update device equalizer
