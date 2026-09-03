@@ -42,7 +42,7 @@
 
         {{ template "modern-nav" . }}
 
-        <aside class="lf-device-panel{{ if not $hasSelectedDevice }} lf-device-panel-open{{ end }}" id="lf-device-drawer" aria-labelledby="lf-device-list-title" aria-label="Devices" data-lf-device-drawer>
+        <aside class="lf-device-panel{{ if not $hasSelectedDevice }} lf-device-panel-open{{ end }}" id="lf-device-drawer" aria-labelledby="lf-device-list-title" aria-label="Devices" data-lf-device-drawer data-lf-drawer data-lf-drawer-open-class="lf-device-panel-open">
             <header class="lf-panel-header">
                 <div>
                     <p class="lf-section-kicker">Configured hardware</p>
@@ -59,7 +59,7 @@
                         {{ if not .Hidden }}
                             {{ $hasVisibleDevices = true }}
                             {{ $device := . }}
-                            <a class="lf-device-item{{ if and $hasSelectedDevice (eq .Serial $selectedSerial) }} lf-device-item-active{{ end }}" href="/devices?device={{ .Serial }}"{{ if and $hasSelectedDevice (eq .Serial $selectedSerial) }} aria-current="page"{{ end }}>
+                            <a class="lf-device-item{{ if and $hasSelectedDevice (eq .Serial $selectedSerial) }} lf-device-item-active{{ end }}" href="/devices?device={{ .Serial }}" data-lf-drawer-item{{ if and $hasSelectedDevice (eq .Serial $selectedSerial) }} aria-current="page"{{ end }}>
                                 <span class="lf-device-image-frame">
                                     {{ if .Image }}
                                         <img class="lf-device-image" src="/static/img/icons/{{ .Image }}" alt="">

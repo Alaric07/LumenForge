@@ -2641,7 +2641,8 @@
 }
 
 .lf-app-shell .lf-global-nav-toggle,
-.lf-app-shell .lf-global-devices-toggle {
+.lf-app-shell .lf-global-devices-toggle,
+.lf-app-shell .lf-global-system-toggle {
     font: inherit;
 }
 
@@ -2667,6 +2668,12 @@
 }
 
 .lf-app-shell .lf-global-devices-toggle {
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+}
+
+.lf-app-shell .lf-global-system-toggle {
     width: 100%;
     text-align: left;
     cursor: pointer;
@@ -2708,7 +2715,8 @@
     padding-left: 8px;
 }
 
-.lf-app-shell .lf-device-panel {
+.lf-app-shell .lf-device-panel,
+.lf-app-shell .lf-system-panel {
     width: min(350px, calc(100vw - var(--lf-global-nav-width)));
     height: 100vh;
     position: fixed;
@@ -2721,6 +2729,85 @@
 
 .lf-app-shell .lf-device-panel.lf-device-panel-open {
     transform: translateX(0);
+}
+
+.lf-app-shell .lf-system-panel.lf-system-panel-open {
+    transform: translateX(0);
+}
+
+.lf-app-shell .lf-system-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px 14px 24px;
+}
+
+.lf-app-shell .lf-system-item {
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    border-radius: var(--lf-shell-radius);
+    color: var(--lf-text-primary);
+    font-size: 14px;
+    font-weight: 650;
+    text-decoration: none;
+    transition: transform 150ms ease, background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.lf-app-shell .lf-system-item:hover {
+    border-color: color-mix(in srgb, var(--lf-accent-primary) 22%, var(--lf-border-subtle));
+    background: var(--lf-surface-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--lf-shadow-soft);
+}
+
+.lf-app-shell .lf-system-item-active,
+.lf-app-shell .lf-system-item-active:hover {
+    border-color: var(--lf-border-selected);
+    background: linear-gradient(110deg, color-mix(in srgb, var(--lf-accent-secondary) 13%, transparent), transparent 44%), var(--lf-surface-selected);
+    box-shadow: inset 3px 0 0 var(--lf-accent-secondary), var(--lf-shadow-soft), 0 0 24px var(--lf-glow-ambient);
+    transform: none;
+}
+
+.lf-app-shell .lf-system-icon-frame {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 1px solid var(--lf-border-subtle);
+    border-radius: 10px;
+    background: var(--lf-panel-elevated);
+}
+
+.lf-app-shell .lf-system-icon {
+    width: 21px;
+    height: 21px;
+    opacity: 0.9;
+}
+
+.lf-app-shell .lf-system-item:focus-visible {
+    outline: 2px solid var(--lf-focus-ring);
+    outline-offset: 3px;
+}
+
+.lf-app-shell .lf-system-workspace {
+    min-width: 0;
+    min-height: 100vh;
+    position: relative;
+    padding: 30px clamp(22px, 3vw, 52px) 52px;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 76% 4%, var(--lf-glow-ambient), transparent 35rem),
+        radial-gradient(circle at 25% 38%, var(--lf-glow-emphasized), transparent 31rem),
+        color-mix(in srgb, var(--lf-workspace-surface) 96%, var(--lf-page-background));
+}
+
+.lf-app-shell .lf-system-legacy-content {
+    min-width: 0;
 }
 
 @media (max-width: 760px) {
@@ -2748,7 +2835,8 @@
         display: none;
     }
 
-    .lf-app-shell .lf-device-panel {
+    .lf-app-shell .lf-device-panel,
+    .lf-app-shell .lf-system-panel {
         width: auto;
         height: auto;
         position: static;
@@ -2759,6 +2847,7 @@
 
 @media (prefers-reduced-motion: reduce) {
     .lf-app-shell .lf-device-panel,
+    .lf-app-shell .lf-system-panel,
     .lf-app-shell .lf-global-link {
         transition: none;
     }
@@ -3120,7 +3209,17 @@
         padding: 12px 14px 20px;
     }
 
+    .lf-app-shell .lf-system-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+
     .lf-app-shell .lf-device-workspace {
+        min-height: auto;
+        padding: 22px 16px 40px;
+    }
+
+    .lf-app-shell .lf-system-workspace {
         min-height: auto;
         padding: 22px 16px 40px;
     }
@@ -3271,7 +3370,8 @@
         --lf-global-nav-width: var(--lf-global-nav-collapsed-width);
     }
 
-    .lf-app-shell .lf-device-panel {
+    .lf-app-shell .lf-device-panel,
+    .lf-app-shell .lf-system-panel {
         width: min(350px, calc(100vw - var(--lf-global-nav-width)));
         height: 100vh;
         position: fixed;
@@ -3282,6 +3382,10 @@
     }
 
     .lf-app-shell .lf-device-panel.lf-device-panel-open {
+        transform: translateX(0);
+    }
+
+    .lf-app-shell .lf-system-panel.lf-system-panel-open {
         transform: translateX(0);
     }
 
@@ -3386,7 +3490,8 @@
         display: none;
     }
 
-    .lf-app-shell .lf-device-panel {
+    .lf-app-shell .lf-device-panel,
+    .lf-app-shell .lf-system-panel {
         transform: none;
         transition: none;
     }

@@ -4,7 +4,11 @@
 <script src="../static/js/cluster.js"></script>
 <body>
 
-<div class="container-fluid">
+<div class="lf-app-shell lf-system-shell{{ if .Dashboard.SidebarCollapsed }} lf-global-nav-collapsed{{ end }}">
+    {{ template "modern-nav" . }}
+    {{ template "modern-system-drawer" . }}
+    <main class="lf-system-workspace">
+    <div class="lf-system-legacy-content">
     {{ $devs := .Devices }}
     {{ $device := .Device }}
     {{ $languageCode := .LanguageCode }}
@@ -12,12 +16,6 @@
     {{ $dash := .Dashboard }}
     {{ $save := .Lang "txtSave" }}
     <input type="hidden" id="deviceId" name="deviceId" value="{{ $device.Serial }}">
-    <div class="row">
-        <!-- Sidebar -->
-        {{ template "sidebar" . }}
-
-        <!-- Main -->
-        <main class="main-content p-4">
             <!-- Temperature bar -->
             {{ if .Dashboard.TemperatureBar }}
             {{ template "temperature-bar" . }}
@@ -480,11 +478,10 @@
                     </div>
                 </div>
             </div>
-        </main>
     </div>
+    </main>
 </div>
 <script src="/static/js/settings.js"></script>
-<script src="/static/js/sidebar.js"></script>
 {{ if .Dashboard.TemperatureBar }}
 <script src="/static/js/temperature-bar.js"></script>
 {{ end }}

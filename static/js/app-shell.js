@@ -28,8 +28,12 @@
         }
     }
 
+    function drawerOpenClass(drawer) {
+        return drawer.getAttribute("data-lf-drawer-open-class") || "lf-device-panel-open";
+    }
+
     function setDrawerOpen(drawer, toggle, open) {
-        drawer.classList.toggle("lf-device-panel-open", open);
+        drawer.classList.toggle(drawerOpenClass(drawer), open);
         toggle.setAttribute("aria-expanded", String(open));
     }
 
@@ -52,21 +56,27 @@
             });
         }
 
-        const drawer = shell.querySelector("[data-lf-device-drawer]");
-        const drawerToggle = shell.querySelector("[data-lf-devices-drawer-toggle]");
-        if (!drawer || !drawerToggle) return;
-
-        drawerToggle.addEventListener("click", function () {
-            setDrawerOpen(drawer, drawerToggle, !drawer.classList.contains("lf-device-panel-open"));
-        });
-        drawer.addEventListener("click", function (event) {
-            if (event.target.closest(".lf-device-item")) {
-                setDrawerOpen(drawer, drawerToggle, false);
-            }
-        });
+        const drawers = Array.from(shell.querySelectorAll("[data-lf-drawer]"));
+        for (const drawer of drawers) {
+            const drawerToggle = shell.querySelector('[data-lf-drawer-toggle][aria-controls="' + drawer.id + '"]');
+            if (!drawerToggle) continue;
+            const openClass = drawerOpenClass(drawer);
+            drawerToggle.addEventListener("click", function () {
+                setDrawerOpen(drawer, drawerToggle, !drawer.classList.contains(openClass));
+            });
+            drawer.addEventListener("click", function (event) {
+                if (event.target.closest("[data-lf-drawer-item]")) {
+                    setDrawerOpen(drawer, drawerToggle, false);
+                }
+            });
+        }
         document.addEventListener("keydown", function (event) {
-            if (event.key === "Escape" && drawer.classList.contains("lf-device-panel-open")) {
-                setDrawerOpen(drawer, drawerToggle, false);
+            if (event.key !== "Escape") return;
+            for (const drawer of drawers) {
+                const drawerToggle = shell.querySelector('[data-lf-drawer-toggle][aria-controls="' + drawer.id + '"]');
+                if (drawerToggle && drawer.classList.contains(drawerOpenClass(drawer))) {
+                    setDrawerOpen(drawer, drawerToggle, false);
+                }
             }
         });
     }

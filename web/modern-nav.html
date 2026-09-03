@@ -10,17 +10,37 @@
         <nav class="lf-global-links">
             <a class="lf-global-link{{ if eq .Page "index" }} lf-global-link-active{{ end }}" href="/" aria-label="Dashboard" title="Dashboard"{{ if eq .Page "index" }} aria-current="page"{{ end }}><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-dashboard.svg" alt=""></span><span class="lf-global-label">Dashboard</span></a>
             {{ if eq .Page "devices" }}
-                <button class="lf-global-link lf-global-link-active lf-global-devices-toggle" type="button" data-lf-devices-drawer-toggle aria-controls="lf-device-drawer" aria-expanded="{{ if .Device }}false{{ else }}true{{ end }}" aria-label="Devices" title="Devices" aria-current="page"><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-device.svg" alt=""></span><span class="lf-global-label">Devices</span></button>
+                <button class="lf-global-link lf-global-link-active lf-global-devices-toggle" type="button" data-lf-devices-drawer-toggle data-lf-drawer-toggle aria-controls="lf-device-drawer" aria-expanded="{{ if .Device }}false{{ else }}true{{ end }}" aria-label="Devices" title="Devices" aria-current="page"><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-device.svg" alt=""></span><span class="lf-global-label">Devices</span></button>
             {{ else }}
                 <a class="lf-global-link" href="/devices" aria-label="Devices" title="Devices"><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-device.svg" alt=""></span><span class="lf-global-label">Devices</span></a>
             {{ end }}
             <a class="lf-global-link{{ if eq .Page "rgbCluster" }} lf-global-link-active{{ end }}" href="/rgbCluster" aria-label="RGB Cluster" title="RGB Cluster"{{ if eq .Page "rgbCluster" }} aria-current="page"{{ end }}><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-cluster.svg" alt=""></span><span class="lf-global-label">RGB Cluster</span></a>
-            <a class="lf-global-link" href="/temperature" aria-label="Cooling profiles" title="Cooling profiles"><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-temperature.svg" alt=""></span><span class="lf-global-label">Cooling profiles</span></a>
-            <a class="lf-global-link" href="/lcd" aria-label="LCD" title="LCD"><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-lcd.svg" alt=""></span><span class="lf-global-label">LCD</span></a>
-            <a class="lf-global-link" href="/macros" aria-label="Macros" title="Macros"><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-macro.svg" alt=""></span><span class="lf-global-label">Macros</span></a>
         </nav>
         <nav class="lf-global-utility-links" aria-label="Utility navigation">
-            <a class="lf-global-link" href="/settings" aria-label="Settings" title="Settings"><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-settings.svg" alt=""></span><span class="lf-global-label">Settings</span></a>
+            {{ $isSystemActive := or (eq .Page "settings") (eq .Page "lcd") (eq .Page "macros") (eq .Page "temperature") }}
+            {{ if $isSystemActive }}
+                <button class="lf-global-link lf-global-link-active lf-global-system-toggle" type="button" data-lf-system-drawer-toggle data-lf-drawer-toggle aria-controls="lf-system-drawer" aria-expanded="true" aria-label="System" title="System" aria-current="page"><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-settings.svg" alt=""></span><span class="lf-global-label">System</span></button>
+            {{ else }}
+                <a class="lf-global-link" href="/settings" aria-label="System" title="System"><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-settings.svg" alt=""></span><span class="lf-global-label">System</span></a>
+            {{ end }}
+        </nav>
+    </aside>
+{{ end }}
+
+{{ define "modern-system-drawer" }}
+    <aside class="lf-system-panel lf-system-panel-open" id="lf-system-drawer" aria-labelledby="lf-system-drawer-title" aria-label="System" data-lf-system-drawer data-lf-drawer data-lf-drawer-open-class="lf-system-panel-open">
+        <header class="lf-panel-header">
+            <div>
+                <p class="lf-section-kicker">Application controls</p>
+                <h2 class="lf-panel-title" id="lf-system-drawer-title">System</h2>
+            </div>
+            <span class="lf-panel-header-mark" aria-hidden="true"></span>
+        </header>
+        <nav class="lf-system-list" aria-label="System navigation">
+            <a class="lf-system-item{{ if eq .Page "settings" }} lf-system-item-active{{ end }}" href="/settings" data-lf-drawer-item{{ if eq .Page "settings" }} aria-current="page"{{ end }}><span class="lf-system-icon-frame"><img class="lf-system-icon" src="/static/img/icons/icon-settings.svg" alt=""></span><span>Settings</span></a>
+            <a class="lf-system-item{{ if eq .Page "lcd" }} lf-system-item-active{{ end }}" href="/lcd" data-lf-drawer-item{{ if eq .Page "lcd" }} aria-current="page"{{ end }}><span class="lf-system-icon-frame"><img class="lf-system-icon" src="/static/img/icons/icon-lcd.svg" alt=""></span><span>LCD</span></a>
+            <a class="lf-system-item{{ if eq .Page "macros" }} lf-system-item-active{{ end }}" href="/macros" data-lf-drawer-item{{ if eq .Page "macros" }} aria-current="page"{{ end }}><span class="lf-system-icon-frame"><img class="lf-system-icon" src="/static/img/icons/icon-macro.svg" alt=""></span><span>Macros</span></a>
+            <a class="lf-system-item{{ if eq .Page "temperature" }} lf-system-item-active{{ end }}" href="/temperature" data-lf-drawer-item{{ if eq .Page "temperature" }} aria-current="page"{{ end }}><span class="lf-system-icon-frame"><img class="lf-system-icon" src="/static/img/icons/icon-temperature.svg" alt=""></span><span>Cooling Profiles</span></a>
         </nav>
     </aside>
 {{ end }}
