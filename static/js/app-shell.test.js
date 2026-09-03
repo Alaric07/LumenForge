@@ -9,6 +9,8 @@ const root = path.join(__dirname, "..", "..");
 const source = fs.readFileSync(path.join(__dirname, "app-shell.js"), "utf8");
 const navTemplate = fs.readFileSync(path.join(root, "web", "modern-nav.html"), "utf8");
 const devicesTemplate = fs.readFileSync(path.join(root, "web", "devices.html"), "utf8");
+const indexTemplate = fs.readFileSync(path.join(root, "web", "index.html"), "utf8");
+const clusterTemplate = fs.readFileSync(path.join(root, "web", "cluster.html"), "utf8");
 const headTemplate = fs.readFileSync(path.join(root, "web", "head.html"), "utf8");
 const temperatureGraphTemplate = fs.readFileSync(path.join(root, "web", "temperatureGraph.html"), "utf8");
 const systemTemplates = ["settings.html", "lcd.html", "macros.html", "temperature.html", "temperatureGraph.html"]
@@ -63,13 +65,26 @@ test("modern navigation keeps System in a separate bottom utility group", functi
     const mainGroup = navTemplate.match(/<nav class="lf-global-links">([\s\S]*?)<\/nav>/)?.[1] || "";
     assert.doesNotMatch(mainGroup, /Cooling profiles|aria-label="LCD"|aria-label="Macros"/);
     assert.match(navTemplate, /<nav class="lf-global-utility-links"[\s\S]*?aria-label="System"/);
-    assert.match(navTemplate, /href="\/settings" aria-label="System"/);
+    assert.match(navTemplate, /<button class="lf-global-link lf-global-system-toggle/);
+    assert.doesNotMatch(navTemplate, /href="\/settings" aria-label="System"/);
     assert.match(css, /\.lf-app-shell \.lf-global-utility-links \{[\s\S]*?margin-top: auto;/);
     assert.match(css, /\.lf-app-shell\.lf-global-nav-collapsed \.lf-global-utility-links \{[\s\S]*?width: 100%;/);
     assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.lf-app-shell \.lf-global-utility-links \{[\s\S]*?margin-top: 8px;/);
 });
 
-test("System routes use the modern shell and render an open, active System drawer", function () {
+test("System is a drawer-only toggle on every modern shell", function () {
+    const utilityGroup = navTemplate.match(/<nav class="lf-global-utility-links"[^>]*>([\s\S]*?)<\/nav>/)?.[1] || "";
+    assert.match(navTemplate, /data-lf-system-drawer-toggle data-lf-drawer-toggle aria-controls="lf-system-drawer" aria-expanded="false"/);
+    assert.match(utilityGroup, /<button/);
+    assert.doesNotMatch(utilityGroup, /href="\/settings"/);
+    for (const template of [indexTemplate, clusterTemplate, devicesTemplate]) {
+        assert.match(template, /template "modern-system-drawer"/);
+    }
+    assert.match(source, /for \(const otherDrawer of drawers\)/);
+    assert.match(source, /setDrawerOpen\(otherDrawer, otherToggle, false\)/);
+});
+
+test("System routes use the modern shell with a closed, active System drawer", function () {
     for (const template of systemTemplates) {
         assert.match(template, /lf-app-shell lf-system-shell/);
         assert.match(template, /template "modern-nav"/);
@@ -79,17 +94,31 @@ test("System routes use the modern shell and render an open, active System drawe
     }
     assert.match(navTemplate, /define "modern-system-drawer"/);
     assert.match(navTemplate, /id="lf-system-drawer"/);
-    assert.match(navTemplate, /data-lf-system-drawer-toggle[\s\S]*?aria-controls="lf-system-drawer"[\s\S]*?aria-expanded="true"/);
+    assert.match(navTemplate, /data-lf-system-drawer-toggle[\s\S]*?aria-controls="lf-system-drawer"[\s\S]*?aria-expanded="false"/);
     assert.match(navTemplate, /href="\/settings"[\s\S]*?href="\/lcd"[\s\S]*?href="\/macros"[\s\S]*?href="\/temperature"/);
     assert.match(navTemplate, /eq \.Page "settings"[\s\S]*?eq \.Page "lcd"[\s\S]*?eq \.Page "macros"[\s\S]*?eq \.Page "temperature"/);
-    assert.match(navTemplate, /lf-system-item-active/);
-    assert.match(css, /\.lf-app-shell \.lf-system-panel\.lf-system-panel-open/);
+    assert.match(navTemplate, /lf-device-list" aria-label="System navigation"/);
+    assert.match(navTemplate, /lf-device-item\{\{ if eq \.Page "settings" \}\} lf-device-item-active/);
+    assert.match(navTemplate, /class="lf-device-panel lf-system-panel" id="lf-system-drawer"/);
+    assert.doesNotMatch(navTemplate, /lf-system-panel lf-system-panel-open/);
+    assert.match(css, /\.lf-app-shell \.lf-device-panel,\s*\.lf-app-shell \.lf-system-panel \{/);
     assert.match(css, /\.lf-app-shell \.lf-system-workspace/);
     assert.match(headTemplate, /eq \.Page "settings"[\s\S]*?eq \.Page "lcd"[\s\S]*?eq \.Page "macros"[\s\S]*?eq \.Page "temperature"[\s\S]*?app-shell\.js/);
     assert.match(headTemplate, /eq \.Page "settings"[\s\S]*?eq \.Page "lcd"[\s\S]*?eq \.Page "macros"[\s\S]*?eq \.Page "temperature"[\s\S]*?app-shell\.css/);
     assert.match(temperatureGraphTemplate, /template "temperature-bar"/);
     assert.match(temperatureGraphTemplate, /id="graphPump"[\s\S]*?id="graphFans"/);
     assert.match(temperatureGraphTemplate, /static\/js\/temperature\.js/);
+});
+
+test("System selection closes through the shared drawer handler and can be reopened", function () {
+    assert.match(navTemplate, /href="\/settings" data-lf-drawer-item/);
+    assert.match(navTemplate, /href="\/lcd" data-lf-drawer-item/);
+    assert.match(navTemplate, /href="\/macros" data-lf-drawer-item/);
+    assert.match(navTemplate, /href="\/temperature" data-lf-drawer-item/);
+    assert.match(source, /setDrawerOpen\(drawer, drawerToggle, false\)/);
+    assert.match(source, /!drawer\.classList\.contains\(openClass\)/);
+    assert.match(source, /toggle\.setAttribute\("aria-expanded", String\(open\)\)/);
+    assert.match(source, /event\.key !== "Escape"/);
 });
 
 test("drawer handling is shared without changing Devices identifiers", function () {

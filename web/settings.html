@@ -16,11 +16,6 @@
     {{ $dash := .Dashboard }}
     {{ $save := .Lang "txtSave" }}
     <input type="hidden" id="deviceId" name="deviceId" value="{{ $device.Serial }}">
-            <!-- Temperature bar -->
-            {{ if .Dashboard.TemperatureBar }}
-            {{ template "temperature-bar" . }}
-            {{ end }}
-
             <div class="modal fade text-start"
                  id="openrgbImportModal"
                  tabindex="-1"
@@ -121,19 +116,22 @@
                 </div>
             </div>
 
-            <!-- Settings -->
-            <div class="page-centered-wrapper">
-                <div class="row g-4 mb-4">
+            <section class="lf-settings" aria-labelledby="lf-settings-title">
+                <header class="lf-settings-heading">
+                    <p class="lf-section-kicker">System</p>
+                    <h1 class="lf-workspace-title" id="lf-settings-title">Settings</h1>
+                    <p class="lf-workspace-description">Application and system preferences for LumenForge.</p>
+                </header>
+                <div class="lf-settings-grid">
                     <!-- Row 1 Column 1: Preferences -->
-                    <div class="col-lg-6">
-                        <div class="card system-card text-center">
-                            <div class="card-header">
-                                <i class="bi bi-sliders pe-2"></i>Preferences
-                            </div>
-                            <div class="card-body">
-                                <div class="settings-list">
+                    <section class="lf-settings-panel">
+                            <header class="lf-settings-panel-header">
+                                <i class="bi bi-sliders pe-2" aria-hidden="true"></i><h2>Preferences</h2>
+                            </header>
+                            <div class="lf-settings-panel-body">
+                                <div class="lf-settings-list">
                                     <!-- Show Celsius -->
-                                    <div class="settings-row">
+                                    <div class="lf-settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "txtShowTempInC" }}</span>
                                         <label class="system-toggle compact">
                                             <input type="checkbox" id="checkbox-celsius">
@@ -141,7 +139,7 @@
                                         </label>
                                     </div>
                                     <!-- Show Temp Bar -->
-                                    <div class="settings-row">
+                                    <div class="lf-settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "txtShowTemperatureBar" }}</span>
                                         <label class="system-toggle compact">
                                             <input type="checkbox" id="checkbox-temperatureBar">
@@ -149,7 +147,7 @@
                                         </label>
                                     </div>
                                     <!-- Show Device Labels -->
-                                    <div class="settings-row">
+                                    <div class="lf-settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "txtShowDeviceLabels" }}</span>
                                         <label class="system-toggle compact">
                                             <input type="checkbox" id="checkbox-deviceLabels">
@@ -157,7 +155,7 @@
                                         </label>
                                     </div>
                                     <!-- Language -->
-                                    <div class="settings-row">
+                                    <div class="lf-settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "txtLanguage" }}</span>
                                         <label for="userLanguage">
                                             <select id="userLanguage" class="form-select system-select auto-width compact userLanguage">
@@ -172,7 +170,7 @@
                                         </label>
                                     </div>
                                     <!-- Theme -->
-                                    <div class="settings-row">
+                                    <div class="lf-settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "txtTheme" }}</span>
                                         <label for="theme">
                                             <select id="theme" class="form-select system-select auto-width compact theme">
@@ -187,7 +185,7 @@
                                         </label>
                                     </div>
                                     <!-- Keyboard Layout -->
-                                    <div class="settings-row">
+                                    <div class="lf-settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "txtKeyboardLayout" }}</span>
                                         <label for="keyboardLayout">
                                             <select id="keyboardLayout" class="form-select system-select auto-width compact theme">
@@ -202,24 +200,22 @@
                                         </label>
                                     </div>
                                     <!-- Save preferences button -->
-                                    <div class="settings-row">
-                                        <button class="system-button w-100" id="btnSaveDashboardSettings">{{ .Lang "txtSave" }}</button>
+                                    <div class="lf-settings-actions">
+                                        <button class="lf-button" id="btnSaveDashboardSettings">{{ .Lang "txtSave" }}</button>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                    </section>
 
                     <!-- Row 1 Column 2: Automation -->
-                    <div class="col-lg-6">
-                        <div class="card system-card text-center">
-                            <div class="card-header">
-                                <i class="bi bi-robot pe-2"></i>Automation
-                            </div>
-                            <div class="card-body">
-                                <div class="settings-list">
+                    <section class="lf-settings-panel">
+                            <header class="lf-settings-panel-header">
+                                <i class="bi bi-robot pe-2" aria-hidden="true"></i><h2>Automation</h2>
+                            </header>
+                            <div class="lf-settings-panel-body">
+                                <div class="lf-settings-list">
                                     <!-- RGB Scheduler enable -->
-                                    <div class="settings-row">
+                                    <div class="lf-settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "txtRgbScheduler" }}</span>
                                         <label class="system-toggle compact">
                                             <input type="checkbox" id="rgbControl" {{ if .Scheduler.RGBControl }}checked{{end}}>
@@ -227,7 +223,7 @@
                                         </label>
                                     </div>
                                     <!-- RGB Off Time -->
-                                    <div class="settings-row">
+                                    <div class="lf-settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "txtRgbOffTime" }}</span>
                                         <label class="compact">
                                             <input type="time"
@@ -238,7 +234,7 @@
                                         </label>
                                     </div>
                                     <!-- RGB On Time -->
-                                    <div class="settings-row">
+                                    <div class="lf-settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "rgbOnTime" }}</span>
                                         <label class="compact">
                                             <input type="time"
@@ -249,7 +245,7 @@
                                         </label>
                                     </div>
                                     <!-- LCD Off during Dark Hours -->
-                                    <div class="settings-row">
+                                    <div class="lf-settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "txtLcdOffDuringDarkHours" }}</span>
                                         <label class="system-toggle compact">
                                             <input type="checkbox" id="lcdControl" {{ if .Scheduler.LCDControl }}checked{{end}}>
@@ -257,28 +253,24 @@
                                         </label>
                                     </div>
                                     <!-- Save Scheduler button -->
-                                    <div class="settings-row">
-                                        <button class="system-button saveRgbControl w-100">{{ .Lang "txtSave" }}</button>
+                                    <div class="lf-settings-actions">
+                                        <button class="lf-button saveRgbControl">{{ .Lang "txtSave" }}</button>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                    </section>
                 </div>
 
-                <div class="row g-4 mb-4">
-                    <!-- Row 2 Column 1: Display & Audio -->
-                    <div class="col-lg-6">
-                        <div class="stack-gap-4">
+                <div class="lf-settings-grid">
                             <!-- Display Configuration -->
-                            <div class="card system-card text-center">
-                                <div class="card-header">
-                                    <i class="bi bi-display pe-2"></i>{{ .Lang "txtDisplay" }}
-                                </div>
-                                <div class="card-body text-left">
-                                    <div class="settings-list">
+                            <section class="lf-settings-panel">
+                                <header class="lf-settings-panel-header">
+                                    <i class="bi bi-display pe-2" aria-hidden="true"></i><h2>{{ .Lang "txtDisplay" }}</h2>
+                                </header>
+                                <div class="lf-settings-panel-body">
+                                    <div class="lf-settings-list">
                                         {{ range $key, $val := .Displays }}
-                                        <div class="settings-row">
+                                        <div class="lf-settings-row lf-settings-row-display">
                                             <span class="settings-label text-ellipsis">{{ $val.Index }}</span>
                                             <div class="system-input text-input compact">
                                                 <label for="displayWidth_{{ $val.Index }}">
@@ -302,19 +294,19 @@
                                         {{ end }}
                                     </div>
                                 </div>
-                            </div>
+                            </section>
 
                             <!-- Virtual Audio -->
-                            <div class="card system-card text-center">
-                                <div class="card-header">
-                                    <i class="bi bi-volume-up pe-2"></i>{{ .Lang "txtVirtualAudio" }}
-                                </div>
-                                <div class="card-body text-left">
+                            <section class="lf-settings-panel">
+                                <header class="lf-settings-panel-header">
+                                    <i class="bi bi-volume-up pe-2" aria-hidden="true"></i><h2>{{ .Lang "txtVirtualAudio" }}</h2>
+                                </header>
+                                <div class="lf-settings-panel-body">
                                     {{ if .SystemService }}
                                     <span class="settings-label text-warning">{{ .Lang "txtVirtualAudioUnavailable" }}</span>
                                     {{ else }}
-                                    <div class="settings-list">
-                                        <div class="settings-row">
+                                    <div class="lf-settings-list">
+                                        <div class="lf-settings-row">
                                             <span class="settings-label text-ellipsis">{{ .Lang "txtEnable" }}</span>
                                             <label class="system-toggle compact">
                                                 <input type="checkbox" id="virtualAudio" {{ if $audio.Enabled }}checked{{end}}>
@@ -323,7 +315,7 @@
                                         </div>
 
                                         {{ if $audio.Enabled }}
-                                        <div class="settings-row">
+                                        <div class="lf-settings-row">
                                             <span class="settings-label text-ellipsis">{{ .Lang "txtOutputDevice" }}</span>
                                             <label for="outputDevice">
                                                 <select id="outputDevice" class="form-select system-select max-width-300 compact outputDevice">
@@ -335,26 +327,22 @@
                                         </div>
                                         {{ end }}
 
-                                        <div class="settings-row">
-                                            <button class="system-button enableVirtualAudio">{{ .Lang "txtSave" }}</button>
+                                        <div class="lf-settings-actions">
+                                            <button class="lf-button enableVirtualAudio">{{ .Lang "txtSave" }}</button>
                                             {{ if $audio.Enabled }}
-                                            <button class="system-button setTargetDevice">{{ .Lang "txtSetTargetDevice" }}</button>
+                                            <button class="lf-button lf-button-secondary setTargetDevice">{{ .Lang "txtSetTargetDevice" }}</button>
                                             {{ end }}
                                         </div>
                                     </div>
                                     {{ end }}
                                 </div>
-                            </div>
-                        </div>
-                    </div>
+                            </section>
 
-                    <!-- Row 2 Column 2: Backup & Restore -->
-                    <div class="col-lg-6">
-                        <div class="card system-card text-center h-100">
-                            <div class="card-header">
-                                <i class="bi bi-cloud-arrow-up pe-2"></i>{{ .Lang "txtBackupRestore" }}
-                            </div>
-                            <div class="card-body text-left sentence-text">
+                    <section class="lf-settings-panel">
+                            <header class="lf-settings-panel-header">
+                                <i class="bi bi-cloud-arrow-up pe-2" aria-hidden="true"></i><h2>{{ .Lang "txtBackupRestore" }}</h2>
+                            </header>
+                            <div class="lf-settings-panel-body lf-settings-copy">
                                 <p class="mb-4">{{ .Lang "txtBackupInfo" }}</p>
                                 <p id="restoreRestartWarning" class="mb-3 text-warning fw-bold">
                                     {{ .Lang "txtRestoreRestartWarning" }}
@@ -363,47 +351,43 @@
                                     <span>{{ .Lang "txtRestoreGuide" }}</span>
                                     <code>docs/backup-restore.md</code>.
                                 </p>
-                                <div class="settings-list mt-2">
-                                    <div class="settings-row">
+                                <div class="lf-settings-list">
+                                    <div class="lf-settings-row">
                                         <span class="settings-label text-ellipsis">{{ .Lang "txtBackup" }}</span>
-                                        <label class="system-toggle compact">
-                                            <button class="system-button success"
+                                        <div>
+                                            <button class="lf-button"
                                                     type="button"
                                                     id="btnBackup">{{ .Lang "txtBackup" }}
                                             </button>
-                                        </label>
+                                        </div>
                                     </div>
 
-                                    <div class="settings-row">
+                                    <div class="lf-settings-row">
                                         <form id="restoreForm"
                                               enctype="multipart/form-data"
                                               class="file-form full-width"
                                               data-select-message="{{ .Lang "txtSelectBackupFile" }}"
                                               data-failure-prefix="{{ .Lang "txtRestoreFailed" }}">
                                             <input type="file"
-                                                   class="system-input file-input mb-2"
+                                                   class="lf-settings-file-input"
                                                    id="backupFile"
                                                    name="backupFile"
                                                    accept=".zip">
-                                            <button class="system-button danger w-100" type="submit" id="btnRestore">
+                                            <button class="lf-button lf-button-danger" type="submit" id="btnRestore">
                                                 {{ .Lang "txtRestore" }}
                                             </button>
                                         </form>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                    </section>
                 </div>
 
-                <div class="row g-4 mb-4">
-                    <!-- Row 3: OpenRGB SDK Integration full-width -->
-                    <div class="col-12">
-                        <div class="card system-card">
-                            <div class="card-header text-center">
-                                <i class="bi bi-plugin pe-2"></i>OpenRGB SDK Integration
-                            </div>
-                            <div class="card-body sentence-text">
+                <section class="lf-settings-panel lf-settings-panel-wide">
+                            <header class="lf-settings-panel-header">
+                                <i class="bi bi-plugin pe-2" aria-hidden="true"></i><h2>OpenRGB SDK Integration</h2>
+                            </header>
+                            <div class="lf-settings-panel-body lf-settings-copy">
                                 <p>
                                     LumenForge can explicitly import controllers exposed by a locally running
                                     OpenRGB SDK server. OpenRGB is optional, nothing is imported automatically,
@@ -413,10 +397,10 @@
                                     Removing an imported controller preserves its profiles and RGB configuration
                                     so they can be reused if the controller is imported again later.
                                 </p>
-                                <div class="settings-list">
-                                    <div class="settings-row flex-column flex-lg-row align-items-start align-items-lg-center">
-                                        <div class="text-start flex-grow-1">
-                                            <span class="settings-label d-block mb-1">OpenRGB import status</span>
+                                <div class="lf-settings-list">
+                                    <div class="lf-settings-row lf-settings-row-openrgb">
+                                        <div>
+                                            <span class="lf-settings-label">OpenRGB import status</span>
                                             <span id="openrgbCardSummary">
                                                 Select Discover &amp; Manage Controllers to inspect the local
                                                 OpenRGB SDK server and manage imported controllers.
@@ -427,13 +411,13 @@
                                                   aria-live="polite"
                                                   aria-atomic="true"></span>
                                         </div>
-                                        <div class="d-flex flex-wrap gap-2">
-                                            <button class="system-button success"
+                                        <div class="lf-settings-actions">
+                                            <button class="lf-button"
                                                     id="btnOpenRGBDiscover"
                                                     type="button">
                                                 Discover &amp; Manage Controllers
                                             </button>
-                                            <button class="system-button secondary"
+                                            <button class="lf-button lf-button-secondary"
                                                     id="btnOpenRGBRefresh"
                                                     type="button">
                                                 Refresh Imported Controllers
@@ -442,19 +426,14 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
+                </section>
 
-                <div class="row g-4 mb-4">
-                    <!-- Row 4: Supported Devices full-width -->
-                    <div class="col-12">
-                        <div class="card system-card text-center">
-                            <div class="card-header">
-                                <i class="bi bi-cpu-fill pe-2"></i>{{ .Lang "txtSupportedDevices" }}
-                            </div>
-                            <div class="card-body">
-                                <div class="table-responsive">
+                <section class="lf-settings-panel lf-settings-panel-wide">
+                            <header class="lf-settings-panel-header">
+                                <i class="bi bi-cpu-fill pe-2" aria-hidden="true"></i><h2>{{ .Lang "txtSupportedDevices" }}</h2>
+                            </header>
+                            <div class="lf-settings-panel-body">
+                                <div class="lf-settings-table-wrap">
                                     <table class="dataTable compact" id="dataTable" style="width: 100%;">
                                         <thead>
                                         <tr>
@@ -464,26 +443,17 @@
                                         </tr>
                                         </thead>
                                     </table>
-                                </div><br />
-                                <div class="settings-list">
-                                    <div class="settings-row">
-                                        <span class="settings-label text-ellipsis warning">{{ .Lang "txtServiceRestartRequired" }}</span>
-                                        <label class="system-toggle compact">
-                                            <button class="system-button" id="btnSaveSupportedDevices">{{ .Lang "txtSave" }}</button>
-                                        </label>
+                                </div>
+                                <div class="lf-settings-actions">
+                                        <span class="lf-settings-help lf-settings-warning">{{ .Lang "txtServiceRestartRequired" }}</span>
+                                        <button class="lf-button" id="btnSaveSupportedDevices">{{ .Lang "txtSave" }}</button>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                </section>
+            </section>
     </div>
     </main>
 </div>
 <script src="/static/js/settings.js"></script>
-{{ if .Dashboard.TemperatureBar }}
-<script src="/static/js/temperature-bar.js"></script>
-{{ end }}
 </body>
 </html>

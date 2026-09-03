@@ -4,6 +4,7 @@
 <body>
     <div class="lf-app-shell lf-cluster-shell lf-dashboard-shell{{ if .Dashboard.SidebarCollapsed }} lf-global-nav-collapsed{{ end }}">
         {{ template "modern-nav" . }}
+        {{ template "modern-system-drawer" . }}
 
         <main class="lf-device-workspace lf-cluster-workspace lf-dashboard-workspace">
             <div class="lf-dashboard">

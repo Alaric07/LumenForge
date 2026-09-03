@@ -19,6 +19,22 @@ test("Dashboard settings retain active controls without legacy membership state"
     assert.match(settingsScript, /pf\["theme"\]/);
 });
 
+test("Settings uses the modern workspace while preserving all functional sections and controls", function () {
+    assert.match(settingsTemplate, /lf-app-shell lf-system-shell/);
+    assert.match(settingsTemplate, /template "modern-nav"/);
+    assert.match(settingsTemplate, /template "modern-system-drawer"/);
+    assert.match(settingsTemplate, /lf-settings-workspace|lf-system-workspace/);
+    assert.doesNotMatch(settingsTemplate, /template "sidebar"|sidebar\.js|template "temperature-bar"|temperature-bar\.js/);
+    for (const section of ["Preferences", "Automation", "txtDisplay", "txtVirtualAudio", "txtBackupRestore", "OpenRGB SDK Integration", "txtSupportedDevices"]) {
+        assert.match(settingsTemplate, new RegExp(section));
+    }
+    for (const id of ["theme", "btnSaveDashboardSettings", "rgbControl", "lcdControl", "virtualAudio", "restoreForm", "btnBackup", "backupFile", "btnRestore", "btnOpenRGBDiscover", "btnOpenRGBRefresh", "dataTable", "btnSaveSupportedDevices"]) {
+        assert.match(settingsTemplate, new RegExp('id="' + id + '"'));
+    }
+    const preferences = settingsTemplate.match(/<section class="lf-settings-panel">[\s\S]*?<\/section>/)?.[0] || "";
+    assert.match(preferences, /id="theme"/);
+});
+
 test("restore success keeps the server restart message prominent", function () {
     assert.match(settingsScript, /toast\.success\(response\)/);
     assert.match(settingsScript, /restoreRestartWarning/);

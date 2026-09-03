@@ -18,17 +18,13 @@
         </nav>
         <nav class="lf-global-utility-links" aria-label="Utility navigation">
             {{ $isSystemActive := or (eq .Page "settings") (eq .Page "lcd") (eq .Page "macros") (eq .Page "temperature") }}
-            {{ if $isSystemActive }}
-                <button class="lf-global-link lf-global-link-active lf-global-system-toggle" type="button" data-lf-system-drawer-toggle data-lf-drawer-toggle aria-controls="lf-system-drawer" aria-expanded="true" aria-label="System" title="System" aria-current="page"><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-settings.svg" alt=""></span><span class="lf-global-label">System</span></button>
-            {{ else }}
-                <a class="lf-global-link" href="/settings" aria-label="System" title="System"><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-settings.svg" alt=""></span><span class="lf-global-label">System</span></a>
-            {{ end }}
+            <button class="lf-global-link lf-global-system-toggle{{ if $isSystemActive }} lf-global-link-active{{ end }}" type="button" data-lf-system-drawer-toggle data-lf-drawer-toggle aria-controls="lf-system-drawer" aria-expanded="false" aria-label="System" title="System"{{ if $isSystemActive }} aria-current="page"{{ end }}><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-settings.svg" alt=""></span><span class="lf-global-label">System</span></button>
         </nav>
     </aside>
 {{ end }}
 
 {{ define "modern-system-drawer" }}
-    <aside class="lf-system-panel lf-system-panel-open" id="lf-system-drawer" aria-labelledby="lf-system-drawer-title" aria-label="System" data-lf-system-drawer data-lf-drawer data-lf-drawer-open-class="lf-system-panel-open">
+    <aside class="lf-device-panel lf-system-panel" id="lf-system-drawer" aria-labelledby="lf-system-drawer-title" aria-label="System" data-lf-system-drawer data-lf-drawer data-lf-drawer-open-class="lf-system-panel-open">
         <header class="lf-panel-header">
             <div>
                 <p class="lf-section-kicker">Application controls</p>
@@ -36,11 +32,11 @@
             </div>
             <span class="lf-panel-header-mark" aria-hidden="true"></span>
         </header>
-        <nav class="lf-system-list" aria-label="System navigation">
-            <a class="lf-system-item{{ if eq .Page "settings" }} lf-system-item-active{{ end }}" href="/settings" data-lf-drawer-item{{ if eq .Page "settings" }} aria-current="page"{{ end }}><span class="lf-system-icon-frame"><img class="lf-system-icon" src="/static/img/icons/icon-settings.svg" alt=""></span><span>Settings</span></a>
-            <a class="lf-system-item{{ if eq .Page "lcd" }} lf-system-item-active{{ end }}" href="/lcd" data-lf-drawer-item{{ if eq .Page "lcd" }} aria-current="page"{{ end }}><span class="lf-system-icon-frame"><img class="lf-system-icon" src="/static/img/icons/icon-lcd.svg" alt=""></span><span>LCD</span></a>
-            <a class="lf-system-item{{ if eq .Page "macros" }} lf-system-item-active{{ end }}" href="/macros" data-lf-drawer-item{{ if eq .Page "macros" }} aria-current="page"{{ end }}><span class="lf-system-icon-frame"><img class="lf-system-icon" src="/static/img/icons/icon-macro.svg" alt=""></span><span>Macros</span></a>
-            <a class="lf-system-item{{ if eq .Page "temperature" }} lf-system-item-active{{ end }}" href="/temperature" data-lf-drawer-item{{ if eq .Page "temperature" }} aria-current="page"{{ end }}><span class="lf-system-icon-frame"><img class="lf-system-icon" src="/static/img/icons/icon-temperature.svg" alt=""></span><span>Cooling Profiles</span></a>
+        <nav class="lf-device-list" aria-label="System navigation">
+            <a class="lf-device-item{{ if eq .Page "settings" }} lf-device-item-active{{ end }}" href="/settings" data-lf-drawer-item{{ if eq .Page "settings" }} aria-current="page"{{ end }}><span class="lf-device-image-frame"><img class="lf-device-image" src="/static/img/icons/icon-settings.svg" alt=""></span><span class="lf-device-details"><span class="lf-device-product">Settings</span></span><span class="lf-device-chevron" aria-hidden="true">›</span></a>
+            <a class="lf-device-item{{ if eq .Page "lcd" }} lf-device-item-active{{ end }}" href="/lcd" data-lf-drawer-item{{ if eq .Page "lcd" }} aria-current="page"{{ end }}><span class="lf-device-image-frame"><img class="lf-device-image" src="/static/img/icons/icon-lcd.svg" alt=""></span><span class="lf-device-details"><span class="lf-device-product">LCD</span></span><span class="lf-device-chevron" aria-hidden="true">›</span></a>
+            <a class="lf-device-item{{ if eq .Page "macros" }} lf-device-item-active{{ end }}" href="/macros" data-lf-drawer-item{{ if eq .Page "macros" }} aria-current="page"{{ end }}><span class="lf-device-image-frame"><img class="lf-device-image" src="/static/img/icons/icon-macro.svg" alt=""></span><span class="lf-device-details"><span class="lf-device-product">Macros</span></span><span class="lf-device-chevron" aria-hidden="true">›</span></a>
+            <a class="lf-device-item{{ if eq .Page "temperature" }} lf-device-item-active{{ end }}" href="/temperature" data-lf-drawer-item{{ if eq .Page "temperature" }} aria-current="page"{{ end }}><span class="lf-device-image-frame"><img class="lf-device-image" src="/static/img/icons/icon-temperature.svg" alt=""></span><span class="lf-device-details"><span class="lf-device-product">Cooling Profiles</span></span><span class="lf-device-chevron" aria-hidden="true">›</span></a>
         </nav>
     </aside>
 {{ end }}

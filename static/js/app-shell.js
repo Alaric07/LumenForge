@@ -62,7 +62,17 @@
             if (!drawerToggle) continue;
             const openClass = drawerOpenClass(drawer);
             drawerToggle.addEventListener("click", function () {
-                setDrawerOpen(drawer, drawerToggle, !drawer.classList.contains(openClass));
+                const open = !drawer.classList.contains(openClass);
+                if (open) {
+                    for (const otherDrawer of drawers) {
+                        if (otherDrawer === drawer) continue;
+                        const otherToggle = shell.querySelector('[data-lf-drawer-toggle][aria-controls="' + otherDrawer.id + '"]');
+                        if (otherToggle && otherDrawer.classList.contains(drawerOpenClass(otherDrawer))) {
+                            setDrawerOpen(otherDrawer, otherToggle, false);
+                        }
+                    }
+                }
+                setDrawerOpen(drawer, drawerToggle, open);
             });
             drawer.addEventListener("click", function (event) {
                 if (event.target.closest("[data-lf-drawer-item]")) {
