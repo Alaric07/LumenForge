@@ -659,7 +659,10 @@ as safe or conditionally safe backup candidates:
 - `external-sources.json` for the same host and trust policy;
 - `database/openrgbimport-zones.json` only while its exact schema remains
   compatible;
-- `dashboard.json` only while its exact schema remains compatible.
+- `dashboard.json` while its active settings and `DashboardLayout` placement
+  schema remain compatible. Older files containing retired `devices` or
+  `addDeviceToDashboard` fields remain readable because decoding ignores those
+  unknown fields; normal reserialization drops them.
 
 Expected old lighting data to discard includes:
 

@@ -774,21 +774,34 @@ notices, focus states, and narrow layouts.
 
 ## 10. Dashboard and application shell
 
-- [ ] Add collapsible far-left global navigation.
-- [ ] Show icon and label in the expanded state.
-- [ ] Show an icon with an accessible name and tooltip in the collapsed state.
-- [ ] Keep the selected state clear.
-- [ ] Persist the user's preference.
-- [ ] Preserve keyboard support.
-- [ ] Use a smooth but restrained width transition.
-- [ ] Keep the device list as a separate middle column.
-- [ ] Keep responsive behavior independent from desktop collapse state.
-- [ ] Put global CPU, GPU, and storage telemetry on the Dashboard.
-- [ ] Avoid repeating global telemetry on every page.
+- [x] `050a4012` — Add a collapsible far-left global navigation with expanded
+  icon-and-label links, collapsed accessible icon/tooltip links, clear selected
+  state, keyboard support, and a restrained width transition.
+- [x] Persist the collapse preference in `Dashboard.SidebarCollapsed`, with
+  `localStorage` restoring the modern shell immediately. Responsive navigation
+  remains independent of the desktop collapse preference.
+- [x] `55678e5d` — Redesign the Dashboard System Overview with CPU, GPU,
+  Memory, and storage telemetry plus lighting status, without repeating global
+  telemetry on every page.
+- [x] `a54987b1` — Present supported connected devices from the current-device
+  source with stable source-namespaced card identities.
+- [x] `8a7a41d7` and `f767211c` — Persist movable cards as natural-height
+  masonry lanes. Disconnected cards retain saved placement so a reconnect
+  restores it.
+- [x] `6c85a11a` — Add bounded browser-session telemetry history: CPU, GPU, and
+  DIMM sparklines plus cooling histories for average fan speed, coolant, and
+  temperature probes. Pointer and keyboard inspection expose historical samples.
+- [x] `8d135f65` — Remove manual Dashboard membership and
+  `AddDeviceToDashboard`. `/api/dashboard/devices/current` is authoritative for
+  visible supported-device presence; `DashboardLayout` stores placement only.
+  Supported devices disappear and reappear automatically as hardware disconnects
+  and reconnects.
 - [ ] Review top-level Information and Settings pages for semantic-theme and
   shell consistency.
 
-The collapsible sidebar is a separate milestone from lighting mutations.
+The primary Dashboard and application-shell milestone is complete. Targeted
+responsive and accessibility polish remains ongoing work rather than a claim of
+permanent completion.
 
 ## 11. Usability and accessibility
 
@@ -905,8 +918,8 @@ for device-owned modes (`ce890f75`).
 remaining override infrastructure, and duplicated metadata after every
 proven consumer reaches parity.
 26. [ ] Add final clean-install, selective-backup, and release guidance.
-27. [ ] Continue shell, Dashboard telemetry, responsive, accessibility, and
-polish milestones independently.
+27. [ ] Continue targeted responsive, accessibility, and shell-consistency
+    polish independently of the completed Dashboard milestone.
 
 This order may change when implementation uncovers a prerequisite or defect.
 Record any change and its reason in this document.
@@ -932,7 +945,6 @@ Record any change and its reason in this document.
 
 ## 16. Open decisions
 
-- [!] Persistence location for collapsed sidebar state
 - [!] Whether future renderer dispatch remains switch-based or uses registered
   function references
 - [!] Degree of native-device capability normalization
