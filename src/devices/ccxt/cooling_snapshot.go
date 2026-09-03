@@ -35,11 +35,21 @@ func (d *Device) CoolingSnapshot() (coolingpresentation.Snapshot, bool) {
 			continue
 		}
 		if device.HasSpeed {
-			snapshot.Channels = append(snapshot.Channels, coolingpresentation.Channel{ID: device.ChannelId, Name: device.Name, Label: device.Label, RPM: device.Rpm, SelectedProfile: device.Profile})
+			var celsius *float32
+			if device.Temperature > 0 {
+				value := device.Temperature
+				celsius = &value
+			}
+			snapshot.Channels = append(snapshot.Channels, coolingpresentation.Channel{ID: device.ChannelId, Name: device.Name, Label: device.Label, RPM: device.Rpm, Temperature: device.TemperatureString, Celsius: celsius, ContainsPump: device.ContainsPump, SelectedProfile: device.Profile})
 			continue
 		}
 		if device.IsTemperatureProbe {
-			snapshot.TemperatureProbes = append(snapshot.TemperatureProbes, coolingpresentation.TemperatureProbe{ID: device.ChannelId, Name: device.Name, Label: device.Label, Temperature: device.TemperatureString})
+			var celsius *float32
+			if device.Temperature > 0 {
+				value := device.Temperature
+				celsius = &value
+			}
+			snapshot.TemperatureProbes = append(snapshot.TemperatureProbes, coolingpresentation.TemperatureProbe{ID: device.ChannelId, Name: device.Name, Label: device.Label, Temperature: device.TemperatureString, Celsius: celsius})
 		}
 	}
 	sort.Slice(snapshot.Channels, func(i, j int) bool { return snapshot.Channels[i].ID < snapshot.Channels[j].ID })

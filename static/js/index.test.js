@@ -129,6 +129,16 @@ test("Dashboard native and OpenRGB cards share the fill-lane card class", functi
     assert.match(source, /link\.addClass\("lf-dashboard-openrgb-row"\)/);
 });
 
+test("Dashboard cooling cards use native SVG sparklines from the shared history renderer", function () {
+    const source = fs.readFileSync(__dirname + "/index.js", "utf8");
+
+    assert.match(source, /history\.createSparkline\(window\.document, key\)/);
+    assert.match(source, /history\.keys\.fanAverage\(card\.serial\)/);
+    assert.match(source, /history\.keys\.coolant\(card\.serial\)/);
+    assert.match(source, /history\.keys\.probe\(card\.serial, probe\.id\)/);
+    assert.doesNotMatch(source, /\$\("<svg>"/);
+});
+
 test("Dashboard drag feedback keeps a source state, drop target, and reliable cleanup", function () {
     const source = fs.readFileSync(__dirname + "/index.js", "utf8");
 

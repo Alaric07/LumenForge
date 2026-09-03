@@ -16,6 +16,7 @@
                 <span class="lf-telemetry-value" data-lf-dashboard-cpu-temperature>{{ .CpuTemp }}</span>
             </div>
         </div>
+        <div class="lf-dashboard-sparkline-inspector" data-lf-sparkline-inspector><svg class="lf-dashboard-sparkline" viewBox="0 0 120 36" preserveAspectRatio="none" data-lf-sparkline-key="cpu" tabindex="-1" aria-label="CPU temperature history"></svg><span class="lf-dashboard-sparkline-readout" data-lf-sparkline-readout hidden></span></div>
         <span class="lf-dashboard-gauge-model" title="{{ .SystemInfo.CPU.Model }}">{{ .SystemInfo.CPU.Model }}</span>
     </article>
     {{ end }}
@@ -32,6 +33,7 @@
                 <span class="lf-telemetry-value" data-lf-dashboard-gpu-temperature="{{ .Index }}">{{ $dash.TemperatureToString .Temperature }}</span>
             </div>
         </div>
+        <div class="lf-dashboard-sparkline-inspector" data-lf-sparkline-inspector><svg class="lf-dashboard-sparkline" viewBox="0 0 120 36" preserveAspectRatio="none" data-lf-sparkline-key="gpu:{{ .Index }}" tabindex="-1" aria-label="GPU temperature history"></svg><span class="lf-dashboard-sparkline-readout" data-lf-sparkline-readout hidden></span></div>
         <span class="lf-dashboard-gauge-model" title="{{ .Model }}">{{ .Model }}</span>
     </article>
     {{ end }}
@@ -48,6 +50,7 @@
                 <span class="lf-telemetry-value" data-lf-dashboard-memory-temperature data-lf-dashboard-memory-serial="{{ .Serial }}" data-lf-dashboard-memory-channel="{{ .ChannelID }}">{{ .Temperature }}</span>
             </div>
         </div>
+        <div class="lf-dashboard-sparkline-inspector" data-lf-sparkline-inspector><svg class="lf-dashboard-sparkline" viewBox="0 0 120 36" preserveAspectRatio="none" data-lf-sparkline-key="memory:{{ .Serial }}:{{ .ChannelID }}" tabindex="-1" aria-label="DIMM temperature history"></svg><span class="lf-dashboard-sparkline-readout" data-lf-sparkline-readout hidden></span></div>
         <span class="lf-dashboard-gauge-model" title="{{ .Name }}">{{ .Name }}</span>
     </article>
     {{ end }}

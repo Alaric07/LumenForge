@@ -11,6 +11,24 @@ const navTemplate = fs.readFileSync(path.join(root, "web", "modern-nav.html"), "
 const devicesTemplate = fs.readFileSync(path.join(root, "web", "devices.html"), "utf8");
 const css = fs.readFileSync(path.join(root, "static", "css", "app-shell.css"), "utf8");
 
+test("sparkline inspection readouts use an in-strip semantic overlay", function () {
+    const readout = css.match(/\.lf-dashboard-sparkline-readout \{[^}]+\}/)?.[0] || "";
+    assert.match(readout, /position: absolute/);
+    assert.match(readout, /right: 2px/);
+    assert.match(readout, /top: 2px/);
+    assert.match(readout, /display: block/);
+    assert.match(readout, /visibility: visible/);
+    assert.match(readout, /opacity: 1/);
+    assert.match(readout, /z-index: 2/);
+    assert.match(readout, /padding: 2px 6px/);
+    assert.match(readout, /border-radius: 6px/);
+    assert.match(readout, /background: var\(--lf-panel-elevated\)/);
+    assert.match(readout, /color: var\(--lf-text-primary\)/);
+    assert.match(readout, /pointer-events: none/);
+    assert.match(readout, /white-space: nowrap/);
+    assert.match(css, /\.lf-dashboard-sparkline-readout\[hidden\] \{\s*display: none;/);
+});
+
 test("modern shell uses the established sidebar preference and endpoint", function () {
     assert.match(source, /lumenforge-sidebarCollapsed/);
     assert.match(source, /\/api\/dashboard\/sidebar/);

@@ -942,6 +942,58 @@
     text-align: center;
 }
 
+.lf-dashboard-sparkline-inspector {
+    display: block;
+    position: relative;
+    min-width: 0;
+}
+
+.lf-dashboard-sparkline {
+    display: block;
+    width: 100%;
+    height: 36px;
+    overflow: visible;
+}
+
+.lf-dashboard-sparkline path {
+    fill: none;
+    stroke: var(--lf-telemetry-value);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+}
+
+.lf-dashboard-sparkline [data-lf-sparkline-marker] {
+    fill: var(--lf-telemetry-value);
+    stroke: var(--lf-panel-secondary);
+    stroke-width: 1.5;
+    r: 2.5;
+}
+
+.lf-dashboard-sparkline-readout {
+    position: absolute;
+    display: block;
+    visibility: visible;
+    opacity: 1;
+    z-index: 2;
+    right: 2px;
+    top: 2px;
+    max-width: 100%;
+    padding: 2px 6px;
+    border: 1px solid var(--lf-border-subtle);
+    border-radius: 6px;
+    background: var(--lf-panel-elevated);
+    color: var(--lf-text-primary);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.lf-dashboard-sparkline-readout[hidden] {
+    display: none;
+}
+
 .lf-dashboard-storage,
 .lf-dashboard-lighting-summary {
     display: grid;
@@ -1200,6 +1252,37 @@
     margin-top: 12px;
     color: var(--lf-text-secondary);
     font-size: 12px;
+}
+
+.lf-dashboard-history {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--lf-border-subtle);
+}
+
+.lf-dashboard-history-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px 10px;
+    align-items: baseline;
+    color: var(--lf-text-secondary);
+    font-size: 12px;
+}
+
+.lf-dashboard-history-row strong {
+    color: var(--lf-telemetry-value);
+    font-variant-numeric: tabular-nums;
+    font-weight: 650;
+}
+
+.lf-dashboard-history-row .lf-dashboard-sparkline {
+    grid-column: 1 / -1;
+}
+
+.lf-dashboard-history-row .lf-dashboard-sparkline-inspector {
+    grid-column: 1 / -1;
 }
 
 .lf-dashboard-device-lane-dense .lf-dashboard-device-state,

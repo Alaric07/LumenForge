@@ -1684,6 +1684,19 @@ type dashboardDeviceSummary struct {
 	Lighting   string                     `json:"lighting,omitempty"`
 	Brightness *uint8                     `json:"brightness,omitempty"`
 	StatusRows []dashboardDeviceStatusRow `json:"statusRows,omitempty"`
+	Telemetry  *dashboardDeviceTelemetry  `json:"telemetry,omitempty"`
+}
+
+type dashboardDeviceTelemetry struct {
+	AverageFanRPM     *int                                 `json:"averageFanRPM,omitempty"`
+	CoolantCelsius    *float32                             `json:"coolantCelsius,omitempty"`
+	TemperatureProbes []dashboardTemperatureProbeTelemetry `json:"temperatureProbes,omitempty"`
+}
+
+type dashboardTemperatureProbeTelemetry struct {
+	ID      int     `json:"id"`
+	Label   string  `json:"label"`
+	Celsius float32 `json:"celsius"`
 }
 
 type dashboardDeviceStatusRow struct {
@@ -1795,6 +1808,35 @@ func dashboardDeviceStatus(summary *devicesWorkspaceSummary) []dashboardDeviceSt
 	return rows
 }
 
+func dashboardCoolingTelemetry(snapshot coolingpresentation.Snapshot) *dashboardDeviceTelemetry {
+	telemetry := &dashboardDeviceTelemetry{}
+	var fanTotal, fanCount int
+	for _, channel := range snapshot.Channels {
+		if !channel.ContainsPump && channel.RPM > 0 {
+			fanTotal += int(channel.RPM)
+			fanCount++
+		}
+		if channel.ContainsPump && channel.Celsius != nil && *channel.Celsius > 0 && telemetry.CoolantCelsius == nil {
+			value := *channel.Celsius
+			telemetry.CoolantCelsius = &value
+		}
+	}
+	if fanCount > 0 {
+		average := int(math.Round(float64(fanTotal) / float64(fanCount)))
+		telemetry.AverageFanRPM = &average
+	}
+	for _, probe := range snapshot.TemperatureProbes {
+		if probe.Celsius == nil || *probe.Celsius <= 0 {
+			continue
+		}
+		telemetry.TemperatureProbes = append(telemetry.TemperatureProbes, dashboardTemperatureProbeTelemetry{ID: probe.ID, Label: devicesOverviewCoolingLabel(probe.Label, probe.Name), Celsius: *probe.Celsius})
+	}
+	if telemetry.AverageFanRPM == nil && telemetry.CoolantCelsius == nil && len(telemetry.TemperatureProbes) == 0 {
+		return nil
+	}
+	return telemetry
+}
+
 func dashboardMemoryModuleName(module devicesMemoryModuleSummary) string {
 	name := strings.TrimSpace(module.Name)
 	if name != "" && !strings.HasPrefix(strings.ToUpper(name), "DIMM ") {
@@ -1853,6 +1895,11 @@ func dashboardCurrentDevices(connected map[string]*common.Device, battery map[st
 			name = summary.Product
 		}
 		item := dashboardDeviceSummary{Serial: summary.Serial, Name: name, Product: summary.Product, Lighting: dashboardLightingState(summary.Lighting), StatusRows: dashboardDeviceStatus(summary)}
+		if coolingDevice, ok := device.Instance.(devicesCoolingSnapshotProvider); ok && coolingDevice != nil && coolingDevice.CoolingDeviceID() == serial {
+			if snapshot, usable := coolingDevice.CoolingSnapshot(); usable {
+				item.Telemetry = dashboardCoolingTelemetry(snapshot)
+			}
+		}
 		if summary.Lighting != nil && summary.Lighting.HasBrightness {
 			brightness := summary.Lighting.Brightness
 			item.Brightness = &brightness

@@ -15,6 +15,7 @@ type Channel struct {
 	Label           string
 	RPM             int16
 	Temperature     string
+	Celsius         *float32
 	ContainsPump    bool
 	SelectedProfile string
 }
@@ -25,6 +26,7 @@ type TemperatureProbe struct {
 	Name        string
 	Label       string
 	Temperature string
+	Celsius     *float32
 }
 
 // Snapshot is a read-only cooling capability snapshot. Mutations continue to

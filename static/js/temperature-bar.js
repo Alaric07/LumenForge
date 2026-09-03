@@ -33,6 +33,8 @@ const dashboardTelemetry = (function () {
         document.querySelectorAll('[data-lf-dashboard-gauge="cpu"]').forEach(function (gauge) {
             updateGauge(gauge, celsius);
         });
+        const history = typeof globalThis.dashboardHistory === "object" ? globalThis.dashboardHistory : null;
+        if (history?.append(history.keys.cpu(), celsius)) history.render(document, history.keys.cpu(), "temperature");
     }
 
     function updateGPU(document, index, value, celsius) {
@@ -48,6 +50,8 @@ const dashboardTelemetry = (function () {
                 updateGauge(gauge, celsius);
             }
         });
+        const history = typeof globalThis.dashboardHistory === "object" ? globalThis.dashboardHistory : null, key = history?.keys.gpu(index);
+        if (key && history.append(key, celsius)) history.render(document, key, "temperature");
     }
 
     function updateMemory(document, memory) {
@@ -63,6 +67,8 @@ const dashboardTelemetry = (function () {
                 updateGauge(gauge, memory.celsius);
             }
         });
+        const history = typeof globalThis.dashboardHistory === "object" ? globalThis.dashboardHistory : null, key = history?.keys.memory(memory.serial, memory.channelId);
+        if (key && history.append(key, memory.celsius)) history.render(document, key, "temperature");
     }
 
     function updateStorage(document, storage) {

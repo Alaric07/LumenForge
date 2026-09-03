@@ -67,7 +67,7 @@ func TestCCXTCoolingSnapshotUsesExistingChannelState(t *testing.T) {
 	t.Cleanup(func() { coolingTemperatureProfiles = originalProfiles })
 
 	device := &Device{Serial: "ccxt-cooling", Devices: map[int]*Devices{
-		2: {ChannelId: 2, Name: "Fan 2", Label: "Rear fan", Rpm: 912, Profile: "quiet", HasSpeed: true},
+		2: {ChannelId: 2, Name: "Pump", Label: "Coolant", Rpm: 912, Temperature: 31.2, TemperatureString: "31.2°C", Profile: "quiet", HasSpeed: true, ContainsPump: true},
 		1: {ChannelId: 1, Name: "Probe 1", Label: "Coolant", TemperatureString: "31.2°C", IsTemperatureProbe: true, HasTemps: true},
 		3: {ChannelId: 3, Name: "RGB port", Label: "ignored"},
 	}}
@@ -77,8 +77,11 @@ func TestCCXTCoolingSnapshotUsesExistingChannelState(t *testing.T) {
 		t.Fatalf("snapshot = %#v, ok=%t", snapshot, ok)
 	}
 	channel := snapshot.Channels[0]
-	if channel.ID != 2 || channel.Name != "Fan 2" || channel.Label != "Rear fan" || channel.RPM != 912 || channel.SelectedProfile != "quiet" {
+	if channel.ID != 2 || channel.Name != "Pump" || channel.Label != "Coolant" || channel.RPM != 912 || channel.SelectedProfile != "quiet" || !channel.ContainsPump {
 		t.Fatalf("channel = %#v", channel)
+	}
+	if channel.Temperature != "31.2°C" || channel.Celsius == nil || *channel.Celsius != 31.2 {
+		t.Fatalf("channel temperature = %#v", channel)
 	}
 	if len(snapshot.TemperatureProbes) != 1 || snapshot.TemperatureProbes[0].ID != 1 || snapshot.TemperatureProbes[0].Temperature != "31.2°C" {
 		t.Fatalf("probes = %#v", snapshot.TemperatureProbes)

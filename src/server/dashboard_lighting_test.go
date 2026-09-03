@@ -246,6 +246,26 @@ func TestDashboardCurrentDevicesKeepAggregateCoolingRowsInsideOneCard(t *testing
 	}
 }
 
+func TestDashboardCoolingTelemetryUsesTypedSnapshotValues(t *testing.T) {
+	coolant, intake, radiator := float32(31.5), float32(29), float32(27.25)
+	snapshot := coolingpresentation.Snapshot{Available: true, Channels: []coolingpresentation.Channel{
+		{ID: 0, Name: "Pump", RPM: 2400, ContainsPump: true, Celsius: &coolant},
+		{ID: 1, Name: "Fan 1", RPM: 581}, {ID: 2, Name: "Fan 2", RPM: 604}, {ID: 3, Name: "Fan 3", RPM: 0},
+	}, TemperatureProbes: []coolingpresentation.TemperatureProbe{
+		{ID: 7, Name: "Probe 1", Label: "Radiator", Celsius: &radiator}, {ID: 8, Name: "Probe 2", Celsius: &intake}, {ID: 9, Name: "Probe 3"},
+	}}
+	telemetry := dashboardCoolingTelemetry(snapshot)
+	if telemetry == nil || telemetry.AverageFanRPM == nil || *telemetry.AverageFanRPM != 593 || telemetry.CoolantCelsius == nil || *telemetry.CoolantCelsius != coolant {
+		t.Fatalf("telemetry = %#v", telemetry)
+	}
+	if len(telemetry.TemperatureProbes) != 2 || telemetry.TemperatureProbes[0].ID != 7 || telemetry.TemperatureProbes[0].Label != "Radiator" || telemetry.TemperatureProbes[1].ID != 8 || telemetry.TemperatureProbes[1].Label != "Probe 2" {
+		t.Fatalf("probe telemetry = %#v", telemetry.TemperatureProbes)
+	}
+	if dashboardCoolingTelemetry(coolingpresentation.Snapshot{Available: true, Channels: []coolingpresentation.Channel{{ContainsPump: true, RPM: 2400}}}) != nil {
+		t.Fatal("pump-only snapshot produced Dashboard telemetry")
+	}
+}
+
 func TestDashboardPerformanceStatusKeepsUsefulMouseAndKeyboardFacts(t *testing.T) {
 	mouse := &devicesWorkspaceSummary{
 		OverviewPerformance: &devicesOverviewPerformanceStatusSummary{Rows: []devicesOverviewStatusRow{{Label: "DPI", Value: "1600"}, {Label: "Polling Rate", Value: "1000 Hz"}}},
