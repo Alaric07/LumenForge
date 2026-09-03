@@ -174,18 +174,22 @@ func TestUpdateDashboardLayoutPersistsWithoutChangingLegacyMembership(t *testing
 	t.Cleanup(func() { dashboard, location = originalDashboard, originalLocation })
 	location = filepath.Join(t.TempDir(), "dashboard.json")
 	dashboard = Dashboard{Devices: []string{"legacy-device"}}
-	layout := []LayoutItem{{ID: "native:device-a", X: 1, Y: 0, W: 1, H: 1}, {ID: "openrgb:device-b", X: 1, Y: 0, W: 1, H: 1}}
+	layout := []LayoutItem{{ID: "native:device-a", Column: 1, Order: 0}, {ID: "openrgb:device-b", Column: 1, Order: 0}}
 	status, persisted := UpdateDashboardLayout(layout)
-	if status != 1 || len(persisted) != 2 || persisted[1].X != 2 || !reflect.DeepEqual(dashboard.Devices, []string{"legacy-device"}) {
+	if status != 1 || len(persisted) != 2 || persisted[1].Order != 1 || !reflect.DeepEqual(dashboard.Devices, []string{"legacy-device"}) {
 		t.Fatalf("layout update = %#v, legacy devices = %#v", persisted, dashboard.Devices)
 	}
-	if status, _ := UpdateDashboardLayout([]LayoutItem{{ID: "native:device-a", X: -1, Y: 0, W: 1, H: 1}}); status != 0 {
+	if status, _ := UpdateDashboardLayout([]LayoutItem{{ID: "native:device-a", Column: -1, Order: 0}}); status != 0 {
 		t.Fatal("invalid coordinate was accepted")
 	}
-	if status, _ := UpdateDashboardLayout([]LayoutItem{{ID: "native:device-a", X: layoutColumns, Y: 0, W: 1, H: 1}}); status != 0 {
-		t.Fatal("out-of-range layout column was accepted")
+	if status, _ := UpdateDashboardLayout([]LayoutItem{{ID: "native:device-a", Column: 0, Order: -1}}); status != 0 {
+		t.Fatal("negative stack order was accepted")
 	}
-	if status, _ := UpdateDashboardLayout([]LayoutItem{{ID: "native:device-a", X: 0, Y: 0, W: 1, H: 1}, {ID: "native:device-a", X: 1, Y: 0, W: 1, H: 1}}); status != 0 {
+	if status, _ := UpdateDashboardLayout([]LayoutItem{{ID: "native:device-a", Column: 0, Order: 0}, {ID: "native:device-a", Column: 1, Order: 0}}); status != 0 {
 		t.Fatal("duplicate layout ID was accepted")
+	}
+	var legacy LayoutItem
+	if err := json.Unmarshal([]byte(`{"id":"native:legacy","x":2,"y":3,"w":4,"h":5}`), &legacy); err != nil || legacy.Column != 2 || legacy.Order != 3 {
+		t.Fatalf("legacy layout was not mapped: %#v, %v", legacy, err)
 	}
 }

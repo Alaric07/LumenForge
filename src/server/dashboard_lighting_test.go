@@ -301,16 +301,26 @@ func TestDashboardControllerCardsUseNaturalHeight(t *testing.T) {
 		return string(stylesheet[start : start+end])
 	}
 
-	if grid := rule(".lf-dashboard-device-grid"); !strings.Contains(grid, "align-items: start;") || !strings.Contains(grid, "grid-auto-rows: max-content;") {
+	if grid := rule(".lf-dashboard-device-grid"); !strings.Contains(grid, "display: flex;") || !strings.Contains(grid, "flex-wrap: wrap;") || !strings.Contains(grid, "gap: 10px;") {
 		t.Errorf("Dashboard device grid still stretches cards: %q", grid)
 	}
+	lane := rule(".lf-dashboard-device-lane")
+	if !strings.Contains(lane, "flex-direction: column;") || !strings.Contains(lane, "align-items: stretch;") || !strings.Contains(lane, "width: min(300px, 100%);") || !strings.Contains(lane, "gap: 10px;") {
+		t.Errorf("Dashboard device lane does not preserve independent natural-height stacks: %q", lane)
+	}
+	if strings.Contains(string(stylesheet), "width: min(310px, 100%);") || !strings.Contains(string(stylesheet), "minmax(max-content, 1fr)") {
+		t.Error("Dense Dashboard lanes do not preserve wider one-line telemetry")
+	}
 	card := rule(".lf-dashboard-device-card")
-	if !strings.Contains(card, "align-self: start;") || strings.Contains(card, "height:") || strings.Contains(card, "overflow:") {
+	if !strings.Contains(card, "align-self: stretch;") || !strings.Contains(card, "width: 100%;") || !strings.Contains(card, "box-sizing: border-box;") || strings.Contains(card, "height:") || strings.Contains(card, "overflow:") {
 		t.Errorf("Dashboard controller card can truncate cooling rows: %q", card)
 	}
 	wrapper := rule(".lf-dashboard-layout-card")
-	if !strings.Contains(wrapper, "min-height: max-content;") || !strings.Contains(wrapper, "height: auto;") || !strings.Contains(wrapper, "overflow: visible;") {
+	if !strings.Contains(wrapper, "min-height: max-content;") || !strings.Contains(wrapper, "height: auto;") || !strings.Contains(wrapper, "overflow: visible;") || !strings.Contains(wrapper, "align-self: stretch;") || !strings.Contains(wrapper, "width: 100%;") || !strings.Contains(wrapper, "box-sizing: border-box;") {
 		t.Errorf("Dashboard movable wrapper can clip card content: %q", wrapper)
+	}
+	if strings.Contains(string(stylesheet), "lf-dashboard-card-resize") || strings.Contains(string(stylesheet), "nwse-resize") {
+		t.Error("Dashboard retained a resize affordance")
 	}
 	statusStart := strings.Index(string(stylesheet), ".lf-dashboard-device-state strong,")
 	if statusStart < 0 {
@@ -325,7 +335,7 @@ func TestDashboardControllerCardsUseNaturalHeight(t *testing.T) {
 		t.Errorf("Dashboard telemetry values can still be truncated: %q", status)
 	}
 	title := rule(".lf-dashboard-layout-card .lf-dashboard-device-title")
-	if !strings.Contains(title, "padding-right: 82px;") || !strings.Contains(title, "white-space: normal;") {
+	if !strings.Contains(title, "padding-right: 132px;") || !strings.Contains(title, "white-space: normal;") {
 		t.Errorf("Dashboard device titles can overlap movement controls: %q", title)
 	}
 	dragging := rule(".lf-dashboard-card-dragging .lf-dashboard-device-card")

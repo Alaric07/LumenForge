@@ -40,19 +40,14 @@ type Dashboard struct {
 	DashboardLayout      []LayoutItem   `json:"dashboardLayout"`
 }
 
-// LayoutItem is a logical Dashboard device-card position. Width and height are
-// persisted now so a later card-size phase can extend the same stable schema.
-// Phase 3A accepts only one-cell cards.
+// LayoutItem is a logical Dashboard device-card lane and stack position.
 type LayoutItem struct {
-	ID string `json:"id"`
-	X  int    `json:"x"`
-	Y  int    `json:"y"`
-	W  int    `json:"w"`
-	H  int    `json:"h"`
+	ID     string `json:"id"`
+	Column int    `json:"column"`
+	Order  int    `json:"order"`
 }
 
 const (
-	layoutColumns       = 4
 	layoutCoordinateMax = 10000
 )
 
@@ -194,8 +189,34 @@ func validLayoutItem(item LayoutItem) bool {
 		serial = strings.TrimPrefix(item.ID, "openrgb:")
 	}
 	return serial != "" && common.AlphanumericDashRegex.MatchString(serial) &&
-		item.X >= 0 && item.X < layoutColumns && item.Y >= 0 && item.Y <= layoutCoordinateMax &&
-		item.W == 1 && item.H == 1
+		item.Column >= 0 && item.Column <= layoutCoordinateMax && item.Order >= 0 && item.Order <= layoutCoordinateMax
+}
+
+// UnmarshalJSON accepts the released Phase 3A position shape. The retired
+// width/height spans are deliberately not retained as placement authority.
+func (item *LayoutItem) UnmarshalJSON(data []byte) error {
+	var value struct {
+		ID     string `json:"id"`
+		Column *int   `json:"column"`
+		Order  *int   `json:"order"`
+		X      *int   `json:"x"`
+		Y      *int   `json:"y"`
+	}
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	item.ID = value.ID
+	if value.Column != nil {
+		item.Column = *value.Column
+	} else if value.X != nil {
+		item.Column = *value.X
+	}
+	if value.Order != nil {
+		item.Order = *value.Order
+	} else if value.Y != nil {
+		item.Order = *value.Y
+	}
+	return nil
 }
 
 // UpdateDashboardLayout atomically replaces the new current-device layout.
@@ -206,7 +227,7 @@ func UpdateDashboardLayout(layout []LayoutItem) (uint8, []LayoutItem) {
 		return 0, GetDashboardLayout()
 	}
 	seen := make(map[string]struct{}, len(layout))
-	used := make(map[[2]int]struct{}, len(layout))
+	used := make(map[int]map[int]struct{}, len(layout))
 	normalized := make([]LayoutItem, 0, len(layout))
 	for _, item := range layout {
 		if !validLayoutItem(item) {
@@ -216,18 +237,18 @@ func UpdateDashboardLayout(layout []LayoutItem) (uint8, []LayoutItem) {
 			return 0, GetDashboardLayout()
 		}
 		seen[item.ID] = struct{}{}
+		orders := used[item.Column]
+		if orders == nil {
+			orders = map[int]struct{}{}
+			used[item.Column] = orders
+		}
 		for {
-			key := [2]int{item.X, item.Y}
-			if _, occupied := used[key]; !occupied {
-				used[key] = struct{}{}
+			if _, occupied := orders[item.Order]; !occupied {
+				orders[item.Order] = struct{}{}
 				break
 			}
-			item.X++
-			if item.X >= layoutColumns {
-				item.X = 0
-				item.Y++
-			}
-			if item.Y > layoutCoordinateMax {
+			item.Order++
+			if item.Order > layoutCoordinateMax {
 				return 0, GetDashboardLayout()
 			}
 		}
