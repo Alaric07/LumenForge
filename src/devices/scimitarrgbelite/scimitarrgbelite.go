@@ -1057,13 +1057,13 @@ func (d *Device) getDeviceFirmware() {
 	buf[2] = cmdFirmware
 	n, err := d.dev.SendFeatureReport(buf)
 	if err != nil {
-		logger.Log(logger.Fields{"error": err}).Error("Unable to get temperature probe feature report")
+		logger.Log(logger.Fields{"error": err}).Error("Unable to send device firmware feature report request")
 		return
 	}
 
 	n, err = d.dev.GetFeatureReport(buf[:n])
 	if err != nil {
-		logger.Log(logger.Fields{"error": err}).Error("Unable to get temperature probe feature report")
+		logger.Log(logger.Fields{"error": err}).Error("Unable to read device firmware feature report response")
 		return
 	}
 	buffer := buf[:n]
