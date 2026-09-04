@@ -7,16 +7,10 @@
     {{ template "modern-nav" . }}
     {{ template "modern-system-drawer" . }}
     <main class="lf-system-workspace">
-    <div class="lf-system-legacy-content">
     {{ $root := . }}
     {{ $devs := .Devices }}
     {{ $device := .Device }}
     <input type="hidden" id="profile" name="profile" value="">
-            <!-- Temperature bar -->
-            {{ if .Dashboard.TemperatureBar }}
-            {{ template "temperature-bar" . }}
-            {{ end }}
-
             <div class="modal fade text-start" id="deleteTempModal" tabindex="-1" aria-labelledby="deleteTempModal" aria-hidden="true">
                 <div class="modal-dialog modal-custom modal-600">
                     <div class="modal-content">
@@ -61,14 +55,10 @@
                             <button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body modal-title">
-                            <div class="settings-list">
-                                <div class="settings-row">
-                                    <span class="settings-label text-ellipsis">{{ .Lang "txtProfileName" }}</span>
-                                    <div class="system-input text-input">
-                                        <label for="profileName">
-                                            <input type="text" id="profileName" placeholder="{{ .Lang "txtProfileNameDesc" }}">
-                                        </label>
-                                    </div>
+                            <div class="lf-macros-modal-form">
+                                <div class="lf-macros-modal-row">
+                                    <label for="profileName">{{ .Lang "txtProfileName" }}</label>
+                                    <input type="text" id="profileName" placeholder="{{ .Lang "txtProfileNameDesc" }}">
                                 </div>
                             </div>
                         </div>
@@ -239,39 +229,31 @@
             </div>
 
 
-            <!-- Macros -->
-            <div class="page-centered-wrapper">
-                <div class="row g-4 mb-4 align-items-start">
-                    <div class="col-lg-3 col-md-4 col-12">
-                        <div class="card system-card margin-top-20-all newTemp" data-bs-toggle="modal" data-bs-target="#newMacroModal">
-                            <div class="card-header">
-                                {{ .Lang "txtNewMacro" }}
-                            </div>
-                            <div class="card-body">
-                                {{ .Lang "txtCreateNewMacro" }}
-                            </div>
+            <section class="lf-macros-workspace" aria-labelledby="lf-macros-title">
+                <header class="lf-macros-header">
+                    <p class="lf-section-kicker">System</p>
+                    <h1 class="lf-workspace-title" id="lf-macros-title">Macros</h1>
+                    <p class="lf-workspace-description">Create reusable keyboard, mouse, text, delay, and pointer actions for supported device assignments.</p>
+                    <p class="lf-workspace-description">Create reusable macro sequences here, then assign them to supported keyboard or mouse buttons from the Devices workspace.</p>
+                </header>
+                <div class="lf-macros-layout">
+                    <section class="lf-macros-profile-panel" aria-labelledby="lf-macro-profiles-title">
+                        <header class="lf-macros-panel-header">
+                            <h2 id="lf-macro-profiles-title">{{ $root.Lang "txtMacros" }}</h2>
+                            <button class="lf-macros-button" type="button" data-bs-toggle="modal" data-bs-target="#newMacroModal">+ {{ .Lang "txtNewMacro" }}</button>
+                        </header>
+                        <div class="lf-macros-profile-list" aria-label="{{ $root.Lang "txtMacros" }}">
+                            {{ range $key, $value := .Macros }}
+                            <button class="lf-macros-profile-item macroList" id="{{ $key }}" type="button">{{ $value.Name }}</button>
+                            {{ end }}
                         </div>
-
-                        <div class="card system-card text-center top-10">
-                            <div class="card-header">
-                                {{ $root.Lang "txtMacros" }}
-                            </div>
-                            <div class="card-body">
-                                <div class="settings-list">
-                                    {{ range $key, $value := .Macros }}
-                                    <div class="settings-row macroList" id="{{ $key }}">
-                                        <span class="settings-label text-ellipsis">{{ $value.Name }}</span>
-                                        <span class="settings-label text-ellipsis"></span>
-                                    </div>
-                                    {{ end }}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-9 col-md-8 col-12">
-                        <div class="card system-card text-center">
-                            <div class="card-body">
-                                <table class="dataTable text-sm" id="table" style="width: 100%;">
+                    </section>
+                    <section class="lf-macros-action-panel" aria-labelledby="lf-macro-actions-title">
+                        <header class="lf-macros-panel-header">
+                            <h2 id="lf-macro-actions-title">Action Sequence</h2>
+                        </header>
+                        <div class="lf-macros-table-wrap">
+                            <table class="dataTable text-sm" id="table" style="width: 100%;">
                                     <thead>
                                     <tr>
                                         <th>{{ .Lang "txtId" }}</th>
@@ -279,15 +261,15 @@
                                         <th>{{ .Lang "txtMacroValue" }}</th>
                                         <th>
                                             {{ .Lang "txtPressAndHold" }}
-                                            <i style="cursor: pointer;padding-top: 3px;padding-left: 3px;" class="bi bi-info-circle-fill svg-icon svg-icon-sm svg-icon-heavy pressAndHoldMacroInfoToggle"></i>
+                                            <button class="lf-macros-info pressAndHoldMacroInfoToggle" type="button" aria-label="{{ .Lang "txtPressAndHold" }} information"><i class="bi bi-info-circle-fill svg-icon svg-icon-sm svg-icon-heavy" aria-hidden="true"></i></button>
                                         </th>
                                         <th>
                                             {{ .Lang "txtActionRepeat" }}
-                                            <i style="cursor: pointer;padding-top: 3px;padding-left: 3px;" class="bi bi-info-circle-fill svg-icon svg-icon-sm svg-icon-heavy actionRepeatMacroInfoToggle"></i>
+                                            <button class="lf-macros-info actionRepeatMacroInfoToggle" type="button" aria-label="{{ .Lang "txtActionRepeat" }} information"><i class="bi bi-info-circle-fill svg-icon svg-icon-sm svg-icon-heavy" aria-hidden="true"></i></button>
                                         </th>
                                         <th>
                                             {{ .Lang "txtActionRepeatDelay" }}
-                                            <i style="cursor: pointer;padding-top: 3px;padding-left: 3px;" class="bi bi-info-circle-fill svg-icon svg-icon-sm svg-icon-heavy actionRepeatDelayInfoToggle"></i>
+                                            <button class="lf-macros-info actionRepeatDelayInfoToggle" type="button" aria-label="{{ .Lang "txtActionRepeatDelay" }} information"><i class="bi bi-info-circle-fill svg-icon svg-icon-sm svg-icon-heavy" aria-hidden="true"></i></button>
                                         </th>
                                         <th>
                                             {{ .Lang "txtMousePositionX" }}
@@ -301,21 +283,18 @@
                                         <th style="width:20%;">{{ .Lang "txtOptions" }}</th>
                                     </tr>
                                     </thead>
-                                </table>
-                            </div>
+                            </table>
                         </div>
-                        <button class="system-button danger top-10" type="button" id="deleteBtn" data-bs-toggle="modal" data-bs-target="#deleteTempModal" style="display:none">{{ .Lang "txtDeleteProfile" }}</button>
-                        <button class="system-button" type="button" id="addMacroValueBtn" data-bs-toggle="modal" data-bs-target="#addMacroValueModal" style="display:none">{{ .Lang "txtAddMacroValue" }}</button>
-                        <button class="system-button" type="button" id="updateMacroValueBtn" data-bs-toggle="modal" data-bs-target="#updateMacroSettingsModal" style="display:none">{{ .Lang "txtSettings" }}</button>
-                    </div>
+                        <div class="lf-macros-toolbar" aria-label="{{ .Lang "txtMacros" }} actions">
+                            <button class="lf-macros-button" type="button" id="addMacroValueBtn" data-bs-toggle="modal" data-bs-target="#addMacroValueModal" style="display:none">{{ .Lang "txtAddMacroValue" }}</button>
+                            <button class="lf-macros-button lf-macros-button-secondary" type="button" id="updateMacroValueBtn" data-bs-toggle="modal" data-bs-target="#updateMacroSettingsModal" style="display:none">{{ .Lang "txtSettings" }}</button>
+                            <button class="lf-macros-button lf-macros-button-danger" type="button" id="deleteBtn" data-bs-toggle="modal" data-bs-target="#deleteTempModal" style="display:none">{{ .Lang "txtDeleteProfile" }}</button>
+                        </div>
+                    </section>
                 </div>
-            </div>
-    </div>
+            </section>
     </main>
 </div>
 <script src="/static/js/macros.js"></script>
-{{ if .Dashboard.TemperatureBar }}
-<script src="/static/js/temperature-bar.js"></script>
-{{ end }}
 </body>
 </html>

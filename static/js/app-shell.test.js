@@ -17,6 +17,8 @@ const lcdUploadTemplate = fs.readFileSync(path.join(root, "web", "lcd-upload.htm
 const lcdArcTemplate = fs.readFileSync(path.join(root, "web", "lcd-arc.html"), "utf8");
 const lcdDoubleArcTemplate = fs.readFileSync(path.join(root, "web", "lcd-doublearc.html"), "utf8");
 const lcdAnimationTemplate = fs.readFileSync(path.join(root, "web", "lcd-animation.html"), "utf8");
+const macrosTemplate = fs.readFileSync(path.join(root, "web", "macros.html"), "utf8");
+const macrosSource = fs.readFileSync(path.join(__dirname, "macros.js"), "utf8");
 const temperatureGraphTemplate = fs.readFileSync(path.join(root, "web", "temperatureGraph.html"), "utf8");
 const systemTemplates = ["settings.html", "lcd.html", "macros.html", "temperature.html", "temperatureGraph.html"]
     .map(function (file) { return fs.readFileSync(path.join(root, "web", file), "utf8"); });
@@ -131,6 +133,26 @@ test("LCD uses a modern System workspace without legacy layout or temperature-ba
     assert.match(lcdAnimationTemplate, /lcdWorkersInfo[\s\S]*?lcdFrameDelayInfo/);
     assert.match(css, /\.lf-app-shell \.lf-lcd-grid \{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
     assert.match(css, /@media \(max-width: 920px\)[\s\S]*?\.lf-app-shell \.lf-lcd-grid \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\)/);
+});
+
+test("Macros uses a modern System workspace while retaining macro and DataTables contracts", function () {
+    assert.match(macrosTemplate, /lf-app-shell lf-system-shell[\s\S]*?template "modern-nav"[\s\S]*?template "modern-system-drawer"[\s\S]*?lf-system-workspace/);
+    assert.match(macrosTemplate, /lf-macros-workspace[\s\S]*?lf-macros-header[\s\S]*?lf-macros-layout/);
+    assert.match(macrosTemplate, /lf-macros-profile-panel[\s\S]*?lf-macros-action-panel[\s\S]*?lf-macros-table-wrap/);
+    assert.doesNotMatch(macrosTemplate, /template "sidebar"|sidebar\.js|temperature-bar|lf-system-legacy-content|page-centered-wrapper|class="row|col-(?:lg|md)|system-card/);
+    assert.match(macrosTemplate, /id="profile"/);
+    assert.match(macrosTemplate, /class="lf-macros-profile-item macroList" id="\{\{ \$key \}\}"/);
+    assert.match(macrosTemplate, /id="table"/);
+    for (const id of ["deleteTempModal", "newMacroModal", "addMacroValueModal", "updateMacroSettingsModal", "deleteBtn", "addMacroValueBtn", "updateMacroValueBtn", "profileName", "macroType", "macroKeySearch", "macroKeyId", "macroDelay", "macroText", "mousePositionX", "mousePositionY", "mousePositionAbsolute", "addMacroValue", "macroSettingsLoop", "macroSettingsRepeat", "macroSettingsDelay", "updateMacroSettings", "deleteMacroProfile"]) {
+        assert.match(macrosTemplate, new RegExp(`id="${id}"`));
+    }
+    assert.match(macrosTemplate, /PressAndHold[\s\S]*?pressAndHoldMacroInfoToggle[\s\S]*?ActionRepeat[\s\S]*?actionRepeatMacroInfoToggle[\s\S]*?ActionRepeatDelay[\s\S]*?actionRepeatDelayInfoToggle/);
+    assert.match(macrosTemplate, /static\/js\/macros\.js/);
+    assert.match(css, /\.lf-app-shell \.lf-macros-layout \{[\s\S]*?grid-template-columns: minmax\(260px, 310px\) minmax\(0, 1fr\)/);
+    assert.match(css, /\.lf-app-shell \.lf-macros-table-wrap \{[\s\S]*?overflow-x: auto/);
+    for (const selector of ["pressAndHold", "actionRepeatValue", "actionRepeatDelayValue", "mousePositionAbsolute", "mousePositionX", "mousePositionY", "updateMacroValue", "deleteMacroValue"]) {
+        assert.match(macrosSource, new RegExp(selector));
+    }
 });
 
 test("System selection closes through the shared drawer handler and can be reopened", function () {

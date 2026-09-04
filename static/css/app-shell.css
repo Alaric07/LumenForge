@@ -3168,6 +3168,182 @@
     font-weight: 700;
 }
 
+.lf-app-shell .lf-macros-workspace {
+    min-width: 0;
+}
+
+.lf-app-shell .lf-macros-header {
+    margin: 2px 0 30px;
+}
+
+.lf-app-shell .lf-macros-header .lf-workspace-title {
+    max-width: none;
+    font-size: clamp(30px, 3.5vw, 46px);
+}
+
+.lf-app-shell .lf-macros-header .lf-workspace-description {
+    margin: 10px 0 0;
+}
+
+.lf-app-shell .lf-macros-layout {
+    display: grid;
+    grid-template-columns: minmax(260px, 310px) minmax(0, 1fr);
+    align-items: start;
+    gap: 20px;
+}
+
+.lf-app-shell .lf-macros-profile-panel,
+.lf-app-shell .lf-macros-action-panel {
+    min-width: 0;
+    border: 1px solid var(--lf-border-subtle);
+    border-radius: var(--lf-shell-radius-lg);
+    background:
+        radial-gradient(circle at 92% 0, color-mix(in srgb, var(--lf-accent-primary) 9%, transparent), transparent 16rem),
+        var(--lf-panel-elevated);
+    box-shadow: var(--lf-shadow-soft);
+}
+
+.lf-app-shell .lf-macros-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 64px;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--lf-border-subtle);
+}
+
+.lf-app-shell .lf-macros-panel-header h2 {
+    margin: 0;
+    color: var(--lf-text-primary);
+    font-size: 16px;
+    font-weight: 720;
+}
+
+.lf-app-shell .lf-macros-button {
+    padding: 8px 12px;
+    border: 1px solid var(--lf-border-selected);
+    border-radius: var(--lf-shell-radius-sm);
+    color: var(--lf-text-primary);
+    background: var(--lf-accent-primary);
+    font: inherit;
+    font-weight: 680;
+    cursor: pointer;
+}
+
+.lf-app-shell .lf-macros-button:hover:not(:disabled) {
+    background: var(--lf-accent-highlight);
+}
+
+.lf-app-shell .lf-macros-button-secondary {
+    border-color: var(--lf-border-emphasized);
+    background: var(--lf-surface-subdued);
+}
+
+.lf-app-shell .lf-macros-button-danger {
+    margin-left: auto;
+    border-color: color-mix(in srgb, var(--lf-accent-highlight) 65%, var(--lf-border-emphasized));
+    background: color-mix(in srgb, var(--lf-accent-highlight) 16%, var(--lf-panel-elevated));
+}
+
+.lf-app-shell .lf-macros-profile-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+}
+
+.lf-app-shell .lf-macros-profile-item {
+    width: 100%;
+    min-width: 0;
+    padding: 11px 12px;
+    border: 1px solid transparent;
+    border-radius: var(--lf-shell-radius-sm);
+    color: var(--lf-text-primary);
+    background: transparent;
+    font: inherit;
+    font-weight: 620;
+    overflow: hidden;
+    cursor: pointer;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lf-app-shell .lf-macros-profile-item:hover,
+.lf-app-shell .lf-macros-profile-item.selected {
+    border-color: var(--lf-border-selected);
+    background: var(--lf-surface-selected);
+}
+
+.lf-app-shell .lf-macros-table-wrap {
+    min-width: 0;
+    padding: 18px 22px 0;
+    overflow-x: auto;
+}
+
+.lf-app-shell .lf-macros-table-wrap table.dataTable {
+    min-width: 980px;
+    margin: 0;
+}
+
+.lf-app-shell .lf-macros-table-wrap table.dataTable thead th,
+.lf-app-shell .lf-macros-table-wrap table.dataTable tbody td {
+    border-color: var(--lf-border-subtle);
+}
+
+.lf-app-shell .lf-macros-info {
+    display: inline-grid;
+    width: 22px;
+    height: 22px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: var(--lf-accent-highlight);
+    background: transparent;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+.lf-app-shell .lf-macros-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 18px 22px 22px;
+}
+
+.lf-app-shell .lf-macros-modal-form {
+    display: grid;
+    gap: 12px;
+}
+
+.lf-app-shell .lf-macros-modal-row {
+    display: grid;
+    gap: 7px;
+    color: var(--lf-text-primary);
+    font-size: 14px;
+    font-weight: 620;
+}
+
+.lf-app-shell .lf-macros-modal-row input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--lf-border-emphasized);
+    border-radius: var(--lf-shell-radius-sm);
+    color: var(--lf-text-primary);
+    background: var(--lf-surface-subdued);
+    font: inherit;
+}
+
+.lf-app-shell .lf-macros-button:focus-visible,
+.lf-app-shell .lf-macros-profile-item:focus-visible,
+.lf-app-shell .lf-macros-info:focus-visible,
+.lf-app-shell .lf-macros-modal-row input:focus-visible {
+    outline: 3px solid var(--lf-focus-ring);
+    outline-offset: 2px;
+}
+
 @media (max-width: 920px) {
     .lf-app-shell .lf-settings-grid {
         grid-template-columns: minmax(0, 1fr);
@@ -3179,6 +3355,10 @@
 
     .lf-app-shell .lf-lcd-panel-wide {
         grid-column: auto;
+    }
+
+    .lf-app-shell .lf-macros-layout {
+        grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
     }
 }
 
@@ -3210,6 +3390,21 @@
     .lf-app-shell .lf-lcd-input,
     .lf-app-shell .lf-lcd-control-group {
         width: 100%;
+    }
+
+    .lf-app-shell .lf-macros-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .lf-app-shell .lf-macros-panel-header,
+    .lf-app-shell .lf-macros-table-wrap,
+    .lf-app-shell .lf-macros-toolbar {
+        padding-right: 16px;
+        padding-left: 16px;
+    }
+
+    .lf-app-shell .lf-macros-button-danger {
+        margin-left: 0;
     }
 }
 
