@@ -23,6 +23,12 @@ editing, RGB Override, heterogeneous Static zone colors, and
 base/override/effective presentation are temporary legacy structures, not
 features to reproduce under new names.
 
+Retained package-local legacy helpers can still be presentation adapters or
+compatibility boundaries during this transition. They do not become canonical
+desired-state authority merely because their names, templates, or stored shapes
+look legacy. The migration matrix is the package-level safety inventory, and
+the roadmap governs repository-wide cleanup classification.
+
 ### Native-device migration proofs
 
 Scimitar Pro RGB established the first native package on the shared canonical

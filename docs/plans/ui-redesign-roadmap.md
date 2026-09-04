@@ -18,8 +18,9 @@ clean-break decisions are defined in the
 - `[ ]` Planned
 - `[!]` Known issue or decision required
 
-Unless otherwise stated, completion means the work is committed and pushed to
-`ui/redesign`. This roadmap has no speculative dates or delivery promises.
+Unless otherwise stated, completion means the work is present in the current
+`ui/redesign` implementation and has a named verified milestone where one is
+available. This roadmap has no speculative dates or delivery promises.
 
 ## 1. Guiding principles
 
@@ -64,6 +65,26 @@ These commits established the modern three-region Devices workspace, added
 server-rendered device selection, and introduced an overview for imported
 controllers. Existing legacy device pages remain available; not every legacy
 device control has migrated.
+
+### System workspaces
+
+- [x] `314b23e3` — Add modern System navigation.
+- [x] `265d5faf` — Modernize the System LCD workspace.
+- [x] `81efee35` — Modernize the System Macros workspace.
+- [x] `924b083f` — Modernize the System Cooling Profiles workspace.
+- [x] `0e5bbe75` — Split System Preferences and Admin workspaces.
+
+System is a bottom utility toggle that opens the shared System drawer; it is
+not a `/system` destination. The drawer provides Preferences, Admin, LCD,
+Macros, and Cooling Profiles, and opening it closes the other shared drawer
+without changing the independent Devices-drawer behavior.
+
+Preferences at `/settings` contains General (temperature units, Language,
+Keyboard Layout, and Theme), Automation, Display, and Virtual Audio. Theme is
+a General subsection, not an independent page or save domain. Its complete
+Dashboard update preserves hidden compatibility fields loaded from
+`GET /api/dashboard` before posting General changes. Admin at `/admin` owns
+Backup & Restore, OpenRGB SDK Integration, and Supported Devices.
 
 
 ### Native device control workspaces
@@ -605,6 +626,31 @@ after every legitimate native consumer has migrated.
 - [ ] Remove obsolete templates, JavaScript, CSS, tests, and documentation.
 - [ ] Add final clean-install, selective-backup, and release guidance.
 
+### Legacy UI cleanup and compatibility audit
+
+Repository-wide legacy cleanup remains conservative until native-device
+migration is complete. This audit is classification-first, not deletion-first.
+
+- Treat legacy device templates, scripts, routes, selectors, and compatibility
+  styles as required unless the owning device family is migrated and every
+  remaining consumer has been traced.
+- Do not remove support merely because a helper uses old layout, Bootstrap,
+  sidebar, temperature-bar, RGB-editor, or compatibility patterns.
+- Classify each finding before removal:
+  - **Safe to remove now** — no runtime or migration consumer remains.
+  - **Still used by remaining native pages** — retain until those families
+    migrate.
+  - **Compatibility — remove after migration** — shared infrastructure remains
+    required by one or more unmigrated targets.
+  - **Unknown / needs trace** — retain until ownership and call paths are
+    proven.
+  - **Keep** — current supported behavior or intentional compatibility.
+- Global cleanup may remove demonstrably dead leftovers, but must never strand
+  or silently reduce functionality for an unmigrated native device.
+- After the final native-device migration, perform a dedicated retirement pass
+  for obsolete routes, global RGB compatibility, stale settings fields,
+  compatibility theme selectors, unused scripts, and old layout infrastructure.
+
 The current backup boundary expects `config.json` to remain reusable. The
 OpenRGB import store is reusable only while its exact schema and identity
 semantics remain compatible. Final release documentation must revalidate the
@@ -760,6 +806,13 @@ values rather than redefining components, and new controls must use the same
 contract. `default.css` remains the fallback layer. New themes must define the
 complete required contract, while custom or older themes must degrade safely.
 
+Five built-in themes currently supply semantic `--lf-*` values for shared
+component CSS. Effect icons use theme-aware CSS masks and the brand wordmark
+uses semantic gradient tokens. Compatibility selectors remain only for legacy
+pages that still consume them; their retirement waits for those consumers.
+Future custom themes should edit semantic tokens with live preview rather than
+reproduce selector-heavy legacy theme files.
+
 Add visual checks for selectors, tabs, sliders, color controls, ownership
 notices, focus states, and narrow layouts.
 
@@ -780,11 +833,14 @@ notices, focus states, and narrow layouts.
 - [x] Persist the collapse preference in `Dashboard.SidebarCollapsed`, with
   `localStorage` restoring the modern shell immediately. Responsive navigation
   remains independent of the desktop collapse preference.
+- [x] `192d4987` — Load the modern application-shell styles on Dashboard.
 - [x] `55678e5d` — Redesign the Dashboard System Overview with CPU, GPU,
   Memory, and storage telemetry plus lighting status, without repeating global
   telemetry on every page.
 - [x] `a54987b1` — Present supported connected devices from the current-device
-  source with stable source-namespaced card identities.
+  source with stable source-namespaced card identities. Cards represent
+  top-level physical devices; child fans, DIMMs, channels, and zones remain
+  aggregate telemetry or device-owned presentation within their parent card.
 - [x] `8a7a41d7` and `f767211c` — Persist movable cards as natural-height
   masonry lanes. Disconnected cards retain saved placement so a reconnect
   restores it.
@@ -796,12 +852,29 @@ notices, focus states, and narrow layouts.
   visible supported-device presence; `DashboardLayout` stores placement only.
   Supported devices disappear and reappear automatically as hardware disconnects
   and reconnects.
+- [x] `6e2e7556` — Reconcile Dashboard completion documentation after the
+  telemetry and membership milestones.
+- [x] Modern Dashboard temperature presentation always renders the temperature
+  bar. CPU, GPU, DIMM, storage, and native cooling values respect the
+  Celsius/Fahrenheit preference; browser-session history retains raw Celsius
+  samples and converts only at presentation time.
 - [ ] Review top-level Information and Settings pages for semantic-theme and
   shell consistency.
 
 The primary Dashboard and application-shell milestone is complete. Targeted
 responsive and accessibility polish remains ongoing work rather than a claim of
 permanent completion.
+
+### Transitional Dashboard settings compatibility
+
+`ShowLabels` / `showLabels` has no meaningful modern Dashboard consumer. Its modern control is
+gone, but backend/model plumbing remains until remaining consumers are traced.
+`TemperatureBar` / `temperatureBar` likewise has no modern Preferences control and the modern
+Dashboard always renders its bar, while legacy native templates still retain
+the conditional preference/plumbing. Retire the option and legacy plumbing only
+after those pages migrate; do not delete the Dashboard temperature-bar component.
+`RgbOff` / `rgbOff` remains hidden but preserved by the complete General settings save and
+is not dead code merely because it has no modern General control.
 
 ## 11. Usability and accessibility
 

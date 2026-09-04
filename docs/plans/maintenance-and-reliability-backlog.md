@@ -88,6 +88,18 @@ Create versioned migration infrastructure only for a real incompatible profile o
 
 Retire the unsupported SysV init script or modernize it only when that installation path has a confirmed user and can be validated. Do not treat it as equivalent to the supported user and system service paths.
 
+### Post-native-migration compatibility retirement
+
+After every native lighting family has completed its individual migration and
+consumer tracing, retire retained legacy compatibility deliberately: global
+`/rgb` routes and mutation helpers, stale Dashboard settings/model fields,
+legacy temperature-bar preference plumbing, dead `ShowLabels` plumbing,
+obsolete theme compatibility selectors, and unused scripts/templates/routes.
+Do not remove tests that protect retained compatibility behavior before the
+behavior itself is retired. Localization and helper-text consistency work that
+was deferred during individual workspace migrations belongs in the same
+post-migration maintenance pass, not in hardware migrations.
+
 ## Current project priorities
 
 1. External Source Registry redesign.

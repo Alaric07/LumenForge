@@ -53,6 +53,11 @@ must be accounted for, including:
 
 The legacy `/rgb` editor and remaining global RGB mutation infrastructure stay
 available for unmigrated packages until every remaining consumer has parity.
+Repository cleanup must not remove package-local or shared legacy UI/runtime
+dependencies for a device while that package remains Legacy, Audit Required,
+Deferred, or otherwise depends on the retained legacy path. This matrix is the
+package-level authority for that safety decision; the roadmap carries the wider
+classification policy.
 `eligibleForLegacyGlobalRGB()` is the temporary migration bridge between those
 two states: it admits unmigrated native packages to the retained global path and
 excludes OpenRGB-imported and Cluster devices as before. A native canonical
