@@ -3344,6 +3344,224 @@
     outline-offset: 2px;
 }
 
+.lf-app-shell .lf-cooling-profiles-workspace {
+    min-width: 0;
+}
+
+.lf-app-shell .lf-cooling-profiles-header {
+    margin: 2px 0 30px;
+}
+
+.lf-app-shell .lf-cooling-profiles-header .lf-workspace-title {
+    max-width: none;
+    font-size: clamp(30px, 3.5vw, 46px);
+}
+
+.lf-app-shell .lf-cooling-profiles-header .lf-workspace-description {
+    margin: 10px 0 0;
+}
+
+.lf-app-shell .lf-cooling-profiles-layout {
+    display: grid;
+    grid-template-columns: minmax(260px, 310px) minmax(0, 1fr);
+    align-items: start;
+    gap: 20px;
+}
+
+.lf-app-shell .lf-cooling-profile-panel,
+.lf-app-shell .lf-cooling-editor,
+.lf-app-shell .lf-cooling-curve-panel,
+.lf-app-shell .lf-cooling-points-panel {
+    min-width: 0;
+    border: 1px solid var(--lf-border-subtle);
+    border-radius: var(--lf-shell-radius-lg);
+    background:
+        radial-gradient(circle at 92% 0, color-mix(in srgb, var(--lf-accent-primary) 9%, transparent), transparent 16rem),
+        var(--lf-panel-elevated);
+    box-shadow: var(--lf-shadow-soft);
+}
+
+.lf-app-shell .lf-cooling-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 64px;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--lf-border-subtle);
+}
+
+.lf-app-shell .lf-cooling-panel-header h2,
+.lf-app-shell .lf-cooling-editor-title,
+.lf-app-shell .lf-cooling-curve-panel h3,
+.lf-app-shell .lf-cooling-points-panel h3 {
+    margin: 0;
+    color: var(--lf-text-primary);
+    font-size: 16px;
+    font-weight: 720;
+}
+
+.lf-app-shell .lf-cooling-profile-list {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+}
+
+.lf-app-shell .lf-cooling-profile-item {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--lf-border-subtle);
+    border-radius: var(--lf-shell-radius-sm);
+    background: var(--lf-surface-subdued);
+    cursor: pointer;
+}
+
+.lf-app-shell .lf-cooling-profile-item:hover,
+.lf-app-shell .lf-cooling-profile-item.tempList-selected,
+.lf-app-shell .lf-cooling-profile-item.tempProfiles-selected {
+    border-color: var(--lf-border-selected);
+    background: var(--lf-surface-selected);
+}
+
+.lf-app-shell .lf-cooling-profile-item h3 {
+    overflow: hidden;
+    margin: 0 0 10px;
+    color: var(--lf-text-primary);
+    font-size: 14px;
+    font-weight: 720;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lf-app-shell .lf-cooling-profile-details {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+}
+
+.lf-app-shell .lf-cooling-profile-details > div,
+.lf-app-shell .lf-cooling-profile-delete {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+}
+
+.lf-app-shell .lf-cooling-profile-details dt,
+.lf-app-shell .lf-cooling-profile-delete > span {
+    min-width: 0;
+    color: var(--lf-text-muted);
+    font-size: 12px;
+    font-weight: 620;
+}
+
+.lf-app-shell .lf-cooling-profile-details dd {
+    min-width: 0;
+    margin: 0;
+    color: var(--lf-text-primary);
+    font-size: 13px;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+    text-align: right;
+}
+
+.lf-app-shell .lf-cooling-editor {
+    display: grid;
+    gap: 18px;
+    padding: 18px 22px 22px;
+}
+
+.lf-app-shell .lf-cooling-curve-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.lf-app-shell .lf-cooling-curve-panel,
+.lf-app-shell .lf-cooling-points-panel {
+    padding: 18px;
+}
+
+.lf-app-shell .lf-cooling-curve-panel h3,
+.lf-app-shell .lf-cooling-points-panel h3 {
+    margin-bottom: 10px;
+}
+
+.lf-app-shell .lf-cooling-helper {
+    margin: 0 0 14px;
+    color: var(--lf-text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.lf-app-shell .lf-cooling-curve-canvas-wrap {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--lf-border-subtle);
+    border-radius: var(--lf-shell-radius-sm);
+    background: var(--lf-surface-subdued);
+}
+
+.lf-app-shell .lf-cooling-curve-canvas-wrap .temp-graph-canvas {
+    display: block;
+    width: 100%;
+    min-height: 300px;
+    height: min(440px, 55vw);
+}
+
+.lf-app-shell .lf-cooling-table-wrap {
+    min-width: 0;
+    overflow-x: auto;
+}
+
+.lf-app-shell .lf-cooling-table-wrap table.dataTable {
+    min-width: 680px;
+    margin: 0;
+}
+
+.lf-app-shell .lf-cooling-table-wrap table.dataTable thead th,
+.lf-app-shell .lf-cooling-table-wrap table.dataTable tbody td {
+    border-color: var(--lf-border-subtle);
+}
+
+.lf-app-shell .lf-cooling-editor-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.lf-app-shell .lf-cooling-button {
+    padding: 8px 12px;
+    border: 1px solid var(--lf-border-selected);
+    border-radius: var(--lf-shell-radius-sm);
+    color: var(--lf-text-primary);
+    background: var(--lf-accent-primary);
+    font: inherit;
+    font-weight: 680;
+    cursor: pointer;
+}
+
+.lf-app-shell .lf-cooling-button:hover:not(:disabled) {
+    background: var(--lf-accent-highlight);
+}
+
+.lf-app-shell .lf-cooling-button-secondary {
+    border-color: var(--lf-border-emphasized);
+    background: var(--lf-surface-subdued);
+}
+
+.lf-app-shell .lf-cooling-button-danger {
+    border-color: color-mix(in srgb, var(--lf-accent-highlight) 65%, var(--lf-border-emphasized));
+    background: color-mix(in srgb, var(--lf-accent-highlight) 16%, var(--lf-panel-elevated));
+}
+
+.lf-app-shell .lf-cooling-button:focus-visible {
+    outline: 3px solid var(--lf-focus-ring);
+    outline-offset: 2px;
+}
+
 @media (max-width: 920px) {
     .lf-app-shell .lf-settings-grid {
         grid-template-columns: minmax(0, 1fr);
@@ -3359,6 +3577,14 @@
 
     .lf-app-shell .lf-macros-layout {
         grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    }
+
+    .lf-app-shell .lf-cooling-profiles-layout {
+        grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    }
+
+    .lf-app-shell .lf-cooling-curve-grid {
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
@@ -3405,6 +3631,21 @@
 
     .lf-app-shell .lf-macros-button-danger {
         margin-left: 0;
+    }
+
+    .lf-app-shell .lf-cooling-profiles-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .lf-app-shell .lf-cooling-panel-header,
+    .lf-app-shell .lf-cooling-editor {
+        padding-right: 16px;
+        padding-left: 16px;
+    }
+
+    .lf-app-shell .lf-cooling-curve-panel,
+    .lf-app-shell .lf-cooling-points-panel {
+        padding: 16px;
     }
 }
 

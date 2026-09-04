@@ -20,6 +20,7 @@ const lcdAnimationTemplate = fs.readFileSync(path.join(root, "web", "lcd-animati
 const macrosTemplate = fs.readFileSync(path.join(root, "web", "macros.html"), "utf8");
 const macrosSource = fs.readFileSync(path.join(__dirname, "macros.js"), "utf8");
 const temperatureGraphTemplate = fs.readFileSync(path.join(root, "web", "temperatureGraph.html"), "utf8");
+const temperatureTemplate = fs.readFileSync(path.join(root, "web", "temperature.html"), "utf8");
 const systemTemplates = ["settings.html", "lcd.html", "macros.html", "temperature.html", "temperatureGraph.html"]
     .map(function (file) { return fs.readFileSync(path.join(root, "web", file), "utf8"); });
 const css = fs.readFileSync(path.join(root, "static", "css", "app-shell.css"), "utf8");
@@ -112,9 +113,27 @@ test("System routes use the modern shell with a closed, active System drawer", f
     assert.match(css, /\.lf-app-shell \.lf-system-workspace/);
     assert.match(headTemplate, /eq \.Page "settings"[\s\S]*?eq \.Page "lcd"[\s\S]*?eq \.Page "macros"[\s\S]*?eq \.Page "temperature"[\s\S]*?app-shell\.js/);
     assert.match(headTemplate, /eq \.Page "settings"[\s\S]*?eq \.Page "lcd"[\s\S]*?eq \.Page "macros"[\s\S]*?eq \.Page "temperature"[\s\S]*?app-shell\.css/);
-    assert.match(temperatureGraphTemplate, /template "temperature-bar"/);
     assert.match(temperatureGraphTemplate, /id="graphPump"[\s\S]*?id="graphFans"/);
     assert.match(temperatureGraphTemplate, /static\/js\/temperature\.js/);
+});
+
+test("Cooling Profiles templates use modern System workspaces without changing profile or graph contracts", function () {
+    for (const template of [temperatureTemplate, temperatureGraphTemplate]) {
+        assert.match(template, /lf-cooling-profiles-workspace[\s\S]*?lf-cooling-profiles-layout[\s\S]*?lf-cooling-profile-panel[\s\S]*?lf-cooling-editor/);
+        assert.doesNotMatch(template, /template "sidebar"|sidebar\.js|temperature-bar|lf-system-legacy-content|page-centered-wrapper|class="row|col-(?:lg|md|xl)|system-card/);
+        assert.match(template, /id="profile"/);
+        assert.match(template, /id="newTempModal"/);
+        assert.match(template, /id="deleteTempModal"/);
+        assert.match(template, /id="sensor"/);
+        assert.match(template, /id="external-source-data"[\s\S]*?id="externalSourceId"/);
+        assert.match(template, /delete-speed-profile[\s\S]*?data-bs-target="#deleteTempModal"[\s\S]*?data-info="\{\{ \$key \}\}"/);
+        assert.match(template, /static\/js\/external-sources\.js[\s\S]*?static\/js\/temperature\.js/);
+    }
+    assert.match(temperatureTemplate, /lf-cooling-profile-item tempList[\s\S]*?id="graphPump"[\s\S]*?id="updatePump"[\s\S]*?id="table"[\s\S]*?id="updateBtn"/);
+    assert.match(temperatureGraphTemplate, /lf-cooling-profile-item tempProfiles[\s\S]*?id="graphPump"[\s\S]*?id="updatePump"[\s\S]*?id="graphFans"[\s\S]*?id="updateFans"/);
+    assert.match(css, /\.lf-app-shell \.lf-cooling-profiles-layout \{[\s\S]*?grid-template-columns: minmax\(260px, 310px\) minmax\(0, 1fr\)/);
+    assert.match(css, /\.lf-app-shell \.lf-cooling-table-wrap \{[\s\S]*?overflow-x: auto/);
+    assert.match(css, /\.lf-app-shell \.lf-cooling-curve-grid \{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
 });
 
 test("LCD uses a modern System workspace without legacy layout or temperature-bar content", function () {
