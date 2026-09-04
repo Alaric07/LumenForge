@@ -6,6 +6,7 @@ const dashboardHistory = (function () {
     const MINIMUM_RANGE = {temperature: 5, rpm: 200};
     const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
     const series = new Map();
+    let useCelsius = true;
     const keys = {cpu: () => "cpu", gpu: (index) => "gpu:" + index, memory: (serial, channelID) => "memory:" + serial + ":" + channelID, fanAverage: (serial) => "fan-average:native:" + serial, coolant: (serial) => "coolant:native:" + serial, probe: (serial, id) => "probe:native:" + serial + ":" + id};
     function append(key, value) { if (!Number.isFinite(value)) return false; const samples = series.get(key) || []; samples.push(value); if (samples.length > HISTORY_MAX_SAMPLES) samples.splice(0, samples.length - HISTORY_MAX_SAMPLES); series.set(key, samples); return true; }
     function read(key) { return (series.get(key) || []).slice(); }
@@ -18,7 +19,9 @@ const dashboardHistory = (function () {
     function trace(samples, kind) { const values = points(samples, kind); if (!values.length) return ""; if (values.length === 1) return "M " + (values[0].x - 2).toFixed(2) + " " + values[0].y.toFixed(2) + " L " + (values[0].x + 2).toFixed(2) + " " + values[0].y.toFixed(2); return "M " + values.map((point) => point.x.toFixed(2) + " " + point.y.toFixed(2)).join(" L "); }
     function sampleIndex(samples, position, width) { if (!samples.length) return -1; if (samples.length === 1 || !Number.isFinite(width) || width <= 0) return 0; return Math.max(0, Math.min(samples.length - 1, Math.round((Math.max(0, Math.min(width, position)) / width) * (samples.length - 1)))); }
     function ageText(samplesAgo) { const seconds = Math.max(0, samplesAgo) * POLL_INTERVAL_MS / 1000; if (!seconds) return "now"; if (seconds < 60) return seconds + "s ago"; return Math.floor(seconds / 60) + "m " + String(seconds % 60).padStart(2, "0") + "s ago"; }
-    function valueText(value, kind) { return kind === "rpm" ? Math.round(value) + " RPM" : value.toFixed(1) + " °C"; }
+    function configure(options) { useCelsius = options?.celsius !== false; }
+    function temperatureText(celsius) { const value = useCelsius ? celsius : (celsius * 9 / 5) + 32; return value.toFixed(1) + (useCelsius ? " °C" : " °F"); }
+    function valueText(value, kind) { return kind === "rpm" ? Math.round(value) + " RPM" : temperatureText(value); }
     function inspection(key, kind, index) { const samples = read(key), selected = Math.max(0, Math.min(samples.length - 1, index)); if (!samples.length || !Number.isFinite(samples[selected])) return null; return {index: selected, text: valueText(samples[selected], kind) + " · " + ageText(samples.length - 1 - selected)}; }
     function createSparkline(document, key) {
         const wrapper = document.createElement("div"), svg = document.createElementNS(SVG_NAMESPACE, "svg"), readout = document.createElement("span");
@@ -41,7 +44,7 @@ const dashboardHistory = (function () {
         svg.addEventListener("keydown", function (event) { if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return; const samples = read(key), current = Number(svg.dataset.lfSparklineIndex); select((Number.isInteger(current) ? current : samples.length - 1) + (event.key === "ArrowLeft" ? -1 : 1)); event.preventDefault(); });
     }
     function render(document, key, kind) { if (!document) return; const d = trace(read(key), kind); document.querySelectorAll("[data-lf-sparkline-key]").forEach(function (svg) { if (svg.getAttribute("data-lf-sparkline-key") !== key) return; clearInspection(svg); let path = svg.querySelector("path"); if (!path) { path = document.createElementNS(SVG_NAMESPACE, "path"); path.setAttribute("data-lf-sparkline-trace", ""); svg.appendChild(path); } path.setAttribute("d", d); svg.setAttribute("tabindex", d ? "0" : "-1"); bindInspection(document, svg, key, kind); }); }
-    return {HISTORY_MAX_SAMPLES, POLL_INTERVAL_MS, keys, append, read, points, trace, sampleIndex, ageText, valueText, inspection, createSparkline, readoutFor, showReadout, clearReadout, clearInspection, render};
+    return {HISTORY_MAX_SAMPLES, POLL_INTERVAL_MS, keys, append, read, points, trace, sampleIndex, ageText, configure, temperatureText, valueText, inspection, createSparkline, readoutFor, showReadout, clearReadout, clearInspection, render};
 })();
 if (typeof module === "object" && module.exports) module.exports = dashboardHistory;
-if (typeof window !== "undefined") window.dashboardHistory = dashboardHistory;
+if (typeof window !== "undefined") { dashboardHistory.configure({celsius: window.dashboardI18n?.celsius}); window.dashboardHistory = dashboardHistory; }

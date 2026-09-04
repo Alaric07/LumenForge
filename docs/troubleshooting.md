@@ -140,7 +140,7 @@ that:
 - OpenRGB's **SDK Server** is enabled on `127.0.0.1`.
 - its port matches LumenForge's `openRGBPort` (default `6742`);
 - no remote OpenRGB host is being used;
-- **Settings** > **OpenRGB SDK Integration** > **Discover & Manage
+- **Admin** > **OpenRGB SDK Integration** > **Discover & Manage
   Controllers** can discover the controller;
 - **Import Selected** was used for a new controller; and
 - **Discover Again** or **Refresh Imported Controllers** was used for the

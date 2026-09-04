@@ -37,9 +37,7 @@
                             </dl>
                             <a href="/rgbCluster" class="lf-button lf-button-secondary lf-dashboard-cluster-link text-decoration-none">{{ .Lang "txtOpenRgbCluster" }}</a>
                         </section>
-                        {{ if .Dashboard.TemperatureBar }}
                         {{ template "temperature-bar" . }}
-                        {{ end }}
                     </div>
                 </section>
 
@@ -56,6 +54,7 @@
 window.dashboardI18n = {
     lighting: {{ .Lang "txtLighting" }},
     brightness: {{ .Lang "txtBrightness" }},
+    celsius: {{ .Dashboard.Celsius }},
     moveEarlier: "Move earlier",
     moveLater: "Move later",
     drag: "Drag to reposition"
@@ -63,8 +62,6 @@ window.dashboardI18n = {
 </script>
 <script src="/static/js/dashboard-history.js"></script>
 <script src="/static/js/index.js?v=9"></script>
-{{ if .Dashboard.TemperatureBar }}
 <script src="/static/js/temperature-bar.js"></script>
-{{ end }}
 </body>
 </html>

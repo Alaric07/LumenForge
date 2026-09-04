@@ -2897,6 +2897,49 @@
     margin-top: 0;
 }
 
+.lf-app-shell .lf-settings-theme-control {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    max-width: 280px;
+}
+
+.lf-app-shell .lf-settings-theme-control .settings-label {
+    color: var(--lf-text-primary);
+    font-weight: 620;
+}
+
+.lf-app-shell .lf-settings-theme-section {
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px solid var(--lf-border-subtle);
+}
+
+.lf-app-shell .lf-settings-theme-section h3 {
+    margin: 0 0 6px;
+    color: var(--lf-text-primary);
+    font-size: 0.95rem;
+    font-weight: 720;
+}
+
+.lf-app-shell .lf-settings-theme-section p {
+    margin: 0 0 14px;
+    color: var(--lf-text-secondary);
+    line-height: 1.55;
+}
+
+.lf-app-shell .lf-settings-panel-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px solid var(--lf-border-subtle);
+}
+
 .lf-app-shell .lf-settings-file-input {
     width: 100%;
     margin-bottom: 12px;

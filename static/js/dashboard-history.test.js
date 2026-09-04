@@ -72,6 +72,19 @@ test("history inspection formats relative age and telemetry values without times
     assert.equal(history.inspection(history.keys.cpu(), "temperature", 0), null);
 });
 
+test("history keeps Celsius samples while formatting temperature readouts in the selected unit", function () {
+    const key = "test:fahrenheit";
+    history.configure({celsius: false});
+    try {
+        history.append(key, 25);
+        assert.deepEqual(history.read(key), [25]);
+        assert.equal(history.temperatureText(25), "77.0 °F");
+        assert.equal(history.inspection(key, "temperature", 0).text, "77.0 °F · now");
+    } finally {
+        history.configure({celsius: true});
+    }
+});
+
 test("native cooling series retain independent traces and inspect their stored samples", function () {
     const fan = history.keys.fanAverage("core"), coolant = history.keys.coolant("core"), probe = history.keys.probe("core", 4);
     [600, 650].forEach((value) => history.append(fan, value));

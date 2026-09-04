@@ -98,9 +98,9 @@ test("native fetch mutations receive proof and JSON content type", async functio
 });
 
 test("empty-body and media callers use their protected mutation forms", function () {
-    const settings = fs.readFileSync(path.join(__dirname, "settings.js"), "utf8");
+    const admin = fs.readFileSync(path.join(__dirname, "admin.js"), "utf8");
     for (const endpoint of ["discover", "refresh"]) {
-        const request = settings.match(new RegExp(
+        const request = admin.match(new RegExp(
             `url: '/api/openrgbimport/${endpoint}',[\\s\\S]*?dataType: 'json'`
         ));
         assert.ok(request, endpoint);

@@ -529,8 +529,8 @@ func TestDevicesThemeIntegrationContract(t *testing.T) {
 
 	settingsTemplate := devicesThemeReadFile(t, filepath.Join(root, "web", "settings.html"))
 	settingsScript := devicesThemeReadFile(t, filepath.Join(root, "static", "js", "settings.js"))
-	if !strings.Contains(settingsTemplate, `id="theme"`) || !strings.Contains(settingsScript, `$("#theme").val()`) {
-		t.Error("existing theme selector identifier changed")
+	if !strings.Contains(settingsTemplate, `id="theme"`) || !strings.Contains(settingsTemplate, `lf-settings-theme-section`) || !strings.Contains(settingsScript, `$("#theme").val()`) || !strings.Contains(settingsScript, `theme: $("#theme").val()`) {
+		t.Error("theme selector or complete preferences payload changed")
 	}
 }
 

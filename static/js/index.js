@@ -69,8 +69,8 @@ $(document).ready(function () {
             const area = $("<div>", {class: "lf-dashboard-history"});
             const addRow = function (label, value, key) { const row = $("<div>", {class: "lf-dashboard-history-row"}).append($("<span>", {text: label}), $("<strong>", {text: value}), history.createSparkline(window.document, key)); area.append(row); };
             if (Number.isFinite(telemetry.averageFanRPM)) addRow("Average Fan Speed", telemetry.averageFanRPM + " RPM", history.keys.fanAverage(card.serial), "rpm");
-            if (Number.isFinite(telemetry.coolantCelsius)) addRow("Coolant", telemetry.coolantCelsius.toFixed(1) + " °C", history.keys.coolant(card.serial), "temperature");
-            (telemetry.temperatureProbes || []).forEach(function (probe) { if (Number.isFinite(probe?.celsius)) addRow(probe.label, probe.celsius.toFixed(1) + " °C", history.keys.probe(card.serial, probe.id), "temperature"); });
+            if (Number.isFinite(telemetry.coolantCelsius)) addRow("Coolant", history.temperatureText(telemetry.coolantCelsius), history.keys.coolant(card.serial), "temperature");
+            (telemetry.temperatureProbes || []).forEach(function (probe) { if (Number.isFinite(probe?.celsius)) addRow(probe.label, history.temperatureText(probe.celsius), history.keys.probe(card.serial, probe.id), "temperature"); });
             if (area.children().length) link.append(area);
         }
         return link;

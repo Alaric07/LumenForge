@@ -139,6 +139,15 @@ test("Dashboard cooling cards use native SVG sparklines from the shared history 
     assert.doesNotMatch(source, /\$\("<svg>"/);
 });
 
+test("Dashboard cooling card temperatures use the shared Dashboard unit formatter", function () {
+    const source = fs.readFileSync(__dirname + "/index.js", "utf8");
+
+    assert.match(source, /history\.temperatureText\(telemetry\.coolantCelsius\)/);
+    assert.match(source, /history\.temperatureText\(probe\.celsius\)/);
+    assert.doesNotMatch(source, /coolantCelsius\.toFixed\(1\) \+ " °C"/);
+    assert.doesNotMatch(source, /probe\.celsius\.toFixed\(1\) \+ " °C"/);
+});
+
 test("Dashboard drag feedback keeps a source state, drop target, and reliable cleanup", function () {
     const source = fs.readFileSync(__dirname + "/index.js", "utf8");
 

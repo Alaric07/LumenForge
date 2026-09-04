@@ -1798,6 +1798,33 @@ func dashboardDeviceStatus(summary *devicesWorkspaceSummary) []dashboardDeviceSt
 	return rows
 }
 
+// dashboardDeviceStatusForDashboard retains the existing status-row shape while
+// replacing snapshot display strings with the Dashboard's selected unit. Raw
+// Celsius telemetry remains available separately for history and gauges.
+func dashboardDeviceStatusForDashboard(summary *devicesWorkspaceSummary, snapshot *coolingpresentation.Snapshot, dash dashboard.Dashboard) []dashboardDeviceStatusRow {
+	rows := dashboardDeviceStatus(summary)
+	if snapshot == nil {
+		return rows
+	}
+	replacements := make(map[string]string)
+	for _, channel := range snapshot.Channels {
+		if channel.Celsius != nil && *channel.Celsius > 0 && channel.Temperature != "" {
+			replacements[channel.Temperature] = dash.TemperatureToString(*channel.Celsius)
+		}
+	}
+	for _, probe := range snapshot.TemperatureProbes {
+		if probe.Celsius != nil && *probe.Celsius > 0 && probe.Temperature != "" {
+			replacements[probe.Temperature] = dash.TemperatureToString(*probe.Celsius)
+		}
+	}
+	for index := range rows {
+		for source, formatted := range replacements {
+			rows[index].Value = strings.ReplaceAll(rows[index].Value, source, formatted)
+		}
+	}
+	return rows
+}
+
 func dashboardCoolingTelemetry(snapshot coolingpresentation.Snapshot) *dashboardDeviceTelemetry {
 	telemetry := &dashboardDeviceTelemetry{}
 	var fanTotal, fanCount int
@@ -1838,7 +1865,7 @@ func dashboardMemoryModuleName(module devicesMemoryModuleSummary) string {
 	return name
 }
 
-func dashboardMemoryTemperatures(serial string, summary *devicesMemoryWorkspaceSummary) []dashboardMemoryTemperature {
+func dashboardMemoryTemperatures(serial string, summary *devicesMemoryWorkspaceSummary, dash dashboard.Dashboard) []dashboardMemoryTemperature {
 	if summary == nil {
 		return nil
 	}
@@ -1849,13 +1876,14 @@ func dashboardMemoryTemperatures(serial string, summary *devicesMemoryWorkspaceS
 		}
 		items = append(items, dashboardMemoryTemperature{
 			Serial: serial, ChannelID: module.ChannelID, Identifier: fmt.Sprintf("DIMM %d", module.ChannelID+1),
-			Name: dashboardMemoryModuleName(module), Temperature: module.Temperature, Celsius: module.TemperatureCelsius,
+			Name: dashboardMemoryModuleName(module), Temperature: dash.TemperatureToString(module.TemperatureCelsius), Celsius: module.TemperatureCelsius,
 		})
 	}
 	return items
 }
 
 func dashboardCurrentDevices(connected map[string]*common.Device, battery map[string]stats.BatteryStats) dashboardDevicesCurrentResponse {
+	dash := dashboard.GetDashboard()
 	response := dashboardDevicesCurrentResponse{
 		Native:  make([]dashboardDeviceSummary, 0),
 		OpenRGB: make([]dashboardDeviceSummary, 0),
@@ -1887,6 +1915,7 @@ func dashboardCurrentDevices(connected map[string]*common.Device, battery map[st
 		item := dashboardDeviceSummary{Serial: summary.Serial, Name: name, Product: summary.Product, Lighting: dashboardLightingState(summary.Lighting), StatusRows: dashboardDeviceStatus(summary)}
 		if coolingDevice, ok := device.Instance.(devicesCoolingSnapshotProvider); ok && coolingDevice != nil && coolingDevice.CoolingDeviceID() == serial {
 			if snapshot, usable := coolingDevice.CoolingSnapshot(); usable {
+				item.StatusRows = dashboardDeviceStatusForDashboard(summary, &snapshot, dash)
 				item.Telemetry = dashboardCoolingTelemetry(snapshot)
 			}
 		}
@@ -1894,7 +1923,7 @@ func dashboardCurrentDevices(connected map[string]*common.Device, battery map[st
 			brightness := summary.Lighting.Brightness
 			item.Brightness = &brightness
 		}
-		response.Memory = append(response.Memory, dashboardMemoryTemperatures(summary.Serial, summary.Memory)...)
+		response.Memory = append(response.Memory, dashboardMemoryTemperatures(summary.Serial, summary.Memory, dash)...)
 		if isOpenRGB {
 			response.OpenRGB = append(response.OpenRGB, item)
 		} else {
@@ -4221,6 +4250,25 @@ func uiSettings(w http.ResponseWriter, _ *http.Request) {
 	executeTemplateOrRespond(w, t, "settings.html", web)
 }
 
+// uiAdmin handles the administrative System workspace.
+func uiAdmin(w http.ResponseWriter, _ *http.Request) {
+	web := templates.Web{}
+	web.Title = dashboard.GetDashboard().PageTitle
+	web.Devices = devices.GetDevices()
+	web.BuildInfo = version.GetBuildInfo()
+	web.SystemInfo = systeminfo.GetInfo()
+	web.Dashboard = dashboard.GetDashboard()
+	web.Page = "admin"
+
+	t := templates.GetTemplate()
+
+	for header := range headers {
+		w.Header().Set(headers[header].Key, headers[header].Value)
+	}
+
+	executeTemplateOrRespond(w, t, "admin.html", web)
+}
+
 // uiXeneon handles kiosk page
 func uiXeneon(w http.ResponseWriter, _ *http.Request) {
 	var xeneon *common.Device
@@ -5747,6 +5795,7 @@ func setRoutes() http.Handler {
 		handleFunc(r, "/macros", http.MethodGet, uiMacrosOverview)
 		handleFunc(r, "/lcd", http.MethodGet, uiLcdOverview)
 		handleFunc(r, "/settings", http.MethodGet, uiSettings)
+		handleFunc(r, "/admin", http.MethodGet, uiAdmin)
 		//handleFunc(r, "/xeneon", http.MethodGet, uiXeneon)
 	}
 	return protection.wrap(r)

@@ -21,7 +21,7 @@ service restart.
 
 1. Before restoring, create a new backup or separately copy any current state
    you may need.
-2. In **Settings**, find **Backup and Restore** and select the LumenForge backup
+2. In **Admin**, find **Backup and Restore** and select the LumenForge backup
    ZIP file.
 3. Select **Restore**.
 4. When the dashboard reports success, make no further dashboard changes and

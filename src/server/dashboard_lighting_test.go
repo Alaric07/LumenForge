@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -214,6 +215,24 @@ func TestDashboardCurrentDevicesKeepTopLevelAggregatesAndMemorySingle(t *testing
 	}
 }
 
+func TestDashboardMemoryTemperaturesUseDashboardUnits(t *testing.T) {
+	summary := &devicesMemoryWorkspaceSummary{Modules: []devicesMemoryModuleSummary{{ChannelID: 0, Name: "DIMM 1", Temperature: "32.0 °C", TemperatureCelsius: 32}}}
+	items := dashboardMemoryTemperatures("memory", summary, dashboard.Dashboard{Celsius: false})
+	if len(items) != 1 || items[0].Temperature != "89.6 °F" || items[0].Celsius != 32 {
+		t.Fatalf("memory temperatures = %#v", items)
+	}
+}
+
+func TestDashboardDeviceStatusUsesDashboardUnitsForTypedCoolingTelemetry(t *testing.T) {
+	coolant, probe := float32(31.5), float32(29)
+	summary := &devicesWorkspaceSummary{OverviewCooling: &devicesOverviewCoolingStatusSummary{Pumps: []devicesOverviewCoolingPumpSummary{{Label: "Coolant", RPM: "2400 RPM", Temperature: "31.5 °C"}}}, TemperatureProbes: []devicesOverviewStatusRow{{Label: "Radiator", Value: "29.0 °C"}}}
+	snapshot := coolingpresentation.Snapshot{Channels: []coolingpresentation.Channel{{Temperature: "31.5 °C", Celsius: &coolant}}, TemperatureProbes: []coolingpresentation.TemperatureProbe{{Temperature: "29.0 °C", Celsius: &probe}}}
+	rows := dashboardDeviceStatusForDashboard(summary, &snapshot, dashboard.Dashboard{Celsius: false})
+	if len(rows) != 2 || rows[0].Value != "2400 RPM · 88.7 °F" || rows[1].Value != "84.2 °F" {
+		t.Fatalf("Dashboard cooling rows = %#v", rows)
+	}
+}
+
 func TestDashboardCurrentDevicesKeepAggregateCoolingRowsInsideOneCard(t *testing.T) {
 	core := coolingpresentation.Snapshot{Available: true, Channels: []coolingpresentation.Channel{
 		{ID: 0, Name: "Pump", Label: "Coolant", RPM: 2400, Temperature: "31.5 °C", ContainsPump: true},
@@ -393,12 +412,12 @@ func TestDashboardSystemOverviewTemplateUsesFixedTelemetryPresentation(t *testin
 	page := templates.Web{
 		Page: "index",
 		Dashboard: dashboard.Dashboard{
-			Celsius:        true,
+			Celsius:        false,
 			TemperatureBar: true,
 		},
-		CpuTemp:         "36.0 °C",
+		CpuTemp:         "96.8 °F",
 		CpuTempCelsius:  36,
-		DashboardMemory: []dashboardMemoryTemperature{{Serial: "memory", ChannelID: 0, Identifier: "DIMM 1", Name: "Memory family", Temperature: "32.0 °C", Celsius: 32}},
+		DashboardMemory: []dashboardMemoryTemperature{{Serial: "memory", ChannelID: 0, Identifier: "DIMM 1", Name: "Memory family", Temperature: "89.6 °F", Celsius: 32}},
 		BuildInfo:       &version.BuildInfo{Revision: "test", BuildVersion: "test"},
 		SystemInfo: &systeminfo.SystemInfo{
 			CPU: &systeminfo.CpuData{Model: "AMD Ryzen 9"},
@@ -437,12 +456,20 @@ func TestDashboardSystemOverviewTemplateUsesFixedTelemetryPresentation(t *testin
 		`class="lf-dashboard-gauge-visual"`,
 		`lighting: "`,
 		`brightness: "`,
+		`celsius: `,
+		`>96.8 °F<`,
+		`>131.0 °F<`,
+		`>89.6 °F<`,
+		`>113.0 °F<`,
 		`Clustered Lighting Devices`,
 		`Independent Lighting Devices`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("dashboard overview template missing %q", want)
 		}
+	}
+	if !regexp.MustCompile(`celsius:\s*false\s*,`).MatchString(html) {
+		t.Error("dashboard unit bridge did not pass Fahrenheit preference to the client")
 	}
 	for _, absent := range []string{
 		`id="dashboard-overview-card"`,

@@ -18,10 +18,11 @@ const lcdArcTemplate = fs.readFileSync(path.join(root, "web", "lcd-arc.html"), "
 const lcdDoubleArcTemplate = fs.readFileSync(path.join(root, "web", "lcd-doublearc.html"), "utf8");
 const lcdAnimationTemplate = fs.readFileSync(path.join(root, "web", "lcd-animation.html"), "utf8");
 const macrosTemplate = fs.readFileSync(path.join(root, "web", "macros.html"), "utf8");
+const adminTemplate = fs.readFileSync(path.join(root, "web", "admin.html"), "utf8");
 const macrosSource = fs.readFileSync(path.join(__dirname, "macros.js"), "utf8");
 const temperatureGraphTemplate = fs.readFileSync(path.join(root, "web", "temperatureGraph.html"), "utf8");
 const temperatureTemplate = fs.readFileSync(path.join(root, "web", "temperature.html"), "utf8");
-const systemTemplates = ["settings.html", "lcd.html", "macros.html", "temperature.html", "temperatureGraph.html"]
+const systemTemplates = ["settings.html", "admin.html", "lcd.html", "macros.html", "temperature.html", "temperatureGraph.html"]
     .map(function (file) { return fs.readFileSync(path.join(root, "web", file), "utf8"); });
 const css = fs.readFileSync(path.join(root, "static", "css", "app-shell.css"), "utf8");
 
@@ -92,6 +93,12 @@ test("System is a drawer-only toggle on every modern shell", function () {
     assert.match(source, /setDrawerOpen\(otherDrawer, otherToggle, false\)/);
 });
 
+test("modern Dashboard always renders and loads the temperature bar", function () {
+    assert.match(indexTemplate, /\{\{ template "temperature-bar" \. \}\}/);
+    assert.match(indexTemplate, /<script src="\/static\/js\/temperature-bar\.js"><\/script>/);
+    assert.doesNotMatch(indexTemplate, /\{\{ if \.Dashboard\.TemperatureBar \}\}/);
+});
+
 test("System routes use the modern shell with a closed, active System drawer", function () {
     for (const template of systemTemplates) {
         assert.match(template, /lf-app-shell lf-system-shell/);
@@ -103,16 +110,17 @@ test("System routes use the modern shell with a closed, active System drawer", f
     assert.match(navTemplate, /define "modern-system-drawer"/);
     assert.match(navTemplate, /id="lf-system-drawer"/);
     assert.match(navTemplate, /data-lf-system-drawer-toggle[\s\S]*?aria-controls="lf-system-drawer"[\s\S]*?aria-expanded="false"/);
-    assert.match(navTemplate, /href="\/settings"[\s\S]*?href="\/lcd"[\s\S]*?href="\/macros"[\s\S]*?href="\/temperature"/);
-    assert.match(navTemplate, /eq \.Page "settings"[\s\S]*?eq \.Page "lcd"[\s\S]*?eq \.Page "macros"[\s\S]*?eq \.Page "temperature"/);
+    assert.match(navTemplate, /href="\/settings"[\s\S]*?href="\/admin"[\s\S]*?href="\/lcd"[\s\S]*?href="\/macros"[\s\S]*?href="\/temperature"/);
+    assert.match(navTemplate, /eq \.Page "settings"[\s\S]*?eq \.Page "admin"[\s\S]*?eq \.Page "lcd"[\s\S]*?eq \.Page "macros"[\s\S]*?eq \.Page "temperature"/);
     assert.match(navTemplate, /lf-device-list" aria-label="System navigation"/);
     assert.match(navTemplate, /lf-device-item\{\{ if eq \.Page "settings" \}\} lf-device-item-active/);
     assert.match(navTemplate, /class="lf-device-panel lf-system-panel" id="lf-system-drawer"/);
     assert.doesNotMatch(navTemplate, /lf-system-panel lf-system-panel-open/);
     assert.match(css, /\.lf-app-shell \.lf-device-panel,\s*\.lf-app-shell \.lf-system-panel \{/);
     assert.match(css, /\.lf-app-shell \.lf-system-workspace/);
-    assert.match(headTemplate, /eq \.Page "settings"[\s\S]*?eq \.Page "lcd"[\s\S]*?eq \.Page "macros"[\s\S]*?eq \.Page "temperature"[\s\S]*?app-shell\.js/);
-    assert.match(headTemplate, /eq \.Page "settings"[\s\S]*?eq \.Page "lcd"[\s\S]*?eq \.Page "macros"[\s\S]*?eq \.Page "temperature"[\s\S]*?app-shell\.css/);
+    assert.match(headTemplate, /eq \.Page "settings"[\s\S]*?eq \.Page "admin"[\s\S]*?eq \.Page "lcd"[\s\S]*?eq \.Page "macros"[\s\S]*?eq \.Page "temperature"[\s\S]*?app-shell\.js/);
+    assert.match(headTemplate, /eq \.Page "settings"[\s\S]*?eq \.Page "admin"[\s\S]*?eq \.Page "lcd"[\s\S]*?eq \.Page "macros"[\s\S]*?eq \.Page "temperature"[\s\S]*?app-shell\.css/);
+    assert.match(adminTemplate, /lf-app-shell lf-system-shell[\s\S]*?template "modern-nav"[\s\S]*?template "modern-system-drawer"[\s\S]*?lf-system-workspace/);
     assert.match(temperatureGraphTemplate, /id="graphPump"[\s\S]*?id="graphFans"/);
     assert.match(temperatureGraphTemplate, /static\/js\/temperature\.js/);
 });
@@ -176,6 +184,7 @@ test("Macros uses a modern System workspace while retaining macro and DataTables
 
 test("System selection closes through the shared drawer handler and can be reopened", function () {
     assert.match(navTemplate, /href="\/settings" data-lf-drawer-item/);
+    assert.match(navTemplate, /href="\/admin" data-lf-drawer-item/);
     assert.match(navTemplate, /href="\/lcd" data-lf-drawer-item/);
     assert.match(navTemplate, /href="\/macros" data-lf-drawer-item/);
     assert.match(navTemplate, /href="\/temperature" data-lf-drawer-item/);

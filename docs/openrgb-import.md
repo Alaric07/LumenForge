@@ -23,7 +23,7 @@ LumenForge connects only to the local OpenRGB SDK Server at `127.0.0.1` on the p
 3. If OpenRGB is not using port `6742`, set `openRGBPort` in LumenForge's `config.json` to the same port.
 4. Start LumenForge.
 5. Open **Settings** in LumenForge.
-6. Locate **OpenRGB SDK Integration** and select **Discover & Manage Controllers**.
+6. Open **Admin**, locate **OpenRGB SDK Integration**, and select **Discover & Manage Controllers**.
 7. Review the controllers reported by the local SDK Server and explicitly select the controllers you want to import.
 8. Select **Import Selected**.
 9. Verify the imported controllers and their layouts in the dashboard and, where supported, RGB Cluster.
