@@ -2948,15 +2948,245 @@
     flex: 1 1 280px;
 }
 
+.lf-app-shell .lf-lcd-workspace {
+    min-width: 0;
+}
+
+.lf-app-shell .lf-lcd-header {
+    margin: 2px 0 30px;
+}
+
+.lf-app-shell .lf-lcd-header .lf-workspace-title {
+    max-width: none;
+    font-size: clamp(30px, 3.5vw, 46px);
+}
+
+.lf-app-shell .lf-lcd-header .lf-workspace-description {
+    margin: 10px 0 0;
+}
+
+.lf-app-shell .lf-lcd-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.lf-app-shell .lf-lcd-panel {
+    min-width: 0;
+    border: 1px solid var(--lf-border-subtle);
+    border-radius: var(--lf-shell-radius-lg);
+    background:
+        radial-gradient(circle at 92% 0, color-mix(in srgb, var(--lf-accent-primary) 9%, transparent), transparent 16rem),
+        var(--lf-panel-elevated);
+    box-shadow: var(--lf-shadow-soft);
+}
+
+.lf-app-shell .lf-lcd-panel-wide {
+    grid-column: 1 / -1;
+}
+
+.lf-app-shell .lf-lcd-panel-header {
+    display: flex;
+    align-items: center;
+    min-height: 64px;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--lf-border-subtle);
+}
+
+.lf-app-shell .lf-lcd-panel-header h2 {
+    margin: 0;
+    color: var(--lf-text-primary);
+    font-size: 16px;
+    font-weight: 720;
+}
+
+.lf-app-shell .lf-lcd-panel-body {
+    min-width: 0;
+    padding: 18px 22px 22px;
+}
+
+.lf-app-shell .lf-lcd-settings {
+    display: flex;
+    flex-direction: column;
+}
+
+.lf-app-shell .lf-lcd-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-width: 0;
+    min-height: 52px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--lf-border-subtle);
+}
+
+.lf-app-shell .lf-lcd-label {
+    min-width: 0;
+    color: var(--lf-text-primary);
+    font-size: 14px;
+    font-weight: 620;
+}
+
+.lf-app-shell .lf-lcd-select,
+.lf-app-shell .lf-lcd-input {
+    min-width: min(100%, 210px);
+    max-width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--lf-border-emphasized);
+    border-radius: var(--lf-shell-radius-sm);
+    color: var(--lf-text-primary);
+    background: var(--lf-surface-subdued);
+    font: inherit;
+}
+
+.lf-app-shell .lf-lcd-color {
+    width: 42px;
+    height: 34px;
+    padding: 3px;
+    border: 1px solid var(--lf-border-emphasized);
+    border-radius: var(--lf-shell-radius-sm);
+    background: var(--lf-surface-subdued);
+    cursor: pointer;
+}
+
+.lf-app-shell .lf-lcd-select:focus-visible,
+.lf-app-shell .lf-lcd-input:focus-visible,
+.lf-app-shell .lf-lcd-color:focus-visible,
+.lf-app-shell .lf-lcd-toggle:focus-visible,
+.lf-app-shell .lf-lcd-file-input:focus-visible,
+.lf-app-shell .lf-lcd-button:focus-visible,
+.lf-app-shell .lf-lcd-info:focus-visible {
+    outline: 3px solid var(--lf-focus-ring);
+    outline-offset: 2px;
+}
+
+.lf-app-shell .lf-lcd-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.lf-app-shell .lf-lcd-button {
+    padding: 9px 14px;
+    border: 1px solid var(--lf-border-selected);
+    border-radius: var(--lf-shell-radius-sm);
+    color: var(--lf-text-primary);
+    background: var(--lf-accent-primary);
+    font: inherit;
+    font-weight: 680;
+    cursor: pointer;
+}
+
+.lf-app-shell .lf-lcd-button:hover:not(:disabled) {
+    background: var(--lf-accent-highlight);
+}
+
+.lf-app-shell .lf-lcd-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.lf-app-shell .lf-lcd-file-label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--lf-text-primary);
+    font-size: 14px;
+    font-weight: 620;
+}
+
+.lf-app-shell .lf-lcd-file-input {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--lf-border-emphasized);
+    border-radius: var(--lf-shell-radius-sm);
+    color: var(--lf-text-secondary);
+    background: var(--lf-surface-subdued);
+}
+
+.lf-app-shell .lf-lcd-file-input::file-selector-button {
+    margin-right: 10px;
+    padding: 6px 9px;
+    border: 0;
+    border-radius: 6px;
+    color: var(--lf-text-primary);
+    background: var(--lf-surface-selected);
+    cursor: pointer;
+}
+
+.lf-app-shell .lf-lcd-control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.lf-app-shell .lf-lcd-control-group .lf-lcd-input {
+    min-width: min(100%, 176px);
+}
+
+.lf-app-shell .lf-lcd-info {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--lf-border-emphasized);
+    border-radius: var(--lf-shell-radius-sm);
+    color: var(--lf-accent-highlight);
+    background: var(--lf-surface-subdued);
+    cursor: pointer;
+}
+
+.lf-app-shell .lf-lcd-toggle {
+    width: 19px;
+    height: 19px;
+    accent-color: var(--lf-accent-primary);
+}
+
+.lf-app-shell .lf-lcd-subsection-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+    gap: 14px;
+    margin-top: 18px;
+}
+
+.lf-app-shell .lf-lcd-subsection {
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid var(--lf-border-subtle);
+    border-radius: var(--lf-shell-radius-sm);
+    background: var(--lf-surface-subdued);
+}
+
+.lf-app-shell .lf-lcd-subsection h3 {
+    margin: 0 0 8px;
+    color: var(--lf-text-primary);
+    font-size: 14px;
+    font-weight: 700;
+}
+
 @media (max-width: 920px) {
     .lf-app-shell .lf-settings-grid {
         grid-template-columns: minmax(0, 1fr);
+    }
+
+    .lf-app-shell .lf-lcd-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .lf-app-shell .lf-lcd-panel-wide {
+        grid-column: auto;
     }
 }
 
 @media (max-width: 560px) {
     .lf-app-shell .lf-settings-panel-header,
-    .lf-app-shell .lf-settings-panel-body {
+    .lf-app-shell .lf-settings-panel-body,
+    .lf-app-shell .lf-lcd-panel-header,
+    .lf-app-shell .lf-lcd-panel-body {
         padding-right: 16px;
         padding-left: 16px;
     }
@@ -2968,6 +3198,17 @@
 
     .lf-app-shell .lf-settings-row label:not(.system-toggle),
     .lf-app-shell .lf-settings-row .system-input {
+        width: 100%;
+    }
+
+    .lf-app-shell .lf-lcd-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .lf-app-shell .lf-lcd-select,
+    .lf-app-shell .lf-lcd-input,
+    .lf-app-shell .lf-lcd-control-group {
         width: 100%;
     }
 }

@@ -7,37 +7,24 @@
     {{ template "modern-nav" . }}
     {{ template "modern-system-drawer" . }}
     <main class="lf-system-workspace">
-    <div class="lf-system-legacy-content">
-    {{ $devs := .Devices }}
-    {{ $device := .Device }}
-    <input type="hidden" id="deviceId" name="deviceId" value="{{ $device.Serial }}">
-            <!-- Temperature bar -->
-            {{ if .Dashboard.TemperatureBar }}
-            {{ template "temperature-bar" . }}
-            {{ end }}
-
-            <div class="page-centered-wrapper">
-                <!-- LCD -->
-                <div class="row g-4 mb-4 align-items-start">
-                    <!-- Upload -->
-                    {{ template "lcd-upload" . }}
-
-                    <!-- Arc -->
-                    {{ template "lcd-arc" . }}
-
-                    <!-- Double Arc -->
-                    {{ template "lcd-doublearc" . }}
-
-                    <!-- Animation -->
-                    {{ template "lcd-animation" . }}
-                </div>
+        {{ $devs := .Devices }}
+        {{ $device := .Device }}
+        <input type="hidden" id="deviceId" name="deviceId" value="{{ $device.Serial }}">
+        <section class="lf-lcd-workspace" aria-labelledby="lf-lcd-title">
+            <header class="lf-lcd-header">
+                <p class="lf-section-kicker">System</p>
+                <h1 class="lf-workspace-title" id="lf-lcd-title">LCD</h1>
+                <p class="lf-workspace-description">Configure display assets and built-in LCD layouts.</p>
+            </header>
+            <div class="lf-lcd-grid">
+                {{ template "lcd-upload" . }}
+                {{ template "lcd-arc" . }}
+                {{ template "lcd-doublearc" . }}
+                {{ template "lcd-animation" . }}
             </div>
-    </div>
+        </section>
     </main>
 </div>
 <script src="/static/js/lcd.js"></script>
-{{ if .Dashboard.TemperatureBar }}
-<script src="/static/js/temperature-bar.js"></script>
-{{ end }}
 </body>
 </html>

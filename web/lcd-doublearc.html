@@ -2,114 +2,70 @@
 {{ $doubleArc := index .LCDProfiles 101 }}
 {{ $lcdSensors := .LCDSensors }}
 {{ $root := . }}
-<div class="col-lg-3 col-md-6 col-12">
-    <div class="card system-card text-center">
-        <div class="card-header">
-            {{ $doubleArc.Name }}
-        </div>
-        <div class="card-body">
-            <div class="settings-list">
-                <div class="settings-row">
-                    <span class="settings-label text-ellipsis">{{ .Lang "txtMargin" }}</span>
-                    <div class="system-input text-input max-width-100 compact">
-                        <label>
-                            <input type="text" id="margin_{{ $doubleArc.Id }}" value="{{ $doubleArc.Margin }}">
-                        </label>
-                    </div>
-                </div>
-                <div class="settings-row">
-                    <span class="settings-label text-ellipsis">{{ .Lang "txtThickness" }}</span>
-                    <div class="system-input text-input max-width-100 compact">
-                        <label>
-                            <input type="text" id="thickness_{{ $doubleArc.Id }}" value="{{ $doubleArc.Thickness }}">
-                        </label>
-                    </div>
-                </div>
-                <div class="settings-row">
-                    <span class="settings-label text-ellipsis">{{ .Lang "txtBottomGap" }}</span>
-                    <div class="system-input text-input max-width-100 compact">
-                        <label>
-                            <input type="text" id="gapRadians_{{ $doubleArc.Id }}" value="{{ $doubleArc.GapRadians }}">
-                        </label>
-                    </div>
-                </div>
-                <div class="settings-row">
-                    <span class="settings-label text-ellipsis">{{ .Lang "txtBackground" }}</span>
-                    <div class="system-color compact">
-                        <label>
-                            <input type="color" id="backgroundColor_{{ $doubleArc.Id }}" value="{{ $doubleArc.Background.Hex }}">
-                        </label>
-                    </div>
-                </div>
-                <div class="settings-row">
-                    <span class="settings-label text-ellipsis">{{ .Lang "txtBorderColor" }}</span>
-                    <div class="system-color compact">
-                        <label>
-                            <input type="color" id="borderColor_{{ $doubleArc.Id }}" value="{{ $doubleArc.BorderColor.Hex }}">
-                        </label>
-                    </div>
-                </div>
-                <div class="settings-row">
-                    <span class="settings-label text-ellipsis">{{ .Lang "txtSeparatorColor" }}</span>
-                    <div class="system-color compact">
-                        <label>
-                            <input type="color" id="separatorColor_{{ $doubleArc.Id }}" value="{{ $doubleArc.SeparatorColor.Hex }}">
-                        </label>
-                    </div>
-                </div>
+<section class="lf-lcd-panel lf-lcd-panel-wide" aria-labelledby="lf-lcd-doublearc-title">
+    <header class="lf-lcd-panel-header">
+        <h2 id="lf-lcd-doublearc-title">{{ $doubleArc.Name }}</h2>
+    </header>
+    <div class="lf-lcd-panel-body">
+        <div class="lf-lcd-settings">
+            <div class="lf-lcd-row">
+                <label class="lf-lcd-label" for="margin_{{ $doubleArc.Id }}">{{ .Lang "txtMargin" }}</label>
+                <input class="lf-lcd-input" type="text" id="margin_{{ $doubleArc.Id }}" value="{{ $doubleArc.Margin }}">
+            </div>
+            <div class="lf-lcd-row">
+                <label class="lf-lcd-label" for="thickness_{{ $doubleArc.Id }}">{{ .Lang "txtThickness" }}</label>
+                <input class="lf-lcd-input" type="text" id="thickness_{{ $doubleArc.Id }}" value="{{ $doubleArc.Thickness }}">
+            </div>
+            <div class="lf-lcd-row">
+                <label class="lf-lcd-label" for="gapRadians_{{ $doubleArc.Id }}">{{ .Lang "txtBottomGap" }}</label>
+                <input class="lf-lcd-input" type="text" id="gapRadians_{{ $doubleArc.Id }}" value="{{ $doubleArc.GapRadians }}">
+            </div>
+            <div class="lf-lcd-row">
+                <label class="lf-lcd-label" for="backgroundColor_{{ $doubleArc.Id }}">{{ .Lang "txtBackground" }}</label>
+                <input class="lf-lcd-color" type="color" id="backgroundColor_{{ $doubleArc.Id }}" value="{{ $doubleArc.Background.Hex }}">
+            </div>
+            <div class="lf-lcd-row">
+                <label class="lf-lcd-label" for="borderColor_{{ $doubleArc.Id }}">{{ .Lang "txtBorderColor" }}</label>
+                <input class="lf-lcd-color" type="color" id="borderColor_{{ $doubleArc.Id }}" value="{{ $doubleArc.BorderColor.Hex }}">
+            </div>
+            <div class="lf-lcd-row">
+                <label class="lf-lcd-label" for="separatorColor_{{ $doubleArc.Id }}">{{ .Lang "txtSeparatorColor" }}</label>
+                <input class="lf-lcd-color" type="color" id="separatorColor_{{ $doubleArc.Id }}" value="{{ $doubleArc.SeparatorColor.Hex }}">
             </div>
         </div>
 
-        {{ range $key, $value := $doubleArc.Arcs }}
-        <div class="card-body pt-0">
-            {{ $value.Name }}
-            <div class="settings-list">
-                <div class="settings-row">
-                    <span class="settings-label text-ellipsis">{{ $root.Lang "txtSensor" }}</span>
-                    <label>
-                        <select id="sensorType_{{ $key }}" class="form-select system-select auto-width sensorType compact">
+        <div class="lf-lcd-subsection-grid">
+            {{ range $key, $value := $doubleArc.Arcs }}
+            <section class="lf-lcd-subsection" aria-labelledby="lf-lcd-doublearc-{{ $key }}-title">
+                <h3 id="lf-lcd-doublearc-{{ $key }}-title">{{ $value.Name }}</h3>
+                <div class="lf-lcd-settings">
+                    <div class="lf-lcd-row">
+                        <label class="lf-lcd-label" for="sensorType_{{ $key }}">{{ $root.Lang "txtSensor" }}</label>
+                        <select id="sensorType_{{ $key }}" class="lf-lcd-select sensorType">
                             {{ range $k, $v := $lcdSensors }}
-                            {{ if eq $k $value.Sensor }}
-                            <option value="{{ $k }}" selected>{{ $v }}</option>
-                            {{ else }}
-                            <option value="{{ $k }}">{{ $v }}</option>
-                            {{ end }}
+                            <option value="{{ $k }}"{{ if eq $k $value.Sensor }} selected{{ end }}>{{ $v }}</option>
                             {{ end }}
                         </select>
-                    </label>
-                </div>
-
-                <div class="settings-row">
-                    <span class="settings-label text-ellipsis">{{ $root.Lang "txtStartColor" }}</span>
-                    <div class="system-color compact">
-                        <label>
-                            <input type="color" id="startColor_{{ $key }}" value="{{ $value.StartColor.Hex }}">
-                        </label>
+                    </div>
+                    <div class="lf-lcd-row">
+                        <label class="lf-lcd-label" for="startColor_{{ $key }}">{{ $root.Lang "txtStartColor" }}</label>
+                        <input class="lf-lcd-color" type="color" id="startColor_{{ $key }}" value="{{ $value.StartColor.Hex }}">
+                    </div>
+                    <div class="lf-lcd-row">
+                        <label class="lf-lcd-label" for="endColor_{{ $key }}">{{ $root.Lang "txtEndColor" }}</label>
+                        <input class="lf-lcd-color" type="color" id="endColor_{{ $key }}" value="{{ $value.EndColor.Hex }}">
+                    </div>
+                    <div class="lf-lcd-row">
+                        <label class="lf-lcd-label" for="textColor_{{ $key }}">{{ $root.Lang "txtTextColor" }}</label>
+                        <input class="lf-lcd-color" type="color" id="textColor_{{ $key }}" value="{{ $value.TextColor.Hex }}">
                     </div>
                 </div>
-                <div class="settings-row">
-                    <span class="settings-label text-ellipsis">{{ $root.Lang "txtEndColor" }}</span>
-                    <div class="system-color compact">
-                        <label>
-                            <input type="color" id="endColor_{{ $key }}" value="{{ $value.EndColor.Hex }}">
-                        </label>
-                    </div>
-                </div>
-                <div class="settings-row">
-                    <span class="settings-label text-ellipsis">{{ $root.Lang "txtTextColor" }}</span>
-                    <div class="system-color compact">
-                        <label>
-                            <input type="color" id="textColor_{{ $key }}" value="{{ $value.TextColor.Hex }}">
-                        </label>
-                    </div>
-                </div>
-            </div>
+            </section>
+            {{ end }}
         </div>
-        {{ end }}
-
-        <div class="card-footer card-footer-left">
-            <button class="system-button saveDoubleArcProfile left" data-info="{{ $doubleArc.Id }}">{{ .Lang "txtSaveProfile" }}</button>
+        <div class="lf-lcd-actions">
+            <button class="lf-lcd-button saveDoubleArcProfile" type="button" data-info="{{ $doubleArc.Id }}">{{ .Lang "txtSaveProfile" }}</button>
         </div>
     </div>
-</div>
+</section>
 {{ end }}

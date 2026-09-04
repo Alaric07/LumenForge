@@ -12,6 +12,11 @@ const devicesTemplate = fs.readFileSync(path.join(root, "web", "devices.html"), 
 const indexTemplate = fs.readFileSync(path.join(root, "web", "index.html"), "utf8");
 const clusterTemplate = fs.readFileSync(path.join(root, "web", "cluster.html"), "utf8");
 const headTemplate = fs.readFileSync(path.join(root, "web", "head.html"), "utf8");
+const lcdTemplate = fs.readFileSync(path.join(root, "web", "lcd.html"), "utf8");
+const lcdUploadTemplate = fs.readFileSync(path.join(root, "web", "lcd-upload.html"), "utf8");
+const lcdArcTemplate = fs.readFileSync(path.join(root, "web", "lcd-arc.html"), "utf8");
+const lcdDoubleArcTemplate = fs.readFileSync(path.join(root, "web", "lcd-doublearc.html"), "utf8");
+const lcdAnimationTemplate = fs.readFileSync(path.join(root, "web", "lcd-animation.html"), "utf8");
 const temperatureGraphTemplate = fs.readFileSync(path.join(root, "web", "temperatureGraph.html"), "utf8");
 const systemTemplates = ["settings.html", "lcd.html", "macros.html", "temperature.html", "temperatureGraph.html"]
     .map(function (file) { return fs.readFileSync(path.join(root, "web", file), "utf8"); });
@@ -108,6 +113,24 @@ test("System routes use the modern shell with a closed, active System drawer", f
     assert.match(temperatureGraphTemplate, /template "temperature-bar"/);
     assert.match(temperatureGraphTemplate, /id="graphPump"[\s\S]*?id="graphFans"/);
     assert.match(temperatureGraphTemplate, /static\/js\/temperature\.js/);
+});
+
+test("LCD uses a modern System workspace without legacy layout or temperature-bar content", function () {
+    assert.match(lcdTemplate, /lf-app-shell lf-system-shell[\s\S]*?template "modern-nav"[\s\S]*?template "modern-system-drawer"[\s\S]*?lf-system-workspace/);
+    assert.match(lcdTemplate, /lf-lcd-workspace[\s\S]*?lf-lcd-header[\s\S]*?lf-lcd-grid/);
+    assert.match(lcdTemplate, /static\/js\/lcd\.js/);
+    assert.doesNotMatch(lcdTemplate, /template "sidebar"|sidebar\.js|temperature-bar|lf-system-legacy-content|page-centered-wrapper|class="row/);
+    for (const template of [lcdUploadTemplate, lcdArcTemplate, lcdDoubleArcTemplate, lcdAnimationTemplate]) {
+        assert.match(template, /lf-lcd-panel/);
+        assert.doesNotMatch(template, /col-(?:lg|md)|\bcard(?:-|\s|\")|settings-(?:list|row)|system-card/);
+    }
+    assert.match(lcdUploadTemplate, /id="gifUploadForm"[\s\S]*?id="animationFile"[\s\S]*?class="lf-lcd-button uploadGifImage" id="uploadGifImage"/);
+    assert.match(lcdArcTemplate, /sensorType_\{\{ \$arc\.Id \}\}[\s\S]*?margin_\{\{ \$arc\.Id \}\}[\s\S]*?saveArcProfile/);
+    assert.match(lcdDoubleArcTemplate, /margin_\{\{ \$doubleArc\.Id \}\}[\s\S]*?separatorColor_\{\{ \$doubleArc\.Id \}\}[\s\S]*?sensorType_\{\{ \$key \}\}[\s\S]*?saveDoubleArcProfile/);
+    assert.match(lcdAnimationTemplate, /backgroundImage_\{\{ \$animation\.Id \}\}[\s\S]*?workers_\{\{ \$animation\.Id \}\}[\s\S]*?sensorEnabled_\{\{ \$key \}\}_\{\{ \$animation\.Id \}\}[\s\S]*?saveAnimationProfile/);
+    assert.match(lcdAnimationTemplate, /lcdWorkersInfo[\s\S]*?lcdFrameDelayInfo/);
+    assert.match(css, /\.lf-app-shell \.lf-lcd-grid \{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+    assert.match(css, /@media \(max-width: 920px\)[\s\S]*?\.lf-app-shell \.lf-lcd-grid \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\)/);
 });
 
 test("System selection closes through the shared drawer handler and can be reopened", function () {

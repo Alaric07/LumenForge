@@ -2,108 +2,76 @@
 {{ $animation := index .LCDProfiles 102 }}
 {{ $lcdSensors := .LCDSensors }}
 {{ $root := . }}
-<div class="col-lg-3 col-md-6 col-12">
-    <div class="card system-card text-center">
-        <div class="card-header">
-            {{ $animation.Name }}
-        </div>
-        <div class="card-body">
-            <div class="settings-list">
-                <div class="settings-row">
-                    <span class="settings-label text-ellipsis">{{ $root.Lang "txtBackground" }}</span>
-                    <label>
-                        <select id="backgroundImage_{{ $animation.Id }}" class="form-select system-select auto-width backgroundImage compact">
-                            {{ range $k, $v := $animation.Images }}
-                            {{ if eq $k $animation.Background }}
-                            <option value="{{ $k }}" selected>{{ $k }}</option>
-                            {{ else }}
-                            <option value="{{ $k }}">{{ $k }}</option>
-                            {{ end }}
-                            {{ end }}
-                        </select>
-                    </label>
+<section class="lf-lcd-panel lf-lcd-panel-wide" aria-labelledby="lf-lcd-animation-title">
+    <header class="lf-lcd-panel-header">
+        <h2 id="lf-lcd-animation-title">{{ $animation.Name }}</h2>
+    </header>
+    <div class="lf-lcd-panel-body">
+        <div class="lf-lcd-settings">
+            <div class="lf-lcd-row">
+                <label class="lf-lcd-label" for="backgroundImage_{{ $animation.Id }}">{{ $root.Lang "txtBackground" }}</label>
+                <select id="backgroundImage_{{ $animation.Id }}" class="lf-lcd-select backgroundImage">
+                    {{ range $k, $v := $animation.Images }}
+                    <option value="{{ $k }}"{{ if eq $k $animation.Background }} selected{{ end }}>{{ $k }}</option>
+                    {{ end }}
+                </select>
+            </div>
+            <div class="lf-lcd-row">
+                <label class="lf-lcd-label" for="margin_{{ $animation.Id }}">{{ .Lang "txtMargin" }}</label>
+                <input class="lf-lcd-input" type="text" id="margin_{{ $animation.Id }}" value="{{ $animation.Margin }}">
+            </div>
+            <div class="lf-lcd-row">
+                <label class="lf-lcd-label" for="workers_{{ $animation.Id }}">{{ .Lang "txtWorkers" }}</label>
+                <div class="lf-lcd-control-group">
+                    <input class="lf-lcd-input" type="text" id="workers_{{ $animation.Id }}" value="{{ $animation.Workers }}">
+                    <button class="lf-lcd-info lcdWorkersInfo" type="button" aria-label="{{ .Lang "txtWorkers" }} information">
+                        <i class="bi bi-info-circle-fill svg-icon svg-icon-sm svg-icon-heavy" aria-hidden="true"></i>
+                    </button>
                 </div>
-                <div class="settings-row">
-                    <span class="settings-label text-ellipsis">{{ .Lang "txtMargin" }}</span>
-                    <div class="system-input text-input max-width-100 compact">
-                        <label>
-                            <input type="text" id="margin_{{ $animation.Id }}" value="{{ $animation.Margin }}">
-                        </label>
-                    </div>
+            </div>
+            <div class="lf-lcd-row">
+                <label class="lf-lcd-label" for="frameDelay_{{ $animation.Id }}">{{ .Lang "txtFrameDelay" }}</label>
+                <div class="lf-lcd-control-group">
+                    <input class="lf-lcd-input" type="text" id="frameDelay_{{ $animation.Id }}" value="{{ $animation.FrameDelay }}">
+                    <button class="lf-lcd-info lcdFrameDelayInfo" type="button" aria-label="{{ .Lang "txtFrameDelay" }} information">
+                        <i class="bi bi-info-circle-fill svg-icon svg-icon-sm svg-icon-heavy" aria-hidden="true"></i>
+                    </button>
                 </div>
-                <div class="settings-row">
-                    <span class="settings-label text-ellipsis">
-                        {{ .Lang "txtWorkers" }}
-                        <i style="cursor: pointer;" class="bi bi-info-circle-fill svg-icon svg-icon-sm svg-icon-heavy lcdWorkersInfo"></i>
-                    </span>
-                    <div class="system-input text-input max-width-100 compact">
-                        <label>
-                            <input type="text" id="workers_{{ $animation.Id }}" value="{{ $animation.Workers }}">
-                        </label>
-                    </div>
-                </div>
-                <div class="settings-row">
-                    <span class="settings-label text-ellipsis">
-                        {{ .Lang "txtFrameDelay" }}
-                        <i style="cursor: pointer;" class="bi bi-info-circle-fill svg-icon svg-icon-sm svg-icon-heavy lcdFrameDelayInfo"></i>
-                    </span>
-                    <div class="system-input text-input max-width-100 compact">
-                        <label>
-                            <input type="text" id="frameDelay_{{ $animation.Id }}" value="{{ $animation.FrameDelay }}">
-                        </label>
-                    </div>
-                </div>
-                <div class="settings-row">
-                    <span class="settings-label text-ellipsis">{{ .Lang "txtSeparatorColor" }}</span>
-                    <div class="system-color compact">
-                        <label>
-                            <input type="color" id="separatorColor_{{ $animation.Id }}" value="{{ $animation.SeparatorColor.Hex }}">
-                        </label>
-                    </div>
-                </div>
+            </div>
+            <div class="lf-lcd-row">
+                <label class="lf-lcd-label" for="separatorColor_{{ $animation.Id }}">{{ .Lang "txtSeparatorColor" }}</label>
+                <input class="lf-lcd-color" type="color" id="separatorColor_{{ $animation.Id }}" value="{{ $animation.SeparatorColor.Hex }}">
             </div>
         </div>
 
-        {{ range $key, $value := $animation.Sensors }}
-        <div class="card-body pt-0">
-            {{ $value.Name }}
-            <div class="settings-list">
-                <div class="settings-row">
-                    <span class="settings-label text-ellipsis">{{ $root.Lang "txtEnable" }}</span>
-                    <label class="system-toggle compact">
-                        <input type="checkbox" id="sensorEnabled_{{ $key }}_{{ $animation.Id }}" {{ if $value.Enabled }}checked{{ end }}>
-                        <span class="toggle-track"></span>
-                    </label>
-                </div>
-                <div class="settings-row">
-                    <span class="settings-label text-ellipsis">{{ $root.Lang "txtSensor" }}</span>
-                    <label>
-                        <select id="sensorType_{{ $key }}_{{ $animation.Id }}" class="form-select system-select auto-width sensorType compact">
+        <div class="lf-lcd-subsection-grid">
+            {{ range $key, $value := $animation.Sensors }}
+            <section class="lf-lcd-subsection" aria-labelledby="lf-lcd-animation-{{ $key }}-title">
+                <h3 id="lf-lcd-animation-{{ $key }}-title">{{ $value.Name }}</h3>
+                <div class="lf-lcd-settings">
+                    <div class="lf-lcd-row">
+                        <label class="lf-lcd-label" for="sensorEnabled_{{ $key }}_{{ $animation.Id }}">{{ $root.Lang "txtEnable" }}</label>
+                        <input class="lf-lcd-toggle" type="checkbox" id="sensorEnabled_{{ $key }}_{{ $animation.Id }}"{{ if $value.Enabled }} checked{{ end }}>
+                    </div>
+                    <div class="lf-lcd-row">
+                        <label class="lf-lcd-label" for="sensorType_{{ $key }}_{{ $animation.Id }}">{{ $root.Lang "txtSensor" }}</label>
+                        <select id="sensorType_{{ $key }}_{{ $animation.Id }}" class="lf-lcd-select sensorType">
                             {{ range $k, $v := $lcdSensors }}
-                            {{ if eq $k $value.Sensor }}
-                            <option value="{{ $k }}" selected>{{ $v }}</option>
-                            {{ else }}
-                            <option value="{{ $k }}">{{ $v }}</option>
-                            {{ end }}
+                            <option value="{{ $k }}"{{ if eq $k $value.Sensor }} selected{{ end }}>{{ $v }}</option>
                             {{ end }}
                         </select>
-                    </label>
-                </div>
-                <div class="settings-row">
-                    <span class="settings-label text-ellipsis">{{ $root.Lang "txtTextColor" }}</span>
-                    <div class="system-color compact">
-                        <label>
-                            <input type="color" id="textColor_{{ $key }}_{{ $animation.Id }}" value="{{ $value.TextColor.Hex }}">
-                        </label>
+                    </div>
+                    <div class="lf-lcd-row">
+                        <label class="lf-lcd-label" for="textColor_{{ $key }}_{{ $animation.Id }}">{{ $root.Lang "txtTextColor" }}</label>
+                        <input class="lf-lcd-color" type="color" id="textColor_{{ $key }}_{{ $animation.Id }}" value="{{ $value.TextColor.Hex }}">
                     </div>
                 </div>
-            </div>
+            </section>
+            {{ end }}
         </div>
-        {{ end }}
-
-        <div class="card-footer card-footer-left">
-            <button class="system-button saveAnimationProfile left" data-info="{{ $animation.Id }}">{{ .Lang "txtSaveProfile" }}</button>
+        <div class="lf-lcd-actions">
+            <button class="lf-lcd-button saveAnimationProfile" type="button" data-info="{{ $animation.Id }}">{{ .Lang "txtSaveProfile" }}</button>
         </div>
     </div>
-</div>
+</section>
 {{ end }}

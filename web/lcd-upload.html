@@ -1,21 +1,18 @@
 {{ define "lcd-upload" }}
-<div class="col-lg-3 col-md-6 col-12">
-    <div class="card system-card text-center">
-        <form id="gifUploadForm" enctype="multipart/form-data">
-            <div class="card-header">
-                {{ .Lang "txtUploadImage" }}
-            </div>
-            <div class="card-body">
-                <input type="file"
-                       class="system-input file-input full-width"
-                       id="animationFile"
-                       name="animationFile"
-                       accept=".gif,.jpg,.jpeg,.webp,.bmp,image/gif,image/jpeg,image/webp,image/bmp">
-            </div>
-            <div class="card-footer card-footer-left">
-                <button class="system-button uploadGifImage left" id="uploadGifImage">{{ .Lang "txtUpload" }}</button>
-            </div>
-        </form>
-    </div>
-</div>
+<section class="lf-lcd-panel lf-lcd-panel-upload" aria-labelledby="lf-lcd-upload-title">
+    <header class="lf-lcd-panel-header">
+        <h2 id="lf-lcd-upload-title">{{ .Lang "txtUploadImage" }}</h2>
+    </header>
+    <form class="lf-lcd-panel-body" id="gifUploadForm" enctype="multipart/form-data">
+        <label class="lf-lcd-file-label" for="animationFile">{{ .Lang "txtUploadImage" }}</label>
+        <input type="file"
+               class="lf-lcd-file-input"
+               id="animationFile"
+               name="animationFile"
+               accept=".gif,.jpg,.jpeg,.webp,.bmp,image/gif,image/jpeg,image/webp,image/bmp">
+        <div class="lf-lcd-actions">
+            <button class="lf-lcd-button uploadGifImage" id="uploadGifImage" type="submit">{{ .Lang "txtUpload" }}</button>
+        </div>
+    </form>
+</section>
 {{ end }}
