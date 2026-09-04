@@ -138,7 +138,7 @@ test("Admin owns backup, OpenRGB management, and supported devices", function ()
 test("restore success keeps the server restart message prominent", function () {
     assert.match(adminScript, /toast\.success\(response\)/);
     assert.match(adminScript, /restoreRestartWarning/);
-    assert.match(adminTemplate, /id="restoreRestartWarning"[^>]*text-warning[^>]*fw-bold/);
+    assert.match(adminTemplate, /id="restoreRestartWarning"[^>]*lf-status-caution[^>]*fw-bold/);
     assert.match(adminTemplate, /txtRestoreRestartWarning/);
 });
 

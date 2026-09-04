@@ -11,13 +11,13 @@
     {{ $devs := .Devices }}
     {{ $device := .Device }}
     <input type="hidden" id="profile" name="profile" value="">
-            <div class="modal fade text-start" id="deleteTempModal" tabindex="-1" aria-labelledby="deleteTempModal" aria-hidden="true">
-                <div class="modal-dialog modal-custom modal-600">
+            <div class="modal fade text-start lf-system-modal" id="deleteTempModal" tabindex="-1" aria-labelledby="deleteTempModal" aria-hidden="true">
+                <div class="modal-dialog lf-modal-small">
                     <div class="modal-content">
 
                         <div class="modal-header">
                             <h5 class="modal-title">{{ .Lang "txtDeleteMacroProfile" }}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            <button type="button" class="btn-close" aria-label="Close" data-bs-dismiss="modal"></button>
                         </div>
 
                         <div class="modal-body delete-warning">
@@ -40,21 +40,21 @@
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button class="system-button btn-secondary" type="button" data-bs-dismiss="modal">{{ .Lang "txtClose" }}</button>
-                            <button class="system-button danger" type="button" id="deleteMacroProfile">{{ .Lang "txtDelete" }}</button>
+                            <button class="lf-button lf-button-secondary" type="button" data-bs-dismiss="modal">{{ .Lang "txtClose" }}</button>
+                            <button class="lf-button lf-button-danger" type="button" id="deleteMacroProfile">{{ .Lang "txtDelete" }}</button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="modal fade text-start" id="newMacroModal" tabindex="-1" aria-hidden="true">
-                <div class="modal-dialog modal-custom modal-600">
+            <div class="modal fade text-start lf-system-modal" id="newMacroModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog lf-modal-small">
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title" id="newTempModalLabel">{{ .Lang "txtNewMacroProfile" }}</h5>
                             <button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
-                        <div class="modal-body modal-title">
+                        <div class="modal-body">
                             <div class="lf-macros-modal-form">
                                 <div class="lf-macros-modal-row">
                                     <label for="profileName">{{ .Lang "txtProfileName" }}</label>
@@ -63,21 +63,21 @@
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button class="system-button secondary" type="button" data-bs-dismiss="modal">{{ .Lang "txtClose" }}</button>
-                            <button class="system-button" type="button" id="btnSaveNewMacroProfile">{{ .Lang "txtSave" }}</button>
+                            <button class="lf-button lf-button-secondary" type="button" data-bs-dismiss="modal">{{ .Lang "txtClose" }}</button>
+                            <button class="lf-button" type="button" id="btnSaveNewMacroProfile">{{ .Lang "txtSave" }}</button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="modal fade text-start" id="addMacroValueModal" tabindex="-1" aria-hidden="true">
-                <div class="modal-dialog modal-custom modal-700">
+            <div class="modal fade text-start lf-system-modal" id="addMacroValueModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog lf-modal-medium">
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title" id="addMacroValueModalLabel">{{ .Lang "txtAddMacroValue" }}</h5>
                             <button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
-                        <div class="modal-body modal-title">
+                        <div class="modal-body">
                             <div class="settings-list">
                                 <div class="settings-row">
                                     <span class="settings-label text-ellipsis">{{ .Lang "txtMacroType" }}</span>
@@ -165,21 +165,21 @@
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button class="system-button secondary" type="button" data-bs-dismiss="modal">{{ .Lang "txtClose" }}</button>
-                            <button class="system-button" type="button" id="addMacroValue">{{ .Lang "txtAddMacroValue" }}</button>
+                            <button class="lf-button lf-button-secondary" type="button" data-bs-dismiss="modal">{{ .Lang "txtClose" }}</button>
+                            <button class="lf-button" type="button" id="addMacroValue">{{ .Lang "txtAddMacroValue" }}</button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="modal fade text-start" id="updateMacroSettingsModal" tabindex="-1" aria-hidden="true">
-                <div class="modal-dialog modal-custom modal-700">
+            <div class="modal fade text-start lf-system-modal" id="updateMacroSettingsModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog lf-modal-medium">
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title" id="updateMacroSettingsLabel">{{ .Lang "txtMacroSettings" }}</h5>
                             <button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
-                        <div class="modal-body modal-title">
+                        <div class="modal-body">
                             <div class="settings-list">
                                 <!-- Macro Loop -->
                                 <div class="settings-row macroRepeatLoop">
@@ -221,8 +221,8 @@
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button class="system-button secondary" type="button" data-bs-dismiss="modal">{{ .Lang "txtClose" }}</button>
-                            <button class="system-button" type="button" id="updateMacroSettings">{{ .Lang "txtUpdate" }}</button>
+                            <button class="lf-button lf-button-secondary" type="button" data-bs-dismiss="modal">{{ .Lang "txtClose" }}</button>
+                            <button class="lf-button" type="button" id="updateMacroSettings">{{ .Lang "txtUpdate" }}</button>
                         </div>
                     </div>
                 </div>
@@ -240,7 +240,7 @@
                     <section class="lf-macros-profile-panel" aria-labelledby="lf-macro-profiles-title">
                         <header class="lf-macros-panel-header">
                             <h2 id="lf-macro-profiles-title">{{ $root.Lang "txtMacros" }}</h2>
-                            <button class="lf-macros-button" type="button" data-bs-toggle="modal" data-bs-target="#newMacroModal">+ {{ .Lang "txtNewMacro" }}</button>
+                            <button class="lf-button lf-macros-button" type="button" data-bs-toggle="modal" data-bs-target="#newMacroModal">+ {{ .Lang "txtNewMacro" }}</button>
                         </header>
                         <div class="lf-macros-profile-list" aria-label="{{ $root.Lang "txtMacros" }}">
                             {{ range $key, $value := .Macros }}
@@ -286,9 +286,9 @@
                             </table>
                         </div>
                         <div class="lf-macros-toolbar" aria-label="{{ .Lang "txtMacros" }} actions">
-                            <button class="lf-macros-button" type="button" id="addMacroValueBtn" data-bs-toggle="modal" data-bs-target="#addMacroValueModal" style="display:none">{{ .Lang "txtAddMacroValue" }}</button>
-                            <button class="lf-macros-button lf-macros-button-secondary" type="button" id="updateMacroValueBtn" data-bs-toggle="modal" data-bs-target="#updateMacroSettingsModal" style="display:none">{{ .Lang "txtSettings" }}</button>
-                            <button class="lf-macros-button lf-macros-button-danger" type="button" id="deleteBtn" data-bs-toggle="modal" data-bs-target="#deleteTempModal" style="display:none">{{ .Lang "txtDeleteProfile" }}</button>
+                            <button class="lf-button lf-macros-button" type="button" id="addMacroValueBtn" data-bs-toggle="modal" data-bs-target="#addMacroValueModal" style="display:none">{{ .Lang "txtAddMacroValue" }}</button>
+                            <button class="lf-button lf-button-secondary lf-macros-button lf-macros-button-secondary" type="button" id="updateMacroValueBtn" data-bs-toggle="modal" data-bs-target="#updateMacroSettingsModal" style="display:none">{{ .Lang "txtSettings" }}</button>
+                            <button class="lf-button lf-button-danger lf-macros-button lf-macros-button-danger" type="button" id="deleteBtn" data-bs-toggle="modal" data-bs-target="#deleteTempModal" style="display:none">{{ .Lang "txtDeleteProfile" }}</button>
                         </div>
                     </section>
                 </div>

@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -2394,6 +2395,20 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		t.Fatalf("selected GET /devices status = %d: %s", selectedRecorder.Code, selectedRecorder.Body.String())
 	}
 	selectedBody := selectedRecorder.Body.String()
+	assertSelectedDeviceAnchor := func(body string) {
+		t.Helper()
+		anchors := regexp.MustCompile(`<a\s[^>]*>`).FindAllString(body, -1)
+		class := regexp.MustCompile(`\sclass="lf-device-item lf-device-item-active"(?:\s|>)`)
+		href := regexp.MustCompile(`\shref="/devices\?device=` + regexp.QuoteMeta(visibleSerial) + `"(?:\s|>)`)
+		current := regexp.MustCompile(`\saria-current="page"(?:\s|>)`)
+		for _, anchor := range anchors {
+			if class.MatchString(anchor) && href.MatchString(anchor) && current.MatchString(anchor) {
+				return
+			}
+		}
+		t.Errorf("Devices response lacks an anchor with the active device class, href for %q, and aria-current=page", visibleSerial)
+	}
+	assertSelectedDeviceAnchor(selectedBody)
 	for _, expected := range []string{
 		"class=\"lf-overview-workspace\"",
 		"Visible &lt;Test&gt; &amp; Device",
@@ -2416,7 +2431,6 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		"Apply LED counts",
 		"Incorrect LED counts can cause the OpenRGB device to stop responding",
 		visibleZoneTwo,
-		"class=\"lf-device-item lf-device-item-active\" href=\"/devices?device=" + visibleSerial + "\" aria-current=\"page\"",
 		"class=\"lf-device-item\" href=\"/devices?device=" + otherSerial + "\"",
 		"<nav class=\"lf-device-workspace-nav\" aria-label=\"Device workspace\">",
 		"class=\"lf-device-workspace-link lf-device-workspace-link-active\" href=\"/devices?device=" + visibleSerial + "\" aria-current=\"page\">Overview</a>",
@@ -2565,9 +2579,9 @@ func runDevicesPageRouteAssertions(t *testing.T) {
 		t.Fatalf("selected GET /devices with unrelated query status = %d: %s", selectedWithUnrelatedRecorder.Code, selectedWithUnrelatedRecorder.Body.String())
 	}
 	selectedWithUnrelatedBody := selectedWithUnrelatedRecorder.Body.String()
+	assertSelectedDeviceAnchor(selectedWithUnrelatedBody)
 	for _, expected := range []string{
 		"class=\"lf-overview-workspace\"",
-		"class=\"lf-device-item lf-device-item-active\" href=\"/devices?device=" + visibleSerial + "\" aria-current=\"page\"",
 	} {
 		if !strings.Contains(selectedWithUnrelatedBody, expected) {
 			t.Errorf("selected GET /devices with unrelated query does not contain %q", expected)

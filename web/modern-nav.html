@@ -20,6 +20,10 @@
             {{ $isSystemActive := or (eq .Page "settings") (eq .Page "admin") (eq .Page "lcd") (eq .Page "macros") (eq .Page "temperature") }}
             <button class="lf-global-link lf-global-system-toggle{{ if $isSystemActive }} lf-global-link-active{{ end }}" type="button" data-lf-system-drawer-toggle data-lf-drawer-toggle aria-controls="lf-system-drawer" aria-expanded="false" aria-label="System" title="System"{{ if $isSystemActive }} aria-current="page"{{ end }}><span class="lf-global-icon-frame"><img class="lf-global-icon" src="/static/img/icons/icon-settings.svg" alt=""></span><span class="lf-global-label">System</span></button>
         </nav>
+        <footer class="lf-nav-footer">
+            <a class="lf-nav-footer-link" href="https://github.com/Alaric07/LumenForge" target="_blank" rel="noopener noreferrer" aria-label="LumenForge on GitHub" title="LumenForge on GitHub"><i class="bi bi-github" aria-hidden="true"></i><span class="lf-global-label">GitHub</span></a>
+            {{ if .BuildInfo }}<span class="lf-nav-version" aria-label="LumenForge version">{{ .BuildInfo.BuildVersion }}</span>{{ end }}
+        </footer>
     </aside>
 {{ end }}
 

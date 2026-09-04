@@ -60,6 +60,9 @@
     --lf-surface-hover: #202126;
     --lf-surface-active: #182a3f;
     --lf-focus-ring: #79c7ff;
+    --lf-status-positive: var(--good);
+    --lf-status-caution: var(--warn);
+    --lf-status-critical: var(--bad);
     --lf-disabled-border: rgba(255, 255, 255, 0.08);
     --lf-control-track: #2a2a2b;
     --lf-control-fill-start: #1e90ff;

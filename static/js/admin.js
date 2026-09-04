@@ -111,20 +111,20 @@ $(document).ready(function () {
         function setOpenRGBCardStatus(message, level) {
             const status = $('#openrgbCardStatus');
             status
-                .removeClass('text-success text-warning text-danger text-muted')
-                .addClass(level === 'success' ? 'text-success' :
-                    level === 'warning' ? 'text-warning' :
-                        level === 'danger' ? 'text-danger' : 'text-muted')
+                .removeClass('lf-status-positive lf-status-caution lf-status-critical lf-status-neutral')
+                .addClass(level === 'success' ? 'lf-status-positive' :
+                    level === 'warning' ? 'lf-status-caution' :
+                        level === 'danger' ? 'lf-status-critical' : 'lf-status-neutral')
                 .text(message);
         }
 
         function setOpenRGBDiscoveryAlert(message, level) {
             const alert = $('#openrgbDiscoveryAlert');
             alert
-                .removeClass('alert-secondary alert-success alert-warning alert-danger')
-                .addClass(level === 'success' ? 'alert-success' :
-                    level === 'warning' ? 'alert-warning' :
-                        level === 'danger' ? 'alert-danger' : 'alert-secondary')
+                .removeClass('lf-status-positive lf-status-caution lf-status-critical lf-status-neutral')
+                .addClass(level === 'success' ? 'lf-status-positive' :
+                    level === 'warning' ? 'lf-status-caution' :
+                        level === 'danger' ? 'lf-status-critical' : 'lf-status-neutral')
                 .text(message);
         }
 
@@ -205,11 +205,12 @@ $(document).ready(function () {
                 return;
             }
 
-            const row = $('<div>').addClass('d-flex flex-wrap justify-content-between gap-2');
-            const labelElement = $('<span>').addClass('text-muted').text(label);
+            const row = $('<div>').addClass('lf-controller-detail');
+            if (useCode) row.addClass('lf-controller-technical');
+            const labelElement = $('<span>').addClass('lf-openrgb-helper').text(label);
             const valueElement = useCode ? $('<code>') : $('<span>');
 
-            valueElement.addClass('text-break text-end').text(String(value));
+            valueElement.addClass('text-break').text(String(value));
             row.append(labelElement, valueElement);
             container.append(row);
         }
@@ -236,16 +237,16 @@ $(document).ready(function () {
                 const serial = typeof summary.serial === 'string' ? summary.serial : '';
                 const disabled = summary.disabled === true;
                 const row = $('<article>').addClass(
-                    'settings-row flex-column flex-lg-row align-items-start'
+                    'settings-row lf-controller-row flex-column flex-lg-row align-items-start'
                 );
                 const details = $('<div>').addClass('flex-grow-1 w-100');
-                const heading = $('<h6>').addClass('mb-2 text-break').text(product);
+                const heading = $('<h6>').addClass('lf-controller-title mb-2 text-break').text(product);
                 const metadata = $('<div>').addClass('d-grid gap-1 small text-start');
                 const controls = $('<div>').addClass(
                     'd-flex flex-wrap align-items-center gap-2 flex-shrink-0'
                 );
                 const badge = $('<span>').addClass(
-                    disabled ? 'badge text-bg-secondary' : 'badge text-bg-success'
+                    disabled ? 'lf-status-badge lf-status-neutral' : 'lf-status-badge lf-status-positive'
                 ).text(disabled ? 'Preserved · Not imported' : 'Enabled');
 
                 appendOpenRGBDetail(metadata, 'Internal serial', serial || 'Not reported', true);
@@ -254,7 +255,7 @@ $(document).ready(function () {
 
                 if (disabled) {
                     controls.append(
-                        $('<span>').addClass('small text-muted').text(
+                        $('<span>').addClass('small lf-openrgb-helper').text(
                             'Not imported. Retained configuration can be reused if this controller is discovered again.'
                         )
                     );
@@ -273,7 +274,7 @@ $(document).ready(function () {
                     controls.append(label);
                 } else {
                     controls.append(
-                        $('<span>').addClass('small text-warning').text(
+                        $('<span>').addClass('small lf-status-caution').text(
                             'This import cannot be selected because no internal serial was returned.'
                         )
                     );
@@ -300,13 +301,13 @@ $(document).ready(function () {
         function openRGBControllerState(state) {
             switch (state) {
             case 'selectable':
-                return {label: 'Available', badgeClass: 'text-bg-success'};
+                return {label: 'Available', badgeClass: 'lf-status-badge lf-status-positive'};
             case 'imported':
-                return {label: 'Imported', badgeClass: 'text-bg-primary'};
+                return {label: 'Imported', badgeClass: 'lf-status-badge lf-status-neutral'};
             case 'ambiguous':
-                return {label: 'Ambiguous', badgeClass: 'text-bg-warning'};
+                return {label: 'Ambiguous', badgeClass: 'lf-status-badge lf-status-caution'};
             default:
-                return {label: 'Invalid', badgeClass: 'text-bg-danger'};
+                return {label: 'Invalid', badgeClass: 'lf-status-badge lf-status-critical'};
             }
         }
 
@@ -315,7 +316,7 @@ $(document).ready(function () {
                 return;
             }
 
-            const heading = $('<div>').addClass('small text-muted mt-2 mb-1').text('Zones');
+            const heading = $('<div>').addClass('small lf-openrgb-helper mt-2 mb-1').text('Zones');
             const list = $('<ul>').addClass('list-unstyled d-grid gap-1 mb-0');
 
             zones.forEach(function (entry) {
@@ -327,7 +328,7 @@ $(document).ready(function () {
                     typeof zone.name === 'string' && zone.name.length > 0 ?
                         zone.name : 'Unnamed zone'
                 );
-                const summary = $('<span>').addClass('text-muted text-end');
+                const summary = $('<span>').addClass('lf-openrgb-helper text-end');
                 const parts = [];
 
                 if (Number.isFinite(zone.ledCount)) {
@@ -369,14 +370,14 @@ $(document).ready(function () {
                 const product = typeof controller.product === 'string' && controller.product.length > 0 ?
                     controller.product : 'Unnamed OpenRGB controller';
                 const row = $('<article>').addClass(
-                    'settings-row flex-column align-items-stretch text-start'
+                    'settings-row lf-controller-row flex-column align-items-stretch text-start'
                 );
                 const header = $('<div>').addClass(
                     'd-flex flex-wrap align-items-start justify-content-between gap-2 w-100'
                 );
                 const identity = $('<div>').addClass('d-flex align-items-start gap-2 flex-grow-1');
                 const headingGroup = $('<div>').addClass('flex-grow-1');
-                const heading = $('<h6>').addClass('mb-1 text-break').text(product);
+                const heading = $('<h6>').addClass('lf-controller-title mb-1 text-break').text(product);
                 const badge = $('<span>').addClass(
                     'badge ' + statePresentation.badgeClass
                 ).text(statePresentation.label);
@@ -423,7 +424,7 @@ $(document).ready(function () {
                 identity.append(headingGroup);
                 header.append(identity, badge);
 
-                appendOpenRGBDetail(metadata, 'Vendor', controller.vendor, false);
+                appendOpenRGBDetail(headingGroup, 'Vendor', controller.vendor, false);
                 appendOpenRGBDetail(metadata, 'Version', controller.version, false);
                 appendOpenRGBDetail(metadata, 'Description', controller.description, false);
 
@@ -476,7 +477,7 @@ $(document).ready(function () {
                     controller.reason.length > 0) {
                     metadata.append(
                         $('<div>')
-                            .addClass('alert alert-info py-2 px-3 mt-2 mb-0')
+                            .addClass('lf-openrgb-alert lf-status-neutral py-2 px-3 mt-2 mb-0')
                             .attr('role', 'note')
                             .text(controller.reason)
                     );
@@ -488,8 +489,8 @@ $(document).ready(function () {
                     metadata.append(
                         $('<div>')
                             .addClass(state === 'invalid' ?
-                                'alert alert-danger py-2 px-3 mt-2 mb-0' :
-                                'alert alert-warning py-2 px-3 mt-2 mb-0')
+                                'lf-openrgb-alert lf-status-critical py-2 px-3 mt-2 mb-0' :
+                                'lf-openrgb-alert lf-status-caution py-2 px-3 mt-2 mb-0')
                             .text(controller.reason)
                     );
                 }

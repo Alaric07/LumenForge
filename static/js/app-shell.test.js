@@ -79,6 +79,8 @@ test("modern navigation keeps System in a separate bottom utility group", functi
     assert.match(css, /\.lf-app-shell \.lf-global-utility-links \{[\s\S]*?margin-top: auto;/);
     assert.match(css, /\.lf-app-shell\.lf-global-nav-collapsed \.lf-global-utility-links \{[\s\S]*?width: 100%;/);
     assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.lf-app-shell \.lf-global-utility-links \{[\s\S]*?margin-top: 8px;/);
+    assert.match(navTemplate, /lf-nav-footer[\s\S]*?https:\/\/github\.com\/Alaric07\/LumenForge[\s\S]*?\.BuildInfo\.BuildVersion/);
+    assert.match(css, /\.lf-app-shell\.lf-global-nav-collapsed \.lf-nav-footer[\s\S]*?\.lf-nav-version[\s\S]*?display: none;/);
 });
 
 test("System is a drawer-only toggle on every modern shell", function () {
@@ -153,7 +155,7 @@ test("LCD uses a modern System workspace without legacy layout or temperature-ba
         assert.match(template, /lf-lcd-panel/);
         assert.doesNotMatch(template, /col-(?:lg|md)|\bcard(?:-|\s|\")|settings-(?:list|row)|system-card/);
     }
-    assert.match(lcdUploadTemplate, /id="gifUploadForm"[\s\S]*?id="animationFile"[\s\S]*?class="lf-lcd-button uploadGifImage" id="uploadGifImage"/);
+    assert.match(lcdUploadTemplate, /id="gifUploadForm"[\s\S]*?id="animationFile"[\s\S]*?class="lf-button lf-lcd-button uploadGifImage" id="uploadGifImage"/);
     assert.match(lcdArcTemplate, /sensorType_\{\{ \$arc\.Id \}\}[\s\S]*?margin_\{\{ \$arc\.Id \}\}[\s\S]*?saveArcProfile/);
     assert.match(lcdDoubleArcTemplate, /margin_\{\{ \$doubleArc\.Id \}\}[\s\S]*?separatorColor_\{\{ \$doubleArc\.Id \}\}[\s\S]*?sensorType_\{\{ \$key \}\}[\s\S]*?saveDoubleArcProfile/);
     assert.match(lcdAnimationTemplate, /backgroundImage_\{\{ \$animation\.Id \}\}[\s\S]*?workers_\{\{ \$animation\.Id \}\}[\s\S]*?sensorEnabled_\{\{ \$key \}\}_\{\{ \$animation\.Id \}\}[\s\S]*?saveAnimationProfile/);

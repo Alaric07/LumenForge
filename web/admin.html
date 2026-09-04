@@ -7,13 +7,13 @@
     {{ template "modern-nav" . }}
     {{ template "modern-system-drawer" . }}
     <main class="lf-system-workspace">
-            <div class="modal fade text-start"
+            <div class="modal fade text-start lf-system-modal"
                  id="openrgbImportModal"
                  tabindex="-1"
                  aria-labelledby="openrgbImportModalLabel"
                  aria-describedby="openrgbImportModalDescription"
                  aria-hidden="true">
-                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-dialog lf-modal-large modal-dialog-scrollable">
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title" id="openrgbImportModalLabel" tabindex="-1">
@@ -31,7 +31,7 @@
                                 LumenForge does not start or manage it.
                             </p>
 
-                            <div class="alert alert-secondary"
+                            <div class="lf-openrgb-alert lf-status-neutral"
                                  id="openrgbDiscoveryAlert"
                                  role="alert"
                                  aria-live="polite"
@@ -50,7 +50,7 @@
                             <section class="mb-4" aria-labelledby="openrgbConfiguredHeading">
                                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
                                     <h6 class="mb-0" id="openrgbConfiguredHeading">Configured imports</h6>
-                                    <span class="small text-muted">
+                                    <span class="small lf-openrgb-helper">
                                         Removing an import preserves its profiles and RGB configuration.
                                     </span>
                                 </div>
@@ -66,7 +66,7 @@
                             <section aria-labelledby="openrgbControllersHeading">
                                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
                                     <h6 class="mb-0" id="openrgbControllersHeading">Discovered controllers</h6>
-                                    <span class="small text-muted">
+                                    <span class="small lf-openrgb-helper">
                                         Nothing is imported automatically.
                                     </span>
                                 </div>
@@ -80,24 +80,24 @@
                             </section>
                         </div>
                         <div class="modal-footer d-flex flex-wrap gap-2">
-                            <button class="system-button secondary"
+                            <button class="lf-button lf-button-secondary"
                                     id="btnOpenRGBDiscoverAgain"
                                     type="button">
                                 Discover Again
                             </button>
-                            <button class="system-button success"
+                            <button class="lf-button lf-button-positive"
                                     id="btnOpenRGBImportSelected"
                                     type="button"
                                     disabled>
                                 Import Selected
                             </button>
-                            <button class="system-button danger"
+                            <button class="lf-button lf-button-danger"
                                     id="btnOpenRGBRemoveSelected"
                                     type="button"
                                     disabled>
                                 Remove Selected
                             </button>
-                            <button class="system-button secondary"
+                            <button class="lf-button lf-button-secondary"
                                     type="button"
                                     data-bs-dismiss="modal">
                                 Close
@@ -119,7 +119,7 @@
                         </header>
                             <div class="lf-settings-panel-body lf-settings-copy">
                                 <p class="mb-4">{{ .Lang "txtBackupInfo" }}</p>
-                                <p id="restoreRestartWarning" class="mb-3 text-warning fw-bold">
+                                <p id="restoreRestartWarning" class="mb-3 lf-status-caution fw-bold">
                                     {{ .Lang "txtRestoreRestartWarning" }}
                                 </p>
                                 <p class="mb-4">
@@ -219,10 +219,10 @@
                                         </thead>
                                     </table>
                                 </div>
-                                <div class="lf-settings-actions">
+                                <footer class="lf-settings-panel-footer">
                                         <span class="lf-settings-help lf-settings-warning">{{ .Lang "txtServiceRestartRequired" }}</span>
                                         <button class="lf-button" id="btnSaveSupportedDevices">{{ .Lang "txtSave" }}</button>
-                                    </div>
+                                    </footer>
                                 </div>
                 </section>
                 </div>

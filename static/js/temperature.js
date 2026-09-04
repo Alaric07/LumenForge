@@ -204,6 +204,13 @@ $(document).ready(function () {
         });
     });
 
+    $('.tempList').on('keydown', function (event) {
+        if (event.target === this && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault();
+            $(this).trigger('click');
+        }
+    });
+
     $('.tempList').on('click', function (e) {
         if ($(e.target).closest('.delete-speed-profile').length) {
             return;
@@ -219,6 +226,7 @@ $(document).ready(function () {
                 if (response.code === 0) {
                     toast.warning(response.message);
                 } else {
+                    $("#lf-cooling-empty").prop("hidden", true);
                     const data = response.data.profiles;
                     dt.clear();
                     if (profile === 'Quiet' || profile === 'Normal' || profile === 'Performance' || response.data.linear === true) {
@@ -339,6 +347,14 @@ $(document).ready(function () {
             dragging: false,
             dragIndex: -1
         };
+        const themeStyles = getComputedStyle(document.documentElement);
+        const themeColors = {
+            grid: themeStyles.getPropertyValue('--lf-border-subtle').trim(),
+            axis: themeStyles.getPropertyValue('--lf-border-panel').trim(),
+            label: themeStyles.getPropertyValue('--lf-text-muted').trim(),
+            title: themeStyles.getPropertyValue('--lf-text-secondary').trim(),
+            accent: themeStyles.getPropertyValue('--lf-accent-primary').trim()
+        };
 
         function tempToX(temp) {
             return margin + (temp / maxValue) * graphWidth;
@@ -359,10 +375,10 @@ $(document).ready(function () {
         function draw() {
             ctx.clearRect(0, 0, width, height);
 
-            ctx.strokeStyle = "#333";
+            ctx.strokeStyle = themeColors.grid;
             ctx.lineWidth = 1;
             ctx.font = "12px sans-serif";
-            ctx.fillStyle = "#aaa";
+            ctx.fillStyle = themeColors.label;
             ctx.textAlign = "right";
             ctx.textBaseline = "middle";
 
@@ -388,21 +404,21 @@ $(document).ready(function () {
                 ctx.fillText(`${val}°`, x, height - margin + 5);
             }
 
-            ctx.strokeStyle = "#888";
+            ctx.strokeStyle = themeColors.axis;
             ctx.beginPath();
             ctx.moveTo(margin, margin);
             ctx.lineTo(margin, height - margin);
             ctx.lineTo(width - margin, height - margin);
             ctx.stroke();
 
-            ctx.fillStyle = "#ccc";
+            ctx.fillStyle = themeColors.title;
             ctx.font = "14px sans-serif";
             ctx.fillText(i18n.t('txtTemperatureInC'), width / 2, height-25);
             ctx.fillText(label, width / 2, 25);
             ctx.save();
 
             points.sort((a, b) => a.x - b.x);
-            ctx.strokeStyle = "#42a5f5";
+            ctx.strokeStyle = themeColors.accent;
             ctx.lineWidth = 2;
             ctx.beginPath();
             points.forEach((p, i) => {
@@ -419,7 +435,7 @@ $(document).ready(function () {
             points.forEach(p => {
                 const x = tempToX(p.x);
                 const y = speedToY(p.y);
-                ctx.fillStyle = "#42a5f5";
+                ctx.fillStyle = themeColors.accent;
                 ctx.beginPath();
                 ctx.arc(x, y, 6, 0, Math.PI * 2);
                 ctx.fill();

@@ -4,7 +4,7 @@
 {{ $root := . }}
 <section class="lf-lcd-panel lf-lcd-panel-wide" aria-labelledby="lf-lcd-animation-title">
     <header class="lf-lcd-panel-header">
-        <h2 id="lf-lcd-animation-title">{{ $animation.Name }}</h2>
+        <h2 id="lf-lcd-animation-title">{{ if $animation.Name }}{{ $animation.Name }}{{ else }}Animation{{ end }}</h2>
     </header>
     <div class="lf-lcd-panel-body">
         <div class="lf-lcd-settings">
@@ -47,7 +47,7 @@
         <div class="lf-lcd-subsection-grid">
             {{ range $key, $value := $animation.Sensors }}
             <section class="lf-lcd-subsection" aria-labelledby="lf-lcd-animation-{{ $key }}-title">
-                <h3 id="lf-lcd-animation-{{ $key }}-title">{{ $value.Name }}</h3>
+                <h3 id="lf-lcd-animation-{{ $key }}-title">{{ if $value.Name }}{{ $value.Name }}{{ else }}Sensor {{ $key }}{{ end }}</h3>
                 <div class="lf-lcd-settings">
                     <div class="lf-lcd-row">
                         <label class="lf-lcd-label" for="sensorEnabled_{{ $key }}_{{ $animation.Id }}">{{ $root.Lang "txtEnable" }}</label>
@@ -69,8 +69,8 @@
             </section>
             {{ end }}
         </div>
-        <div class="lf-lcd-actions">
-            <button class="lf-lcd-button saveAnimationProfile" type="button" data-info="{{ $animation.Id }}">{{ .Lang "txtSaveProfile" }}</button>
+        <div class="lf-lcd-actions lf-settings-panel-footer">
+            <button class="lf-button lf-lcd-button saveAnimationProfile" type="button" data-info="{{ $animation.Id }}">{{ .Lang "txtSaveProfile" }}</button>
         </div>
     </div>
 </section>

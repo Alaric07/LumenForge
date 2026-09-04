@@ -2879,13 +2879,13 @@
 }
 
 .lf-app-shell .lf-button-danger {
-    border-color: color-mix(in srgb, var(--bad) 65%, var(--lf-border-emphasized));
+    border-color: color-mix(in srgb, var(--lf-status-critical) 65%, var(--lf-border-emphasized));
     color: var(--lf-text-primary);
-    background: color-mix(in srgb, var(--bad) 16%, var(--lf-panel-elevated));
+    background: color-mix(in srgb, var(--lf-status-critical) 16%, var(--lf-panel-elevated));
 }
 
 .lf-app-shell .lf-button-danger:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--bad) 28%, var(--lf-panel-elevated));
+    background: color-mix(in srgb, var(--lf-status-critical) 28%, var(--lf-panel-elevated));
 }
 
 .lf-app-shell .lf-settings-copy {
@@ -3112,18 +3112,7 @@
 }
 
 .lf-app-shell .lf-lcd-button {
-    padding: 9px 14px;
-    border: 1px solid var(--lf-border-selected);
-    border-radius: var(--lf-shell-radius-sm);
-    color: var(--lf-text-primary);
-    background: var(--lf-accent-primary);
-    font: inherit;
-    font-weight: 680;
     cursor: pointer;
-}
-
-.lf-app-shell .lf-lcd-button:hover:not(:disabled) {
-    background: var(--lf-accent-highlight);
 }
 
 .lf-app-shell .lf-lcd-button:disabled {
@@ -3264,29 +3253,11 @@
 }
 
 .lf-app-shell .lf-macros-button {
-    padding: 8px 12px;
-    border: 1px solid var(--lf-border-selected);
-    border-radius: var(--lf-shell-radius-sm);
-    color: var(--lf-text-primary);
-    background: var(--lf-accent-primary);
-    font: inherit;
-    font-weight: 680;
     cursor: pointer;
-}
-
-.lf-app-shell .lf-macros-button:hover:not(:disabled) {
-    background: var(--lf-accent-highlight);
-}
-
-.lf-app-shell .lf-macros-button-secondary {
-    border-color: var(--lf-border-emphasized);
-    background: var(--lf-surface-subdued);
 }
 
 .lf-app-shell .lf-macros-button-danger {
     margin-left: auto;
-    border-color: color-mix(in srgb, var(--lf-accent-highlight) 65%, var(--lf-border-emphasized));
-    background: color-mix(in srgb, var(--lf-accent-highlight) 16%, var(--lf-panel-elevated));
 }
 
 .lf-app-shell .lf-macros-profile-list {
@@ -3576,28 +3547,7 @@
 }
 
 .lf-app-shell .lf-cooling-button {
-    padding: 8px 12px;
-    border: 1px solid var(--lf-border-selected);
-    border-radius: var(--lf-shell-radius-sm);
-    color: var(--lf-text-primary);
-    background: var(--lf-accent-primary);
-    font: inherit;
-    font-weight: 680;
     cursor: pointer;
-}
-
-.lf-app-shell .lf-cooling-button:hover:not(:disabled) {
-    background: var(--lf-accent-highlight);
-}
-
-.lf-app-shell .lf-cooling-button-secondary {
-    border-color: var(--lf-border-emphasized);
-    background: var(--lf-surface-subdued);
-}
-
-.lf-app-shell .lf-cooling-button-danger {
-    border-color: color-mix(in srgb, var(--lf-accent-highlight) 65%, var(--lf-border-emphasized));
-    background: color-mix(in srgb, var(--lf-accent-highlight) 16%, var(--lf-panel-elevated));
 }
 
 .lf-app-shell .lf-cooling-button:focus-visible {
@@ -3835,13 +3785,19 @@
     justify-content: center;
     gap: 8px;
     padding: 10px 18px;
-    border: 1px solid transparent;
+    border: 1px solid var(--lf-border-selected);
     border-radius: 8px;
     font-size: 14px;
     font-weight: 600;
     line-height: 1.4;
+    color: var(--lf-text-on-accent);
+    background: var(--lf-accent-primary);
     cursor: pointer;
     transition: background-color 0.15s, border-color 0.15s;
+}
+
+.lf-app-shell .lf-button:hover:not(:disabled) {
+    background: var(--lf-accent-highlight);
 }
 
 .lf-app-shell .lf-button-secondary {
@@ -3852,6 +3808,16 @@
 
 .lf-app-shell .lf-button-secondary:hover:not(:disabled) {
     background: color-mix(in srgb, var(--lf-surface-subdued) 80%, var(--lf-text-primary));
+}
+
+.lf-app-shell .lf-button-positive {
+    border-color: color-mix(in srgb, var(--lf-status-positive) 60%, var(--lf-border-emphasized));
+    color: var(--lf-text-primary);
+    background: color-mix(in srgb, var(--lf-status-positive) 22%, var(--lf-panel-elevated));
+}
+
+.lf-app-shell .lf-button-positive:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--lf-status-positive) 34%, var(--lf-panel-elevated));
 }
 
 .lf-app-shell .lf-button:focus-visible {
@@ -3921,6 +3887,239 @@
         -webkit-appearance: auto;
         appearance: auto;
         forced-color-adjust: auto;
+    }
+}
+
+/* Shared modern System refinement. These components deliberately sit above the
+ * page-specific layouts so each workspace retains its existing data ownership. */
+.lf-app-shell .lf-nav-footer {
+    display: grid;
+    gap: 5px;
+    margin: 12px 4px 0;
+    padding: 12px 8px 0;
+    border-top: 1px solid var(--lf-border-subtle);
+}
+
+.lf-app-shell .lf-nav-footer-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 34px;
+    padding: 6px 5px;
+    border-radius: var(--lf-shell-radius-sm);
+    color: var(--lf-text-muted);
+    font-size: 13px;
+    text-decoration: none;
+}
+
+.lf-app-shell .lf-nav-footer-link:hover,
+.lf-app-shell .lf-nav-footer-link:active {
+    color: var(--lf-text-primary);
+    background: var(--lf-surface-hover);
+}
+
+.lf-app-shell .lf-nav-footer-link:focus-visible {
+    outline: 3px solid var(--lf-focus-ring);
+    outline-offset: 2px;
+}
+
+.lf-app-shell .lf-nav-version {
+    padding: 0 5px;
+    color: var(--lf-text-muted);
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.lf-app-shell .lf-settings-panel,
+.lf-app-shell .lf-lcd-panel,
+.lf-app-shell .lf-macros-profile-panel,
+.lf-app-shell .lf-macros-action-panel,
+.lf-app-shell .lf-cooling-profile-panel,
+.lf-app-shell .lf-cooling-editor,
+.lf-app-shell .lf-cooling-curve-panel,
+.lf-app-shell .lf-cooling-points-panel {
+    border-color: var(--lf-border-panel);
+}
+
+.lf-app-shell .lf-button,
+.lf-app-shell .lf-lcd-button,
+.lf-app-shell .lf-macros-button,
+.lf-app-shell .lf-cooling-button,
+.lf-app-shell .lf-system-modal .lf-button {
+    min-height: 38px;
+    padding: 8px 14px;
+    border-radius: var(--lf-shell-radius-sm);
+    font-size: 14px;
+    font-weight: 680;
+    line-height: 1.35;
+}
+
+.lf-app-shell .lf-button:active:not(:disabled),
+.lf-app-shell .lf-lcd-button:active:not(:disabled),
+.lf-app-shell .lf-macros-button:active:not(:disabled),
+.lf-app-shell .lf-cooling-button:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.lf-app-shell .lf-lcd-input {
+    width: min(100%, 160px);
+    min-width: 120px;
+}
+
+.lf-app-shell .lf-lcd-select {
+    width: min(100%, 240px);
+    min-width: 160px;
+}
+
+.lf-app-shell .lf-lcd-control-group .lf-lcd-input {
+    width: 120px;
+}
+
+.lf-app-shell .lf-system-empty {
+    margin: 0;
+    padding: 14px 16px;
+    border: 1px dashed var(--lf-border-subtle);
+    border-radius: var(--lf-shell-radius-sm);
+    color: var(--lf-text-secondary);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.lf-app-shell .lf-controller-row {
+    gap: 12px;
+    padding: 14px 0;
+}
+
+.lf-app-shell .lf-controller-title {
+    color: var(--lf-text-primary);
+    font-size: 15px;
+    font-weight: 720;
+}
+
+.lf-app-shell .lf-controller-detail {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 6px 16px;
+    color: var(--lf-text-secondary);
+}
+
+.lf-app-shell .lf-controller-technical {
+    color: var(--lf-text-muted);
+    font-size: 12px;
+}
+
+.lf-app-shell .lf-system-modal .modal-content {
+    overflow: hidden;
+    border: 1px solid var(--lf-border-panel);
+    border-radius: var(--lf-shell-radius-lg);
+    color: var(--lf-text-primary);
+    background: var(--lf-panel-elevated);
+    box-shadow: var(--lf-shadow-elevated);
+}
+
+.lf-app-shell .lf-system-modal .modal-header,
+.lf-app-shell .lf-system-modal .modal-footer {
+    min-height: 64px;
+    padding: 16px 22px;
+    border-color: var(--lf-border-subtle);
+}
+
+.lf-app-shell .lf-system-modal .modal-title {
+    color: var(--lf-text-primary);
+    font-size: 16px;
+    font-weight: 720;
+}
+
+.lf-app-shell .lf-system-modal .modal-body {
+    padding: 20px 22px;
+    color: var(--lf-text-secondary);
+}
+
+.lf-app-shell .lf-status-neutral { color: var(--lf-text-muted); }
+.lf-app-shell .lf-status-positive { color: var(--lf-status-positive); }
+.lf-app-shell .lf-status-caution { color: var(--lf-status-caution); }
+.lf-app-shell .lf-status-critical { color: var(--lf-status-critical); }
+
+.lf-app-shell .lf-status-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 3px 8px;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 680;
+    line-height: 1.2;
+}
+
+.lf-app-shell .lf-openrgb-alert {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border: 1px solid currentColor;
+    border-radius: var(--lf-shell-radius-sm);
+    background: color-mix(in srgb, currentColor 10%, var(--lf-panel-elevated));
+}
+
+.lf-app-shell .lf-openrgb-helper {
+    color: var(--lf-text-muted);
+}
+
+.lf-app-shell .lf-modal-small { max-width: 520px; }
+.lf-app-shell .lf-modal-medium { max-width: 680px; }
+.lf-app-shell .lf-modal-large { max-width: 1040px; }
+
+.lf-app-shell .lf-system-modal .modal-dialog-scrollable {
+    max-height: calc(100vh - 32px);
+}
+
+body:has(.lf-system-modal.show) .modal-backdrop.show {
+    opacity: 0.68;
+}
+
+@media (max-width: 760px) {
+    .lf-app-shell .lf-nav-footer {
+        grid-template-columns: auto 1fr;
+        align-items: center;
+        margin-top: 8px;
+        padding-top: 8px;
+    }
+
+    .lf-app-shell .lf-nav-version {
+        text-align: right;
+    }
+}
+
+@media (min-width: 761px) {
+    .lf-app-shell.lf-global-nav-collapsed .lf-nav-footer {
+        justify-items: center;
+        margin-right: 0;
+        margin-left: 0;
+    }
+
+    .lf-app-shell.lf-global-nav-collapsed .lf-nav-footer-link {
+        justify-content: center;
+        width: 40px;
+    }
+
+    .lf-app-shell.lf-global-nav-collapsed .lf-nav-footer .lf-global-label,
+    .lf-app-shell.lf-global-nav-collapsed .lf-nav-version {
+        display: none;
+    }
+}
+
+@media (max-width: 560px) {
+    .lf-app-shell .lf-system-modal .modal-header,
+    .lf-app-shell .lf-system-modal .modal-footer,
+    .lf-app-shell .lf-system-modal .modal-body {
+        padding-right: 16px;
+        padding-left: 16px;
+    }
+
+    .lf-app-shell .lf-modal-small,
+    .lf-app-shell .lf-modal-medium,
+    .lf-app-shell .lf-modal-large {
+        max-width: calc(100% - 20px);
     }
 }
 

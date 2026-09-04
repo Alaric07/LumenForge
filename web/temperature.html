@@ -11,13 +11,13 @@
     {{ $device := .Device }}
     {{ $root := . }}
     <input type="hidden" id="profile" name="profile" value="">
-            <div class="modal fade text-start" id="deleteTempModal" tabindex="-1" aria-labelledby="newTempModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-custom modal-600">
+            <div class="modal fade text-start lf-system-modal" id="deleteTempModal" tabindex="-1" aria-labelledby="deleteTempModalLabel" aria-hidden="true">
+                <div class="modal-dialog lf-modal-small">
                     <div class="modal-content">
 
                         <div class="modal-header">
-                            <h5 class="modal-title">{{ .Lang "txtDeleteTempProfile" }}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            <h5 class="modal-title" id="deleteTempModalLabel">{{ .Lang "txtDeleteTempProfile" }}</h5>
+                            <button type="button" class="btn-close" aria-label="Close" data-bs-dismiss="modal"></button>
                         </div>
 
                         <div class="modal-body delete-warning">
@@ -40,21 +40,21 @@
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button class="system-button btn-secondary" type="button" data-bs-dismiss="modal">{{ .Lang "txtClose" }}</button>
-                            <button class="system-button danger" type="button" id="delete">{{ .Lang "txtDelete" }}</button>
+                            <button class="lf-button lf-button-secondary" type="button" data-bs-dismiss="modal">{{ .Lang "txtClose" }}</button>
+                            <button class="lf-button lf-button-danger" type="button" id="delete">{{ .Lang "txtDelete" }}</button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="modal fade text-start" id="newTempModal" tabindex="-1" aria-labelledby="newTempModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-custom modal-600">
+            <div class="modal fade text-start lf-system-modal" id="newTempModal" tabindex="-1" aria-labelledby="newTempModalLabel" aria-hidden="true">
+                <div class="modal-dialog lf-modal-small">
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title" id="newTempModalLabel">{{ .Lang "txtNewTempProfile" }}</h5>
                             <button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
-                        <div class="modal-body modal-title">
+                        <div class="modal-body">
                             <div class="settings-list">
                                 <div class="settings-row">
                                     <span class="settings-label text-ellipsis">{{ $root.Lang "txtProfileName" }}</span>
@@ -169,8 +169,8 @@
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">{{ .Lang "txtClose" }}</button>
-                            <button class="btn btn-primary" type="button" id="btnSaveNewProfile">{{ .Lang "txtCreate" }}</button>
+                            <button class="lf-button lf-button-secondary" type="button" data-bs-dismiss="modal">{{ .Lang "txtClose" }}</button>
+                            <button class="lf-button" type="button" id="btnSaveNewProfile">{{ .Lang "txtCreate" }}</button>
                         </div>
                     </div>
                 </div>
@@ -186,7 +186,7 @@
                     <section class="lf-cooling-profile-panel" aria-labelledby="lf-cooling-profile-list-title">
                         <header class="lf-cooling-panel-header">
                             <h2 id="lf-cooling-profile-list-title">{{ .Lang "txtProfiles" }}</h2>
-                            <button class="lf-cooling-button" type="button" data-bs-toggle="modal" data-bs-target="#newTempModal">+ {{ .Lang "txtNewProfile" }}</button>
+                            <button class="lf-button lf-cooling-button" type="button" data-bs-toggle="modal" data-bs-target="#newTempModal">+ {{ .Lang "txtNewProfile" }}</button>
                         </header>
                         <div class="lf-cooling-profile-list">
                         {{ range $key, $value := .Temperatures }}
@@ -200,7 +200,7 @@
                         {{ continue }}
                         {{ else }}
 
-                        <div class="lf-cooling-profile-item tempList" id="{{ $key }}">
+                        <div class="lf-cooling-profile-item tempList" role="button" tabindex="0" id="{{ $key }}">
                             <h3>{{ $key }}</h3>
                             <dl class="lf-cooling-profile-details">
                                     <!-- Profile points -->
@@ -219,7 +219,7 @@
                                     <div class="lf-cooling-profile-delete">
                                         <span>{{ $root.Lang "txtDeleteProfile" }}</span>
                                             <button type="button" title="Delete Profile" aria-label="{{ $root.Lang "txtDeleteProfile" }}"
-                                                  class="lf-cooling-button lf-cooling-button-danger delete-speed-profile"
+                                                  class="lf-button lf-button-danger lf-cooling-button lf-cooling-button-danger delete-speed-profile"
                                                   data-bs-toggle="modal"
                                                   data-bs-target="#deleteTempModal"
                                                   data-info="{{ $key }}">
@@ -234,13 +234,14 @@
                     </section>
                     <section class="lf-cooling-editor" aria-labelledby="lf-cooling-editor-title">
                         <h2 class="lf-cooling-editor-title" id="lf-cooling-editor-title">Cooling Curves</h2>
+                        <p class="lf-system-empty" id="lf-cooling-empty" role="status">Select a cooling profile or create one to edit its cooling curves.</p>
                         <section class="lf-cooling-curve-panel temp-graph-container graph-window" aria-labelledby="lf-cooling-pump-title">
                             <h3 id="lf-cooling-pump-title">{{ .Lang "txtPumpSpeed" }}</h3>
                             <p class="lf-cooling-helper">Click to add a point, drag to move it, or right-click a point to remove it.</p>
                             <div class="lf-cooling-curve-canvas-wrap">
                                 <canvas id="graphPump" class="temp-graph-canvas" aria-label="Pump cooling curve"></canvas>
                             </div>
-                            <div class="lf-cooling-editor-actions"><button class="lf-cooling-button lf-cooling-button-secondary" type="button" id="updatePump">{{ .Lang "txtSave" }}</button></div>
+                            <div class="lf-cooling-editor-actions"><button class="lf-button lf-button-secondary lf-cooling-button lf-cooling-button-secondary" type="button" id="updatePump">{{ .Lang "txtSave" }}</button></div>
                         </section>
                         <section class="lf-cooling-points-panel" aria-labelledby="lf-cooling-points-title">
                             <h3 id="lf-cooling-points-title">Profile Points</h3>
@@ -251,7 +252,7 @@
                                     </tr></thead>
                                 </table>
                             </div>
-                            <div class="lf-cooling-editor-actions"><button class="lf-cooling-button hidden" type="button" id="updateBtn">{{ .Lang "txtUpdate" }}</button></div>
+                            <div class="lf-cooling-editor-actions"><button class="lf-button lf-cooling-button hidden" type="button" id="updateBtn">{{ .Lang "txtUpdate" }}</button></div>
                         </section>
                     </section>
                 </div>

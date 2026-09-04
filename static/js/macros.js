@@ -46,10 +46,7 @@ $(document).ready(function () {
             searching: false,
             info: false,
             language: {
-                emptyTable: i18n.t(
-                    'txtNoMacros',
-                    'No profile selected or profile has no macros defined. Select profile from left side or define macros'
-                )
+                emptyTable: 'Select a profile or create one to define macro actions.'
             }
         });
     }
