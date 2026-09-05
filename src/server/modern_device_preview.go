@@ -41,6 +41,8 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "glaive-rgb-modern", Title: "Glaive RGB", ProductType: common.ProductTypeGlaiveRgb, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildGlaiveRGBModernPreview},
 	{Key: "m65-rgb-elite-modern", Title: "M65 RGB Elite", ProductType: common.ProductTypeM65RgbElite, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildM65RGBEliteModernPreview},
 	{Key: "sabre-rgb-pro-modern", Title: "Sabre RGB Pro", ProductType: common.ProductTypeSabreRgbPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildSabreRGBProModernPreview},
+	{Key: "nightsword-rgb-modern", Title: "Nightsword RGB", ProductType: common.ProductTypeNightswordRgb, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildNightswordRGBModernPreview},
+	{Key: "ironclaw-rgb-modern", Title: "Ironclaw RGB", ProductType: common.ProductTypeIronClawRgb, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildIronclawRGBModernPreview},
 	{Key: "katar-pro-modern", Title: "Katar Pro", ProductType: common.ProductTypeKatarPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProModernPreview},
 	{Key: "katar-pro-xt-modern", Title: "Katar Pro XT", ProductType: common.ProductTypeKatarProXT, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProXTModernPreview},
 }
@@ -214,6 +216,22 @@ func buildSabreRGBProModernPreview() *devicesWorkspaceSummary {
 	s.Buttons.Buttons = s.Buttons.Buttons[:6]
 	s.Buttons.Buttons[5].Name = "DPI"
 	s.Buttons.AssignmentTypes = []devicesButtonsAssignmentTypeSummary{{ID: 0, Label: "None"}, {ID: 1, Label: "Media Keys"}, {ID: 2, Label: "DPI"}, {ID: 3, Label: "Keyboard"}, {ID: 8, Label: "Sniper"}, {ID: 9, Label: "Mouse"}, {ID: 10, Label: "Macro"}, {ID: 11, Label: "Profile Switch"}}
+	return s
+}
+
+func buildNightswordRGBModernPreview() *devicesWorkspaceSummary {
+	return &devicesWorkspaceSummary{Product: "NIGHTSWORD RGB", Serial: "preview-nightsword-rgb-modern", Firmware: "1.4.12", Image: "icon-mouse.svg", View: "overview", LegacyLighting: true,
+		DPI:            &devicesDPIWorkspaceSummary{MinimumDPI: 100, MaximumDPI: 18000, ActiveRegularStageID: "1", RegularStages: []devicesDPIStageSummary{{ID: "0", Name: "Stage 1", DPI: 800, ColorHex: "#00ff00"}, {ID: "1", Name: "Stage 2", DPI: 1500, ColorHex: "#00ff00", Active: true}, {ID: "2", Name: "Stage 3", DPI: 3000, ColorHex: "#00ff00"}}, SniperStage: &devicesDPIStageSummary{ID: "3", Name: "Sniper", DPI: 200, ColorHex: "#ffff00", Sniper: true}},
+		Performance:    &devicesPerformanceWorkspaceSummary{PollingRate: &devicesPerformanceSelectSummary{Value: 1, Options: []devicesPerformanceOptionSummary{{Value: 0, Label: "Not Set"}, {Value: 1, Label: "1000 Hz / 1 msec"}, {Value: 2, Label: "500 Hz / 2 msec"}, {Value: 4, Label: "250 Hz / 4 msec"}, {Value: 8, Label: "125 Hz / 8 msec"}}}},
+		Buttons:        &devicesButtonsWorkspaceSummary{Buttons: []devicesButtonsButtonSummary{{KeyIndex: 1, Name: "Left Button", Default: true}, {KeyIndex: 2, Name: "Right Button", Default: true}, {KeyIndex: 4, Name: "Middle Button", Default: true}, {KeyIndex: 8, Name: "Back Button", Default: true}, {KeyIndex: 16, Name: "Forward Button", Default: true}, {KeyIndex: 32, Name: "DPI Up", Default: true}, {KeyIndex: 64, Name: "DPI Down", Default: true}, {KeyIndex: 128, Name: "Sniper", PressAndHold: true}, {KeyIndex: 256, Name: "Profile Up", Default: true, ProfileSwitch: true}, {KeyIndex: 512, Name: "Profile Down", Default: true, ProfileSwitch: true}}, AssignmentTypes: []devicesButtonsAssignmentTypeSummary{{ID: 0, Label: "None"}, {ID: 1, Label: "Media Keys"}, {ID: 2, Label: "DPI"}, {ID: 3, Label: "Keyboard"}, {ID: 8, Label: "Sniper"}, {ID: 9, Label: "Mouse"}, {ID: 10, Label: "Macro"}, {ID: 11, Label: "Profile Switch"}}},
+		DeviceProfiles: &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "FPS"}, ActiveProfile: "Default", Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription}, OverviewPerformance: &devicesOverviewPerformanceStatusSummary{Rows: []devicesOverviewStatusRow{{Label: "DPI", Value: "1500", Telemetry: true}, {Label: "Active Stage", Value: "Stage 2"}, {Label: "Polling Rate", Value: "1000 Hz / 1 msec", Telemetry: true}}}}
+}
+
+func buildIronclawRGBModernPreview() *devicesWorkspaceSummary {
+	s := buildNightswordRGBModernPreview()
+	s.Product, s.Serial, s.Firmware = "IRONCLAW RGB", "preview-ironclaw-rgb-modern", "2.1.8"
+	s.Buttons.Buttons = []devicesButtonsButtonSummary{{KeyIndex: 1, Name: "Left Button", Default: true}, {KeyIndex: 2, Name: "Right Button", Default: true}, {KeyIndex: 4, Name: "Middle Button", Default: true}, {KeyIndex: 8, Name: "Back Button", Default: true}, {KeyIndex: 16, Name: "Forward Button", Default: true}, {KeyIndex: 32, Name: "DPI Button", Default: true}, {KeyIndex: 256, Name: "Profile Button", Default: true, ProfileSwitch: true}}
+	s.Performance.AngleSnapping = &devicesPerformanceToggleSummary{Enabled: true}
 	return s
 }
 

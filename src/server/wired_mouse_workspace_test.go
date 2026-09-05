@@ -20,6 +20,8 @@ func TestWiredMouseModernPreviewsRenderWithoutRegistration(t *testing.T) {
 		{"glaive-rgb-modern", "preview-glaive-rgb-modern", "Lift Height", "DPI Toggle"},
 		{"m65-rgb-elite-modern", "preview-m65-rgb-elite-modern", "Button Optimization", "DPI +"},
 		{"sabre-rgb-pro-modern", "preview-sabre-rgb-pro-modern", "8000 Hz / 0.125 msec", "DPI"},
+		{"nightsword-rgb-modern", "preview-nightsword-rgb-modern", "1000 Hz / 1 msec", "Profile Down"},
+		{"ironclaw-rgb-modern", "preview-ironclaw-rgb-modern", "Angle Snapping", "Profile Button"},
 	} {
 		if devices.GetDevice(fixture.serial) != nil {
 			t.Fatalf("fixture %q unexpectedly registered", fixture.serial)
@@ -45,8 +47,19 @@ func TestWiredMouseModernPreviewsRenderWithoutRegistration(t *testing.T) {
 	}
 }
 
+func TestNightswordAndIronclawPreviewShapes(t *testing.T) {
+	nightsword := buildNightswordRGBModernPreview()
+	if nightsword.Buttons == nil || len(nightsword.Buttons.Buttons) != 10 || nightsword.Performance == nil || nightsword.Performance.AngleSnapping != nil {
+		t.Fatalf("nightsword = %#v", nightsword)
+	}
+	ironclaw := buildIronclawRGBModernPreview()
+	if ironclaw.Buttons == nil || len(ironclaw.Buttons.Buttons) != 7 || ironclaw.Performance == nil || ironclaw.Performance.AngleSnapping == nil || ironclaw.Performance.ButtonOptimization != nil || ironclaw.Performance.LiftHeight != nil {
+		t.Fatalf("ironclaw = %#v", ironclaw)
+	}
+}
+
 func TestWiredMouseProductTypesUseLegacyLighting(t *testing.T) {
-	for _, productType := range []uint16{common.ProductTypeGlaiveRgb, common.ProductTypeM65RgbElite, common.ProductTypeSabreRgbPro} {
+	for _, productType := range []uint16{common.ProductTypeGlaiveRgb, common.ProductTypeM65RgbElite, common.ProductTypeSabreRgbPro, common.ProductTypeNightswordRgb, common.ProductTypeIronClawRgb} {
 		serial := "wired-mouse"
 		summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, ProductType: productType}}, nil, serial)
 		if !ok || !summary.LegacyLighting {
