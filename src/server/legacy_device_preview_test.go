@@ -63,6 +63,14 @@ func TestLegacyDevicePreviewPickerUsesRegistry(t *testing.T) {
 		t.Fatalf("picker status = %d: %s", recorder.Code, recorder.Body.String())
 	}
 	body := recorder.Body.String()
+	if !strings.Contains(body, "Modern Device Previews") || !strings.Contains(body, "Legacy Device Previews") {
+		t.Errorf("picker did not distinguish modern and legacy previews: %s", body)
+	}
+	for _, fixture := range modernDevicePreviewFixtures {
+		if !strings.Contains(body, `href="/dev/device-preview/`+fixture.Key+`"`) || !strings.Contains(body, `>`+fixture.Title+`</span>`) {
+			t.Errorf("picker omitted modern fixture %q: %s", fixture.Key, body)
+		}
+	}
 	for _, fixture := range legacyDevicePreviewFixtures {
 		if !strings.Contains(body, `value="`+fixture.Key+`"`) || !strings.Contains(body, `>`+fixture.Title+`</option>`) {
 			t.Errorf("picker omitted registry fixture %q: %s", fixture.Key, body)

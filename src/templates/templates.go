@@ -72,6 +72,7 @@ type Web struct {
 	DashboardMemory                 interface{}
 	RGBModes                        []string
 	LegacyDevicePreview             bool
+	ModernDevicePreview             interface{}
 }
 
 // Lang is called from template files

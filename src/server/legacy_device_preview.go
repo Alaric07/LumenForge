@@ -28,7 +28,8 @@ type legacyDevicePreviewFixture struct {
 
 type legacyDevicePreviewPicker struct {
 	templates.Web
-	Fixtures []legacyDevicePreviewFixture
+	ModernFixtures []modernDevicePreviewFixture
+	LegacyFixtures []legacyDevicePreviewFixture
 }
 
 var legacyDevicePreviewFixtures = []legacyDevicePreviewFixture{
@@ -76,7 +77,7 @@ func uiLegacyDevicePreviewPicker(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/dev/device-preview/"+key, http.StatusFound)
 		return
 	}
-	web := legacyDevicePreviewPicker{Web: legacyDevicePreviewWeb(), Fixtures: legacyDevicePreviewFixtures}
+	web := legacyDevicePreviewPicker{Web: legacyDevicePreviewWeb(), ModernFixtures: modernDevicePreviewFixtures, LegacyFixtures: legacyDevicePreviewFixtures}
 	web.LegacyDevicePreview = false
 	renderLegacyDevicePreviewPicker(w, "device-preview.html", web)
 }
@@ -89,6 +90,10 @@ func uiLegacyDevicePreview(w http.ResponseWriter, r *http.Request) {
 	key, valid := getVar("/dev/device-preview/", r)
 	if !valid {
 		http.NotFound(w, r)
+		return
+	}
+	if _, ok := modernDevicePreviewFixtureByKey(key); ok {
+		uiModernDevicePreview(w, r)
 		return
 	}
 	fixture, ok := legacyDevicePreviewFixtureByKey(key)

@@ -4,18 +4,34 @@
 <body>
 <main class="container py-5" style="max-width: 42rem;">
     <div class="card system-card">
-        <div class="card-header">Legacy Device Preview</div>
+        <div class="card-header">Device Preview</div>
         <div class="card-body">
-            <p>Render a real legacy device template with safe fixture data. Hardware actions and scripts are disabled.</p>
+            <p>Inspect fixture-backed device pages safely. Hardware actions and scripts are disabled.</p>
+            <section aria-labelledby="modern-device-previews">
+                <h2 id="modern-device-previews">Modern Device Previews</h2>
+                <p>Use these to inspect migrated shared workspaces.</p>
+                <div class="settings-list">
+                    {{ range .ModernFixtures }}
+                    <div class="settings-row">
+                        <span class="settings-label">{{ .Title }}</span>
+                        <a class="system-button primary" href="/dev/device-preview/{{ .Key }}">Open Preview</a>
+                    </div>
+                    {{ end }}
+                </div>
+            </section>
+            <section class="mt-4" aria-labelledby="legacy-device-previews">
+                <h2 id="legacy-device-previews">Legacy Device Previews</h2>
+                <p>Use these to inspect the retained legacy device templates.</p>
             <form method="get" action="/dev/device-preview">
                 <label class="form-label" for="fixture">Device:</label>
                 <select class="form-select system-select" id="fixture" name="fixture">
-                    {{ range .Fixtures }}
+                    {{ range .LegacyFixtures }}
                     <option value="{{ .Key }}">{{ .Title }}</option>
                     {{ end }}
                 </select>
-                <button class="system-button primary mt-3" type="submit">Open Preview</button>
+                <button class="system-button primary mt-3" type="submit">Open Legacy Preview</button>
             </form>
+            </section>
         </div>
     </div>
 </main>

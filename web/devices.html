@@ -129,6 +129,12 @@
                     </div>
                 </header>
 
+                {{ with $.ModernDevicePreview }}
+                <nav class="lf-device-workspace-nav" aria-label="Preview workspace">
+                    {{ range .Views }}<a class="lf-device-workspace-link{{ if .Active }} lf-device-workspace-link-active{{ end }}" href="{{ .Href }}"{{ if .Active }} aria-current="page"{{ end }}>{{ .Label }}</a>{{ end }}
+                </nav>
+                <a class="lf-device-workspace-link" href="/dev/device-preview">Back to Device Preview</a>
+                {{ else }}
                 <nav class="lf-device-workspace-nav" aria-label="Device workspace">
                     <a class="lf-device-workspace-link{{ if and (ne .Device.View "lighting") (ne .Device.View "cooling") (ne .Device.View "display") (ne .Device.View "dpi") (ne .Device.View "buttons") (ne .Device.View "keyboard") }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}"{{ if and (ne .Device.View "lighting") (ne .Device.View "cooling") (ne .Device.View "display") (ne .Device.View "dpi") (ne .Device.View "buttons") (ne .Device.View "keyboard") }} aria-current="page"{{ end }}>Overview</a>
                     {{ if or .Device.Lighting .Device.LegacyLighting .Device.Memory }}
@@ -150,6 +156,7 @@
                         <a class="lf-device-workspace-link{{ if eq .Device.View "keyboard" }} lf-device-workspace-link-active{{ end }}" href="/devices?device={{ .Device.Serial }}&amp;view=keyboard"{{ if eq .Device.View "keyboard" }} aria-current="page"{{ end }}>Keyboard</a>
                     {{ end }}
                 </nav>
+                {{ end }}
 
                 {{ if eq .Device.View "lighting" }}
                     {{ with .Device.Lighting }}

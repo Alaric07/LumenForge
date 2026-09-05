@@ -5788,6 +5788,7 @@ func setRoutes() http.Handler {
 		if legacyDevicePreviewEnabled() {
 			handleFunc(r, "/dev/device-preview", http.MethodGet, uiLegacyDevicePreviewPicker)
 			handleFunc(r, "/dev/device-preview/", http.MethodGet, uiLegacyDevicePreview)
+			handleFunc(r, "/dev/device-preview/commander-duo-modern", http.MethodGet, uiModernDevicePreview)
 		}
 		handleFunc(r, "/", http.MethodGet, uiIndex)
 		handleFunc(r, "/devices", http.MethodGet, uiDevices)
