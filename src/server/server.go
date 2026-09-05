@@ -80,9 +80,10 @@ type Header struct {
 
 var headers []Header
 var (
-	server      *http.Server
-	serveDone   chan struct{}
-	serverMutex sync.Mutex
+	legacyDevicePreviewEnabled = func() bool { return config.GetConfig().Debug }
+	server                     *http.Server
+	serveDone                  chan struct{}
+	serverMutex                sync.Mutex
 
 	discoverOpenRGBImports = openrgbimport.DiscoverPreview
 	importOpenRGBImports   = func(ctx context.Context, keys []string) (openrgbimport.ImportResult, error) {
@@ -5783,6 +5784,11 @@ func setRoutes() http.Handler {
 	}
 
 	if config.GetConfig().Frontend {
+		handleFunc(r, "/dev/", http.MethodGet, uiDevelopmentRouteNotFound)
+		if legacyDevicePreviewEnabled() {
+			handleFunc(r, "/dev/device-preview", http.MethodGet, uiLegacyDevicePreviewPicker)
+			handleFunc(r, "/dev/device-preview/", http.MethodGet, uiLegacyDevicePreview)
+		}
 		handleFunc(r, "/", http.MethodGet, uiIndex)
 		handleFunc(r, "/devices", http.MethodGet, uiDevices)
 		handleFunc(r, "/device/", http.MethodGet, uiDeviceOverview)

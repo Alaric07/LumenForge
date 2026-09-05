@@ -71,6 +71,7 @@ type Web struct {
 	BatteryStats                    interface{}
 	DashboardMemory                 interface{}
 	RGBModes                        []string
+	LegacyDevicePreview             bool
 }
 
 // Lang is called from template files

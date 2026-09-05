@@ -52,5 +52,21 @@
     <!-- PWA -->
     <link rel="manifest" href="/static/manifest.json">
     <link rel="shortcut icon" href="/static/img/lumenforge.ico?v=2">
+    {{ if .LegacyDevicePreview }}
+    <style>
+        body::before {
+            content: "Preview Mode — Hardware actions and scripts are disabled";
+            display: block;
+            position: sticky;
+            top: 0;
+            z-index: 2000;
+            padding: 0.7rem 1rem;
+            color: #111;
+            background: #f6c344;
+            font-weight: 700;
+            text-align: center;
+        }
+    </style>
+    {{ end }}
 </head>
 {{ end }}

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+{{ template "head" . }}
+<body>
+<main class="container py-5" style="max-width: 42rem;">
+    <div class="card system-card">
+        <div class="card-header">Legacy Device Preview</div>
+        <div class="card-body">
+            <p>Render a real legacy device template with safe fixture data. Hardware actions and scripts are disabled.</p>
+            <form method="get" action="/dev/device-preview">
+                <label class="form-label" for="fixture">Device:</label>
+                <select class="form-select system-select" id="fixture" name="fixture">
+                    {{ range .Fixtures }}
+                    <option value="{{ .Key }}">{{ .Title }}</option>
+                    {{ end }}
+                </select>
+                <button class="system-button primary mt-3" type="submit">Open Preview</button>
+            </form>
+        </div>
+    </div>
+</main>
+</body>
+</html>
