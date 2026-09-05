@@ -995,6 +995,12 @@
                             {{ end }}
 
                             {{ with .Device.DeviceProfiles }}{{ if eq .Scope "device" }}{{ template "lf-device-profile-panel" $ }}{{ end }}{{ end }}
+                            {{ with .Device.SleepTimer }}
+                                <section class="lf-overview-panel" data-lf-performance-workspace data-lf-device-id="{{ $.Device.Serial }}">
+                                    <header class="lf-overview-panel-header"><div><p class="lf-section-kicker">Device configuration</p><h2>Sleep Timer</h2></div></header>
+                                    <div class="lf-performance-controls"><div class="lf-performance-control" data-lf-performance-control data-lf-performance-kind="sleepTimer" data-lf-confirmed-value="{{ .Value }}"><label for="lf-sleep-timer">Sleep Timer</label><select id="lf-sleep-timer" data-lf-performance-input aria-label="Sleep Timer">{{ $selected := .Value }}{{ range .Options }}<option value="{{ .Value }}"{{ if eq .Value $selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select><p class="lf-range-control-status" data-lf-performance-status aria-live="polite"></p></div></div>
+                                </section>
+                            {{ end }}
                         </div>
                     </section>
                 {{ end }}

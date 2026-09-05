@@ -38,6 +38,7 @@ import (
 	"LumenForge/src/rgb"
 	"LumenForge/src/scheduler"
 	"LumenForge/src/server/requests"
+	"LumenForge/src/sleeptimerpresentation"
 	"LumenForge/src/stats"
 	"LumenForge/src/systeminfo"
 	"LumenForge/src/systray"
@@ -183,6 +184,11 @@ type devicesDPIWorkspaceTarget interface {
 	SelectMouseDPIStage(int) uint8
 	SetMouseSniperMode(bool) uint8
 	SaveMouseDPISettings(map[int]uint16, map[int]rgb.Color) uint8
+}
+
+type devicesSleepTimerTarget interface {
+	devicesSleepTimerSnapshotProvider
+	UpdateSleepTimer(int) uint8
 }
 
 var lookupNativeDeviceLightingWrapper = devices.LookupDevice
@@ -2736,6 +2742,7 @@ type devicesWorkspaceSummary struct {
 	Lighting            *devicesLightingWorkspaceSummary
 	DPI                 *devicesDPIWorkspaceSummary
 	Performance         *devicesPerformanceWorkspaceSummary
+	SleepTimer          *devicesSleepTimerWorkspaceSummary
 	Buttons             *devicesButtonsWorkspaceSummary
 	DeviceProfiles      *devicesDeviceProfileWorkspaceSummary
 	Cooling             *devicesCoolingWorkspaceSummary
@@ -2909,6 +2916,11 @@ type devicesKeyboardAssignmentsSnapshotProvider interface {
 type devicesDeviceProfileSnapshotProvider interface {
 	DeviceProfileDeviceID() string
 	DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bool)
+}
+
+type devicesSleepTimerSnapshotProvider interface {
+	SleepTimerDeviceID() string
+	SleepTimerSnapshot() (sleeptimerpresentation.Snapshot, bool)
 }
 
 type devicesCoolingSnapshotProvider interface {
@@ -3480,6 +3492,40 @@ type devicesPerformanceWorkspaceSummary struct {
 	SaveBooleanSettings bool
 }
 
+type devicesSleepTimerOptionSummary struct {
+	Value int
+	Label string
+}
+
+type devicesSleepTimerWorkspaceSummary struct {
+	Value   int
+	Options []devicesSleepTimerOptionSummary
+}
+
+func devicesSleepTimerWorkspaceSummaryFromSnapshot(snapshot sleeptimerpresentation.Snapshot) *devicesSleepTimerWorkspaceSummary {
+	if len(snapshot.Options) == 0 {
+		return nil
+	}
+	summary := &devicesSleepTimerWorkspaceSummary{Value: snapshot.Value, Options: make([]devicesSleepTimerOptionSummary, 0, len(snapshot.Options))}
+	seen := make(map[int]struct{}, len(snapshot.Options))
+	found := false
+	for _, option := range snapshot.Options {
+		if option.Label == "" {
+			return nil
+		}
+		if _, duplicate := seen[option.Value]; duplicate {
+			return nil
+		}
+		seen[option.Value] = struct{}{}
+		found = found || option.Value == snapshot.Value
+		summary.Options = append(summary.Options, devicesSleepTimerOptionSummary{Value: option.Value, Label: option.Label})
+	}
+	if !found {
+		return nil
+	}
+	return summary
+}
+
 func devicesPerformanceWorkspaceSummaryFromSnapshot(snapshot performancepresentation.Snapshot) *devicesPerformanceWorkspaceSummary {
 	summary := &devicesPerformanceWorkspaceSummary{}
 	copySelect := func(setting *performancepresentation.SelectSetting) *devicesPerformanceSelectSummary {
@@ -3846,7 +3892,7 @@ func devicesWorkspaceSummaryForSerial(
 		Image:          device.Image,
 		Unavailable:    device.Unavailable,
 		View:           "overview",
-		LegacyLighting: device.ProductType == common.ProductTypeCC || device.ProductType == common.ProductTypeCCXT || device.ProductType == common.ProductTypeCPro || device.ProductType == common.ProductTypeHarpoonRgbPro || device.ProductType == common.ProductTypeKatarPro || device.ProductType == common.ProductTypeKatarProXT || device.ProductType == common.ProductTypeGlaiveRgbPro || device.ProductType == common.ProductTypeGlaiveRgb || device.ProductType == common.ProductTypeM65RgbElite || device.ProductType == common.ProductTypeSabreRgbPro || device.ProductType == common.ProductTypeNightswordRgb || device.ProductType == common.ProductTypeIronClawRgb || device.ProductType == common.ProductTypeM55 || device.ProductType == common.ProductTypeM55RgbPro || device.ProductType == common.ProductTypeM65RgbUltra || device.ProductType == common.ProductTypeM75 || device.ProductType == common.ProductTypeSabreProCs || device.ProductType == common.ProductTypeScimitarRgb,
+		LegacyLighting: device.ProductType == common.ProductTypeCC || device.ProductType == common.ProductTypeCCXT || device.ProductType == common.ProductTypeCPro || device.ProductType == common.ProductTypeHarpoonRgbPro || device.ProductType == common.ProductTypeKatarPro || device.ProductType == common.ProductTypeKatarProXT || device.ProductType == common.ProductTypeGlaiveRgbPro || device.ProductType == common.ProductTypeGlaiveRgb || device.ProductType == common.ProductTypeM65RgbElite || device.ProductType == common.ProductTypeSabreRgbPro || device.ProductType == common.ProductTypeNightswordRgb || device.ProductType == common.ProductTypeIronClawRgb || device.ProductType == common.ProductTypeM55 || device.ProductType == common.ProductTypeM55RgbPro || device.ProductType == common.ProductTypeM65RgbUltra || device.ProductType == common.ProductTypeM75 || device.ProductType == common.ProductTypeM75W || device.ProductType == common.ProductTypeM75WU || device.ProductType == common.ProductTypeSabreProCs || device.ProductType == common.ProductTypeScimitarRgb,
 	}
 	if battery, found := batteryStats[serial]; found {
 		summary.HasBattery = true
@@ -3887,6 +3933,11 @@ func devicesWorkspaceSummaryForSerial(
 		profileDevice != nil && profileDevice.DeviceProfileDeviceID() == serial {
 		if snapshot, usable := profileDevice.DeviceProfileSnapshot(); usable {
 			summary.DeviceProfiles = devicesDeviceProfileWorkspaceSummaryFromSnapshot(snapshot)
+		}
+	}
+	if sleepTimerDevice, ok := device.Instance.(devicesSleepTimerSnapshotProvider); ok && sleepTimerDevice != nil && sleepTimerDevice.SleepTimerDeviceID() == serial {
+		if snapshot, usable := sleepTimerDevice.SleepTimerSnapshot(); usable {
+			summary.SleepTimer = devicesSleepTimerWorkspaceSummaryFromSnapshot(snapshot)
 		}
 	}
 	var coolingSnapshot *coolingpresentation.Snapshot
@@ -4532,6 +4583,55 @@ func getDevicesDPIWorkspaceTarget(serial string) (devicesDPIWorkspaceTarget, err
 		return nil, fmt.Errorf("DPI workspace is not available")
 	}
 	return target, nil
+}
+
+func getDevicesSleepTimerTarget(serial string) (devicesSleepTimerTarget, error) {
+	if serial == "" || !common.AlphanumericDashRegex.MatchString(serial) {
+		return nil, fmt.Errorf("invalid sleep timer device serial")
+	}
+	wrapper, ok := lookupDevicesDPIWorkspaceWrapper(serial)
+	if !ok || wrapper == nil || wrapper.Hidden || wrapper.Unavailable || wrapper.Serial != serial {
+		return nil, fmt.Errorf("sleep timer device is not available")
+	}
+	target, ok := wrapper.Instance.(devicesSleepTimerTarget)
+	if !ok || target == nil || target.SleepTimerDeviceID() != serial {
+		return nil, fmt.Errorf("sleep timer workspace is not available")
+	}
+	return target, nil
+}
+
+func setDevicesSleepTimer(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		DeviceID   *string `json:"deviceId"`
+		SleepTimer *int    `json:"sleepTimer"`
+	}
+	if !decodeNativeDeviceLightingRequest(w, r, &req) {
+		return
+	}
+
+	if req.DeviceID == nil || req.SleepTimer == nil || *req.DeviceID == "" {
+		nativeDeviceLightingFailure(w, "Invalid sleep timer request")
+		return
+	}
+	target, err := getDevicesSleepTimerTarget(*req.DeviceID)
+	if err != nil {
+		nativeDeviceLightingFailure(w, "Sleep timer workspace is not available")
+		return
+	}
+	snapshot, usable := target.SleepTimerSnapshot()
+	if !usable || devicesSleepTimerWorkspaceSummaryFromSnapshot(snapshot) == nil {
+		nativeDeviceLightingFailure(w, "Invalid sleep timer request")
+		return
+	}
+	valid := false
+	for _, option := range snapshot.Options {
+		valid = valid || option.Value == *req.SleepTimer
+	}
+	if !valid || target.UpdateSleepTimer(*req.SleepTimer) != 1 {
+		nativeDeviceLightingFailure(w, "Unable to update sleep timer")
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Sleep timer updated"}).Send(w)
 }
 
 func getDevicesDPISnapshotProvider(serial string) (devicesDPISnapshotProvider, error) {
@@ -5666,6 +5766,7 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/devices/performance/angle-snapping", http.MethodPost, changeAngleSnapping)
 	handleFunc(r, "/api/devices/performance/lift-height", http.MethodPost, changeLiftHeight)
 	handleFunc(r, "/api/devices/performance/keyboard", http.MethodPost, setKeyboardPerformance)
+	handleFunc(r, "/api/devices/sleep-timer", http.MethodPost, setDevicesSleepTimer)
 	handleFunc(r, "/api/devices/dpi", http.MethodPost, saveDevicesDPIWorkspace)
 	handleFunc(r, "/api/devices/dpi/active", http.MethodPost, selectDevicesDPIWorkspaceStage)
 	handleFunc(r, "/api/devices/dpi/sniper", http.MethodPost, setDevicesDPIWorkspaceSniper)

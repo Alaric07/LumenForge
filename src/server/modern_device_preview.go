@@ -48,6 +48,7 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "m65-pro-rgb-modern", Title: "M65 PRO RGB", ProductType: common.ProductTypeM65RgbElite, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildM65ProRGBModernPreview},
 	{Key: "m65-rgb-ultra-modern", Title: "M65 RGB ULTRA", ProductType: common.ProductTypeM65RgbUltra, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildM65RGBUltraModernPreview},
 	{Key: "m75-modern", Title: "M75", ProductType: common.ProductTypeM75, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildM75ModernPreview},
+	{Key: "m75-wireless-modern", Title: "M75 Wireless", ProductType: common.ProductTypeM75W, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildM75WirelessModernPreview},
 	{Key: "sabre-pro-cs-modern", Title: "SABRE PRO CS", ProductType: common.ProductTypeSabreProCs, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildSabreProCSModernPreview},
 	{Key: "scimitar-rgb-modern", Title: "SCIMITAR RGB", ProductType: common.ProductTypeScimitarRgb, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildScimitarRGBModernPreview},
 	{Key: "scimitar-elite-modern", Title: "SCIMITAR ELITE", ProductType: common.ProductTypeScimitarRgbElite, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildScimitarEliteModernPreview},
@@ -277,6 +278,14 @@ func buildM75ModernPreview() *devicesWorkspaceSummary {
 	s.Performance.ButtonOptimization = &devicesPerformanceSelectSummary{Value: 1, Options: []devicesPerformanceOptionSummary{{Value: 0, Label: "Disabled"}, {Value: 1, Label: "Enabled"}}}
 	s.Performance.AngleSnapping = &devicesPerformanceToggleSummary{Enabled: true}
 	s.Performance.LiftHeight = &devicesPerformanceSelectSummary{Value: 3, Options: []devicesPerformanceOptionSummary{{Value: 2, Label: "Low"}, {Value: 3, Label: "Medium"}, {Value: 4, Label: "High"}}}
+	return s
+}
+
+func buildM75WirelessModernPreview() *devicesWorkspaceSummary {
+	s := buildM75ModernPreview()
+	s.Product, s.Serial, s.Firmware = "M75 WIRELESS", "preview-m75-wireless-modern", "1.4.32"
+	s.HasBattery, s.BatteryLevel = true, 78
+	s.SleepTimer = &devicesSleepTimerWorkspaceSummary{Value: 15, Options: []devicesSleepTimerOptionSummary{{Value: 1, Label: "1 minute"}, {Value: 5, Label: "5 minutes"}, {Value: 10, Label: "10 minutes"}, {Value: 15, Label: "15 minutes"}, {Value: 30, Label: "30 minutes"}, {Value: 60, Label: "1 hour"}}}
 	return s
 }
 func buildSabreProCSModernPreview() *devicesWorkspaceSummary {

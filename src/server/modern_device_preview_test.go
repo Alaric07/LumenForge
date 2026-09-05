@@ -158,6 +158,33 @@ func TestHarpoonModernDevicePreviewRendersSharedMouseWorkspace(t *testing.T) {
 	}
 }
 
+func TestM75WirelessModernDevicePreviewRendersSharedMouseWorkspace(t *testing.T) {
+	router := legacyDevicePreviewRouter(t, true)
+	const serial = "preview-m75-wireless-modern"
+	for _, test := range []struct{ query, want string }{{"", "78%"}, {"?view=lighting", "Native Lighting migration is not complete."}, {"?view=dpi", "Sniper"}, {"?view=buttons", "Right Forward"}} {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/m75-wireless-modern"+test.query))
+		if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), test.want) {
+			t.Errorf("preview %q status=%d missing %q", test.query, recorder.Code, test.want)
+		}
+		for _, directive := range []string{"script-src 'none'", "connect-src 'none'", "form-action 'none'", "base-uri 'none'"} {
+			if !strings.Contains(recorder.Header().Get("Content-Security-Policy"), directive) {
+				t.Errorf("preview CSP omitted %q", directive)
+			}
+		}
+	}
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/m75-wireless-modern"))
+	for _, expected := range []string{"M75 WIRELESS", "Sleep Timer", "15 minutes", "Firmware 1.4.32", "FPS", `href="/dev/device-preview/m75-wireless-modern?view=buttons"`} {
+		if !strings.Contains(recorder.Body.String(), expected) {
+			t.Errorf("preview omitted %q", expected)
+		}
+	}
+	if devices.GetDevice(serial) != nil {
+		t.Fatalf("fixture serial %q was registered", serial)
+	}
+}
+
 func TestGlaiveModernDevicePreviewRendersSharedMouseWorkspace(t *testing.T) {
 	router := legacyDevicePreviewRouter(t, true)
 	const serial = "preview-glaive-rgb-pro-modern"

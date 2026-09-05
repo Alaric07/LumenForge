@@ -18,7 +18,7 @@ func TestWiredMouseModernPreviewsRenderWithoutRegistration(t *testing.T) {
 	}
 	for _, fixture := range []struct{ key, serial, dpiWant, buttonWant string }{
 		{"glaive-rgb-modern", "preview-glaive-rgb-modern", "Lift Height", "DPI Toggle"},
-		{"m65-rgb-elite-modern", "preview-m65-rgb-elite-modern", "Button Optimization", "DPI +"},
+		{"m65-rgb-elite-modern", "preview-m65-rgb-elite-modern", "Button Optimization", "DPI Up"},
 		{"sabre-rgb-pro-modern", "preview-sabre-rgb-pro-modern", "8000 Hz / 0.125 msec", "DPI"},
 		{"nightsword-rgb-modern", "preview-nightsword-rgb-modern", "1000 Hz / 1 msec", "Profile Down"},
 		{"ironclaw-rgb-modern", "preview-ironclaw-rgb-modern", "Angle Snapping", "Profile Button"},

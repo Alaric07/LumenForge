@@ -23,6 +23,7 @@
 		buttonOptimization: "/api/devices/performance/button-optimization",
         angleSnapping: "/api/devices/performance/angle-snapping",
         liftHeight: "/api/devices/performance/lift-height",
+        sleepTimer: "/api/devices/sleep-timer",
         keyboard: "/api/devices/performance/keyboard"
     };
     const keyboardPerformanceFields = {
