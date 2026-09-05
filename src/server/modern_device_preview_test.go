@@ -158,6 +158,29 @@ func TestHarpoonModernDevicePreviewRendersSharedMouseWorkspace(t *testing.T) {
 	}
 }
 
+func TestGlaiveModernDevicePreviewRendersSharedMouseWorkspace(t *testing.T) {
+	router := legacyDevicePreviewRouter(t, true)
+	const serial = "preview-glaive-rgb-pro-modern"
+	if devices.GetDevice(serial) != nil {
+		t.Fatalf("fixture serial %q unexpectedly exists", serial)
+	}
+	for _, test := range []struct{ query, want string }{{"", "GLAIVE RGB PRO"}, {"?view=lighting", "Native Lighting migration is not complete."}, {"?view=dpi", "Angle Snapping"}, {"?view=buttons", "DPI Down"}} {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/glaive-rgb-pro-modern"+test.query))
+		if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), test.want) {
+			t.Errorf("preview %q status=%d missing %q", test.query, recorder.Code, test.want)
+		}
+		for _, directive := range []string{"script-src 'none'", "connect-src 'none'", "form-action 'none'", "base-uri 'none'"} {
+			if !strings.Contains(recorder.Header().Get("Content-Security-Policy"), directive) {
+				t.Errorf("preview CSP omitted %q", directive)
+			}
+		}
+	}
+	if devices.GetDevice(serial) != nil {
+		t.Fatalf("fixture serial %q was registered", serial)
+	}
+}
+
 func TestKatarModernDevicePreviewsRenderSharedMouseWorkspace(t *testing.T) {
 	router := legacyDevicePreviewRouter(t, true)
 	for _, fixture := range []struct{ key, serial, product, stage string }{
