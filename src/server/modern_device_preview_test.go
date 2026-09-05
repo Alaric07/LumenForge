@@ -122,3 +122,38 @@ func TestCommanderProModernDevicePreviewRendersFixtureWithoutRegistration(t *tes
 		t.Fatalf("fixture serial %q was registered", serial)
 	}
 }
+
+func TestHarpoonModernDevicePreviewRendersSharedMouseWorkspace(t *testing.T) {
+	router := legacyDevicePreviewRouter(t, true)
+	const serial = "preview-harpoon-rgb-pro-modern"
+	if devices.GetDevice(serial) != nil {
+		t.Fatalf("fixture serial %q unexpectedly exists", serial)
+	}
+	for _, test := range []struct{ query, want string }{
+		{"", "1000 Hz / 1 msec"},
+		{"?view=lighting", "Native Lighting migration is not complete."},
+		{"?view=dpi", "Stage 2"},
+		{"?view=buttons", "Forward Button"},
+	} {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/harpoon-rgb-pro-modern"+test.query))
+		if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), test.want) {
+			t.Errorf("preview %q status = %d, missing %q", test.query, recorder.Code, test.want)
+		}
+		for _, directive := range []string{"script-src 'none'", "connect-src 'none'", "form-action 'none'"} {
+			if !strings.Contains(recorder.Header().Get("Content-Security-Policy"), directive) {
+				t.Errorf("preview CSP omitted %q", directive)
+			}
+		}
+	}
+	for _, expected := range []string{"href=\"/dev/device-preview/harpoon-rgb-pro-modern\"", "href=\"/dev/device-preview/harpoon-rgb-pro-modern?view=lighting\"", "href=\"/dev/device-preview/harpoon-rgb-pro-modern?view=dpi\"", "href=\"/dev/device-preview/harpoon-rgb-pro-modern?view=buttons\""} {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/harpoon-rgb-pro-modern"))
+		if !strings.Contains(recorder.Body.String(), expected) {
+			t.Errorf("preview navigation omitted %q", expected)
+		}
+	}
+	if devices.GetDevice(serial) != nil {
+		t.Fatalf("fixture serial %q was registered", serial)
+	}
+}

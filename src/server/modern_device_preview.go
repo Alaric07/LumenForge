@@ -15,10 +15,12 @@ type modernDevicePreviewView struct {
 }
 
 type modernDevicePreviewFixture struct {
-	Key   string
-	Title string
-	Views []modernDevicePreviewView
-	Build func() *devicesWorkspaceSummary
+	Key         string
+	Title       string
+	ProductType uint16
+	DeviceType  uint32
+	Views       []modernDevicePreviewView
+	Build       func() *devicesWorkspaceSummary
 }
 
 type modernDevicePreviewNavigationView struct {
@@ -32,8 +34,9 @@ type modernDevicePreviewNavigation struct {
 }
 
 var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
-	{Key: "commander-duo-modern", Title: "Commander Duo", Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: buildCommanderDuoModernPreview},
-	{Key: "commander-pro-modern", Title: "Commander Pro", Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: buildCommanderProModernPreview},
+	{Key: "commander-duo-modern", Title: "Commander Duo", ProductType: common.ProductTypeCCXT, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: buildCommanderDuoModernPreview},
+	{Key: "commander-pro-modern", Title: "Commander Pro", ProductType: common.ProductTypeCPro, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: buildCommanderProModernPreview},
+	{Key: "harpoon-rgb-pro-modern", Title: "Harpoon RGB Pro", ProductType: common.ProductTypeHarpoonRgbPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildHarpoonRGBProModernPreview},
 }
 
 func modernDevicePreviewFixtureByKey(key string) (modernDevicePreviewFixture, bool) {
@@ -68,7 +71,8 @@ func uiModernDevicePreview(w http.ResponseWriter, r *http.Request) {
 			Serial:      summary.Serial,
 			Product:     summary.Product,
 			Firmware:    summary.Firmware,
-			ProductType: common.ProductTypeCCXT,
+			ProductType: fixture.ProductType,
+			DeviceType:  fixture.DeviceType,
 			Image:       summary.Image,
 		},
 	}
@@ -144,5 +148,23 @@ func buildCommanderDuoModernPreview() *devicesWorkspaceSummary {
 			Fans:  []devicesOverviewStatusRow{{ChannelID: 0, Label: "Front intake", Value: "980 RPM", Telemetry: true}, {ChannelID: 2, Label: "Radiator fan", Value: "1320 RPM", Telemetry: true}},
 		},
 		TemperatureProbes: []devicesOverviewStatusRow{{ChannelID: 3, Label: "Coolant", Value: "31.2°C", Telemetry: true}, {ChannelID: 4, Label: "Case exhaust", Value: "28.6°C", Telemetry: true}},
+	}
+}
+
+func buildHarpoonRGBProModernPreview() *devicesWorkspaceSummary {
+	regularStages := []devicesDPIStageSummary{
+		{ID: "0", Name: "Stage 1", DPI: 800, ColorHex: "#ff0000"},
+		{ID: "1", Name: "Stage 2", DPI: 1500, ColorHex: "#ffa500", Active: true},
+		{ID: "2", Name: "Stage 3", DPI: 3000, ColorHex: "#ffff00"},
+		{ID: "3", Name: "Stage 4", DPI: 6000, ColorHex: "#00ff00"},
+		{ID: "4", Name: "Stage 5", DPI: 9000, ColorHex: "#0000ff"},
+	}
+	return &devicesWorkspaceSummary{
+		Product: "HARPOON RGB PRO", Serial: "preview-harpoon-rgb-pro-modern", Firmware: "1.12.41", Image: "icon-mouse.svg", View: "overview", LegacyLighting: true,
+		DPI:                 &devicesDPIWorkspaceSummary{MinimumDPI: 200, MaximumDPI: 12000, ActiveRegularStageID: "1", RegularStages: regularStages, SniperStage: &devicesDPIStageSummary{ID: "5", Name: "Sniper", DPI: 200, ColorHex: "#ffff00", Sniper: true}},
+		Performance:         &devicesPerformanceWorkspaceSummary{PollingRate: &devicesPerformanceSelectSummary{Value: 1, Options: []devicesPerformanceOptionSummary{{Value: 0, Label: "Not Set"}, {Value: 1, Label: "1000 Hz / 1 msec"}, {Value: 2, Label: "500 Hz / 2 msec"}, {Value: 4, Label: "250 Hz / 4 msec"}, {Value: 8, Label: "125 Hz / 8 msec"}}}},
+		Buttons:             &devicesButtonsWorkspaceSummary{Buttons: []devicesButtonsButtonSummary{{KeyIndex: 1, Name: "Left Button", Default: true}, {KeyIndex: 2, Name: "Right Button", Default: true}, {KeyIndex: 4, Name: "Middle Button", Default: true}, {KeyIndex: 8, Name: "Back Button", Default: true}, {KeyIndex: 16, Name: "Forward Button", Default: true}, {KeyIndex: 32, Name: "DPI Button", Default: true}}, AssignmentTypes: []devicesButtonsAssignmentTypeSummary{{ID: 0, Label: "None"}, {ID: 1, Label: "Media Keys"}, {ID: 2, Label: "DPI"}, {ID: 3, Label: "Keyboard"}, {ID: 8, Label: "Sniper"}, {ID: 9, Label: "Mouse"}, {ID: 10, Label: "Macro"}, {ID: 11, Label: "Profile Switch"}}},
+		DeviceProfiles:      &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "FPS"}, ActiveProfile: "Default", Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription},
+		OverviewPerformance: &devicesOverviewPerformanceStatusSummary{Rows: []devicesOverviewStatusRow{{Label: "DPI", Value: "1500", Telemetry: true}, {Label: "Active Stage", Value: "Stage 2"}, {Label: "Polling Rate", Value: "1000 Hz / 1 msec", Telemetry: true}}},
 	}
 }

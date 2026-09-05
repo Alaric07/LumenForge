@@ -3844,7 +3844,7 @@ func devicesWorkspaceSummaryForSerial(
 		Image:          device.Image,
 		Unavailable:    device.Unavailable,
 		View:           "overview",
-		LegacyLighting: device.ProductType == common.ProductTypeCC || device.ProductType == common.ProductTypeCCXT || device.ProductType == common.ProductTypeCPro,
+		LegacyLighting: device.ProductType == common.ProductTypeCC || device.ProductType == common.ProductTypeCCXT || device.ProductType == common.ProductTypeCPro || device.ProductType == common.ProductTypeHarpoonRgbPro,
 	}
 	if battery, found := batteryStats[serial]; found {
 		summary.HasBattery = true
