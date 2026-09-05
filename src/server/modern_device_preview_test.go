@@ -157,3 +157,30 @@ func TestHarpoonModernDevicePreviewRendersSharedMouseWorkspace(t *testing.T) {
 		t.Fatalf("fixture serial %q was registered", serial)
 	}
 }
+
+func TestKatarModernDevicePreviewsRenderSharedMouseWorkspace(t *testing.T) {
+	router := legacyDevicePreviewRouter(t, true)
+	for _, fixture := range []struct{ key, serial, product, stage string }{
+		{"katar-pro-modern", "preview-katar-pro-modern", "KATAR PRO", "Stage 2"},
+		{"katar-pro-xt-modern", "preview-katar-pro-xt-modern", "KATAR PRO XT", "Stage 2"},
+	} {
+		if devices.GetDevice(fixture.serial) != nil {
+			t.Fatalf("fixture serial %q unexpectedly exists", fixture.serial)
+		}
+		for _, test := range []struct{ query, want string }{{"", fixture.product}, {"?view=lighting", "Native Lighting migration is not complete."}, {"?view=dpi", "Button Optimization"}, {"?view=buttons", "DPI Button"}} {
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/"+fixture.key+test.query))
+			if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), test.want) {
+				t.Errorf("%s %q status=%d missing %q", fixture.key, test.query, recorder.Code, test.want)
+			}
+			for _, directive := range []string{"script-src 'none'", "connect-src 'none'", "form-action 'none'", "base-uri 'none'"} {
+				if !strings.Contains(recorder.Header().Get("Content-Security-Policy"), directive) {
+					t.Errorf("%s CSP omitted %q", fixture.key, directive)
+				}
+			}
+		}
+		if devices.GetDevice(fixture.serial) != nil {
+			t.Fatalf("fixture serial %q was registered", fixture.serial)
+		}
+	}
+}

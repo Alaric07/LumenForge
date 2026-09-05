@@ -736,6 +736,13 @@
                                         <p class="lf-range-control-status" data-lf-performance-status aria-live="polite"></p>
                                     </div>
                                 {{ end }}
+                                {{ with .ButtonOptimization }}
+                                    <div class="lf-performance-control" data-lf-performance-control data-lf-performance-kind="buttonOptimization" data-lf-confirmed-value="{{ .Value }}">
+                                        <label for="lf-performance-button-optimization">Button Optimization</label>
+                                        <select id="lf-performance-button-optimization" data-lf-performance-input aria-label="Button Optimization">{{ $selected := .Value }}{{ range .Options }}<option value="{{ .Value }}"{{ if eq .Value $selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select>
+                                        <p class="lf-range-control-status" data-lf-performance-status aria-live="polite"></p>
+                                    </div>
+                                {{ end }}
                                 {{ with .AngleSnapping }}
                                     <div class="lf-performance-control" data-lf-performance-control data-lf-performance-kind="angleSnapping" data-lf-confirmed-value="{{ if .Enabled }}1{{ else }}0{{ end }}">
                                         <label class="lf-performance-toggle system-toggle compact" for="lf-performance-angle-snapping"><span>Angle Snapping</span><input id="lf-performance-angle-snapping" type="checkbox" data-lf-performance-input{{ if .Enabled }} checked{{ end }}><span class="toggle-track" aria-hidden="true"></span></label>

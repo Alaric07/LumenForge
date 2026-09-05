@@ -20,6 +20,7 @@
     const statusEndpoint = "/api/devices/dpi/status";
     const performanceEndpoints = {
         pollingRate: "/api/devices/performance/polling-rate",
+		buttonOptimization: "/api/devices/performance/button-optimization",
         angleSnapping: "/api/devices/performance/angle-snapping",
         liftHeight: "/api/devices/performance/lift-height",
         keyboard: "/api/devices/performance/keyboard"

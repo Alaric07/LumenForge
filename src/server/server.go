@@ -3473,6 +3473,7 @@ type devicesPerformanceBooleanSummary struct {
 
 type devicesPerformanceWorkspaceSummary struct {
 	PollingRate         *devicesPerformanceSelectSummary
+	ButtonOptimization  *devicesPerformanceSelectSummary
 	AngleSnapping       *devicesPerformanceToggleSummary
 	LiftHeight          *devicesPerformanceSelectSummary
 	BooleanSettings     []devicesPerformanceBooleanSummary
@@ -3495,6 +3496,7 @@ func devicesPerformanceWorkspaceSummaryFromSnapshot(snapshot performancepresenta
 		return &devicesPerformanceSelectSummary{Value: setting.Value, Options: options}
 	}
 	summary.PollingRate = copySelect(snapshot.PollingRate)
+	summary.ButtonOptimization = copySelect(snapshot.ButtonOptimization)
 	summary.LiftHeight = copySelect(snapshot.LiftHeight)
 	if snapshot.AngleSnapping != nil {
 		summary.AngleSnapping = &devicesPerformanceToggleSummary{Enabled: snapshot.AngleSnapping.Enabled}
@@ -3520,7 +3522,7 @@ func devicesPerformanceWorkspaceSummaryFromSnapshot(snapshot performancepresenta
 			summary.SaveBooleanSettings = snapshot.SaveBooleanSettings
 		}
 	}
-	if summary.PollingRate == nil && summary.AngleSnapping == nil && summary.LiftHeight == nil && len(summary.BooleanSettings) == 0 {
+	if summary.PollingRate == nil && summary.ButtonOptimization == nil && summary.AngleSnapping == nil && summary.LiftHeight == nil && len(summary.BooleanSettings) == 0 {
 		return nil
 	}
 	return summary
@@ -3844,7 +3846,7 @@ func devicesWorkspaceSummaryForSerial(
 		Image:          device.Image,
 		Unavailable:    device.Unavailable,
 		View:           "overview",
-		LegacyLighting: device.ProductType == common.ProductTypeCC || device.ProductType == common.ProductTypeCCXT || device.ProductType == common.ProductTypeCPro || device.ProductType == common.ProductTypeHarpoonRgbPro,
+		LegacyLighting: device.ProductType == common.ProductTypeCC || device.ProductType == common.ProductTypeCCXT || device.ProductType == common.ProductTypeCPro || device.ProductType == common.ProductTypeHarpoonRgbPro || device.ProductType == common.ProductTypeKatarPro || device.ProductType == common.ProductTypeKatarProXT,
 	}
 	if battery, found := batteryStats[serial]; found {
 		summary.HasBattery = true
@@ -5660,6 +5662,7 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/devices/lighting/effect-reset", http.MethodPost, resetNativeDeviceLightingEffectSettings)
 	handleFunc(r, "/api/devices/lighting/zones", http.MethodPost, setNativeDeviceLightingZones)
 	handleFunc(r, "/api/devices/performance/polling-rate", http.MethodPost, changePollingRate)
+	handleFunc(r, "/api/devices/performance/button-optimization", http.MethodPost, changeButtonOptimization)
 	handleFunc(r, "/api/devices/performance/angle-snapping", http.MethodPost, changeAngleSnapping)
 	handleFunc(r, "/api/devices/performance/lift-height", http.MethodPost, changeLiftHeight)
 	handleFunc(r, "/api/devices/performance/keyboard", http.MethodPost, setKeyboardPerformance)

@@ -5,10 +5,11 @@ package performancepresentation
 // Snapshot describes the performance controls a device supports. A nil
 // setting means the device does not support that control.
 type Snapshot struct {
-	PollingRate     *SelectSetting
-	AngleSnapping   *ToggleSetting
-	LiftHeight      *SelectSetting
-	BooleanSettings []BooleanSetting
+	PollingRate         *SelectSetting
+	ButtonOptimization  *SelectSetting
+	AngleSnapping       *ToggleSetting
+	LiftHeight          *SelectSetting
+	BooleanSettings     []BooleanSetting
 	SaveBooleanSettings bool
 }
 
