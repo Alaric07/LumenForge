@@ -38,6 +38,9 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "commander-pro-modern", Title: "Commander Pro", ProductType: common.ProductTypeCPro, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: buildCommanderProModernPreview},
 	{Key: "harpoon-rgb-pro-modern", Title: "Harpoon RGB Pro", ProductType: common.ProductTypeHarpoonRgbPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildHarpoonRGBProModernPreview},
 	{Key: "glaive-rgb-pro-modern", Title: "Glaive RGB Pro", ProductType: common.ProductTypeGlaiveRgbPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildGlaiveRGBProModernPreview},
+	{Key: "glaive-rgb-modern", Title: "Glaive RGB", ProductType: common.ProductTypeGlaiveRgb, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildGlaiveRGBModernPreview},
+	{Key: "m65-rgb-elite-modern", Title: "M65 RGB Elite", ProductType: common.ProductTypeM65RgbElite, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildM65RGBEliteModernPreview},
+	{Key: "sabre-rgb-pro-modern", Title: "Sabre RGB Pro", ProductType: common.ProductTypeSabreRgbPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildSabreRGBProModernPreview},
 	{Key: "katar-pro-modern", Title: "Katar Pro", ProductType: common.ProductTypeKatarPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProModernPreview},
 	{Key: "katar-pro-xt-modern", Title: "Katar Pro XT", ProductType: common.ProductTypeKatarProXT, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProXTModernPreview},
 }
@@ -181,6 +184,37 @@ func buildGlaiveRGBProModernPreview() *devicesWorkspaceSummary {
 		DeviceProfiles:      &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "FPS"}, ActiveProfile: "Default", Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription},
 		OverviewPerformance: &devicesOverviewPerformanceStatusSummary{Rows: []devicesOverviewStatusRow{{Label: "DPI", Value: "1500", Telemetry: true}, {Label: "Active Stage", Value: "Stage 2"}, {Label: "Polling Rate", Value: "1000 Hz / 1 msec", Telemetry: true}}},
 	}
+}
+
+func buildGlaiveRGBModernPreview() *devicesWorkspaceSummary {
+	s := buildGlaiveRGBProModernPreview()
+	s.Product, s.Serial, s.Firmware = "GLAIVE RGB", "preview-glaive-rgb-modern", "1.2.7"
+	s.DPI.MaximumDPI = 16000
+	s.DPI.RegularStages = append(s.DPI.RegularStages, devicesDPIStageSummary{ID: "3", Name: "Stage 4", DPI: 6000, ColorHex: "#00ff00"}, devicesDPIStageSummary{ID: "4", Name: "Stage 5", DPI: 9000, ColorHex: "#00ff00"})
+	s.DPI.SniperStage.ID, s.DPI.SniperStage.DPI = "5", 200
+	s.Performance.ButtonOptimization = &devicesPerformanceSelectSummary{Value: 4, Options: []devicesPerformanceOptionSummary{{Value: 1, Label: "Extreme"}, {Value: 2, Label: "Very Fast"}, {Value: 3, Label: "Fast"}, {Value: 4, Label: "Normal"}}}
+	s.Performance.LiftHeight = &devicesPerformanceSelectSummary{Value: 3, Options: []devicesPerformanceOptionSummary{{Value: 2, Label: "Low"}, {Value: 3, Label: "Medium"}, {Value: 4, Label: "High"}}}
+	s.Buttons.Buttons = s.Buttons.Buttons[:6]
+	s.Buttons.Buttons[5].Name = "DPI Toggle"
+	return s
+}
+
+func buildM65RGBEliteModernPreview() *devicesWorkspaceSummary {
+	return &devicesWorkspaceSummary{Product: "M65 RGB ELITE", Serial: "preview-m65-rgb-elite-modern", Firmware: "1.10.22", Image: "icon-mouse.svg", View: "overview", LegacyLighting: true,
+		DPI:            &devicesDPIWorkspaceSummary{MinimumDPI: 100, MaximumDPI: 18000, ActiveRegularStageID: "1", RegularStages: []devicesDPIStageSummary{{ID: "0", Name: "Stage 1", DPI: 800, ColorHex: "#ff0000"}, {ID: "1", Name: "Stage 2", DPI: 1500, ColorHex: "#ffffff", Active: true}, {ID: "2", Name: "Stage 3", DPI: 3000, ColorHex: "#00ff00"}, {ID: "3", Name: "Stage 4", DPI: 6000, ColorHex: "#800080"}, {ID: "4", Name: "Stage 5", DPI: 9000, ColorHex: "#00bfff"}}, SniperStage: &devicesDPIStageSummary{ID: "5", Name: "Sniper", DPI: 400, ColorHex: "#ffff00", Sniper: true}},
+		Performance:    &devicesPerformanceWorkspaceSummary{PollingRate: &devicesPerformanceSelectSummary{Value: 1, Options: []devicesPerformanceOptionSummary{{Value: 0, Label: "Not Set"}, {Value: 1, Label: "1000 Hz / 1 msec"}, {Value: 2, Label: "500 Hz / 2 msec"}, {Value: 4, Label: "250 Hz / 4 msec"}, {Value: 8, Label: "125 Hz / 8 msec"}}}, ButtonOptimization: &devicesPerformanceSelectSummary{Value: 1, Options: []devicesPerformanceOptionSummary{{Value: 0, Label: "Disabled"}, {Value: 1, Label: "Enabled"}}}, AngleSnapping: &devicesPerformanceToggleSummary{Enabled: true}},
+		Buttons:        &devicesButtonsWorkspaceSummary{Buttons: []devicesButtonsButtonSummary{{KeyIndex: 1, Name: "Left Button", Default: true}, {KeyIndex: 2, Name: "Right Button", Default: true}, {KeyIndex: 4, Name: "Middle Button", Default: true}, {KeyIndex: 8, Name: "Back Button", Default: true}, {KeyIndex: 16, Name: "Forward Button", Default: true}, {KeyIndex: 32, Name: "DPI Up", Default: true}, {KeyIndex: 64, Name: "DPI Down", Default: true}, {KeyIndex: 128, Name: "Sniper", PressAndHold: true}}, AssignmentTypes: []devicesButtonsAssignmentTypeSummary{{ID: 0, Label: "None"}, {ID: 1, Label: "Media Keys"}, {ID: 2, Label: "DPI +"}, {ID: 3, Label: "Keyboard"}, {ID: 4, Label: "DPI -"}, {ID: 8, Label: "Sniper"}, {ID: 9, Label: "Mouse"}, {ID: 10, Label: "Macro"}, {ID: 11, Label: "Profile Switch"}}},
+		DeviceProfiles: &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "FPS"}, ActiveProfile: "Default", Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription}, OverviewPerformance: &devicesOverviewPerformanceStatusSummary{Rows: []devicesOverviewStatusRow{{Label: "DPI", Value: "1500", Telemetry: true}, {Label: "Active Stage", Value: "Stage 2"}, {Label: "Polling Rate", Value: "1000 Hz / 1 msec", Telemetry: true}}}}
+}
+
+func buildSabreRGBProModernPreview() *devicesWorkspaceSummary {
+	s := buildM65RGBEliteModernPreview()
+	s.Product, s.Serial, s.Firmware = "SABRE RGB PRO", "preview-sabre-rgb-pro-modern", "0.8.15"
+	s.Performance.PollingRate = &devicesPerformanceSelectSummary{Value: 7, Options: []devicesPerformanceOptionSummary{{Value: 0, Label: "Not Set"}, {Value: 1, Label: "125 Hz / 8 msec"}, {Value: 2, Label: "250 Hz / 4 msec"}, {Value: 3, Label: "500 Hz / 2 msec"}, {Value: 4, Label: "1000 Hz / 1 msec"}, {Value: 5, Label: "2000 Hz / 0.5 msec"}, {Value: 6, Label: "4000 Hz / 0.25 msec"}, {Value: 7, Label: "8000 Hz / 0.125 msec"}}}
+	s.Buttons.Buttons = s.Buttons.Buttons[:6]
+	s.Buttons.Buttons[5].Name = "DPI"
+	s.Buttons.AssignmentTypes = []devicesButtonsAssignmentTypeSummary{{ID: 0, Label: "None"}, {ID: 1, Label: "Media Keys"}, {ID: 2, Label: "DPI"}, {ID: 3, Label: "Keyboard"}, {ID: 8, Label: "Sniper"}, {ID: 9, Label: "Mouse"}, {ID: 10, Label: "Macro"}, {ID: 11, Label: "Profile Switch"}}
+	return s
 }
 
 func buildKatarProModernPreview() *devicesWorkspaceSummary {
