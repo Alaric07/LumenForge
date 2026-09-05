@@ -33,6 +33,7 @@ type modernDevicePreviewNavigation struct {
 
 var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "commander-duo-modern", Title: "Commander Duo", Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: buildCommanderDuoModernPreview},
+	{Key: "commander-pro-modern", Title: "Commander Pro", Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: buildCommanderProModernPreview},
 }
 
 func modernDevicePreviewFixtureByKey(key string) (modernDevicePreviewFixture, bool) {
@@ -63,8 +64,8 @@ func uiModernDevicePreview(w http.ResponseWriter, r *http.Request) {
 	web := legacyDevicePreviewWeb()
 	web.Page = "devices"
 	web.Devices = map[string]*common.Device{
-		commanderDuoModernPreviewSerial: {
-			Serial:      commanderDuoModernPreviewSerial,
+		summary.Serial: {
+			Serial:      summary.Serial,
 			Product:     summary.Product,
 			Firmware:    summary.Firmware,
 			ProductType: common.ProductTypeCCXT,
@@ -75,6 +76,18 @@ func uiModernDevicePreview(w http.ResponseWriter, r *http.Request) {
 	web.BatteryStats = map[string]stats.BatteryStats{}
 	web.ModernDevicePreview = modernDevicePreviewNavigationForFixture(fixture, summary.View)
 	renderModernDevicePreview(w, "devices.html", web)
+}
+
+func buildCommanderProModernPreview() *devicesWorkspaceSummary {
+	summary := &devicesWorkspaceSummary{
+		Product: "Commander Pro", Serial: "preview-commander-pro-modern", Firmware: "1.4.17", Image: "icon-device.svg", View: "overview", LegacyLighting: true,
+		Cooling:           &devicesCoolingWorkspaceSummary{ProfileOptions: []devicesCoolingProfileOptionSummary{{ID: "Balanced", Label: "Balanced"}, {ID: "Quiet", Label: "Quiet"}, {ID: "Performance", Label: "Performance"}}, Channels: []devicesCoolingChannelSummary{{ID: 0, Name: "Fan Channel 1", Label: "Front intake", RPM: 940, SelectedProfile: "Quiet"}, {ID: 1, Name: "Fan Channel 2", Label: "Radiator fan", RPM: 1380, SelectedProfile: "Balanced"}, {ID: 2, Name: "Fan Channel 3", Label: "Rear exhaust", RPM: 1160, SelectedProfile: "Performance"}}, TemperatureProbes: []devicesCoolingTemperatureProbeSummary{{ID: 6, Name: "Temperature Probe 1", Label: "Coolant", Temperature: "31.4°C"}, {ID: 7, Name: "Temperature Probe 2", Label: "Case", Temperature: "28.8°C"}}},
+		DeviceProfiles:    &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "Quiet", "Studio"}, ActiveProfile: "Default", Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription},
+		OverviewCooling:   &devicesOverviewCoolingStatusSummary{Fans: []devicesOverviewStatusRow{{ChannelID: 0, Label: "Front intake", Value: "940 RPM", Telemetry: true}, {ChannelID: 1, Label: "Radiator fan", Value: "1380 RPM", Telemetry: true}, {ChannelID: 2, Label: "Rear exhaust", Value: "1160 RPM", Telemetry: true}}},
+		TemperatureProbes: []devicesOverviewStatusRow{{ChannelID: 6, Label: "Coolant", Value: "31.4°C", Telemetry: true}, {ChannelID: 7, Label: "Case", Value: "28.8°C", Telemetry: true}},
+		OverviewTelemetry: []devicesOverviewStatusRow{{Label: "+12V", Value: "12.08 V", Telemetry: true}, {Label: "+5V", Value: "5.02 V", Telemetry: true}, {Label: "+3.3V", Value: "3.31 V", Telemetry: true}},
+	}
+	return summary
 }
 
 func modernDevicePreviewNavigationForFixture(fixture modernDevicePreviewFixture, currentView string) modernDevicePreviewNavigation {

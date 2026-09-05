@@ -878,6 +878,13 @@
                             </section>
                             {{ end }}
 
+                            {{ with .Device.OverviewTelemetry }}
+                                <section class="lf-overview-panel lf-overview-device-telemetry">
+                                    <header class="lf-overview-panel-header"><div><h2>Device Telemetry</h2></div></header>
+                                    <dl class="lf-device-summary-meta">{{ range . }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">{{ .Label }}</dt><dd class="lf-device-summary-value"><span class="lf-telemetry-value">{{ .Value }}</span></dd></div>{{ end }}</dl>
+                                </section>
+                            {{ end }}
+
                             {{ with .Device.Lighting }}
                                 {{ $effect := .ConfiguredEffect }}
                                 {{ if .ConfiguredEffectLabel }}{{ $effect = .ConfiguredEffectLabel }}{{ end }}

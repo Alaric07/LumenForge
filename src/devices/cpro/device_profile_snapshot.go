@@ -1,0 +1,30 @@
+package cpro
+
+import (
+	"LumenForge/src/deviceprofilepresentation"
+	"sort"
+)
+
+func (d *Device) DeviceProfileDeviceID() string {
+	if d == nil {
+		return ""
+	}
+	return d.Serial
+}
+
+func (d *Device) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bool) {
+	if d == nil {
+		return deviceprofilepresentation.Snapshot{}, false
+	}
+	snapshot := deviceprofilepresentation.Snapshot{Supported: true}
+	for name, profile := range d.UserProfiles {
+		if profile != nil {
+			snapshot.Profiles = append(snapshot.Profiles, name)
+			if profile.Active {
+				snapshot.ActiveProfile = name
+			}
+		}
+	}
+	sort.Strings(snapshot.Profiles)
+	return snapshot, snapshot.ActiveProfile != "" && len(snapshot.Profiles) > 0
+}

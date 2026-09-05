@@ -41,6 +41,7 @@ import (
 	"LumenForge/src/stats"
 	"LumenForge/src/systeminfo"
 	"LumenForge/src/systray"
+	"LumenForge/src/telemetrypresentation"
 	"LumenForge/src/temperatures"
 	"LumenForge/src/templates"
 	"LumenForge/src/version"
@@ -2744,6 +2745,7 @@ type devicesWorkspaceSummary struct {
 	TemperatureProbes   []devicesOverviewStatusRow
 	OverviewPerformance *devicesOverviewPerformanceStatusSummary
 	OverviewDisplay     *devicesOverviewDisplayStatusSummary
+	OverviewTelemetry   []devicesOverviewStatusRow
 	KeyboardAssignments *devicesKeyboardAssignmentsWorkspaceSummary
 	LegacyLighting      bool
 	View                string
@@ -2917,6 +2919,11 @@ type devicesCoolingSnapshotProvider interface {
 type devicesDisplaySnapshotProvider interface {
 	DisplayDeviceID() string
 	DisplaySnapshot() (displaypresentation.Snapshot, bool)
+}
+
+type devicesTelemetrySnapshotProvider interface {
+	TelemetryDeviceID() string
+	TelemetrySnapshot() (telemetrypresentation.Snapshot, bool)
 }
 
 type devicesMemorySnapshotProvider interface {
@@ -3837,7 +3844,7 @@ func devicesWorkspaceSummaryForSerial(
 		Image:          device.Image,
 		Unavailable:    device.Unavailable,
 		View:           "overview",
-		LegacyLighting: device.ProductType == common.ProductTypeCC || device.ProductType == common.ProductTypeCCXT,
+		LegacyLighting: device.ProductType == common.ProductTypeCC || device.ProductType == common.ProductTypeCCXT || device.ProductType == common.ProductTypeCPro,
 	}
 	if battery, found := batteryStats[serial]; found {
 		summary.HasBattery = true
@@ -3892,6 +3899,15 @@ func devicesWorkspaceSummaryForSerial(
 		displayDevice != nil && displayDevice.DisplayDeviceID() == serial {
 		if snapshot, usable := displayDevice.DisplaySnapshot(); usable {
 			summary.Display = devicesDisplayWorkspaceSummaryFromSnapshot(snapshot)
+		}
+	}
+	if telemetryDevice, ok := device.Instance.(devicesTelemetrySnapshotProvider); ok && telemetryDevice != nil && telemetryDevice.TelemetryDeviceID() == serial {
+		if snapshot, usable := telemetryDevice.TelemetrySnapshot(); usable && snapshot.Available {
+			for _, row := range snapshot.Rows {
+				if row.Label != "" && row.Value != "" {
+					summary.OverviewTelemetry = append(summary.OverviewTelemetry, devicesOverviewStatusRow{Label: row.Label, Value: row.Value, Telemetry: true})
+				}
+			}
 		}
 	}
 	if memoryDevice, ok := device.Instance.(devicesMemorySnapshotProvider); ok &&

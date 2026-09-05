@@ -4,6 +4,7 @@ import (
 	"LumenForge/src/common"
 	"LumenForge/src/devices"
 	"LumenForge/src/devices/cduo"
+	"LumenForge/src/devices/cpro"
 	"LumenForge/src/server/requests"
 	"LumenForge/src/stats"
 	"LumenForge/src/temperatures"
@@ -35,6 +36,21 @@ func TestCommanderDuoWorkspaceSummaryUsesModernCoolingAndProfiles(t *testing.T) 
 	}
 	if summary.DeviceProfiles.ActiveProfile != "Default" || summary.DeviceProfiles.Description != devicesCCXTDeviceProfileDescription {
 		t.Fatalf("profiles = %#v", summary.DeviceProfiles)
+	}
+}
+
+func TestCommanderProWorkspaceSummaryUsesModernCoolingProfilesAndTelemetry(t *testing.T) {
+	initializeLegacyDevicePreviewTestProcess(t)
+	temperatures.Init()
+	const serial = "cpro-modern-workspace"
+	instance := &cpro.Device{Serial: serial, Devices: map[int]*cpro.Devices{0: {ChannelId: 0, Name: "Fan 1", Label: "Front", Rpm: 980, Profile: "Quiet", HasSpeed: true}}, UserProfiles: map[string]*cpro.DeviceProfile{"Default": {Active: true}}, RailVoltages: map[int]*cpro.RailVoltage{0: {Name: "+12V", Value: 12.08}, 1: {Name: "+5V", Value: 5.02}, 2: {Name: "+3.3V", Value: 3.31}}}
+	device := &common.Device{Serial: serial, Product: "Commander Pro", ProductType: common.ProductTypeCPro, Instance: instance}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: device}, map[string]stats.BatteryStats{}, serial)
+	if !ok || summary.Cooling == nil || summary.DeviceProfiles == nil || !summary.LegacyLighting || len(summary.OverviewTelemetry) != 3 {
+		t.Fatalf("summary = %#v, ok=%t", summary, ok)
+	}
+	if summary.OverviewTelemetry[0].Label != "+12V" || summary.OverviewTelemetry[0].Value != "12.08 V" {
+		t.Fatalf("telemetry = %#v", summary.OverviewTelemetry)
 	}
 }
 
@@ -79,7 +95,7 @@ func TestCommanderDuoModernDevicePreviewRendersFixtureWithoutRegistration(t *tes
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/commander-duo-modern"+view.query))
 		if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), view.want) {
-			t.Errorf("preview %q status = %d, missing %q", view.query, recorder.Code, view.want)
+			t.Errorf("preview %q status = %d, missing %q: %s", view.query, recorder.Code, view.want, recorder.Body.String())
 		}
 	}
 	if devices.GetDevice(commanderDuoModernPreviewSerial) != nil {
@@ -89,5 +105,20 @@ func TestCommanderDuoModernDevicePreviewRendersFixtureWithoutRegistration(t *tes
 	request := httptest.NewRequest(http.MethodPost, "/api/speed", strings.NewReader(`{"deviceId":"`+commanderDuoModernPreviewSerial+`","channelId":0,"profile":"Quiet"}`))
 	if response := requests.ProcessChangeSpeed(request); response.Status != 0 {
 		t.Fatalf("fixture serial mutation response = %#v, want failed dispatch", response)
+	}
+}
+
+func TestCommanderProModernDevicePreviewRendersFixtureWithoutRegistration(t *testing.T) {
+	router := legacyDevicePreviewRouter(t, true)
+	const serial = "preview-commander-pro-modern"
+	for _, view := range []struct{ query, want string }{{"", "12.08 V"}, {"?view=cooling", "Radiator fan"}, {"?view=lighting", "Native Lighting migration is not complete."}} {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/commander-pro-modern"+view.query))
+		if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), view.want) {
+			t.Errorf("preview %q status = %d, missing %q", view.query, recorder.Code, view.want)
+		}
+	}
+	if devices.GetDevice(serial) != nil {
+		t.Fatalf("fixture serial %q was registered", serial)
 	}
 }
