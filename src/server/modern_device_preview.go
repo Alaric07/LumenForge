@@ -43,6 +43,14 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "sabre-rgb-pro-modern", Title: "Sabre RGB Pro", ProductType: common.ProductTypeSabreRgbPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildSabreRGBProModernPreview},
 	{Key: "nightsword-rgb-modern", Title: "Nightsword RGB", ProductType: common.ProductTypeNightswordRgb, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildNightswordRGBModernPreview},
 	{Key: "ironclaw-rgb-modern", Title: "Ironclaw RGB", ProductType: common.ProductTypeIronClawRgb, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildIronclawRGBModernPreview},
+	{Key: "m55-modern", Title: "M55", ProductType: common.ProductTypeM55, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildM55ModernPreview},
+	{Key: "m55-rgb-pro-modern", Title: "M55 RGB PRO", ProductType: common.ProductTypeM55RgbPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildM55RGBProModernPreview},
+	{Key: "m65-pro-rgb-modern", Title: "M65 PRO RGB", ProductType: common.ProductTypeM65RgbElite, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildM65ProRGBModernPreview},
+	{Key: "m65-rgb-ultra-modern", Title: "M65 RGB ULTRA", ProductType: common.ProductTypeM65RgbUltra, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildM65RGBUltraModernPreview},
+	{Key: "m75-modern", Title: "M75", ProductType: common.ProductTypeM75, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildM75ModernPreview},
+	{Key: "sabre-pro-cs-modern", Title: "SABRE PRO CS", ProductType: common.ProductTypeSabreProCs, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildSabreProCSModernPreview},
+	{Key: "scimitar-rgb-modern", Title: "SCIMITAR RGB", ProductType: common.ProductTypeScimitarRgb, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildScimitarRGBModernPreview},
+	{Key: "scimitar-elite-modern", Title: "SCIMITAR ELITE", ProductType: common.ProductTypeScimitarRgbElite, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildScimitarEliteModernPreview},
 	{Key: "katar-pro-modern", Title: "Katar Pro", ProductType: common.ProductTypeKatarPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProModernPreview},
 	{Key: "katar-pro-xt-modern", Title: "Katar Pro XT", ProductType: common.ProductTypeKatarProXT, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProXTModernPreview},
 }
@@ -232,6 +240,62 @@ func buildIronclawRGBModernPreview() *devicesWorkspaceSummary {
 	s.Product, s.Serial, s.Firmware = "IRONCLAW RGB", "preview-ironclaw-rgb-modern", "2.1.8"
 	s.Buttons.Buttons = []devicesButtonsButtonSummary{{KeyIndex: 1, Name: "Left Button", Default: true}, {KeyIndex: 2, Name: "Right Button", Default: true}, {KeyIndex: 4, Name: "Middle Button", Default: true}, {KeyIndex: 8, Name: "Back Button", Default: true}, {KeyIndex: 16, Name: "Forward Button", Default: true}, {KeyIndex: 32, Name: "DPI Button", Default: true}, {KeyIndex: 256, Name: "Profile Button", Default: true, ProfileSwitch: true}}
 	s.Performance.AngleSnapping = &devicesPerformanceToggleSummary{Enabled: true}
+	return s
+}
+
+func buildM55ModernPreview() *devicesWorkspaceSummary {
+	s := buildSabreRGBProModernPreview()
+	s.Product, s.Serial = "M55", "preview-m55-modern"
+	s.Buttons.Buttons = s.Buttons.Buttons[:6]
+	return s
+}
+func buildM55RGBProModernPreview() *devicesWorkspaceSummary {
+	s := buildM65RGBEliteModernPreview()
+	s.Product, s.Serial = "M55 RGB PRO", "preview-m55-rgb-pro-modern"
+	s.Buttons.Buttons = []devicesButtonsButtonSummary{{KeyIndex: 1, Name: "Left Button", Default: true}, {KeyIndex: 2, Name: "Right Button", Default: true}, {KeyIndex: 4, Name: "Middle Button", Default: true}, {KeyIndex: 8, Name: "Left Back", Default: true}, {KeyIndex: 16, Name: "Left Forward", Default: true}, {KeyIndex: 32, Name: "Right Back", Default: true}, {KeyIndex: 64, Name: "Right Forward", Default: true}, {KeyIndex: 128, Name: "DPI Button", Default: true}}
+	s.Performance.ButtonOptimization = nil
+	s.Performance.AngleSnapping = nil
+	return s
+}
+func buildM65ProRGBModernPreview() *devicesWorkspaceSummary {
+	s := buildM65RGBEliteModernPreview()
+	s.Product, s.Serial = "M65 PRO RGB", "preview-m65-pro-rgb-modern"
+	s.Performance.ButtonOptimization = nil
+	s.Performance.LiftHeight = &devicesPerformanceSelectSummary{Value: 3, Options: []devicesPerformanceOptionSummary{{Value: 2, Label: "Low"}, {Value: 3, Label: "Medium"}, {Value: 4, Label: "High"}}}
+	return s
+}
+func buildM65RGBUltraModernPreview() *devicesWorkspaceSummary {
+	s := buildM65RGBEliteModernPreview()
+	s.Product, s.Serial = "M65 RGB ULTRA", "preview-m65-rgb-ultra-modern"
+	s.Buttons.Buttons = append(s.Buttons.Buttons, devicesButtonsButtonSummary{KeyIndex: 256, Name: "Tilt Front", Default: true}, devicesButtonsButtonSummary{KeyIndex: 512, Name: "Tilt Back", Default: true}, devicesButtonsButtonSummary{KeyIndex: 1024, Name: "Tilt Left", Default: true}, devicesButtonsButtonSummary{KeyIndex: 2048, Name: "Tilt Right", Default: true})
+	s.Performance.LiftHeight = &devicesPerformanceSelectSummary{Value: 3, Options: []devicesPerformanceOptionSummary{{Value: 2, Label: "Low"}, {Value: 3, Label: "Medium"}, {Value: 4, Label: "High"}}}
+	return s
+}
+func buildM75ModernPreview() *devicesWorkspaceSummary {
+	s := buildM55RGBProModernPreview()
+	s.Product, s.Serial = "M75", "preview-m75-modern"
+	s.Performance.ButtonOptimization = &devicesPerformanceSelectSummary{Value: 1, Options: []devicesPerformanceOptionSummary{{Value: 0, Label: "Disabled"}, {Value: 1, Label: "Enabled"}}}
+	s.Performance.AngleSnapping = &devicesPerformanceToggleSummary{Enabled: true}
+	s.Performance.LiftHeight = &devicesPerformanceSelectSummary{Value: 3, Options: []devicesPerformanceOptionSummary{{Value: 2, Label: "Low"}, {Value: 3, Label: "Medium"}, {Value: 4, Label: "High"}}}
+	return s
+}
+func buildSabreProCSModernPreview() *devicesWorkspaceSummary {
+	s := buildSabreRGBProModernPreview()
+	s.Product, s.Serial = "SABRE PRO CS", "preview-sabre-pro-cs-modern"
+	s.Performance.ButtonOptimization = &devicesPerformanceSelectSummary{Value: 1, Options: []devicesPerformanceOptionSummary{{Value: 0, Label: "Disabled"}, {Value: 1, Label: "Enabled"}}}
+	return s
+}
+func buildScimitarRGBModernPreview() *devicesWorkspaceSummary {
+	s := buildM65ProRGBModernPreview()
+	s.Product, s.Serial = "SCIMITAR RGB", "preview-scimitar-rgb-modern"
+	s.Buttons.Buttons = s.Buttons.Buttons[:5]
+	s.Buttons.Buttons = append(s.Buttons.Buttons, devicesButtonsButtonSummary{KeyIndex: 256, Name: "Side Button 1", Default: true}, devicesButtonsButtonSummary{KeyIndex: 512, Name: "Side Button 2", Default: true}, devicesButtonsButtonSummary{KeyIndex: 1024, Name: "Side Button 3", Default: true}, devicesButtonsButtonSummary{KeyIndex: 2048, Name: "Side Button 4", Default: true}, devicesButtonsButtonSummary{KeyIndex: 4096, Name: "Side Button 5", Default: true}, devicesButtonsButtonSummary{KeyIndex: 8192, Name: "Side Button 6", Default: true}, devicesButtonsButtonSummary{KeyIndex: 16384, Name: "Side Button 7", Default: true}, devicesButtonsButtonSummary{KeyIndex: 32768, Name: "Side Button 8", Default: true}, devicesButtonsButtonSummary{KeyIndex: 65536, Name: "Side Button 9", Default: true}, devicesButtonsButtonSummary{KeyIndex: 131072, Name: "Side Button 10", Default: true}, devicesButtonsButtonSummary{KeyIndex: 262144, Name: "Side Button 11", Default: true}, devicesButtonsButtonSummary{KeyIndex: 524288, Name: "Side Button 12", Default: true})
+	return s
+}
+func buildScimitarEliteModernPreview() *devicesWorkspaceSummary {
+	s := buildScimitarRGBModernPreview()
+	s.Product, s.Serial = "SCIMITAR ELITE", "preview-scimitar-elite-modern"
+	s.Performance.LiftHeight = nil
 	return s
 }
 

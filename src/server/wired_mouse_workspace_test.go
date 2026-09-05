@@ -58,8 +58,31 @@ func TestNightswordAndIronclawPreviewShapes(t *testing.T) {
 	}
 }
 
+func TestRemainingWiredMousePreviewShapes(t *testing.T) {
+	for _, tc := range []struct {
+		name                            string
+		build                           func() *devicesWorkspaceSummary
+		buttons                         int
+		angle, buttonOptimization, lift bool
+	}{
+		{"m55", buildM55ModernPreview, 6, true, true, false},
+		{"m55-rgb-pro", buildM55RGBProModernPreview, 8, false, false, false},
+		{"m65-pro-rgb", buildM65ProRGBModernPreview, 8, true, false, true},
+		{"m65-rgb-ultra", buildM65RGBUltraModernPreview, 12, true, true, true},
+		{"m75", buildM75ModernPreview, 8, true, true, true},
+		{"sabre-pro-cs", buildSabreProCSModernPreview, 6, true, true, false},
+		{"scimitar-rgb", buildScimitarRGBModernPreview, 17, true, false, true},
+		{"scimitar-elite", buildScimitarEliteModernPreview, 17, true, false, false},
+	} {
+		s := tc.build()
+		if s.Buttons == nil || len(s.Buttons.Buttons) != tc.buttons || s.Performance == nil || (s.Performance.AngleSnapping != nil) != tc.angle || (s.Performance.ButtonOptimization != nil) != tc.buttonOptimization || (s.Performance.LiftHeight != nil) != tc.lift || !s.LegacyLighting {
+			t.Fatalf("%s = %#v", tc.name, s)
+		}
+	}
+}
+
 func TestWiredMouseProductTypesUseLegacyLighting(t *testing.T) {
-	for _, productType := range []uint16{common.ProductTypeGlaiveRgb, common.ProductTypeM65RgbElite, common.ProductTypeSabreRgbPro, common.ProductTypeNightswordRgb, common.ProductTypeIronClawRgb} {
+	for _, productType := range []uint16{common.ProductTypeGlaiveRgb, common.ProductTypeM65RgbElite, common.ProductTypeSabreRgbPro, common.ProductTypeNightswordRgb, common.ProductTypeIronClawRgb, common.ProductTypeM55, common.ProductTypeM55RgbPro, common.ProductTypeM65RgbUltra, common.ProductTypeM75, common.ProductTypeSabreProCs, common.ProductTypeScimitarRgb} {
 		serial := "wired-mouse"
 		summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, ProductType: productType}}, nil, serial)
 		if !ok || !summary.LegacyLighting {
