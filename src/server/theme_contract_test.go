@@ -205,6 +205,106 @@ func TestDevicesThemeRuleSelectionContract(t *testing.T) {
 func TestDevicesThemeIntegrationContract(t *testing.T) {
 	root := devicesThemeRepositoryRoot(t)
 	appShell := devicesThemeReadFile(t, filepath.Join(root, "static", "css", "app-shell.css"))
+	legacyCompat := devicesThemeReadFile(t, filepath.Join(root, "static", "css", "legacy-compat.css"))
+	headTemplate := devicesThemeReadFile(t, filepath.Join(root, "web", "head.html"))
+	if !strings.Contains(headTemplate, `/static/css/legacy-compat.css`) {
+		t.Error("head template does not load the global legacy compatibility stylesheet")
+	}
+	if legacyIndex := strings.Index(headTemplate, `/static/css/legacy-compat.css`); legacyIndex < strings.Index(headTemplate, `/static/css/themes/default.css`) || legacyIndex > strings.Index(headTemplate, `/static/css/app-shell.css`) {
+		t.Error("legacy compatibility stylesheet must load after themes and before app-shell.css")
+	}
+	for _, selector := range []string{
+		".system-select",
+		".system-input",
+		".system-slider",
+		".system-toggle",
+		".system-button",
+		".modal-content",
+		"table.dataTable",
+		".warning-box",
+		".file-input",
+	} {
+		if !strings.Contains(legacyCompat, selector) {
+			t.Errorf("legacy compatibility stylesheet does not retain %s", selector)
+		}
+	}
+	for selector, expectedBackground := range map[string]string{
+		".modal-content":              "var(--lf-panel-elevated)",
+		".system-select option":       "var(--lf-surface-subdued)",
+		".system-button:active":       "var(--lf-surface-active)",
+		".file-input":                 "var(--lf-panel-secondary)",
+		"table.dataTable thead th":    "var(--lf-panel-secondary)",
+	} {
+		rule := devicesThemeRuleBody(t, legacyCompat, selector)
+		if !strings.Contains(rule, expectedBackground) {
+			t.Errorf("legacy compatibility selector %q does not use %s", selector, expectedBackground)
+		}
+		if literal := regexp.MustCompile(`(?i)#[0-9a-f]{3,8}`).FindString(rule); literal != "" {
+			t.Errorf("legacy compatibility selector %q retains fixed surface %q", selector, literal)
+		}
+	}
+	modalConstraintSelectors := ".modal-500,\n.modal-600,\n.modal-700,\n.modal-1000,\n.modal-1200,\n.modal-1300,\n.modal-1400"
+	if !strings.Contains(legacyCompat, modalConstraintSelectors+" {\n    max-width: calc(100% - 2rem);") {
+		t.Error("legacy compatibility custom modal widths do not share a viewport constraint")
+	}
+	buttonFocusReset := devicesThemeRuleBody(t, legacyCompat, ".system-button:focus:not(:focus-visible)")
+	if !strings.Contains(buttonFocusReset, "box-shadow: none") {
+		t.Error("system button pointer-focus reset is missing")
+	}
+	if !strings.Contains(legacyCompat, ".system-button:focus-visible") {
+		t.Error("system button keyboard focus-visible treatment is missing")
+	}
+	toggleInput := devicesThemeRuleBody(t, legacyCompat, ".system-toggle input")
+	if strings.Contains(toggleInput, "display: none") {
+		t.Error("system toggle input is removed from keyboard navigation")
+	}
+	for _, contract := range []string{"position: absolute", "width: 1px", "height: 1px", "clip: rect(0, 0, 0, 0)"} {
+		if !strings.Contains(toggleInput, contract) {
+			t.Errorf("system toggle visually-hidden input does not contain %q", contract)
+		}
+	}
+	toggleFocus := devicesThemeRuleBody(t, legacyCompat, ".system-toggle input:focus-visible + .toggle-track")
+	if !strings.Contains(toggleFocus, "var(--lf-focus-ring)") {
+		t.Error("system toggle keyboard focus does not use the semantic focus token")
+	}
+	compactTextarea := devicesThemeRuleBody(t, legacyCompat, ".system-input.compact textarea")
+	for _, contract := range []string{"padding: 6px 10px", "font-size: 0.8rem"} {
+		if !strings.Contains(compactTextarea, contract) {
+			t.Errorf("compact textarea rule does not contain %q", contract)
+		}
+	}
+	dtLengthHover := devicesThemeRuleBody(t, legacyCompat, ".dt-length select:not(:disabled):hover")
+	if !strings.Contains(dtLengthHover, "border-color: var(--lf-border-emphasized)") {
+		t.Error("DataTables length select hover does not use the semantic emphasized border")
+	}
+	if strings.Contains(dtLengthHover, "var(--bg-card)") {
+		t.Error("DataTables length select hover still blends its border into the background")
+	}
+	dtPagingButton := devicesThemeRuleBody(t, legacyCompat, ".dt-paging button")
+	if strings.Contains(dtPagingButton, "background:") && strings.Contains(dtPagingButton, "!important") {
+		t.Error("DataTables pagination base background prevents hover and current states from winning")
+	}
+	for _, selector := range []string{".dt-paging button:not(:disabled):hover", ".dt-paging button.current"} {
+		if rule := devicesThemeRuleBody(t, legacyCompat, selector); !strings.Contains(rule, "background:") {
+			t.Errorf("DataTables pagination state %q has no background feedback", selector)
+		}
+	}
+	for _, primitive := range []string{"--bg-main", "--bg-panel", "--bg-card", "--good", "--warn", "--bad", "--eq-track", "--eq-thumb"} {
+		for _, theme := range []string{"default", "catppuccin-macchiato", "cyberpunk", "dracula", "tokyonight"} {
+			themeCSS := devicesThemeReadFile(t, filepath.Join(root, "static", "css", "themes", theme+".css"))
+			if !strings.Contains(themeCSS, primitive+":") {
+				t.Errorf("theme %q does not retain compatibility primitive %s", theme, primitive)
+			}
+		}
+	}
+	for _, theme := range []string{"catppuccin-macchiato", "cyberpunk", "dracula", "tokyonight"} {
+		themeCSS := devicesThemeReadFile(t, filepath.Join(root, "static", "css", "themes", theme+".css"))
+		for _, selector := range []string{".system-select {", ".system-button {", ".modal-content {", ".warning-box {", ".file-input {"} {
+			if strings.Contains(themeCSS, selector) {
+				t.Errorf("theme %q still duplicates compatibility selector %s", theme, selector)
+			}
+		}
+	}
 	consumedTokens := []string{
 		"--lf-page-background",
 		"--lf-navigation-surface",
@@ -492,7 +592,7 @@ func TestDevicesThemeIntegrationContract(t *testing.T) {
 	if strings.Contains(devicesTemplate, `<img class="lf-lighting-effect`) {
 		t.Error("Devices effect icon is rendered as an image instead of a theme-colored CSS mask")
 	}
-	headTemplate := devicesThemeReadFile(t, filepath.Join(root, "web", "head.html"))
+	headTemplate = devicesThemeReadFile(t, filepath.Join(root, "web", "head.html"))
 	securityScript := `<script src="/static/js/security.js?v=1"></script>`
 	speedScript := `<script src="/static/js/rgb-speed.js?v=3"></script>`
 	lightingScript := `<script src="/static/js/devices-lighting.js" defer></script>`
