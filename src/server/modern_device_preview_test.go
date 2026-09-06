@@ -185,6 +185,55 @@ func TestM75WirelessModernDevicePreviewRendersSharedMouseWorkspace(t *testing.T)
 	}
 }
 
+func TestWirelessMouseFamilyModernPreviewsRenderWithoutRegistration(t *testing.T) {
+	router := legacyDevicePreviewRouter(t, true)
+	for _, test := range []struct {
+		key, serial, product, button string
+		polling, lift                bool
+	}{
+		{"m75-air-wireless-modern", "preview-m75-air-wireless-modern", "M75 AIR WIRELESS", "Right Forward", true, true},
+		{"m65-rgb-ultra-wireless-modern", "preview-m65-rgb-ultra-wireless-modern", "M65 RGB ULTRA WIRELESS", "Right Forward", true, true},
+		{"harpoon-wireless-modern", "preview-harpoon-wireless-modern", "HARPOON WIRELESS", "Right Forward", false, false},
+		{"m55-wireless-modern", "preview-m55-wireless-modern", "M55 WIRELESS", "Right Forward", false, false},
+		{"nightsabre-wireless-modern", "preview-nightsabre-wireless-modern", "NIGHTSABRE WIRELESS", "Right Forward", true, true},
+		{"sabre-rgb-pro-wireless-modern", "preview-sabre-rgb-pro-wireless-modern", "SABRE RGB PRO WIRELESS", "Right Forward", true, true},
+	} {
+		if devices.GetDevice(test.serial) != nil {
+			t.Fatalf("fixture serial %q unexpectedly exists", test.serial)
+		}
+		for _, query := range []string{"", "?view=lighting", "?view=dpi", "?view=buttons"} {
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/"+test.key+query))
+			if recorder.Code != http.StatusOK {
+				t.Errorf("preview %q%s status=%d", test.key, query, recorder.Code)
+			}
+			body := recorder.Body.String()
+			wants := []string{test.product}
+			switch query {
+			case "":
+				wants = append(wants, "78%", "Sleep Timer", "15 minutes")
+			case "?view=lighting":
+				wants = append(wants, "Native Lighting migration is not complete.")
+			case "?view=dpi":
+				wants = append(wants, "Sniper")
+			case "?view=buttons":
+				wants = append(wants, test.button)
+			}
+			for _, want := range wants {
+				if !strings.Contains(body, want) {
+					t.Errorf("preview %q%s omitted %q", test.key, query, want)
+				}
+			}
+			if query == "?view=dpi" && (strings.Contains(body, `data-lf-performance-kind="pollingRate"`) != test.polling || strings.Contains(body, `data-lf-performance-kind="liftHeight"`) != test.lift) {
+				t.Errorf("preview %q capability controls did not match polling=%t lift=%t", test.key, test.polling, test.lift)
+			}
+		}
+		if devices.GetDevice(test.serial) != nil {
+			t.Fatalf("fixture serial %q was registered", test.serial)
+		}
+	}
+}
+
 func TestGlaiveModernDevicePreviewRendersSharedMouseWorkspace(t *testing.T) {
 	router := legacyDevicePreviewRouter(t, true)
 	const serial = "preview-glaive-rgb-pro-modern"
