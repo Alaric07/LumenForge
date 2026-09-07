@@ -2,9 +2,12 @@ package server
 
 import (
 	"LumenForge/src/common"
+	"LumenForge/src/devices/k70core"
+	"LumenForge/src/devices/k70coretkl"
 	"LumenForge/src/devices/k70lux"
 	"LumenForge/src/devices/k70luxrgb"
 	"LumenForge/src/devices/k70mk2"
+	"LumenForge/src/devices/k70pro"
 	"LumenForge/src/devices/k70rgbRF"
 	"LumenForge/src/devices/k95"
 	"LumenForge/src/devices/k95platinumXT"
@@ -41,6 +44,9 @@ type modernDevicePreviewNavigation struct {
 }
 
 var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
+	{Key: "k70-core-modern", Title: "K70 CORE", ProductType: common.ProductTypeK70Core, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70CoreModernPreview},
+	{Key: "k70-core-tkl-modern", Title: "K70 CORE TKL", ProductType: common.ProductTypeK70CoreTkl, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70CoreTKLModernPreview},
+	{Key: "k70-pro-modern", Title: "K70 RGB PRO", ProductType: common.ProductTypeK70Pro, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70ProModernPreview},
 	{Key: "k70-lux-modern", Title: "K70 LUX", ProductType: common.ProductTypeK70LUX, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70LUXModernPreview},
 	{Key: "k70-lux-rgb-modern", Title: "K70 LUX RGB", ProductType: common.ProductTypeK70LUXRgb, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70LUXRGBModernPreview},
 	{Key: "k70-rgb-rf-modern", Title: "K70 RGB RF", ProductType: common.ProductTypeK70RgbRF, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70RGBRFModernPreview},
@@ -109,6 +115,40 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "scimitar-elite-modern", Title: "SCIMITAR ELITE", ProductType: common.ProductTypeScimitarRgbElite, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildScimitarEliteModernPreview},
 	{Key: "katar-pro-modern", Title: "Katar Pro", ProductType: common.ProductTypeKatarPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProModernPreview},
 	{Key: "katar-pro-xt-modern", Title: "Katar Pro XT", ProductType: common.ProductTypeKatarProXT, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProXTModernPreview},
+}
+
+func buildK70CoreModernPreview() *devicesWorkspaceSummary {
+	return buildK70CorePreview("preview-k70-core-modern", "K70 CORE", common.ProductTypeK70Core, "k70core-default-US", "keyboard-6", "keyboard-row-25")
+}
+func buildK70CoreTKLModernPreview() *devicesWorkspaceSummary {
+	return buildK70CoreTKLPreview("preview-k70-core-tkl-modern", "K70 CORE TKL", common.ProductTypeK70CoreTkl, "k70coretkl-default-US", "keyboard-6", "keyboard-row-20")
+}
+func buildK70ProModernPreview() *devicesWorkspaceSummary {
+	return buildK70ProModernWorkspacePreview("preview-k70-pro-modern", "K70 RGB PRO", common.ProductTypeK70Pro, "k70pro-default-US", "keyboard-7", "keyboard-row-25")
+}
+func buildK70CorePreview(serial, product string, typ uint16, layout, ui, row string) *devicesWorkspaceSummary {
+	k := keyboards.GetKeyboard(layout)
+	p := &k70core.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": k}, PollingRate: 4, DisableWinKey: true}
+	d := &k70core.Device{Serial: serial, UIKeyboard: ui, UIKeyboardRow: row, Layouts: []string{"US"}, KeyAssignmentTypes: map[int]string{0: "None", 1: "Media Keys", 3: "Keyboard", 8: "Sniper", 9: "Mouse", 10: "Macro"}, PollingRates: map[int]string{0: "Not Set", 1: "125 Hz / 8 msec", 2: "250 Hz / 4 msec", 3: "500 Hz / 2 msec", 4: "1000 Hz / 1 msec"}, DeviceProfile: p, UserProfiles: map[string]*k70core.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	s, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: product, ProductType: typ, Instance: d}}, map[string]stats.BatteryStats{}, serial)
+	s.LegacyLighting = true
+	return s
+}
+func buildK70CoreTKLPreview(serial, product string, typ uint16, layout, ui, row string) *devicesWorkspaceSummary {
+	k := keyboards.GetKeyboard(layout)
+	p := &k70coretkl.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": k}, PollingRate: 4, DisableWinKey: true}
+	d := &k70coretkl.Device{Serial: serial, UIKeyboard: ui, UIKeyboardRow: row, Layouts: []string{"US"}, KeyAssignmentTypes: map[int]string{0: "None", 1: "Media Keys", 3: "Keyboard", 8: "Sniper", 9: "Mouse", 10: "Macro"}, PollingRates: map[int]string{0: "Not Set", 1: "125 Hz / 8 msec", 2: "250 Hz / 4 msec", 3: "500 Hz / 2 msec", 4: "1000 Hz / 1 msec"}, DeviceProfile: p, UserProfiles: map[string]*k70coretkl.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	s, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: product, ProductType: typ, Instance: d}}, map[string]stats.BatteryStats{}, serial)
+	s.LegacyLighting = true
+	return s
+}
+func buildK70ProModernWorkspacePreview(serial, product string, typ uint16, layout, ui, row string) *devicesWorkspaceSummary {
+	k := keyboards.GetKeyboard(layout)
+	p := &k70pro.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": k}, PollingRate: 4, DisableWinKey: true}
+	d := &k70pro.Device{Serial: serial, UIKeyboard: ui, UIKeyboardRow: row, Layouts: []string{"US"}, KeyAssignmentTypes: map[int]string{0: "None", 1: "Media Keys", 3: "Keyboard", 8: "Sniper", 9: "Mouse", 10: "Macro", 11: "Brightness +", 12: "Brightness -", 13: "Scroll Up", 14: "Scroll Down", 15: "Zoom In", 16: "Zoom Out", 17: "Screen Brightness +", 18: "Screen Brightness -"}, PollingRates: map[int]string{0: "Not Set", 1: "125 Hz / 8 msec", 2: "250 Hz / 4 msec", 3: "500 Hz / 2 msec", 4: "1000 Hz / 1 msec", 5: "2000 Hz / 0.5 msec", 6: "4000 Hz / 0.25 msec", 7: "8000 Hz / 0.125 msec"}, DeviceProfile: p, UserProfiles: map[string]*k70pro.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	s, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: product, ProductType: typ, Instance: d}}, map[string]stats.BatteryStats{}, serial)
+	s.LegacyLighting = true
+	return s
 }
 
 func buildK70LUXModernPreview() *devicesWorkspaceSummary {
