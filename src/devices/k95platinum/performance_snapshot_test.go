@@ -55,6 +55,19 @@ func TestK95PerformanceSnapshotFailsClosedWithoutProfile(t *testing.T) {
 	}
 }
 
+func TestK95PerformanceSnapshotFailsClosedForMissingOrMalformedPollingOptions(t *testing.T) {
+	for _, pollingRates := range []map[int]string{nil, {}, {1: ""}} {
+		device := &Device{Serial: "k95-performance", DeviceProfile: &DeviceProfile{}, PollingRates: pollingRates}
+		if snapshot, ok := device.PerformanceSnapshot(); ok || snapshot.PollingRate != nil {
+			t.Fatalf("polling rates %#v produced %#v, ok=%t", pollingRates, snapshot, ok)
+		}
+	}
+	device := &Device{Serial: "k95-performance", DeviceProfile: &DeviceProfile{PollingRate: 2}, PollingRates: map[int]string{1: "1000 Hz"}}
+	if snapshot, ok := device.PerformanceSnapshot(); ok || snapshot.PollingRate != nil {
+		t.Fatalf("missing selected option produced %#v, ok=%t", snapshot, ok)
+	}
+}
+
 func TestK95KeyboardPerformanceSaveEnablesPerformanceAndStoresValues(t *testing.T) {
 	profile := &DeviceProfile{}
 	device := &Device{DeviceProfile: profile}

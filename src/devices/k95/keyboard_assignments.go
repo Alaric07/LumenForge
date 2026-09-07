@@ -1,4 +1,4 @@
-package k95platinum
+package k95
 
 import (
 	"LumenForge/src/keyboardassignmentspresentation"
@@ -6,8 +6,6 @@ import (
 	"strings"
 )
 
-// KeyboardAssignmentsDeviceID and KeyboardAssignmentsSnapshot make this
-// device a thin provider for the generic Devices workspace.
 func (d *Device) KeyboardAssignmentsDeviceID() string {
 	if d == nil {
 		return ""
@@ -16,20 +14,17 @@ func (d *Device) KeyboardAssignmentsDeviceID() string {
 }
 
 func (d *Device) KeyboardAssignmentsSnapshot() (keyboardassignmentspresentation.Snapshot, bool) {
-	if d == nil || d.DeviceProfile == nil || d.DeviceProfile.Profile == "" || len(d.Layouts) == 0 || d.UIKeyboard == "" || d.UIKeyboardRow == "" || len(d.KeyAssignmentTypes) == 0 {
-		return keyboardassignmentspresentation.Snapshot{}, false
-	}
-	if !containsK95KeyboardLayout(d.Layouts, d.DeviceProfile.Layout) {
+	if d == nil || d.DeviceProfile == nil || d.DeviceProfile.Profile == "" || len(d.Layouts) == 0 || d.UIKeyboard == "" || d.UIKeyboardRow == "" || len(d.KeyAssignmentTypes) == 0 || !containsK95KeyboardLayout(d.Layouts, d.DeviceProfile.Layout) {
 		return keyboardassignmentspresentation.Snapshot{}, false
 	}
 	if !containsK95KeyboardProfile(d.DeviceProfile.Profiles, d.DeviceProfile.Profile) {
 		return keyboardassignmentspresentation.Snapshot{}, false
 	}
 	keyboard := d.getCurrentKeyboard()
-	if keyboard == nil {
+	if keyboard == nil || len(keyboard.Row) == 0 {
 		return keyboardassignmentspresentation.Snapshot{}, false
 	}
-	snapshot := keyboardassignmentspresentation.Snapshot{Available: true, LiveRGBAvailable: true, LiveRGBEnabled: d.DeviceProfile.KeyboardLiveSync, Profiles: append([]string(nil), d.DeviceProfile.Profiles...), ActiveProfile: d.DeviceProfile.Profile, KeyboardLayouts: append([]string(nil), d.Layouts...), ActiveKeyboardLayout: d.DeviceProfile.Layout, ClusterControlled: d.DeviceProfile.RGBCluster, LayoutClass: d.UIKeyboard, RowLayoutClass: d.UIKeyboardRow}
+	snapshot := keyboardassignmentspresentation.Snapshot{Available: true, Profiles: append([]string(nil), d.DeviceProfile.Profiles...), ActiveProfile: d.DeviceProfile.Profile, KeyboardLayouts: append([]string(nil), d.Layouts...), ActiveKeyboardLayout: d.DeviceProfile.Layout, LayoutClass: d.UIKeyboard, RowLayoutClass: d.UIKeyboardRow}
 	rowIDs := make([]int, 0, len(keyboard.Row))
 	for id := range keyboard.Row {
 		rowIDs = append(rowIDs, id)

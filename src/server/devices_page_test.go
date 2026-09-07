@@ -238,7 +238,7 @@ func TestDevicesWorkspaceKeyboardPresentationAndView(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{"repeat(26, var(--lf-kb-key-width))", "--lf-kb-column-gap", ".lf-keyboard-placeholder", "button.lf-keyboard-key-static { opacity: 1; cursor: pointer; }"} {
+	for _, expected := range []string{"--lf-kb-columns: 26", "repeat(var(--lf-kb-columns), var(--lf-kb-key-width))", "keyboard-row-27 { --lf-kb-columns: 27; }", "flex: 0 0 auto", "overflow-x: auto", "--lf-kb-column-gap", ".lf-keyboard-placeholder", "button.lf-keyboard-key-static { opacity: 1; cursor: pointer; }"} {
 		if !strings.Contains(string(styles), expected) {
 			t.Errorf("keyboard grid CSS missing %q", expected)
 		}

@@ -1,19 +1,16 @@
-package k95platinum
+package k95
 
 import (
 	"LumenForge/src/deviceprofilepresentation"
 	"sort"
 )
 
-// DeviceProfileDeviceID and DeviceProfileSnapshot make this device a thin
-// provider for the shared full device-profile overview panel.
 func (d *Device) DeviceProfileDeviceID() string {
-	if d == nil || len(d.UserProfiles) == 0 {
+	if d == nil {
 		return ""
 	}
 	return d.Serial
 }
-
 func (d *Device) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bool) {
 	if d == nil || len(d.UserProfiles) == 0 {
 		return deviceprofilepresentation.Snapshot{}, false

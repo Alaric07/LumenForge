@@ -2,6 +2,9 @@ package server
 
 import (
 	"LumenForge/src/common"
+	"LumenForge/src/devices/k95"
+	"LumenForge/src/devices/k95platinumXT"
+	"LumenForge/src/keyboards"
 	"LumenForge/src/stats"
 	"LumenForge/src/templates"
 	"net/http"
@@ -34,6 +37,8 @@ type modernDevicePreviewNavigation struct {
 }
 
 var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
+	{Key: "k95-modern", Title: "K95", ProductType: common.ProductTypeK95, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK95ModernPreview},
+	{Key: "k95-platinum-xt-modern", Title: "K95 PLATINUM XT", ProductType: common.ProductTypeK95PlatinumXT, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK95PlatinumXTModernPreview},
 	{Key: "commander-duo-modern", Title: "Commander Duo", ProductType: common.ProductTypeCCXT, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: buildCommanderDuoModernPreview},
 	{Key: "commander-pro-modern", Title: "Commander Pro", ProductType: common.ProductTypeCPro, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: buildCommanderProModernPreview},
 	{Key: "harpoon-rgb-pro-modern", Title: "Harpoon RGB Pro", ProductType: common.ProductTypeHarpoonRgbPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildHarpoonRGBProModernPreview},
@@ -96,6 +101,26 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "scimitar-elite-modern", Title: "SCIMITAR ELITE", ProductType: common.ProductTypeScimitarRgbElite, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildScimitarEliteModernPreview},
 	{Key: "katar-pro-modern", Title: "Katar Pro", ProductType: common.ProductTypeKatarPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProModernPreview},
 	{Key: "katar-pro-xt-modern", Title: "Katar Pro XT", ProductType: common.ProductTypeKatarProXT, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProXTModernPreview},
+}
+
+func buildK95ModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k95-modern"
+	keyboard := keyboards.GetKeyboard("k95-default-US")
+	profile := &k95.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 1, DisableWinKey: true, DisableAltTab: true}
+	device := &k95.Device{Serial: serial, UIKeyboard: "keyboard-7", UIKeyboardRow: "keyboard-row-27", Layouts: []string{"US", "UK"}, KeyAssignmentTypes: map[int]string{0: "None", 10: "Macro"}, PollingRates: map[int]string{0: "Not Set", 1: "1000 Hz / 1 msec", 2: "500 Hz / 2 msec", 4: "250 Hz / 4 msec", 8: "125 Hz / 8 msec"}, DeviceProfile: profile, UserProfiles: map[string]*k95.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K95", ProductType: common.ProductTypeK95, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func buildK95PlatinumXTModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k95-platinum-xt-modern"
+	keyboard := keyboards.GetKeyboard("k95platinumXT-default-US")
+	profile := &k95platinumXT.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 4, DisableWinKey: true, DisableAltTab: true}
+	device := &k95platinumXT.Device{Serial: serial, UIKeyboard: "keyboard-8", UIKeyboardRow: "keyboard-row-26", Layouts: []string{"US", "UK"}, KeyAssignmentTypes: map[int]string{0: "None", 10: "Macro"}, PollingRates: map[int]string{0: "Not Set", 1: "125 Hz / 8 msec", 2: "250 Hz / 4 msec", 3: "500 Hz / 2 msec", 4: "1000 Hz / 1 msec"}, DeviceProfile: profile, UserProfiles: map[string]*k95platinumXT.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K95 PLATINUM XT", ProductType: common.ProductTypeK95PlatinumXT, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
 }
 
 func modernDevicePreviewFixtureByKey(key string) (modernDevicePreviewFixture, bool) {

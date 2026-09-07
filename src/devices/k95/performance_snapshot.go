@@ -1,23 +1,17 @@
-package k95platinum
+package k95
 
 import (
+	"LumenForge/src/performancepresentation"
 	"sort"
 	"strings"
-
-	"LumenForge/src/performancepresentation"
 )
 
-// PerformanceDeviceID identifies the device whose current state is returned
-// by PerformanceSnapshot.
 func (d *Device) PerformanceDeviceID() string {
 	if d == nil {
 		return ""
 	}
 	return d.Serial
 }
-
-// PerformanceSnapshot returns a read-only copy of the current performance
-// settings. Their mutation and persistence remain owned by DeviceProfile.
 func (d *Device) PerformanceSnapshot() (performancepresentation.Snapshot, bool) {
 	if d == nil || d.DeviceProfile == nil || len(d.PollingRates) == 0 {
 		return performancepresentation.Snapshot{}, false
@@ -25,24 +19,12 @@ func (d *Device) PerformanceSnapshot() (performancepresentation.Snapshot, bool) 
 	if _, ok := d.PollingRates[d.DeviceProfile.PollingRate]; !ok {
 		return performancepresentation.Snapshot{}, false
 	}
-
-	snapshot := performancepresentation.Snapshot{
-		SaveBooleanSettings: true,
-		BooleanSettings: []performancepresentation.BooleanSetting{
-			{ID: "perf_winKey", Label: "Disable Win Key", Enabled: d.DeviceProfile.DisableWinKey},
-			{ID: "perf_shiftTab", Label: "Disable Shift + Tab", Enabled: d.DeviceProfile.DisableShiftTab},
-			{ID: "perf_altTab", Label: "Disable Alt + Tab", Enabled: d.DeviceProfile.DisableAltTab},
-			{ID: "perf_altF4", Label: "Disable Alt + F4", Enabled: d.DeviceProfile.DisableAltF4},
-		},
-	}
 	options, ok := k95PerformanceOptions(d.PollingRates)
 	if !ok {
 		return performancepresentation.Snapshot{}, false
 	}
-	snapshot.PollingRate = &performancepresentation.SelectSetting{Value: d.DeviceProfile.PollingRate, Options: options}
-	return snapshot, true
+	return performancepresentation.Snapshot{SaveBooleanSettings: true, PollingRate: &performancepresentation.SelectSetting{Value: d.DeviceProfile.PollingRate, Options: options}, BooleanSettings: []performancepresentation.BooleanSetting{{ID: "perf_winKey", Label: "Disable Win Key", Enabled: d.DeviceProfile.DisableWinKey}, {ID: "perf_shiftTab", Label: "Disable Shift + Tab", Enabled: d.DeviceProfile.DisableShiftTab}, {ID: "perf_altTab", Label: "Disable Alt + Tab", Enabled: d.DeviceProfile.DisableAltTab}, {ID: "perf_altF4", Label: "Disable Alt + F4", Enabled: d.DeviceProfile.DisableAltF4}}}, true
 }
-
 func k95PerformanceOptions(options map[int]string) ([]performancepresentation.Option, bool) {
 	keys := make([]int, 0, len(options))
 	for value := range options {

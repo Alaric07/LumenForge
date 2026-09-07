@@ -5,6 +5,7 @@ import (
 	"LumenForge/src/devices"
 	"LumenForge/src/devices/cduo"
 	"LumenForge/src/devices/cpro"
+	"LumenForge/src/keyboards"
 	"LumenForge/src/server/requests"
 	"LumenForge/src/stats"
 	"LumenForge/src/temperatures"
@@ -105,6 +106,60 @@ func TestCommanderDuoModernDevicePreviewRendersFixtureWithoutRegistration(t *tes
 	request := httptest.NewRequest(http.MethodPost, "/api/speed", strings.NewReader(`{"deviceId":"`+commanderDuoModernPreviewSerial+`","channelId":0,"profile":"Quiet"}`))
 	if response := requests.ProcessChangeSpeed(request); response.Status != 0 {
 		t.Fatalf("fixture serial mutation response = %#v, want failed dispatch", response)
+	}
+}
+
+func TestK95ModernDevicePreviewsRenderKeyboardPerformanceAndProfilesWithoutRegistration(t *testing.T) {
+	router := legacyDevicePreviewRouter(t, true)
+	keyboards.Init()
+	for _, fixture := range []struct {
+		key, serial, geometry, rowGeometry, polling string
+		rows, keys                                  int
+	}{
+		{"k95-modern", "preview-k95-modern", "keyboard-7", "keyboard-row-27", "1000 Hz / 1 msec", 7, 135},
+		{"k95-platinum-xt-modern", "preview-k95-platinum-xt-modern", "keyboard-8", "keyboard-row-26", "1000 Hz / 1 msec", 8, 139},
+	} {
+		if devices.GetDevice(fixture.serial) != nil {
+			t.Fatalf("fixture serial %q unexpectedly registered", fixture.serial)
+		}
+		preview, ok := modernDevicePreviewFixtureByKey(fixture.key)
+		if !ok {
+			t.Fatalf("missing preview fixture %q", fixture.key)
+		}
+		summary := preview.Build()
+		if summary.KeyboardAssignments == nil || summary.KeyboardAssignments.LayoutClass != fixture.geometry || summary.KeyboardAssignments.RowLayoutClass != fixture.rowGeometry || len(summary.KeyboardAssignments.Rows) != fixture.rows {
+			t.Fatalf("%s keyboard summary = %#v", fixture.key, summary.KeyboardAssignments)
+		}
+		keyCount := 0
+		keyNames := make(map[string]bool)
+		for _, row := range summary.KeyboardAssignments.Rows {
+			keyCount += len(row.Keys)
+			for _, key := range row.Keys {
+				keyNames[key.KeyName] = true
+			}
+		}
+		if keyCount != fixture.keys || !keyNames["A"] || !keyNames["G1"] || !keyNames["Play"] {
+			t.Fatalf("%s keyboard rows=%d keys=%d names=%#v", fixture.key, len(summary.KeyboardAssignments.Rows), keyCount, keyNames)
+		}
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/"+fixture.key+"?view=keyboard"))
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("%s status = %d: %s", fixture.key, recorder.Code, recorder.Body.String())
+		}
+		body := recorder.Body.String()
+		for _, expected := range []string{"A", "G1", "Play", fixture.geometry, fixture.polling, "Disable Win Key", "perf_shiftTab", "perf_altTab", "perf_altF4"} {
+			if !strings.Contains(body, expected) {
+				t.Errorf("%s preview omitted %q", fixture.key, expected)
+			}
+		}
+		recorder = httptest.NewRecorder()
+		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/"+fixture.key))
+		if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "Device Profile") || !strings.Contains(recorder.Body.String(), "Default") {
+			t.Errorf("%s overview omitted device-profile state", fixture.key)
+		}
+		if devices.GetDevice(fixture.serial) != nil {
+			t.Fatalf("fixture serial %q registered during preview", fixture.serial)
+		}
 	}
 }
 

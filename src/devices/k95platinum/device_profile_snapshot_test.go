@@ -9,3 +9,14 @@ func TestK95DeviceProfileSnapshotUsesExistingUserProfiles(t *testing.T) {
 		t.Errorf("snapshot = %#v, ok=%t", snapshot, ok)
 	}
 }
+
+func TestK95DeviceProfileSnapshotFailsClosedWithoutExactlyOneActiveProfile(t *testing.T) {
+	for _, profiles := range []map[string]*DeviceProfile{
+		{"default": {}, "studio": {}},
+		{"default": {Active: true}, "studio": {Active: true}},
+	} {
+		if snapshot, ok := (&Device{UserProfiles: profiles}).DeviceProfileSnapshot(); ok || snapshot.Supported {
+			t.Fatalf("profiles %#v produced %#v, ok=%t", profiles, snapshot, ok)
+		}
+	}
+}
