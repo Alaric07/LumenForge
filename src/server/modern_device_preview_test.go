@@ -188,19 +188,23 @@ func TestM75WirelessModernDevicePreviewRendersSharedMouseWorkspace(t *testing.T)
 func TestWirelessMouseFamilyModernPreviewsRenderWithoutRegistration(t *testing.T) {
 	router := legacyDevicePreviewRouter(t, true)
 	for _, test := range []struct {
-		key, serial, product, button string
-		polling, lift                bool
+		key, serial, product, button                     string
+		polling, buttonOptimization, angleSnapping, lift bool
 	}{
-		{"m75-air-wireless-modern", "preview-m75-air-wireless-modern", "M75 AIR WIRELESS", "Right Forward", true, true},
-		{"m65-rgb-ultra-wireless-modern", "preview-m65-rgb-ultra-wireless-modern", "M65 RGB ULTRA WIRELESS", "Right Forward", true, true},
-		{"harpoon-wireless-modern", "preview-harpoon-wireless-modern", "HARPOON WIRELESS", "Right Forward", false, false},
-		{"m55-wireless-modern", "preview-m55-wireless-modern", "M55 WIRELESS", "Right Forward", false, false},
-		{"nightsabre-wireless-modern", "preview-nightsabre-wireless-modern", "NIGHTSABRE WIRELESS", "Right Forward", true, true},
-		{"sabre-rgb-pro-wireless-modern", "preview-sabre-rgb-pro-wireless-modern", "SABRE RGB PRO WIRELESS", "Right Forward", true, true},
-		{"ironclaw-wireless-modern", "preview-ironclaw-wireless-modern", "IRONCLAW WIRELESS", "Right Forward", false, false},
-		{"ironclaw-wireless-se-modern", "preview-ironclaw-wireless-se-modern", "IRONCLAW WIRELESS SE", "Right Forward", false, true},
-		{"scimitar-rgb-elite-wireless-modern", "preview-scimitar-rgb-elite-wireless-modern", "SCIMITAR RGB ELITE WIRELESS", "Right Forward", false, true},
-		{"scimitar-elite-wireless-se-modern", "preview-scimitar-elite-wireless-se-modern", "SCIMITAR ELITE WIRELESS SE", "Right Forward", false, true},
+		{"m75-air-wireless-modern", "preview-m75-air-wireless-modern", "M75 AIR WIRELESS", "Right Forward", true, true, true, true},
+		{"m65-rgb-ultra-wireless-modern", "preview-m65-rgb-ultra-wireless-modern", "M65 RGB ULTRA WIRELESS", "Right Forward", true, true, true, true},
+		{"harpoon-wireless-modern", "preview-harpoon-wireless-modern", "HARPOON WIRELESS", "Right Forward", false, true, true, false},
+		{"m55-wireless-modern", "preview-m55-wireless-modern", "M55 WIRELESS", "Right Forward", false, true, true, false},
+		{"nightsabre-wireless-modern", "preview-nightsabre-wireless-modern", "NIGHTSABRE WIRELESS", "Right Forward", true, true, true, true},
+		{"sabre-rgb-pro-wireless-modern", "preview-sabre-rgb-pro-wireless-modern", "SABRE RGB PRO WIRELESS", "Right Forward", true, true, true, true},
+		{"ironclaw-wireless-modern", "preview-ironclaw-wireless-modern", "IRONCLAW WIRELESS", "Right Forward", false, true, true, false},
+		{"ironclaw-wireless-se-modern", "preview-ironclaw-wireless-se-modern", "IRONCLAW WIRELESS SE", "Right Forward", false, true, true, true},
+		{"scimitar-rgb-elite-wireless-modern", "preview-scimitar-rgb-elite-wireless-modern", "SCIMITAR RGB ELITE WIRELESS", "Right Forward", false, true, true, true},
+		{"scimitar-elite-wireless-se-modern", "preview-scimitar-elite-wireless-se-modern", "SCIMITAR ELITE WIRELESS SE", "Right Forward", false, true, true, true},
+		{"dark-core-rgb-pro-se-wireless-modern", "preview-dark-core-rgb-pro-se-wireless-modern", "DARK CORE RGB PRO SE WIRELESS", "Right Forward", false, true, true, false},
+		{"dark-core-rgb-pro-wireless-modern", "preview-dark-core-rgb-pro-wireless-modern", "DARK CORE RGB PRO WIRELESS", "Right Forward", false, true, true, false},
+		{"dark-core-rgb-se-wireless-modern", "preview-dark-core-rgb-se-wireless-modern", "DARK CORE RGB SE WIRELESS", "Right Forward", false, false, true, true},
+		{"sabre-v2-pro-wireless-modern", "preview-sabre-v2-pro-wireless-modern", "SABRE V2 PRO WIRELESS", "Right Forward", false, false, true, true},
 	} {
 		if devices.GetDevice(test.serial) != nil {
 			t.Fatalf("fixture serial %q unexpectedly exists", test.serial)
@@ -228,8 +232,8 @@ func TestWirelessMouseFamilyModernPreviewsRenderWithoutRegistration(t *testing.T
 					t.Errorf("preview %q%s omitted %q", test.key, query, want)
 				}
 			}
-			if query == "?view=dpi" && (strings.Contains(body, `data-lf-performance-kind="pollingRate"`) != test.polling || strings.Contains(body, `data-lf-performance-kind="liftHeight"`) != test.lift) {
-				t.Errorf("preview %q capability controls did not match polling=%t lift=%t", test.key, test.polling, test.lift)
+			if query == "?view=dpi" && (strings.Contains(body, `data-lf-performance-kind="pollingRate"`) != test.polling || strings.Contains(body, `data-lf-performance-kind="buttonOptimization"`) != test.buttonOptimization || strings.Contains(body, `data-lf-performance-kind="angleSnapping"`) != test.angleSnapping || strings.Contains(body, `data-lf-performance-kind="liftHeight"`) != test.lift) {
+				t.Errorf("preview %q capability controls did not match polling=%t buttonOptimization=%t angleSnapping=%t lift=%t", test.key, test.polling, test.buttonOptimization, test.angleSnapping, test.lift)
 			}
 		}
 		if devices.GetDevice(test.serial) != nil {

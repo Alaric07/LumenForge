@@ -79,6 +79,18 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "scimitar-elite-wireless-se-modern", Title: "Scimitar Elite Wireless SE", ProductType: common.ProductTypeScimitarRgbEliteSEW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
 		return buildWirelessMouseModernPreview("SCIMITAR ELITE WIRELESS SE", "preview-scimitar-elite-wireless-se-modern", false, true)
 	}},
+	{Key: "dark-core-rgb-pro-se-wireless-modern", Title: "Dark Core RGB Pro SE Wireless", ProductType: common.ProductTypeDarkCoreRgbProSEW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
+		return buildWirelessMouseModernPreviewWithCapabilities("DARK CORE RGB PRO SE WIRELESS", "preview-dark-core-rgb-pro-se-wireless-modern", false, true, true, false)
+	}},
+	{Key: "dark-core-rgb-pro-wireless-modern", Title: "Dark Core RGB Pro Wireless", ProductType: common.ProductTypeDarkCoreRgbProW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
+		return buildWirelessMouseModernPreviewWithCapabilities("DARK CORE RGB PRO WIRELESS", "preview-dark-core-rgb-pro-wireless-modern", false, true, true, false)
+	}},
+	{Key: "dark-core-rgb-se-wireless-modern", Title: "Dark Core RGB SE Wireless", ProductType: common.ProductTypeDarkCoreRgbSEW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
+		return buildWirelessMouseModernPreviewWithCapabilities("DARK CORE RGB SE WIRELESS", "preview-dark-core-rgb-se-wireless-modern", false, false, true, true)
+	}},
+	{Key: "sabre-v2-pro-wireless-modern", Title: "Sabre V2 Pro Wireless", ProductType: common.ProductTypeSabreV2Pro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
+		return buildWirelessMouseModernPreviewWithCapabilities("SABRE V2 PRO WIRELESS", "preview-sabre-v2-pro-wireless-modern", false, false, true, true)
+	}},
 	{Key: "sabre-pro-cs-modern", Title: "SABRE PRO CS", ProductType: common.ProductTypeSabreProCs, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildSabreProCSModernPreview},
 	{Key: "scimitar-rgb-modern", Title: "SCIMITAR RGB", ProductType: common.ProductTypeScimitarRgb, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildScimitarRGBModernPreview},
 	{Key: "scimitar-elite-modern", Title: "SCIMITAR ELITE", ProductType: common.ProductTypeScimitarRgbElite, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildScimitarEliteModernPreview},
@@ -319,10 +331,20 @@ func buildM75WirelessModernPreview() *devicesWorkspaceSummary {
 	return s
 }
 func buildWirelessMouseModernPreview(product, serial string, polling, lift bool) *devicesWorkspaceSummary {
+	return buildWirelessMouseModernPreviewWithCapabilities(product, serial, polling, true, true, lift)
+}
+
+func buildWirelessMouseModernPreviewWithCapabilities(product, serial string, polling, buttonOptimization, angleSnapping, lift bool) *devicesWorkspaceSummary {
 	s := buildM75WirelessModernPreview()
 	s.Product, s.Serial = product, serial
 	if !polling {
 		s.Performance.PollingRate = nil
+	}
+	if !buttonOptimization {
+		s.Performance.ButtonOptimization = nil
+	}
+	if !angleSnapping {
+		s.Performance.AngleSnapping = nil
 	}
 	if !lift {
 		s.Performance.LiftHeight = nil
