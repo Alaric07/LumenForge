@@ -49,6 +49,21 @@
     function controls(editor) { return {title: editor.querySelector("[data-lf-keyboard-editor-title]"), type: editor.querySelector("[data-lf-keyboard-type]"), command: editor.querySelector("[data-lf-keyboard-command]"), hold: editor.querySelector("[data-lf-keyboard-hold]"), delay: editor.querySelector("[data-lf-keyboard-delay]"), delayWrap: editor.querySelector("[data-lf-keyboard-delay-wrap]"), status: editor.querySelector("[data-lf-keyboard-status]")}; }
     function updateDisabled(c, pending, optionsReady) { const disabled = Boolean(pending) || !optionsReady; c.type.disabled = disabled; c.command.disabled = disabled; c.hold.disabled = disabled; if (c.delay) { c.delay.disabled = disabled; } }
     function stateFor(key) { return {keyIndex: Number(key.dataset.lfKeyIndex), name: key.textContent.trim(), default: key.dataset.lfDefault === "1", actionType: Number(key.dataset.lfActionType), actionCommand: Number(key.dataset.lfActionCommand), deviceID: key.dataset.lfDeviceId || "", actionHold: key.dataset.lfActionHold === "1", toggleDelay: Number(key.dataset.lfToggleDelay) || 30}; }
+    function keyboardModeController(initial, handlers) { const callbacks = typeof handlers === "function" ? {actuation: handlers} : (handlers || {}); const allowed = {assignments: true, actuation: true}; Object.keys(callbacks).forEach(function (mode) { allowed[mode] = true; }); let mode = allowed[initial] ? initial : "assignments"; return {mode: function () { return mode; }, set: function (next) { mode = allowed[next] ? next : "assignments"; return mode; }, dispatch: function (key, assignment) { return mode === "assignments" ? assignment(key) : (callbacks[mode] ? callbacks[mode](key) : undefined); }}; }
+    function validateFlashTapState(state) { if (!state || !Number.isFinite(state.mode) || !state.modes || !state.modes[String(state.mode)] || !state.color || ![state.color.red, state.color.green, state.color.blue].every(Number.isFinite) || !Array.isArray(state.slots) || state.slots.length !== 2) { return false; } const seen = {}; for (let slot = 0; slot < 2; slot += 1) { const keyIndex = state.slots[slot]; const key = state.keys[String(keyIndex)]; if (!Number.isInteger(keyIndex) || !key || !key.eligible || seen[keyIndex]) { return false; } seen[keyIndex] = true; } return true; }
+    function flashTapPayload(deviceId, state) { return validateFlashTapState(state) ? {deviceId: deviceId, flashTapActive: state.active ? 1 : 0, flashTapMode: state.mode, flashTapKeys: [state.slots[0], state.slots[1]], flashTapColor: {red: state.color.red, green: state.color.green, blue: state.color.blue}} : null; }
+    function actuationControls(workspace) { return {selected: workspace.querySelector("[data-lf-key-actuation-selected-key]"), primary: workspace.querySelector("[data-lf-key-actuation-primary]"), resetEnabled: workspace.querySelector("[data-lf-key-actuation-reset-enabled]"), reset: workspace.querySelector("[data-lf-key-actuation-reset]"), secondaryEnabled: workspace.querySelector("[data-lf-key-actuation-secondary-enabled]"), secondary: workspace.querySelector("[data-lf-key-actuation-secondary]"), secondaryReset: workspace.querySelector("[data-lf-key-actuation-secondary-reset]"), save: workspace.querySelector("[data-lf-key-actuation-save]"), applyAll: workspace.querySelector("[data-lf-key-actuation-apply-all]"), status: workspace.querySelector("[data-lf-key-actuation-status]")}; }
+    function actuationValues(c) { return {actuationPoint: Number(c.primary.value), actuationResetPoint: Number(c.reset.value), enableActuationPointReset: Boolean(c.resetEnabled.checked), enableSecondaryActuationPoint: Boolean(c.secondaryEnabled.checked), secondaryActuationPoint: Number(c.secondary.value), secondaryActuationResetPoint: Number(c.secondaryReset.value)}; }
+    function validateActuationValues(metadata, values) {
+        function valid(value) { return Number.isInteger(value) && value >= metadata.minValue && value <= metadata.maxValue; }
+        if (!valid(values.actuationPoint)) { return {valid: false, message: "Primary actuation must be within the supported range."}; }
+        if (values.enableActuationPointReset && (!valid(values.actuationResetPoint) || values.actuationResetPoint >= values.actuationPoint)) { return {valid: false, message: "Primary reset must be below primary actuation."}; }
+        if (values.enableSecondaryActuationPoint) {
+            if (!valid(values.secondaryActuationPoint) || values.secondaryActuationPoint < values.actuationPoint + metadata.secondaryMinimumGap) { return {valid: false, message: "Secondary actuation must meet the minimum gap."}; }
+            if (!valid(values.secondaryActuationResetPoint) || values.secondaryActuationResetPoint >= values.secondaryActuationPoint) { return {valid: false, message: "Secondary reset must be below secondary actuation."}; }
+        }
+        return {valid: true, message: ""};
+    }
     function commandFor(state) { return state.actionType === 8 ? state.deviceID : String(state.actionCommand); }
     function hasSelectedCommand(c, state) {
         const value = c.command.value;
@@ -79,6 +94,11 @@
     function init(browser) {
         const workspace = browser.document.querySelector("[data-lf-keyboard-assignments-workspace]");
         if (!workspace) { return; }
+        const actuationWorkspace = browser.document.querySelector("[data-lf-key-actuation-workspace]"); const flashTapWorkspace = browser.document.querySelector("[data-lf-flash-tap-workspace]");
+        let selectActuationKey = function () {}; let clearActuationSelection = function () {}; let selectFlashTapKey = function () {}; let syncFlashTapActions = function () {};
+        const modeController = keyboardModeController("assignments", Object.assign(actuationWorkspace ? {actuation: function (key) { return selectActuationKey(key); }} : {}, flashTapWorkspace ? {flashtap: function (key) { return selectFlashTapKey(key); }} : {}));
+        const modeButtons = workspace.querySelectorAll("[data-lf-keyboard-mode]");
+        modeButtons.forEach(function (button) { button.addEventListener("click", function () { const previous = modeController.mode(); const mode = modeController.set(button.dataset.lfKeyboardMode); if (previous === "actuation" && mode !== "actuation") { clearActuationSelection(); } drag = null; ignoreNextClick = false; modeButtons.forEach(function (candidate) { const active = candidate.dataset.lfKeyboardMode === mode; candidate.setAttribute("aria-pressed", active ? "true" : "false"); candidate.classList.toggle("lf-button-secondary", !active); }); syncFlashTapActions(); }); });
         const editor = workspace.querySelector("[data-lf-keyboard-editor]");
         if (!editor) { return; }
         const c = controls(editor); let selected = null; let confirmed = null; let saving = false; let colorSaving = false; let optionsReady = false; let revision = 0; let colorSelection = []; let drag = null; let ignoreNextClick = false;
@@ -124,6 +144,49 @@
         function syncDelayVisibility() { if (c.delayWrap) { c.delayWrap.hidden = !c.hold.checked; } }
         function colorTargets() { return Array.from(workspace.querySelectorAll("[data-lf-keyboard-color-key]")); }
         function isAssignmentTarget(key) { return Boolean(key && key.hasAttribute && key.hasAttribute("data-lf-keyboard-key")); }
+        if (actuationWorkspace) {
+            const ac = actuationControls(actuationWorkspace); const metadata = {minValue: Number(actuationWorkspace.dataset.lfMinValue), maxValue: Number(actuationWorkspace.dataset.lfMaxValue), secondaryMinimumGap: Number(actuationWorkspace.dataset.lfSecondaryMinimumGap)}; const keys = {};
+            actuationWorkspace.querySelectorAll("[data-lf-key-actuation-key]").forEach(function (item) { keys[String(item.dataset.lfKeyIndex)] = item; });
+            let actuationSelected = null; let actuationSaving = false;
+            function setActuationDisabled(disabled) { ac.primary.disabled = disabled; ac.resetEnabled.disabled = disabled; ac.secondaryEnabled.disabled = disabled; ac.reset.disabled = disabled || !ac.resetEnabled.checked; ac.secondary.disabled = disabled || !ac.secondaryEnabled.checked; ac.secondaryReset.disabled = disabled || !ac.secondaryEnabled.checked; }
+            function renderActuationSelection() { colorTargets().forEach(function (item) { item.classList.toggle("lf-keyboard-key-actuation-selected", item === actuationSelected); }); }
+            function syncActuationActions(result) { const enabled = Boolean(actuationSelected) && modeController.mode() === "actuation" && !actuationSaving && result.valid; if (ac.save) { ac.save.disabled = !enabled; } if (ac.applyAll) { ac.applyAll.disabled = !enabled; } }
+            function validateActuationForm() { const result = validateActuationValues(metadata, actuationValues(ac)); actuationWorkspace.dataset.lfKeyActuationValid = result.valid ? "1" : "0"; if (ac.status) { ac.status.textContent = result.message; } syncActuationActions(result); return result; }
+            clearActuationSelection = function () { actuationSelected = null; renderActuationSelection(); if (ac.selected) { ac.selected.textContent = "Select a supported key to configure actuation."; } setActuationDisabled(true); if (ac.save) { ac.save.disabled = true; } if (ac.applyAll) { ac.applyAll.disabled = true; } if (ac.status) { ac.status.textContent = ""; } actuationWorkspace.dataset.lfKeyActuationValid = "0"; };
+            selectActuationKey = function (key) {
+                const source = keys[String(key && key.dataset && key.dataset.lfKeyIndex)];
+                if (!source || source.dataset.lfSupported !== "1") { return; }
+                actuationSelected = key; renderActuationSelection();
+                if (ac.selected) { ac.selected.textContent = "Actuation — " + source.dataset.lfKeyName; }
+                ac.primary.value = source.dataset.lfActuationPoint; ac.resetEnabled.checked = source.dataset.lfEnableActuationReset === "1"; ac.reset.value = source.dataset.lfActuationResetPoint; ac.secondaryEnabled.checked = source.dataset.lfEnableSecondaryActuation === "1"; ac.secondary.value = source.dataset.lfSecondaryActuationPoint; ac.secondaryReset.value = source.dataset.lfSecondaryActuationResetPoint;
+                setActuationDisabled(false); validateActuationForm();
+            };
+            [ac.primary, ac.reset, ac.secondary, ac.secondaryReset].forEach(function (input) { input.addEventListener("input", validateActuationForm); });
+            ac.resetEnabled.addEventListener("change", function () { setActuationDisabled(false); validateActuationForm(); });
+            ac.secondaryEnabled.addEventListener("change", function () { setActuationDisabled(false); validateActuationForm(); });
+            function saveActuation(allKeys) {
+                const validation = validateActuationForm();
+                if (actuationSaving || !actuationSelected || modeController.mode() !== "actuation" || !validation.valid) { return Promise.resolve(); }
+                const values = actuationValues(ac); const payload = {deviceId: workspace.dataset.lfDeviceId, keyIndex: Number(actuationSelected.dataset.lfKeyIndex), actuationAllKeys: Boolean(allKeys), actuationPoint: values.actuationPoint, actuationResetPoint: values.actuationResetPoint, enableActuationPointReset: values.enableActuationPointReset, enableSecondaryActuationPoint: values.enableSecondaryActuationPoint, secondaryActuationPoint: values.secondaryActuationPoint, secondaryActuationResetPoint: values.secondaryActuationResetPoint};
+                actuationSaving = true; setActuationDisabled(true); syncActuationActions(validation);
+                let failed = false;
+                return browser.fetch("/api/keyboard/updateActuation", {method: "POST", body: JSON.stringify(payload)}).then(async function (response) { const result = response.ok ? await response.json() : null; if (!result || result.status !== 1) { throw new Error("actuation rejected"); } createToast(browser, workspace)("✓ Saved", "success", 1500); if (browser.location) { browser.location.reload(); } }).catch(function () { failed = true; }).finally(function () { actuationSaving = false; if (actuationSelected && modeController.mode() === "actuation") { setActuationDisabled(false); const restored = validateActuationForm(); syncActuationActions(restored); if (failed && ac.status) { ac.status.textContent = "Couldn’t save key actuation."; } } });
+            }
+            if (ac.save) { ac.save.addEventListener("click", function () { return saveActuation(false); }); }
+            if (ac.applyAll) { ac.applyAll.addEventListener("click", function () { return saveActuation(true); }); }
+            clearActuationSelection();
+        }
+        if (flashTapWorkspace) {
+            const fc = {active: flashTapWorkspace.querySelector("[data-lf-flash-tap-active]"), mode: flashTapWorkspace.querySelector("[data-lf-flash-tap-mode]"), save: flashTapWorkspace.querySelector("[data-lf-flash-tap-save]"), status: flashTapWorkspace.querySelector("[data-lf-flash-tap-status]")}; const keys = {}; const state = {active: Boolean(fc.active && fc.active.checked), mode: Number(fc.mode && fc.mode.value), modes: {}, keys: keys, slots: [null, null], color: {red: Number(flashTapWorkspace.dataset.lfFlashTapColorRed), green: Number(flashTapWorkspace.dataset.lfFlashTapColorGreen), blue: Number(flashTapWorkspace.dataset.lfFlashTapColorBlue)}}; let activeSlot = 0; let flashSaving = false;
+            Array.from(fc.mode ? fc.mode.options : []).forEach(function (option) { state.modes[String(option.value)] = true; }); flashTapWorkspace.querySelectorAll("[data-lf-flash-tap-key]").forEach(function (item) { keys[String(item.dataset.lfKeyIndex)] = {eligible: item.dataset.lfEligible === "1", name: item.dataset.lfKeyName}; }); let sourceValid = true; flashTapWorkspace.querySelectorAll("[data-lf-flash-tap-slot]").forEach(function (item) { const slot = Number(item.dataset.lfSlotIndex); const keyIndex = Number(item.dataset.lfKeyIndex); if (!Number.isInteger(slot) || slot < 0 || slot > 1 || state.slots[slot] !== null) { sourceValid = false; return; } state.slots[slot] = keyIndex; });
+            const slotButtons = Array.from(flashTapWorkspace.querySelectorAll("[data-lf-flash-tap-slot-select]"));
+            function renderFlashTap() { colorTargets().forEach(function (item) { const id = Number(item.dataset.lfKeyIndex); item.classList.toggle("lf-keyboard-key-flash-tap-slot-0", state.slots[0] === id); item.classList.toggle("lf-keyboard-key-flash-tap-slot-1", state.slots[1] === id); }); slotButtons.forEach(function (button) { const slot = Number(button.dataset.lfFlashTapSlotSelect); const key = keys[String(state.slots[slot])]; button.textContent = "Slot " + (slot + 1) + (key ? " — " + key.name : ""); button.setAttribute("aria-pressed", slot === activeSlot ? "true" : "false"); button.classList.toggle("lf-button-secondary", slot !== activeSlot); button.disabled = flashSaving; }); const valid = sourceValid && validateFlashTapState(state); if (fc.save) { fc.save.disabled = !valid || flashSaving || modeController.mode() !== "flashtap"; } if (fc.status && !valid && !flashSaving) { fc.status.textContent = "FlashTap settings are unavailable."; } return valid; }
+            function setFlashTapDisabled(disabled) { if (fc.active) { fc.active.disabled = disabled; } if (fc.mode) { fc.mode.disabled = disabled; } if (fc.save) { fc.save.disabled = disabled || !sourceValid || !validateFlashTapState(state) || modeController.mode() !== "flashtap"; } }
+            selectFlashTapKey = function (key) { if (flashSaving || !sourceValid) { return; } const keyIndex = Number(key && key.dataset && key.dataset.lfKeyIndex); const source = keys[String(keyIndex)]; if (!source || !source.eligible || state.slots[1 - activeSlot] === keyIndex) { if (fc.status && source && source.eligible) { fc.status.textContent = "FlashTap slots must use different keys."; } return; } state.slots[activeSlot] = keyIndex; if (fc.status) { fc.status.textContent = ""; } renderFlashTap(); };
+            slotButtons.forEach(function (button) { button.addEventListener("click", function () { if (!flashSaving) { activeSlot = Number(button.dataset.lfFlashTapSlotSelect); renderFlashTap(); } }); }); if (fc.active) { fc.active.addEventListener("change", function () { state.active = fc.active.checked; renderFlashTap(); }); } if (fc.mode) { fc.mode.addEventListener("change", function () { state.mode = Number(fc.mode.value); renderFlashTap(); }); }
+            if (fc.save) { fc.save.addEventListener("click", function () { const payload = flashTapPayload(workspace.dataset.lfDeviceId, state); if (flashSaving || modeController.mode() !== "flashtap" || !payload) { return Promise.resolve(); } flashSaving = true; setFlashTapDisabled(true); if (fc.status) { fc.status.textContent = ""; } return browser.fetch("/api/keyboard/setFlashTap", {method: "POST", body: JSON.stringify(payload)}).then(async function (response) { const result = response.ok ? await response.json() : null; if (!result || result.status !== 1) { throw new Error("FlashTap rejected"); } createToast(browser, workspace)("✓ Saved", "success", 1500); if (browser.location) { browser.location.reload(); } }).catch(function () { if (fc.status) { fc.status.textContent = "Couldn’t save FlashTap."; } }).finally(function () { flashSaving = false; setFlashTapDisabled(false); renderFlashTap(); }); }); }
+            syncFlashTapActions = renderFlashTap; renderFlashTap();
+        }
         function renderSelection() { colorTargets().forEach(function (item) { item.setAttribute("aria-pressed", colorSelection.includes(item) ? "true" : "false"); item.setAttribute("data-lf-current-key", item === selected ? "true" : "false"); }); }
         async function loadSelected(key) {
             const selectionRevision = ++revision;
@@ -182,11 +245,11 @@
         function endDrag() { if (drag && drag.moved) { ignoreNextClick = true; } drag = null; }
         function cancelDrag() { drag = null; }
         colorTargets().forEach(function (key) {
-            key.addEventListener("click", function () { if (ignoreNextClick) { ignoreNextClick = false; return; } return selectForScope(key, colorScopeValue() === 3); });
-            key.addEventListener("pointerdown", function () { const scope = colorScopeValue(); if (scope === 2) { return; } drag = {scope: scope, start: key, mode: scope === 3 && colorSelection.includes(key) ? "deselect" : "select", visited: new Set(), moved: false}; });
-            key.addEventListener("pointerenter", function (event) { if (!drag || key === drag.start) { return; } drag.moved = true; if (event && event.preventDefault) { event.preventDefault(); } const start = dragVisit(drag.start); const next = dragVisit(key); return next || start; });
-            key.addEventListener("pointerup", endDrag);
-            key.addEventListener("pointercancel", cancelDrag);
+            key.addEventListener("click", function () { return modeController.dispatch(key, function () { if (ignoreNextClick) { ignoreNextClick = false; return; } return selectForScope(key, colorScopeValue() === 3); }); });
+            key.addEventListener("pointerdown", function () { if (modeController.mode() !== "assignments") { return; } const scope = colorScopeValue(); if (scope === 2) { return; } drag = {scope: scope, start: key, mode: scope === 3 && colorSelection.includes(key) ? "deselect" : "select", visited: new Set(), moved: false}; });
+            key.addEventListener("pointerenter", function (event) { if (modeController.mode() !== "assignments" || !drag || key === drag.start) { return; } drag.moved = true; if (event && event.preventDefault) { event.preventDefault(); } const start = dragVisit(drag.start); const next = dragVisit(key); return next || start; });
+            key.addEventListener("pointerup", function () { if (modeController.mode() === "assignments") { endDrag(); } });
+            key.addEventListener("pointercancel", function () { if (modeController.mode() === "assignments") { cancelDrag(); } });
         });
         if (browser.document.addEventListener) { browser.document.addEventListener("pointerup", endDrag); browser.document.addEventListener("pointercancel", cancelDrag); }
         const openAssignment = workspace.querySelector("[data-lf-keyboard-assignment-open]");
@@ -233,5 +296,5 @@
             if (optionsReady) { await save(); }
         });
     }
-    return {canSaveAssignment: canSaveAssignment, colorPayload: colorPayload, init: init, liveColor: liveColor, renderLiveFrame: renderLiveFrame, restoreLiveColors: restoreLiveColors, normalizedOptions: normalizedOptions, optionsFor: optionsFor, populate: populate, rgbFromHex: rgbFromHex, rgbToHex: rgbToHex, stateFor: stateFor, updateDisabled: updateDisabled};
+    return {actuationValues: actuationValues, canSaveAssignment: canSaveAssignment, colorPayload: colorPayload, flashTapPayload: flashTapPayload, init: init, keyboardModeController: keyboardModeController, liveColor: liveColor, renderLiveFrame: renderLiveFrame, restoreLiveColors: restoreLiveColors, normalizedOptions: normalizedOptions, optionsFor: optionsFor, populate: populate, rgbFromHex: rgbFromHex, rgbToHex: rgbToHex, stateFor: stateFor, updateDisabled: updateDisabled, validateActuationValues: validateActuationValues, validateFlashTapState: validateFlashTapState};
 });

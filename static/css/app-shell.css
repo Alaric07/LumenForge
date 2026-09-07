@@ -1796,7 +1796,9 @@
 .lf-app-shell .lf-keyboard-visualization .keyboard-key.top-32 { margin-top: calc(var(--lf-kb-key-height) * .54); }
 .lf-app-shell .lf-keyboard-visualization .keyboard-key.top-32auto { height: auto; margin-top: calc(var(--lf-kb-key-height) * 1.0666); }
 .lf-app-shell button.lf-keyboard-key { cursor: pointer; }
-.lf-app-shell button.lf-keyboard-key:hover, .lf-app-shell button.lf-keyboard-key[aria-pressed="true"] { border-color: var(--lf-accent-highlight); background: var(--lf-surface-hover); box-shadow: inset 0 0 0 1px var(--lf-accent-highlight); }
+.lf-app-shell button.lf-keyboard-key:hover, .lf-app-shell button.lf-keyboard-key[aria-pressed="true"], .lf-app-shell button.lf-keyboard-key.lf-keyboard-key-actuation-selected { border-color: var(--lf-accent-highlight); background: var(--lf-surface-hover); box-shadow: inset 0 0 0 1px var(--lf-accent-highlight); }
+.lf-app-shell button.lf-keyboard-key.lf-keyboard-key-flash-tap-slot-0 { border-color: var(--lf-accent-highlight); box-shadow: inset 0 0 0 2px var(--lf-accent-highlight); }
+.lf-app-shell button.lf-keyboard-key.lf-keyboard-key-flash-tap-slot-1 { border-color: var(--lf-text-muted); box-shadow: inset 0 0 0 2px var(--lf-text-muted); }
 .lf-app-shell button.lf-keyboard-key[data-lf-current-key="true"] { box-shadow: inset 0 0 0 2px var(--lf-accent-highlight), inset 0 0 0 4px var(--lf-panel-elevated); }
 .lf-app-shell button.lf-keyboard-key:focus-visible { outline: 2px solid var(--lf-accent-highlight); outline-offset: 2px; }
 .lf-app-shell .lf-keyboard-key small { display: block; margin-top: 2px; color: inherit; font-size: 9px; }

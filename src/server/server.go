@@ -21,7 +21,9 @@ import (
 	"LumenForge/src/displaypresentation"
 	"LumenForge/src/dpipresentation"
 	"LumenForge/src/externalsources"
+	"LumenForge/src/flashtappresentation"
 	"LumenForge/src/inputmanager"
+	"LumenForge/src/keyactuationpresentation"
 	"LumenForge/src/keyboardassignmentspresentation"
 	"LumenForge/src/language"
 	"LumenForge/src/lifecycle"
@@ -2754,6 +2756,8 @@ type devicesWorkspaceSummary struct {
 	OverviewDisplay     *devicesOverviewDisplayStatusSummary
 	OverviewTelemetry   []devicesOverviewStatusRow
 	KeyboardAssignments *devicesKeyboardAssignmentsWorkspaceSummary
+	KeyActuation        *devicesKeyActuationWorkspaceSummary
+	FlashTap            *devicesFlashTapWorkspaceSummary
 	LegacyLighting      bool
 	View                string
 }
@@ -2911,6 +2915,14 @@ type devicesButtonsSnapshotProvider interface {
 type devicesKeyboardAssignmentsSnapshotProvider interface {
 	KeyboardAssignmentsDeviceID() string
 	KeyboardAssignmentsSnapshot() (keyboardassignmentspresentation.Snapshot, bool)
+}
+type devicesKeyActuationSnapshotProvider interface {
+	KeyActuationDeviceID() string
+	KeyActuationSnapshot() (keyactuationpresentation.Snapshot, bool)
+}
+type devicesFlashTapSnapshotProvider interface {
+	FlashTapDeviceID() string
+	FlashTapSnapshot() (flashtappresentation.Snapshot, bool)
 }
 
 type devicesDeviceProfileSnapshotProvider interface {
@@ -3398,6 +3410,121 @@ func devicesKeyboardAssignmentsWorkspaceSummaryFromSnapshot(snapshot keyboardass
 		summary.Rows = append(summary.Rows, presented)
 	}
 	return summary
+}
+
+type devicesKeyActuationKeySummary struct {
+	KeyIndex                                                                                   int
+	KeyName                                                                                    string
+	Supported                                                                                  bool
+	ActuationPoint, ActuationResetPoint, SecondaryActuationPoint, SecondaryActuationResetPoint byte
+	EnableActuationPointReset, EnableSecondaryActuationPoint                                   bool
+}
+type devicesKeyActuationWorkspaceSummary struct {
+	Supported                               bool
+	MinValue, MaxValue, SecondaryMinimumGap byte
+	Keys                                    []devicesKeyActuationKeySummary
+}
+
+func devicesKeyActuationWorkspaceSummaryFromSnapshot(s keyactuationpresentation.Snapshot) *devicesKeyActuationWorkspaceSummary {
+	if !s.Supported || s.MinValue == 0 || s.MaxValue < s.MinValue || s.SecondaryMinimumGap == 0 || len(s.Keys) == 0 {
+		return nil
+	}
+	out := &devicesKeyActuationWorkspaceSummary{Supported: true, MinValue: s.MinValue, MaxValue: s.MaxValue, SecondaryMinimumGap: s.SecondaryMinimumGap}
+	seen := map[int]bool{}
+	for _, k := range s.Keys {
+		if k.KeyName == "" || seen[k.KeyIndex] {
+			return nil
+		}
+		seen[k.KeyIndex] = true
+		if k.Supported && (k.ActuationPoint < s.MinValue || k.ActuationPoint > s.MaxValue || k.ActuationResetPoint < s.MinValue || k.ActuationResetPoint >= k.ActuationPoint || k.EnableSecondaryActuationPoint && (k.SecondaryActuationPoint < k.ActuationPoint+s.SecondaryMinimumGap || k.SecondaryActuationPoint > s.MaxValue || k.SecondaryActuationResetPoint < s.MinValue || k.SecondaryActuationResetPoint >= k.SecondaryActuationPoint)) {
+			return nil
+		}
+		out.Keys = append(out.Keys, devicesKeyActuationKeySummary{KeyIndex: k.KeyIndex, KeyName: k.KeyName, Supported: k.Supported, ActuationPoint: k.ActuationPoint, ActuationResetPoint: k.ActuationResetPoint, EnableActuationPointReset: k.EnableActuationPointReset, EnableSecondaryActuationPoint: k.EnableSecondaryActuationPoint, SecondaryActuationPoint: k.SecondaryActuationPoint, SecondaryActuationResetPoint: k.SecondaryActuationResetPoint})
+	}
+	return out
+}
+
+type devicesFlashTapKeySummary struct {
+	KeyIndex           int
+	KeyName            string
+	Eligible, Selected bool
+}
+type devicesFlashTapOptionSummary struct {
+	Value int
+	Label string
+}
+type devicesFlashTapSelectedSlotSummary struct {
+	SlotIndex int
+	KeyIndex  int
+}
+type devicesFlashTapColorSummary struct {
+	Red   float64
+	Green float64
+	Blue  float64
+}
+type devicesFlashTapWorkspaceSummary struct {
+	Supported, Active bool
+	Mode              int
+	Modes             []devicesFlashTapOptionSummary
+	Keys              []devicesFlashTapKeySummary
+	SelectedSlots     []devicesFlashTapSelectedSlotSummary
+	Color             devicesFlashTapColorSummary
+}
+
+func devicesFlashTapWorkspaceSummaryFromSnapshot(s flashtappresentation.Snapshot) *devicesFlashTapWorkspaceSummary {
+	if !s.Supported || len(s.Modes) == 0 || len(s.Keys) == 0 || len(s.SelectedSlots) != 2 {
+		return nil
+	}
+	if math.IsNaN(s.Color.Red) || math.IsNaN(s.Color.Green) || math.IsNaN(s.Color.Blue) || math.IsInf(s.Color.Red, 0) || math.IsInf(s.Color.Green, 0) || math.IsInf(s.Color.Blue, 0) {
+		return nil
+	}
+	out := &devicesFlashTapWorkspaceSummary{Supported: true, Active: s.Active, Mode: s.Mode, Color: devicesFlashTapColorSummary{Red: s.Color.Red, Green: s.Color.Green, Blue: s.Color.Blue}}
+	modes := map[int]bool{}
+	for _, m := range s.Modes {
+		if m.Label == "" || modes[m.Value] {
+			return nil
+		}
+		modes[m.Value] = true
+		out.Modes = append(out.Modes, devicesFlashTapOptionSummary{Value: m.Value, Label: m.Label})
+	}
+	if !modes[s.Mode] {
+		return nil
+	}
+	keys := map[int]flashtappresentation.Key{}
+	for _, k := range s.Keys {
+		if k.KeyName == "" || keys[k.KeyIndex].KeyName != "" || k.Selected && !k.Eligible {
+			return nil
+		}
+		keys[k.KeyIndex] = k
+		out.Keys = append(out.Keys, devicesFlashTapKeySummary{KeyIndex: k.KeyIndex, KeyName: k.KeyName, Eligible: k.Eligible, Selected: k.Selected})
+	}
+	for slotIndex, slot := range s.SelectedSlots {
+		key, exists := keys[slot.KeyIndex]
+		if slot.SlotIndex != slotIndex || !exists || !key.Eligible || !key.Selected {
+			return nil
+		}
+		for previous := 0; previous < slotIndex; previous++ {
+			if out.SelectedSlots[previous].KeyIndex == slot.KeyIndex {
+				return nil
+			}
+		}
+		out.SelectedSlots = append(out.SelectedSlots, devicesFlashTapSelectedSlotSummary{SlotIndex: slot.SlotIndex, KeyIndex: slot.KeyIndex})
+	}
+	for keyIndex, key := range keys {
+		if key.Selected {
+			selected := false
+			for _, slot := range out.SelectedSlots {
+				if slot.KeyIndex == keyIndex {
+					selected = true
+					break
+				}
+			}
+			if !selected {
+				return nil
+			}
+		}
+	}
+	return out
 }
 
 type devicesButtonsAssignmentTypeSummary struct {
@@ -3981,6 +4108,16 @@ func devicesWorkspaceSummaryForSerial(
 	if keyboardDevice, ok := device.Instance.(devicesKeyboardAssignmentsSnapshotProvider); ok && keyboardDevice != nil && keyboardDevice.KeyboardAssignmentsDeviceID() == serial {
 		if snapshot, usable := keyboardDevice.KeyboardAssignmentsSnapshot(); usable {
 			summary.KeyboardAssignments = devicesKeyboardAssignmentsWorkspaceSummaryFromSnapshot(snapshot)
+		}
+	}
+	if actuationDevice, ok := device.Instance.(devicesKeyActuationSnapshotProvider); ok && actuationDevice != nil && actuationDevice.KeyActuationDeviceID() == serial {
+		if snapshot, usable := actuationDevice.KeyActuationSnapshot(); usable {
+			summary.KeyActuation = devicesKeyActuationWorkspaceSummaryFromSnapshot(snapshot)
+		}
+	}
+	if flashTapDevice, ok := device.Instance.(devicesFlashTapSnapshotProvider); ok && flashTapDevice != nil && flashTapDevice.FlashTapDeviceID() == serial {
+		if snapshot, usable := flashTapDevice.FlashTapSnapshot(); usable {
+			summary.FlashTap = devicesFlashTapWorkspaceSummaryFromSnapshot(snapshot)
 		}
 	}
 	if summary.DeviceProfiles != nil {

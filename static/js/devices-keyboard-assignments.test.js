@@ -104,10 +104,12 @@ test("Keyboard color payload preserves all four existing scopes", function () {
 
 function element(value) {
     const handlers = {}; const attributes = {};
-    return {value: value || "", checked: false, disabled: false, hidden: false, textContent: "", dataset: {}, style: {}, options: [{}], assignmentTarget: false, addEventListener: function (name, handler) { handlers[name] = handler; }, fire: function (name, event) { return handlers[name](event || {}); }, setAttribute: function (name, value) { attributes[name] = value; }, getAttribute: function (name) { return attributes[name] || null; }, hasAttribute: function (name) { return name === "data-lf-keyboard-key" && this.assignmentTarget; }, querySelector: function (selector) { return this.children && this.children[selector]; }};
+    const node = {value: value || "", checked: false, disabled: false, hidden: false, textContent: "", dataset: {}, style: {}, options: [{}], assignmentTarget: false, className: "", addEventListener: function (name, handler) { handlers[name] = handler; }, fire: function (name, event) { return handlers[name](event || {}); }, setAttribute: function (name, value) { attributes[name] = value; }, getAttribute: function (name) { return attributes[name] || null; }, hasAttribute: function (name) { return name === "data-lf-keyboard-key" && this.assignmentTarget; }, querySelector: function (selector) { return this.children && this.children[selector]; }};
+    node.classList = {toggle: function (name, enabled) { const classes = node.className.split(" ").filter(Boolean).filter(function (item) { return item !== name; }); if (enabled) { classes.push(name); } node.className = classes.join(" "); }};
+    return node;
 }
 
-function toolbarHarness(cluster, activeProfile, liveEnabled) {
+function toolbarHarness(cluster, activeProfile, liveEnabled, actuation) {
     const confirmedProfile = activeProfile || "default"; const profile = element(confirmedProfile); const save = element(); const saveAs = element(); const remove = element();
     const keyboardLayout = element("US"); const keyboardLayoutStatus = element();
     const color = element("#123456"); const scope = element("0"); const apply = element(); const assignment = element(); const close = element();
@@ -116,11 +118,158 @@ function toolbarHarness(cluster, activeProfile, liveEnabled) {
     const key = element(); key.textContent = "G6"; key.assignmentTarget = true; key.dataset = {lfKeyIndex: "6", lfKeyRed: "17", lfKeyGreen: "34", lfKeyBlue: "51", lfNormalColor: "rgba(17, 34, 51, 1)", lfDefault: "1", lfActionType: "0", lfActionCommand: "0", lfDeviceId: "", lfActionHold: "0", lfToggleDelay: "30"}; key.style.color = key.dataset.lfNormalColor; const keyB = element(); keyB.textContent = "G7"; keyB.assignmentTarget = true; keyB.dataset = Object.assign({}, key.dataset, {lfKeyIndex: "7", lfKeyRed: "68", lfKeyGreen: "85", lfKeyBlue: "102", lfNormalColor: "rgba(68, 85, 102, 1)"}); keyB.style.color = keyB.dataset.lfNormalColor; const keyC = element(); keyC.textContent = "G8"; keyC.assignmentTarget = true; keyC.dataset = Object.assign({}, key.dataset, {lfKeyIndex: "8", lfKeyRed: "119", lfKeyGreen: "136", lfKeyBlue: "153", lfNormalColor: "rgba(119, 136, 153, 1)"}); keyC.style.color = keyC.dataset.lfNormalColor; const led = element(); led.textContent = "M1"; led.dataset = {lfKeyIndex: "9", lfKeyRed: "170", lfKeyGreen: "187", lfKeyBlue: "204", lfNormalColor: "rgba(170, 187, 204, 1)"}; led.style.color = led.dataset.lfNormalColor;
     const colorGroup = element(); if (cluster) { colorGroup.setAttribute("aria-disabled", "true"); color.disabled = scope.disabled = apply.disabled = true; }
     const live = element(); live.checked = Boolean(liveEnabled); const liveStatus = element();
+    const actuationSelected = element(); actuationSelected.textContent = "Select a supported key to configure actuation."; const actuationPrimary = element(); const actuationResetEnabled = element(); const actuationReset = element(); const actuationSecondaryEnabled = element(); const actuationSecondary = element(); const actuationSecondaryReset = element(); const actuationSave = element(); const actuationApplyAll = element(); const actuationStatus = element();
+    const actuationKey = element(); actuationKey.dataset = {lfKeyIndex: "6", lfKeyName: "G6", lfSupported: "1", lfActuationPoint: "20", lfActuationResetPoint: "18", lfEnableActuationReset: "1", lfEnableSecondaryActuation: "1", lfSecondaryActuationPoint: "30", lfSecondaryActuationResetPoint: "29"}; const unsupportedActuationKey = element(); unsupportedActuationKey.dataset = {lfKeyIndex: "7", lfKeyName: "G7", lfSupported: "0", lfActuationPoint: "0", lfActuationResetPoint: "0", lfEnableActuationReset: "0", lfEnableSecondaryActuation: "0", lfSecondaryActuationPoint: "0", lfSecondaryActuationResetPoint: "0"};
+    const actuationNodes = {"[data-lf-key-actuation-selected-key]": actuationSelected, "[data-lf-key-actuation-primary]": actuationPrimary, "[data-lf-key-actuation-reset-enabled]": actuationResetEnabled, "[data-lf-key-actuation-reset]": actuationReset, "[data-lf-key-actuation-secondary-enabled]": actuationSecondaryEnabled, "[data-lf-key-actuation-secondary]": actuationSecondary, "[data-lf-key-actuation-secondary-reset]": actuationSecondaryReset, "[data-lf-key-actuation-save]": actuationSave, "[data-lf-key-actuation-apply-all]": actuationApplyAll, "[data-lf-key-actuation-status]": actuationStatus};
+    const actuationWorkspace = {dataset: {lfMinValue: "1", lfMaxValue: "40", lfSecondaryMinimumGap: "4"}, querySelector: function (selector) { return actuationNodes[selector] || null; }, querySelectorAll: function (selector) { return selector === "[data-lf-key-actuation-key]" ? [actuationKey, unsupportedActuationKey] : []; }};
+    const assignmentMode = element(); assignmentMode.dataset.lfKeyboardMode = "assignments"; assignmentMode.setAttribute("aria-pressed", "true"); assignmentMode.className = "lf-button"; const actuationMode = element(); actuationMode.dataset.lfKeyboardMode = "actuation"; actuationMode.setAttribute("aria-pressed", "false"); actuationMode.className = "lf-button lf-button-secondary"; const modeButtons = actuation ? [assignmentMode, actuationMode] : [];
     const nodes = {"[data-lf-keyboard-editor]": editorNode, "[data-lf-keyboard-assignment-open]": assignment, "[data-lf-keyboard-assignment-close]": close, "[data-lf-keyboard-layout]": keyboardLayout, "[data-lf-keyboard-layout-status]": keyboardLayoutStatus, "[data-lf-keyboard-profile]": profile, "[data-lf-keyboard-profile-save]": save, "[data-lf-keyboard-profile-new]": saveAs, "[data-lf-keyboard-profile-delete]": remove, "[data-lf-keyboard-profile-dialog]": dialog, "[data-lf-keyboard-color-apply]": apply, "[data-lf-keyboard-color]": color, "[data-lf-keyboard-color-scope]": scope, "[data-lf-keyboard-color-group]": colorGroup, "[data-lf-keyboard-live-rgb]": live, "[data-lf-keyboard-live-rgb-status]": liveStatus};
-    const keys = [key, keyB, keyC]; const colorKeys = keys.concat(led); const workspace = {dataset: {lfDeviceId: "k95"}, querySelector: function (selector) { return nodes[selector] || null; }, querySelectorAll: function (selector) { if (selector === "[data-lf-keyboard-key]") { return keys; } if (selector === "[data-lf-keyboard-color-key]" || selector === "[data-lf-key-index]") { return colorKeys; } return selector.indexOf("aria-pressed") >= 0 ? colorKeys.filter(function (item) { return item.getAttribute("aria-pressed") === "true"; }) : []; }};
-    const posts = []; const timers = []; const browser = {document: {querySelector: function () { return workspace; }, readyState: "complete"}, fetch: async function (url, options) { posts.push({url: url, options: options}); return browser.response || {ok: true, json: async function () { return {status: 1}; }}; }, setInterval: function (handler) { const timer = {handler: handler, cleared: false}; timers.push(timer); return timer; }, clearInterval: function (timer) { timer.cleared = true; }, location: {reload: function () { browser.reloaded = true; }}, LumenForgeDevicesToast: function (message, kind) { browser.toasted = true; browser.toastMessage = message; browser.toastKind = kind; }};
-    assignments.init(browser); return {browser: browser, nodes: nodes, workspace: workspace, key: key, keyB: keyB, keyC: keyC, led: led, posts: posts, timers: timers};
+    const keys = [key, keyB, keyC]; const colorKeys = keys.concat(led); const workspace = {dataset: {lfDeviceId: "k95"}, querySelector: function (selector) { return nodes[selector] || null; }, querySelectorAll: function (selector) { if (selector === "[data-lf-keyboard-mode]") { return modeButtons; } if (selector === "[data-lf-keyboard-key]") { return keys; } if (selector === "[data-lf-keyboard-color-key]" || selector === "[data-lf-key-index]") { return colorKeys; } return selector.indexOf("aria-pressed") >= 0 ? colorKeys.filter(function (item) { return item.getAttribute("aria-pressed") === "true"; }) : []; }};
+    const posts = []; const timers = []; const browser = {document: {querySelector: function (selector) { if (selector === "[data-lf-keyboard-assignments-workspace]") { return workspace; } return selector === "[data-lf-key-actuation-workspace]" && actuation ? actuationWorkspace : null; }, readyState: "complete"}, fetch: async function (url, options) { posts.push({url: url, options: options}); return browser.response || {ok: true, json: async function () { return {status: 1}; }}; }, setInterval: function (handler) { const timer = {handler: handler, cleared: false}; timers.push(timer); return timer; }, clearInterval: function (timer) { timer.cleared = true; }, location: {reload: function () { browser.reloaded = true; }}, LumenForgeDevicesToast: function (message, kind) { browser.toasted = true; browser.toastMessage = message; browser.toastKind = kind; }};
+    assignments.init(browser); return {browser: browser, nodes: nodes, workspace: workspace, key: key, keyB: keyB, keyC: keyC, led: led, assignmentMode: assignmentMode, actuationMode: actuationMode, modeButtons: modeButtons, actuation: {workspace: actuationWorkspace, selected: actuationSelected, primary: actuationPrimary, resetEnabled: actuationResetEnabled, reset: actuationReset, secondaryEnabled: actuationSecondaryEnabled, secondary: actuationSecondary, secondaryReset: actuationSecondaryReset, save: actuationSave, applyAll: actuationApplyAll, status: actuationStatus}, posts: posts, timers: timers};
 }
+
+test("Keyboard interaction modes give one controller ownership of physical-key clicks", async function () {
+    const h = toolbarHarness(false, "default", false, true);
+    await h.key.fire("click");
+    assert.equal(h.key.getAttribute("aria-pressed"), "true");
+    assert.equal(h.assignmentMode.getAttribute("aria-pressed"), "true");
+    assert.equal(h.actuationMode.getAttribute("aria-pressed"), "false");
+
+    h.actuationMode.fire("click");
+    assert.equal(h.assignmentMode.getAttribute("aria-pressed"), "false");
+    assert.equal(h.actuationMode.getAttribute("aria-pressed"), "true");
+    assert.equal(h.assignmentMode.className, "lf-button lf-button-secondary");
+    assert.equal(h.actuationMode.className, "lf-button");
+    await h.keyB.fire("click");
+    await h.keyB.fire("pointerdown");
+    await h.keyC.fire("pointerenter", {preventDefault: function () {}});
+    await h.keyC.fire("pointerup");
+    assert.equal(h.key.getAttribute("aria-pressed"), "true");
+    assert.equal(h.keyB.getAttribute("aria-pressed"), "false");
+    assert.equal(h.keyC.getAttribute("aria-pressed"), "false");
+    assert.equal(h.posts.length, 0);
+
+    h.assignmentMode.fire("click");
+    await h.keyB.fire("click");
+    assert.equal(h.assignmentMode.getAttribute("aria-pressed"), "true");
+    assert.equal(h.actuationMode.getAttribute("aria-pressed"), "false");
+    assert.equal(h.assignmentMode.className, "lf-button");
+    assert.equal(h.actuationMode.className, "lf-button lf-button-secondary");
+    assert.equal(h.key.getAttribute("aria-pressed"), "false");
+    assert.equal(h.keyB.getAttribute("aria-pressed"), "true");
+    assert.equal(h.posts.length, 0);
+});
+
+test("Keyboard without Actuation exposes no mode switch and retains assignment clicks", async function () {
+    const h = toolbarHarness(false);
+    assert.equal(h.modeButtons.length, 0);
+    await h.key.fire("click");
+    assert.equal(h.key.getAttribute("aria-pressed"), "true");
+});
+
+test("Actuation mode selects only supported layout keys and populates its local form", async function () {
+    const h = toolbarHarness(false, "default", false, true); const a = h.actuation;
+    assert.equal(a.primary.disabled, true);
+    assert.equal(a.selected.textContent, "Select a supported key to configure actuation.");
+    h.actuationMode.fire("click"); await h.keyB.fire("click");
+    assert.equal(a.primary.disabled, true); assert.equal(a.selected.textContent, "Select a supported key to configure actuation.");
+    await h.key.fire("click");
+    assert.equal(a.selected.textContent, "Actuation — G6");
+    assert.equal(a.workspace.dataset.lfKeyActuationValid, "1");
+    assert.equal(a.primary.value, "20"); assert.equal(a.resetEnabled.checked, true); assert.equal(a.reset.value, "18"); assert.equal(a.secondaryEnabled.checked, true); assert.equal(a.secondary.value, "30"); assert.equal(a.secondaryReset.value, "29");
+    assert.equal(a.primary.disabled, false); assert.equal(a.reset.disabled, false); assert.equal(a.secondary.disabled, false); assert.equal(a.secondaryReset.disabled, false); assert.equal(a.save.disabled, false); assert.equal(a.applyAll.disabled, false);
+    assert.equal(h.key.className.includes("lf-keyboard-key-actuation-selected"), true);
+    assert.equal(h.key.getAttribute("aria-pressed"), null);
+    a.primary.value = "0"; a.primary.fire("input"); assert.equal(a.workspace.dataset.lfKeyActuationValid, "0"); assert.notEqual(a.status.textContent, "");
+    a.primary.value = "20"; a.primary.fire("input"); assert.equal(a.workspace.dataset.lfKeyActuationValid, "1"); assert.equal(a.status.textContent, "");
+    await h.keyB.fire("click");
+    assert.equal(a.selected.textContent, "Actuation — G6"); assert.equal(a.primary.value, "20"); assert.equal(h.keyB.getAttribute("aria-pressed"), null);
+    h.assignmentMode.fire("click"); await h.keyB.fire("click");
+    assert.equal(h.key.className.includes("lf-keyboard-key-actuation-selected"), false); assert.equal(h.keyB.getAttribute("aria-pressed"), "true");
+});
+
+test("Actuation toggles retain stored values while changing only editability", async function () {
+    const h = toolbarHarness(false, "default", false, true); const a = h.actuation; h.actuationMode.fire("click"); await h.key.fire("click");
+    a.resetEnabled.checked = false; a.resetEnabled.fire("change"); assert.equal(a.reset.disabled, true); assert.equal(a.reset.value, "18");
+    a.resetEnabled.checked = true; a.resetEnabled.fire("change"); assert.equal(a.reset.disabled, false); assert.equal(a.reset.value, "18");
+    a.secondaryEnabled.checked = false; a.secondaryEnabled.fire("change"); assert.equal(a.secondary.disabled, true); assert.equal(a.secondaryReset.disabled, true); assert.equal(a.secondary.value, "30"); assert.equal(a.secondaryReset.value, "29");
+    a.secondaryEnabled.checked = true; a.secondaryEnabled.fire("change"); assert.equal(a.secondary.disabled, false); assert.equal(a.secondaryReset.disabled, false); assert.equal(a.secondary.value, "30"); assert.equal(a.secondaryReset.value, "29");
+});
+
+test("Actuation validation follows only rendered range and relation metadata", function () {
+    const metadata = {minValue: 1, maxValue: 40, secondaryMinimumGap: 4}; const valid = {actuationPoint: 20, actuationResetPoint: 18, enableActuationPointReset: true, enableSecondaryActuationPoint: true, secondaryActuationPoint: 24, secondaryActuationResetPoint: 23};
+    assert.equal(assignments.validateActuationValues(metadata, valid).valid, true);
+    assert.equal(assignments.validateActuationValues(metadata, Object.assign({}, valid, {actuationPoint: 0})).valid, false);
+    assert.equal(assignments.validateActuationValues(metadata, Object.assign({}, valid, {actuationPoint: 41})).valid, false);
+    assert.equal(assignments.validateActuationValues(metadata, Object.assign({}, valid, {actuationResetPoint: 20})).valid, false);
+    assert.equal(assignments.validateActuationValues(metadata, Object.assign({}, valid, {secondaryActuationPoint: 23})).valid, false);
+    assert.equal(assignments.validateActuationValues(metadata, Object.assign({}, valid, {secondaryActuationResetPoint: 24})).valid, false);
+});
+
+async function selectSupportedActuation(h) { h.actuationMode.fire("click"); await h.key.fire("click"); }
+
+test("Actuation saves one selected key through the existing route and refreshes", async function () {
+    const h = toolbarHarness(false, "default", false, true); const a = h.actuation; await selectSupportedActuation(h); await a.save.fire("click");
+    assert.equal(h.posts.length, 1); assert.equal(h.posts[0].url, "/api/keyboard/updateActuation");
+    assert.deepEqual(JSON.parse(h.posts[0].options.body), {deviceId: "k95", keyIndex: 6, actuationAllKeys: false, actuationPoint: 20, actuationResetPoint: 18, enableActuationPointReset: true, enableSecondaryActuationPoint: true, secondaryActuationPoint: 30, secondaryActuationResetPoint: 29});
+    assert.equal(JSON.stringify(h.posts[0].options.body).includes("KeyData"), false); assert.equal(h.browser.reloaded, true);
+});
+
+test("Actuation Apply to all sends one request with the backend-required selected key index", async function () {
+    const h = toolbarHarness(false, "default", false, true); const a = h.actuation; await selectSupportedActuation(h); await a.applyAll.fire("click");
+    assert.equal(h.posts.length, 1); assert.deepEqual(JSON.parse(h.posts[0].options.body), {deviceId: "k95", keyIndex: 6, actuationAllKeys: true, actuationPoint: 20, actuationResetPoint: 18, enableActuationPointReset: true, enableSecondaryActuationPoint: true, secondaryActuationPoint: 30, secondaryActuationResetPoint: 29});
+});
+
+test("Actuation blocks invalid, unselected, and assignments-mode submissions", async function () {
+    const unselected = toolbarHarness(false, "default", false, true); await unselected.actuation.save.fire("click"); assert.equal(unselected.posts.length, 0);
+    const invalid = toolbarHarness(false, "default", false, true); const a = invalid.actuation; await selectSupportedActuation(invalid); a.primary.value = "0"; a.primary.fire("input"); assert.equal(a.save.disabled, true); await a.save.fire("click"); assert.equal(invalid.posts.length, 0);
+    a.primary.value = "20"; a.primary.fire("input"); invalid.assignmentMode.fire("click"); await a.save.fire("click"); assert.equal(invalid.posts.length, 0);
+});
+
+test("Actuation requests lock actions in flight and restore them after completion", async function () {
+    const h = toolbarHarness(false, "default", false, true); const a = h.actuation; await selectSupportedActuation(h); const pending = deferred(); h.browser.fetch = function (url, options) { h.posts.push({url: url, options: options}); return pending.promise; };
+    const saving = a.save.fire("click"); assert.equal(a.save.disabled, true); assert.equal(a.applyAll.disabled, true); await a.applyAll.fire("click"); assert.equal(h.posts.length, 1);
+    pending.resolve({ok: true, json: async function () { return {status: 1}; }}); await saving; assert.equal(a.save.disabled, false); assert.equal(a.applyAll.disabled, false);
+});
+
+test("Actuation request failure preserves local and assignment state", async function () {
+    const h = toolbarHarness(false, "default", false, true); const a = h.actuation; await selectSupportedActuation(h); h.browser.response = {ok: true, json: async function () { return {status: 0}; }}; await a.save.fire("click");
+    assert.equal(a.selected.textContent, "Actuation — G6"); assert.equal(a.primary.value, "20"); assert.equal(h.key.getAttribute("aria-pressed"), null); assert.equal(a.status.textContent, "Couldn’t save key actuation."); assert.equal(a.save.disabled, false); assert.equal(a.applyAll.disabled, false); assert.equal(h.browser.reloaded, undefined);
+});
+
+test("Keyboard interaction mode controller defaults safely and provides an Actuation dispatch seam", function () {
+    const calls = []; const controller = assignments.keyboardModeController();
+    assert.equal(controller.mode(), "assignments");
+    controller.dispatch(4, function (key) { calls.push(["assignment", key]); });
+    controller.set("actuation");
+    controller.dispatch(5, function (key) { calls.push(["assignment", key]); });
+    controller.set("unknown");
+    controller.dispatch(6, function (key) { calls.push(["assignment", key]); });
+    assert.deepEqual(calls, [["assignment", 4], ["assignment", 6]]);
+
+    let actuationKey; const actuation = assignments.keyboardModeController("actuation", function (key) { actuationKey = key; });
+    actuation.dispatch(7, function () { throw new Error("assignment handler must not run"); });
+    assert.equal(actuationKey, 7);
+    assert.equal(actuation.mode(), "actuation");
+});
+
+test("FlashTap mode has exclusive dispatch ownership when the capability callback exists", function () {
+    const calls = []; const controller = assignments.keyboardModeController("assignments", {actuation: function () { calls.push("actuation"); }, flashtap: function (key) { calls.push(["flash", key]); }});
+    controller.set("flashtap"); controller.dispatch(7, function () { calls.push("assignment"); });
+    assert.deepEqual(calls, [["flash", 7]]); assert.equal(controller.mode(), "flashtap");
+    const unavailable = assignments.keyboardModeController(); unavailable.set("flashtap"); assert.equal(unavailable.mode(), "assignments");
+});
+
+test("FlashTap payload preserves explicit slot order and RGB without hardware identity", function () {
+    const state = {active: true, mode: 1, modes: {"0": true, "1": true}, keys: {"4": {eligible: true}, "7": {eligible: true}, "57": {eligible: false}}, slots: [7, 4], color: {red: 17, green: 93, blue: 201}};
+    assert.equal(assignments.validateFlashTapState(state), true);
+    assert.deepEqual(assignments.flashTapPayload("k70", state), {deviceId: "k70", flashTapActive: 1, flashTapMode: 1, flashTapKeys: [7, 4], flashTapColor: {red: 17, green: 93, blue: 201}});
+    assert.equal(JSON.stringify(assignments.flashTapPayload("k70", state)).includes("KeyData"), false);
+    assert.equal(assignments.validateFlashTapState(Object.assign({}, state, {slots: [7, 7]})), false);
+    assert.equal(assignments.validateFlashTapState(Object.assign({}, state, {mode: 3})), false);
+    assert.equal(assignments.validateFlashTapState(Object.assign({}, state, {slots: [57, 4]})), false);
+});
 
 test("Non-assignable RGB positions remain color-selectable without activating assignments", async function () {
     const h = toolbarHarness(false); await h.led.fire("click"); assert.equal(h.led.getAttribute("aria-pressed"), "true"); assert.equal(h.led.getAttribute("data-lf-current-key"), "true"); assert.equal(h.led.style.color, "rgba(170, 187, 204, 1)"); assert.equal(h.nodes["[data-lf-keyboard-color]"].value, "#aabbcc"); h.nodes["[data-lf-keyboard-assignment-open]"].fire("click"); assert.equal(h.nodes["[data-lf-keyboard-editor]"].hidden, true); assert.equal(h.posts.length, 0); assert.equal(h.browser.toastMessage, "Key assignments are not supported for this LED."); assert.equal(h.browser.toastKind, "warning");

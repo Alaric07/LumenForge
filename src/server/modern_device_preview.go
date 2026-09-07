@@ -8,6 +8,7 @@ import (
 	"LumenForge/src/devices/k70luxrgb"
 	"LumenForge/src/devices/k70mk2"
 	"LumenForge/src/devices/k70pro"
+	"LumenForge/src/devices/k70protkl"
 	"LumenForge/src/devices/k70rgbRF"
 	"LumenForge/src/devices/k95"
 	"LumenForge/src/devices/k95platinumXT"
@@ -47,6 +48,7 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "k70-core-modern", Title: "K70 CORE", ProductType: common.ProductTypeK70Core, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70CoreModernPreview},
 	{Key: "k70-core-tkl-modern", Title: "K70 CORE TKL", ProductType: common.ProductTypeK70CoreTkl, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70CoreTKLModernPreview},
 	{Key: "k70-pro-modern", Title: "K70 RGB PRO", ProductType: common.ProductTypeK70Pro, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70ProModernPreview},
+	{Key: "k70-pro-tkl-modern", Title: "K70 RGB PRO TKL", ProductType: common.ProductTypeK70ProTkl, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70ProTKLModernPreview},
 	{Key: "k70-lux-modern", Title: "K70 LUX", ProductType: common.ProductTypeK70LUX, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70LUXModernPreview},
 	{Key: "k70-lux-rgb-modern", Title: "K70 LUX RGB", ProductType: common.ProductTypeK70LUXRgb, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70LUXRGBModernPreview},
 	{Key: "k70-rgb-rf-modern", Title: "K70 RGB RF", ProductType: common.ProductTypeK70RgbRF, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70RGBRFModernPreview},
@@ -125,6 +127,17 @@ func buildK70CoreTKLModernPreview() *devicesWorkspaceSummary {
 }
 func buildK70ProModernPreview() *devicesWorkspaceSummary {
 	return buildK70ProModernWorkspacePreview("preview-k70-pro-modern", "K70 RGB PRO", common.ProductTypeK70Pro, "k70pro-default-US", "keyboard-7", "keyboard-row-25")
+}
+func buildK70ProTKLModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k70-pro-tkl-modern"
+	keyboard := keyboards.GetKeyboard("k70protkl-default-US")
+	profile := &k70protkl.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 4, DisableWinKey: true, DisableAltTab: true}
+	device := &k70protkl.Device{Serial: serial, UIKeyboard: "keyboard-6", UIKeyboardRow: "keyboard-row-20", Layouts: []string{"US"}, KeyAssignmentTypes: k70ModernPreviewAssignmentTypes(), PollingRates: map[int]string{1: "125 Hz / 8 msec", 2: "250 Hz / 4 msec", 3: "500 Hz / 2 msec", 4: "1000 Hz / 1 msec", 5: "2000 Hz / 0.5 msec", 6: "4000 Hz / 0.25 msec", 7: "8000 Hz / 0.125 msec"}, DeviceProfile: profile, UserProfiles: map[string]*k70protkl.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K70 RGB PRO TKL", ProductType: common.ProductTypeK70ProTkl, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.KeyActuation = &devicesKeyActuationWorkspaceSummary{Supported: true, MinValue: 1, MaxValue: 40, SecondaryMinimumGap: 4, Keys: []devicesKeyActuationKeySummary{{KeyIndex: 4, KeyName: "A", Supported: true, ActuationPoint: 20, ActuationResetPoint: 18, EnableActuationPointReset: true, EnableSecondaryActuationPoint: true, SecondaryActuationPoint: 30, SecondaryActuationResetPoint: 29}, {KeyIndex: 57, KeyName: "Fn", Supported: false}}}
+	summary.FlashTap = &devicesFlashTapWorkspaceSummary{Supported: true, Active: true, Mode: 1, Modes: []devicesFlashTapOptionSummary{{Value: 0, Label: "Neutral"}, {Value: 1, Label: "Last Priority"}, {Value: 2, Label: "First Priority"}}, Keys: []devicesFlashTapKeySummary{{KeyIndex: 4, KeyName: "A", Eligible: true, Selected: true}, {KeyIndex: 7, KeyName: "D", Eligible: true, Selected: true}, {KeyIndex: 57, KeyName: "Fn", Eligible: false}}, SelectedSlots: []devicesFlashTapSelectedSlotSummary{{SlotIndex: 0, KeyIndex: 7}, {SlotIndex: 1, KeyIndex: 4}}, Color: devicesFlashTapColorSummary{Red: 17, Green: 93, Blue: 201}}
+	summary.LegacyLighting = true
+	return summary
 }
 func buildK70CorePreview(serial, product string, typ uint16, layout, ui, row string) *devicesWorkspaceSummary {
 	k := keyboards.GetKeyboard(layout)

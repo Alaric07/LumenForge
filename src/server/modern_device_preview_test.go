@@ -167,6 +167,34 @@ func TestK95ModernDevicePreviewsRenderKeyboardPerformanceAndProfilesWithoutRegis
 	}
 }
 
+func TestK70ProTKLModernPreviewProvidesCompleteAdvancedKeyboardWorkspaceWithoutRegistration(t *testing.T) {
+	const serial = "preview-k70-pro-tkl-modern"
+	if devices.GetDevice(serial) != nil {
+		t.Fatalf("fixture serial %q unexpectedly registered", serial)
+	}
+	fixture, ok := modernDevicePreviewFixtureByKey("k70-pro-tkl-modern")
+	if !ok || fixture.ProductType != common.ProductTypeK70ProTkl || fixture.Title != "K70 RGB PRO TKL" {
+		t.Fatalf("fixture=%#v ok=%t", fixture, ok)
+	}
+	summary := fixture.Build()
+	if summary.KeyboardAssignments == nil || summary.KeyboardAssignments.LayoutClass != "keyboard-6" || summary.KeyboardAssignments.RowLayoutClass != "keyboard-row-20" || len(summary.KeyboardAssignments.Rows) != 6 || summary.Performance == nil || summary.DeviceProfiles == nil || !summary.LegacyLighting {
+		t.Fatalf("summary=%#v", summary)
+	}
+	keyCount := 0
+	for _, row := range summary.KeyboardAssignments.Rows {
+		keyCount += len(row.Keys)
+	}
+	if keyCount != 86 || summary.KeyActuation == nil || len(summary.KeyActuation.Keys) != 2 || !summary.KeyActuation.Keys[0].Supported || summary.KeyActuation.Keys[1].Supported || summary.KeyActuation.Keys[0].SecondaryActuationPoint != 30 {
+		t.Fatalf("keyboard=%#v actuation=%#v", summary.KeyboardAssignments, summary.KeyActuation)
+	}
+	if summary.FlashTap == nil || !summary.FlashTap.Active || summary.FlashTap.Mode != 1 || len(summary.FlashTap.Modes) != 3 || len(summary.FlashTap.SelectedSlots) != 2 || summary.FlashTap.SelectedSlots[0].KeyIndex != 7 || summary.FlashTap.SelectedSlots[1].KeyIndex != 4 || summary.FlashTap.Color != (devicesFlashTapColorSummary{Red: 17, Green: 93, Blue: 201}) {
+		t.Fatalf("flashTap=%#v", summary.FlashTap)
+	}
+	if devices.GetDevice(serial) != nil {
+		t.Fatal("preview fixture registered hardware")
+	}
+}
+
 func TestCommanderProModernDevicePreviewRendersFixtureWithoutRegistration(t *testing.T) {
 	router := legacyDevicePreviewRouter(t, true)
 	const serial = "preview-commander-pro-modern"

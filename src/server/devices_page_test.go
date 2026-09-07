@@ -9,6 +9,8 @@ import (
 	"LumenForge/src/devices/openrgbimport"
 	"LumenForge/src/displaypresentation"
 	"LumenForge/src/dpipresentation"
+	"LumenForge/src/flashtappresentation"
+	"LumenForge/src/keyactuationpresentation"
 	"LumenForge/src/keyboardassignmentspresentation"
 	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/memorypresentation"
@@ -19,6 +21,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -31,6 +34,63 @@ import (
 )
 
 const devicesPageHelperEnvironment = "LUMENFORGE_DEVICES_PAGE_TEST_HELPER"
+
+func TestAdvancedKeyboardWorkspaceSnapshotConversionsFailClosed(t *testing.T) {
+	actuation := keyactuationpresentation.Snapshot{Supported: true, MinValue: 1, MaxValue: 40, SecondaryMinimumGap: 4, Keys: []keyactuationpresentation.Key{{KeyIndex: 4, KeyName: "A", Supported: true, ActuationPoint: 20, ActuationResetPoint: 19, EnableActuationPointReset: true, EnableSecondaryActuationPoint: true, SecondaryActuationPoint: 35, SecondaryActuationResetPoint: 34}, {KeyIndex: 57, KeyName: "Fn", Supported: false}}}
+	if got := devicesKeyActuationWorkspaceSummaryFromSnapshot(actuation); got == nil || len(got.Keys) != 2 || !got.Keys[0].Supported || got.Keys[1].Supported || got.Keys[0].SecondaryActuationPoint != 35 {
+		t.Fatalf("actuation=%#v", got)
+	}
+	for _, bad := range []keyactuationpresentation.Snapshot{{}, {Supported: true, MinValue: 0, MaxValue: 40, SecondaryMinimumGap: 4, Keys: actuation.Keys}, {Supported: true, MinValue: 2, MaxValue: 1, SecondaryMinimumGap: 4, Keys: actuation.Keys}, {Supported: true, MinValue: 1, MaxValue: 40, SecondaryMinimumGap: 0, Keys: actuation.Keys}, {Supported: true, MinValue: 1, MaxValue: 40, SecondaryMinimumGap: 4}, {Supported: true, MinValue: 1, MaxValue: 40, SecondaryMinimumGap: 4, Keys: []keyactuationpresentation.Key{{KeyIndex: 1, KeyName: "A", Supported: true, ActuationPoint: 20, ActuationResetPoint: 20}}}} {
+		if got := devicesKeyActuationWorkspaceSummaryFromSnapshot(bad); got != nil {
+			t.Fatalf("accepted=%#v", got)
+		}
+	}
+	flash := flashtappresentation.Snapshot{Supported: true, Active: true, Mode: 1, Modes: []flashtappresentation.Option{{Value: 0, Label: "Neutral"}, {Value: 1, Label: "Last"}}, Keys: []flashtappresentation.Key{{KeyIndex: 4, KeyName: "A", Eligible: true, Selected: true}, {KeyIndex: 7, KeyName: "D", Eligible: true, Selected: true}, {KeyIndex: 57, KeyName: "Fn", Eligible: false}}, SelectedSlots: []flashtappresentation.SelectedSlot{{SlotIndex: 0, KeyIndex: 7}, {SlotIndex: 1, KeyIndex: 4}}, Color: flashtappresentation.Color{Red: 17, Green: 93, Blue: 201}}
+	if got := devicesFlashTapWorkspaceSummaryFromSnapshot(flash); got == nil || !got.Active || got.Keys[0].KeyIndex != 4 || !got.Keys[0].Selected || len(got.SelectedSlots) != 2 || got.SelectedSlots[0].KeyIndex != 7 || got.SelectedSlots[1].KeyIndex != 4 || got.Color != (devicesFlashTapColorSummary{Red: 17, Green: 93, Blue: 201}) {
+		t.Fatalf("flash=%#v", got)
+	}
+	for _, bad := range []flashtappresentation.Snapshot{{}, {Supported: true, Mode: 1, Keys: flash.Keys}, {Supported: true, Mode: 1, Modes: []flashtappresentation.Option{{Value: 1, Label: ""}}, Keys: flash.Keys}, {Supported: true, Mode: 2, Modes: flash.Modes, Keys: flash.Keys}, {Supported: true, Mode: 1, Modes: flash.Modes, Keys: flash.Keys, SelectedSlots: flash.SelectedSlots, Color: flashtappresentation.Color{Red: math.NaN()}}, {Supported: true, Mode: 1, Modes: flash.Modes, Keys: []flashtappresentation.Key{{KeyIndex: 4, KeyName: "A", Eligible: false, Selected: true}}, SelectedSlots: flash.SelectedSlots}, {Supported: true, Mode: 1, Modes: flash.Modes, Keys: append(flash.Keys, flashtappresentation.Key{KeyIndex: 8, KeyName: "E", Eligible: true, Selected: true}), SelectedSlots: flash.SelectedSlots}, {Supported: true, Mode: 1, Modes: flash.Modes, Keys: flash.Keys, SelectedSlots: []flashtappresentation.SelectedSlot{{SlotIndex: 0, KeyIndex: 7}, {SlotIndex: 1, KeyIndex: 7}}}, {Supported: true, Mode: 1, Modes: flash.Modes, Keys: flash.Keys, SelectedSlots: []flashtappresentation.SelectedSlot{{SlotIndex: 0, KeyIndex: 7}, {SlotIndex: 1, KeyIndex: 99}}}} {
+		if got := devicesFlashTapWorkspaceSummaryFromSnapshot(bad); got != nil {
+			t.Fatalf("accepted=%#v", got)
+		}
+	}
+}
+
+func TestKeyboardWorkspaceOptionalAdvancedMarkup(t *testing.T) {
+	base := &devicesWorkspaceSummary{Serial: "keyboard", Product: "Keyboard", View: "keyboard", KeyboardAssignments: &devicesKeyboardAssignmentsWorkspaceSummary{Profiles: []string{"default"}, ActiveProfile: "default", Rows: []devicesKeyboardAssignmentRowSummary{{Keys: []devicesKeyboardAssignmentKeySummary{{KeyIndex: 1, KeyName: "A", Width: 1, Height: 1}}}}, AssignmentTypes: []devicesKeyboardAssignmentTypeSummary{{ID: 0, Label: "None"}}}}
+	actuation := &devicesKeyActuationWorkspaceSummary{Supported: true, MinValue: 1, MaxValue: 40, SecondaryMinimumGap: 4, Keys: []devicesKeyActuationKeySummary{{KeyIndex: 4, KeyName: "A", Supported: true, ActuationPoint: 20, ActuationResetPoint: 19, EnableActuationPointReset: true, EnableSecondaryActuationPoint: true, SecondaryActuationPoint: 35, SecondaryActuationResetPoint: 34}, {KeyIndex: 57, KeyName: "Fn", Supported: false}}}
+	flashTap := &devicesFlashTapWorkspaceSummary{Supported: true, Active: true, Mode: 1, Modes: []devicesFlashTapOptionSummary{{Value: 0, Label: "Neutral"}, {Value: 1, Label: "Last Priority"}}, Keys: []devicesFlashTapKeySummary{{KeyIndex: 4, KeyName: "A", Eligible: true, Selected: true}, {KeyIndex: 7, KeyName: "D", Eligible: true, Selected: true}, {KeyIndex: 57, KeyName: "Fn", Eligible: false}}, SelectedSlots: []devicesFlashTapSelectedSlotSummary{{SlotIndex: 0, KeyIndex: 7}, {SlotIndex: 1, KeyIndex: 4}}, Color: devicesFlashTapColorSummary{Red: 17, Green: 93, Blue: 201}}
+	for _, tc := range []struct {
+		name         string
+		actuation    *devicesKeyActuationWorkspaceSummary
+		flash        *devicesFlashTapWorkspaceSummary
+		want, absent []string
+	}{{"neither", nil, nil, []string{"data-lf-keyboard-assignments-workspace", "data-lf-keyboard-mode=\"assignments\""}, []string{"data-lf-key-actuation-workspace", "data-lf-flash-tap-workspace", "data-lf-keyboard-mode=\"actuation\"", "data-lf-keyboard-mode=\"flashtap\""}}, {"actuation", actuation, nil, []string{"data-lf-key-actuation-workspace", "data-lf-keyboard-mode=\"assignments\"", "data-lf-keyboard-mode=\"actuation\"", "data-lf-min-value=\"1\"", "data-lf-max-value=\"40\"", "data-lf-secondary-minimum-gap=\"4\"", "data-lf-key-index=\"4\"", "data-lf-supported=\"1\"", "data-lf-supported=\"0\"", "data-lf-actuation-point=\"20\"", "data-lf-secondary-actuation-reset-point=\"34\"", "data-lf-key-actuation-apply-all", "disabled"}, []string{"data-lf-flash-tap-workspace", "data-lf-keyboard-mode=\"flashtap\""}}, {"flash", nil, flashTap, []string{"data-lf-flash-tap-workspace", "data-lf-keyboard-mode=\"flashtap\"", "data-lf-flash-tap-active checked", "option value=\"1\" selected>Last Priority", "data-lf-key-index=\"4\"", "data-lf-eligible=\"1\"", "data-lf-selected=\"1\"", "data-lf-eligible=\"0\"", "data-lf-flash-tap-slot", "data-lf-slot-index=\"0\"", "data-lf-key-index=\"7\"", "data-lf-flash-tap-color-red=\"17\"", "data-lf-flash-tap-color-green=\"93\"", "data-lf-flash-tap-color-blue=\"201\"", "data-lf-flash-tap-save"}, []string{"data-lf-key-actuation-workspace", "data-lf-keyboard-mode=\"actuation\"", "data-lf-flash-tap-mode disabled"}}, {"both", actuation, flashTap, []string{"data-lf-keyboard-assignments-workspace", "data-lf-keyboard-mode=\"assignments\"", "data-lf-keyboard-mode=\"actuation\"", "data-lf-keyboard-mode=\"flashtap\"", "data-lf-key-actuation-workspace", "data-lf-flash-tap-workspace"}, nil}} {
+		t.Run(tc.name, func(t *testing.T) {
+			d := *base
+			d.KeyActuation = tc.actuation
+			d.FlashTap = tc.flash
+			var rendered bytes.Buffer
+			if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Device: &d, Devices: map[string]*common.Device{}, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+				t.Fatal(err)
+			}
+			body := rendered.String()
+			for _, want := range tc.want {
+				if !strings.Contains(body, want) {
+					t.Errorf("missing %q", want)
+				}
+			}
+			for _, absent := range tc.absent {
+				if strings.Contains(body, absent) {
+					t.Errorf("unexpected %q", absent)
+				}
+			}
+			if (tc.actuation != nil || tc.flash != nil) && strings.Contains(body, "KeyData") {
+				t.Error("advanced markup exposed KeyData")
+			}
+		})
+	}
+}
 
 type devicesPageLightingSnapshotProvider struct {
 	serial   string
@@ -72,6 +132,40 @@ type devicesPageCoolingSnapshotProvider struct {
 type devicesPageDisplaySnapshotProvider struct {
 	serial   string
 	snapshot displaypresentation.Snapshot
+}
+
+type devicesPageAdvancedSnapshotProvider struct {
+	serial                    string
+	actuation                 keyactuationpresentation.Snapshot
+	flashTap                  flashtappresentation.Snapshot
+	hasActuation, hasFlashTap bool
+}
+
+func (p devicesPageAdvancedSnapshotProvider) KeyActuationDeviceID() string { return p.serial }
+func (p devicesPageAdvancedSnapshotProvider) KeyActuationSnapshot() (keyactuationpresentation.Snapshot, bool) {
+	return p.actuation, p.hasActuation
+}
+func (p devicesPageAdvancedSnapshotProvider) FlashTapDeviceID() string { return p.serial }
+func (p devicesPageAdvancedSnapshotProvider) FlashTapSnapshot() (flashtappresentation.Snapshot, bool) {
+	return p.flashTap, p.hasFlashTap
+}
+
+func TestDevicesWorkspaceAdvancedCapabilityAssemblyMatrix(t *testing.T) {
+	const serial = "advanced-keyboard"
+	validActuation := keyactuationpresentation.Snapshot{Supported: true, MinValue: 1, MaxValue: 40, SecondaryMinimumGap: 4, Keys: []keyactuationpresentation.Key{{KeyIndex: 4, KeyName: "A", Supported: true, ActuationPoint: 20, ActuationResetPoint: 19}}}
+	validFlashTap := flashtappresentation.Snapshot{Supported: true, Mode: 1, Modes: []flashtappresentation.Option{{Value: 1, Label: "Last"}}, Keys: []flashtappresentation.Key{{KeyIndex: 4, KeyName: "A", Eligible: true, Selected: true}, {KeyIndex: 7, KeyName: "D", Eligible: true, Selected: true}}, SelectedSlots: []flashtappresentation.SelectedSlot{{SlotIndex: 0, KeyIndex: 4}, {SlotIndex: 1, KeyIndex: 7}}}
+	for _, tc := range []struct {
+		name             string
+		instance         interface{}
+		actuation, flash bool
+	}{{"neither", struct{}{}, false, false}, {"actuation", devicesPageAdvancedSnapshotProvider{serial: serial, actuation: validActuation, hasActuation: true}, true, false}, {"flashTap", devicesPageAdvancedSnapshotProvider{serial: serial, flashTap: validFlashTap, hasFlashTap: true}, false, true}, {"both", devicesPageAdvancedSnapshotProvider{serial: serial, actuation: validActuation, flashTap: validFlashTap, hasActuation: true, hasFlashTap: true}, true, true}, {"bad actuation", devicesPageAdvancedSnapshotProvider{serial: serial, actuation: keyactuationpresentation.Snapshot{}, flashTap: validFlashTap, hasActuation: true, hasFlashTap: true}, false, true}, {"bad flashTap", devicesPageAdvancedSnapshotProvider{serial: serial, actuation: validActuation, flashTap: flashtappresentation.Snapshot{}, hasActuation: true, hasFlashTap: true}, true, false}, {"both bad", devicesPageAdvancedSnapshotProvider{serial: serial, actuation: keyactuationpresentation.Snapshot{}, flashTap: flashtappresentation.Snapshot{}, hasActuation: true, hasFlashTap: true}, false, false}} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "Keyboard", Instance: tc.instance}}, map[string]stats.BatteryStats{}, serial)
+			if !ok || (s.KeyActuation != nil) != tc.actuation || (s.FlashTap != nil) != tc.flash {
+				t.Fatalf("summary=%#v ok=%t", s, ok)
+			}
+		})
+	}
 }
 
 func (provider devicesPageDisplaySnapshotProvider) DisplayDeviceID() string { return provider.serial }
