@@ -197,6 +197,10 @@ func TestWirelessMouseFamilyModernPreviewsRenderWithoutRegistration(t *testing.T
 		{"m55-wireless-modern", "preview-m55-wireless-modern", "M55 WIRELESS", "Right Forward", false, false},
 		{"nightsabre-wireless-modern", "preview-nightsabre-wireless-modern", "NIGHTSABRE WIRELESS", "Right Forward", true, true},
 		{"sabre-rgb-pro-wireless-modern", "preview-sabre-rgb-pro-wireless-modern", "SABRE RGB PRO WIRELESS", "Right Forward", true, true},
+		{"ironclaw-wireless-modern", "preview-ironclaw-wireless-modern", "IRONCLAW WIRELESS", "Right Forward", false, false},
+		{"ironclaw-wireless-se-modern", "preview-ironclaw-wireless-se-modern", "IRONCLAW WIRELESS SE", "Right Forward", false, true},
+		{"scimitar-rgb-elite-wireless-modern", "preview-scimitar-rgb-elite-wireless-modern", "SCIMITAR RGB ELITE WIRELESS", "Right Forward", false, true},
+		{"scimitar-elite-wireless-se-modern", "preview-scimitar-elite-wireless-se-modern", "SCIMITAR ELITE WIRELESS SE", "Right Forward", false, true},
 	} {
 		if devices.GetDevice(test.serial) != nil {
 			t.Fatalf("fixture serial %q unexpectedly exists", test.serial)
