@@ -2,6 +2,10 @@ package server
 
 import (
 	"LumenForge/src/common"
+	"LumenForge/src/devices/k70lux"
+	"LumenForge/src/devices/k70luxrgb"
+	"LumenForge/src/devices/k70mk2"
+	"LumenForge/src/devices/k70rgbRF"
 	"LumenForge/src/devices/k95"
 	"LumenForge/src/devices/k95platinumXT"
 	"LumenForge/src/keyboards"
@@ -37,6 +41,10 @@ type modernDevicePreviewNavigation struct {
 }
 
 var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
+	{Key: "k70-lux-modern", Title: "K70 LUX", ProductType: common.ProductTypeK70LUX, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70LUXModernPreview},
+	{Key: "k70-lux-rgb-modern", Title: "K70 LUX RGB", ProductType: common.ProductTypeK70LUXRgb, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70LUXRGBModernPreview},
+	{Key: "k70-rgb-rf-modern", Title: "K70 RGB RF", ProductType: common.ProductTypeK70RgbRF, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70RGBRFModernPreview},
+	{Key: "k70-mk2-modern", Title: "K70 MK2", ProductType: common.ProductTypeK70MK2, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70MK2ModernPreview},
 	{Key: "k95-modern", Title: "K95", ProductType: common.ProductTypeK95, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK95ModernPreview},
 	{Key: "k95-platinum-xt-modern", Title: "K95 PLATINUM XT", ProductType: common.ProductTypeK95PlatinumXT, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK95PlatinumXTModernPreview},
 	{Key: "commander-duo-modern", Title: "Commander Duo", ProductType: common.ProductTypeCCXT, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: buildCommanderDuoModernPreview},
@@ -101,6 +109,50 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "scimitar-elite-modern", Title: "SCIMITAR ELITE", ProductType: common.ProductTypeScimitarRgbElite, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildScimitarEliteModernPreview},
 	{Key: "katar-pro-modern", Title: "Katar Pro", ProductType: common.ProductTypeKatarPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProModernPreview},
 	{Key: "katar-pro-xt-modern", Title: "Katar Pro XT", ProductType: common.ProductTypeKatarProXT, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProXTModernPreview},
+}
+
+func buildK70LUXModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k70-lux-modern"
+	keyboard := keyboards.GetKeyboard("k70lux-default-US")
+	profile := &k70lux.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 1, DisableWinKey: true, DisableAltTab: true}
+	device := &k70lux.Device{Serial: serial, UIKeyboard: "keyboard-7", UIKeyboardRow: "keyboard-row-25", Layouts: []string{"US"}, KeyAssignmentTypes: k70ModernPreviewAssignmentTypes(), PollingRates: map[int]string{0: "Not Set", 1: "1000 Hz / 1 msec", 2: "500 Hz / 2 msec", 4: "250 Hz / 4 msec", 8: "125 Hz / 8 msec"}, DeviceProfile: profile, UserProfiles: map[string]*k70lux.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K70 LUX", ProductType: common.ProductTypeK70LUX, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func buildK70LUXRGBModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k70-lux-rgb-modern"
+	keyboard := keyboards.GetKeyboard("k70luxrgb-default-US")
+	profile := &k70luxrgb.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 1, DisableWinKey: true, DisableAltTab: true}
+	device := &k70luxrgb.Device{Serial: serial, UIKeyboard: "keyboard-7", UIKeyboardRow: "keyboard-row-25", Layouts: []string{"US"}, KeyAssignmentTypes: k70ModernPreviewAssignmentTypes(), PollingRates: map[int]string{0: "Not Set", 1: "1000 Hz / 1 msec", 2: "500 Hz / 2 msec", 4: "250 Hz / 4 msec", 8: "125 Hz / 8 msec"}, DeviceProfile: profile, UserProfiles: map[string]*k70luxrgb.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K70 LUX RGB", ProductType: common.ProductTypeK70LUXRgb, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func buildK70RGBRFModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k70-rgb-rf-modern"
+	keyboard := keyboards.GetKeyboard("k70rgbRF-default-US")
+	profile := &k70rgbRF.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 1, DisableWinKey: true, DisableAltTab: true}
+	device := &k70rgbRF.Device{Serial: serial, UIKeyboard: "keyboard-7", UIKeyboardRow: "keyboard-row-25", Layouts: []string{"US"}, KeyAssignmentTypes: k70ModernPreviewAssignmentTypes(), PollingRates: map[int]string{0: "Not Set", 1: "1000 Hz / 1 msec", 2: "500 Hz / 2 msec", 4: "250 Hz / 4 msec", 8: "125 Hz / 8 msec"}, DeviceProfile: profile, UserProfiles: map[string]*k70rgbRF.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K70 RGB RF", ProductType: common.ProductTypeK70RgbRF, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func buildK70MK2ModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k70-mk2-modern"
+	keyboard := keyboards.GetKeyboard("k70mk2-default-US")
+	profile := &k70mk2.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 1, DisableWinKey: true, DisableAltTab: true}
+	device := &k70mk2.Device{Serial: serial, UIKeyboard: "keyboard-7", UIKeyboardRow: "keyboard-row-25", Layouts: []string{"US"}, KeyAssignmentTypes: k70ModernPreviewAssignmentTypes(), PollingRates: map[int]string{0: "Not Set", 1: "1000 Hz / 1 msec", 2: "500 Hz / 2 msec", 4: "250 Hz / 4 msec", 8: "125 Hz / 8 msec"}, DeviceProfile: profile, UserProfiles: map[string]*k70mk2.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K70 MK2", ProductType: common.ProductTypeK70MK2, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func k70ModernPreviewAssignmentTypes() map[int]string {
+	return map[int]string{0: "None", 1: "Media Keys", 3: "Keyboard", 8: "Sniper", 9: "Mouse", 10: "Macro", 13: "Scroll Up", 14: "Scroll Down", 15: "Zoom In", 16: "Zoom Out", 17: "Screen Brightness +", 18: "Screen Brightness -"}
 }
 
 func buildK95ModernPreview() *devicesWorkspaceSummary {

@@ -113,11 +113,15 @@ func TestK95ModernDevicePreviewsRenderKeyboardPerformanceAndProfilesWithoutRegis
 	router := legacyDevicePreviewRouter(t, true)
 	keyboards.Init()
 	for _, fixture := range []struct {
-		key, serial, geometry, rowGeometry, polling string
-		rows, keys                                  int
+		key, serial, geometry, rowGeometry, polling, special string
+		rows, keys                                           int
 	}{
-		{"k95-modern", "preview-k95-modern", "keyboard-7", "keyboard-row-27", "1000 Hz / 1 msec", 7, 135},
-		{"k95-platinum-xt-modern", "preview-k95-platinum-xt-modern", "keyboard-8", "keyboard-row-26", "1000 Hz / 1 msec", 8, 139},
+		{"k70-lux-modern", "preview-k70-lux-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", "BTS", 7, 113},
+		{"k70-lux-rgb-modern", "preview-k70-lux-rgb-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", "BTS", 7, 113},
+		{"k70-rgb-rf-modern", "preview-k70-rgb-rf-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", "BTS", 7, 113},
+		{"k70-mk2-modern", "preview-k70-mk2-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", "BTS", 7, 116},
+		{"k95-modern", "preview-k95-modern", "keyboard-7", "keyboard-row-27", "1000 Hz / 1 msec", "G1", 7, 135},
+		{"k95-platinum-xt-modern", "preview-k95-platinum-xt-modern", "keyboard-8", "keyboard-row-26", "1000 Hz / 1 msec", "G1", 8, 139},
 	} {
 		if devices.GetDevice(fixture.serial) != nil {
 			t.Fatalf("fixture serial %q unexpectedly registered", fixture.serial)
@@ -138,7 +142,7 @@ func TestK95ModernDevicePreviewsRenderKeyboardPerformanceAndProfilesWithoutRegis
 				keyNames[key.KeyName] = true
 			}
 		}
-		if keyCount != fixture.keys || !keyNames["A"] || !keyNames["G1"] || !keyNames["Play"] {
+		if keyCount != fixture.keys || !keyNames["A"] || !keyNames[fixture.special] || !keyNames["Play"] {
 			t.Fatalf("%s keyboard rows=%d keys=%d names=%#v", fixture.key, len(summary.KeyboardAssignments.Rows), keyCount, keyNames)
 		}
 		recorder := httptest.NewRecorder()
@@ -147,7 +151,7 @@ func TestK95ModernDevicePreviewsRenderKeyboardPerformanceAndProfilesWithoutRegis
 			t.Fatalf("%s status = %d: %s", fixture.key, recorder.Code, recorder.Body.String())
 		}
 		body := recorder.Body.String()
-		for _, expected := range []string{"A", "G1", "Play", fixture.geometry, fixture.polling, "Disable Win Key", "perf_shiftTab", "perf_altTab", "perf_altF4"} {
+		for _, expected := range []string{"A", fixture.special, "Play", fixture.geometry, fixture.polling, "Disable Win Key", "perf_shiftTab", "perf_altTab", "perf_altF4"} {
 			if !strings.Contains(body, expected) {
 				t.Errorf("%s preview omitted %q", fixture.key, expected)
 			}
