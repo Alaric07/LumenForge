@@ -254,8 +254,9 @@ func TestDevicesWorkspaceKeyboardPresentationAndView(t *testing.T) {
 		LiveRGBAvailable: true, LiveRGBEnabled: true,
 		Profiles: []string{"default"}, ActiveProfile: "default", KeyboardLayouts: []string{"US", "UK"}, ActiveKeyboardLayout: "US",
 		LayoutClass: "keyboard-8", RowLayoutClass: "keyboard-row-26",
-		Rows:            []keyboardassignmentspresentation.Row{{Index: 0, CSS: "keyboard-row-26", Keys: []keyboardassignmentspresentation.Key{{KeyIndex: 11, KeyName: "G1", Width: 1, Height: 1, KeySpace: "keyboard-key wide3", CSS: "top-32", Spacing: []int{0}, KeyEmpty: []string{"keyboard-key-empty"}, Assignable: true, Red: 12.5, Green: 34, Blue: 56}, {KeyIndex: 12, KeyName: "M1", Width: 1, Height: 1, Assignable: false, Red: 0, Green: 255, Blue: 255}}}},
+		Rows:            []keyboardassignmentspresentation.Row{{Index: 0, CSS: "keyboard-row-26", Keys: []keyboardassignmentspresentation.Key{{KeyIndex: 11, KeyName: "G1", Width: 1, Height: 1, KeySpace: "keyboard-key wide3", CSS: "top-32", Spacing: []int{0}, KeyEmpty: []string{"keyboard-key-empty"}, Assignable: true, ModifierKey: 13, RetainOriginal: true, Red: 12.5, Green: 34, Blue: 56}, {KeyIndex: 12, KeyName: "M1", Width: 1, Height: 1, Assignable: false, Red: 0, Green: 255, Blue: 255}}}},
 		AssignmentTypes: []keyboardassignmentspresentation.AssignmentType{{ID: 0, Label: "None"}, {ID: 10, Label: "Macro"}},
+		ModifierOptions: []keyboardassignmentspresentation.ModifierOption{{ID: 0, Label: "None"}, {ID: 13, Label: "Fn"}},
 	}
 	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "Keyboard", Instance: devicesPageKeyboardAssignmentsSnapshotProvider{serial: serial, snapshot: snapshot}}}, map[string]stats.BatteryStats{}, serial)
 	if !ok || summary.KeyboardAssignments == nil {
@@ -263,6 +264,9 @@ func TestDevicesWorkspaceKeyboardPresentationAndView(t *testing.T) {
 	}
 	if got := summary.KeyboardAssignments.Rows[0].Keys; got[0].KeyIndex != 11 || got[0].KeySpace != "keyboard-key wide3" || len(got[0].Spacing) != 1 || len(got[0].KeyEmpty) != 1 || !got[0].Assignable || got[1].Assignable {
 		t.Errorf("presented keys = %#v", got)
+	}
+	if got := summary.KeyboardAssignments; len(got.ModifierOptions) != 2 || got.ModifierOptions[1].ID != 13 || got.Rows[0].Keys[0].ModifierKey != 13 || !got.Rows[0].Keys[0].RetainOriginal {
+		t.Errorf("modifier summary = %#v", got)
 	}
 	if got := devicesWorkspaceView([]string{"keyboard"}, summary); got != "keyboard" {
 		t.Errorf("view = %q", got)
@@ -279,7 +283,7 @@ func TestDevicesWorkspaceKeyboardPresentationAndView(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := rendered.String()
-	for _, expected := range []string{"data-lf-keyboard-assignments-workspace", "data-lf-keyboard-key", "data-lf-keyboard-color-key", "data-lf-keyboard-editor", "data-lf-keyboard-assignment-close", "keyboard-8", "keyboard-row-26", "keyboard-key wide3", "keyboard-key-empty", "Macro", `data-lf-key-red="12.5"`, `data-lf-normal-color="rgba(12.5, 34, 56, 1)"`} {
+	for _, expected := range []string{"data-lf-keyboard-assignments-workspace", "data-lf-keyboard-key", "data-lf-keyboard-color-key", "data-lf-keyboard-editor", "data-lf-keyboard-assignment-close", "data-lf-keyboard-modifier", "data-lf-keyboard-retain-original", `data-lf-modifier-key="13"`, `data-lf-retain-original="1"`, "keyboard-8", "keyboard-row-26", "keyboard-key wide3", "keyboard-key-empty", "Macro", `data-lf-key-red="12.5"`, `data-lf-normal-color="rgba(12.5, 34, 56, 1)"`} {
 		if !strings.Contains(body, expected) {
 			t.Errorf("missing %q", expected)
 		}
@@ -340,6 +344,34 @@ func TestDevicesWorkspaceKeyboardPresentationAndView(t *testing.T) {
 	for _, obsolete := range []string{"flex: var(--lf-key-width)", "margin-left: calc(var(--lf-key-left)", "top: calc(var(--lf-key-top)"} {
 		if strings.Contains(string(styles), obsolete) {
 			t.Errorf("keyboard grid CSS retained raw layout %q", obsolete)
+		}
+	}
+}
+
+func TestDevicesKeyboardAssignmentsRejectMalformedModifierPresentation(t *testing.T) {
+	valid := keyboardassignmentspresentation.Snapshot{Available: true, Profiles: []string{"default"}, ActiveProfile: "default", Rows: []keyboardassignmentspresentation.Row{{Keys: []keyboardassignmentspresentation.Key{{KeyIndex: 1, KeyName: "A", Width: 1, Height: 1, ModifierKey: 2}}}}, AssignmentTypes: []keyboardassignmentspresentation.AssignmentType{{ID: 0, Label: "None"}}, ModifierOptions: []keyboardassignmentspresentation.ModifierOption{{ID: 0, Label: "None"}, {ID: 2, Label: "Shift"}}}
+	if devicesKeyboardAssignmentsWorkspaceSummaryFromSnapshot(valid) == nil {
+		t.Fatal("valid modifier presentation rejected")
+	}
+	for _, malformed := range []keyboardassignmentspresentation.Snapshot{
+		func() keyboardassignmentspresentation.Snapshot {
+			s := valid
+			s.ModifierOptions = []keyboardassignmentspresentation.ModifierOption{{ID: 0, Label: ""}}
+			return s
+		}(),
+		func() keyboardassignmentspresentation.Snapshot {
+			s := valid
+			s.ModifierOptions = []keyboardassignmentspresentation.ModifierOption{{ID: 0, Label: "None"}, {ID: 0, Label: "Duplicate"}}
+			return s
+		}(),
+		func() keyboardassignmentspresentation.Snapshot {
+			s := valid
+			s.Rows[0].Keys[0].ModifierKey = 7
+			return s
+		}(),
+	} {
+		if devicesKeyboardAssignmentsWorkspaceSummaryFromSnapshot(malformed) != nil {
+			t.Fatalf("malformed modifier presentation accepted: %#v", malformed)
 		}
 	}
 }

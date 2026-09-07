@@ -48,7 +48,7 @@ func (d *Device) KeyboardAssignmentsSnapshot() (keyboardassignmentspresentation.
 			if x.NoColor {
 				red, green, blue = 255, 255, 255
 			}
-			pr.Keys = append(pr.Keys, keyboardassignmentspresentation.Key{KeyIndex: id, KeyName: x.KeyName, SubKeyName: x.SubKeyName, Width: x.Width, Height: x.Height, Left: x.Left, Top: x.Top, CSS: x.Css, KeySpace: x.KeySpace, ExtraCSS: x.ExtraCss, Spacing: append([]int(nil), x.Spacing...), KeyEmpty: append([]string(nil), x.KeyEmpty...), Assignable: !x.OnlyColor, Default: x.Default, NoColor: x.NoColor, ActionType: x.ActionType, ActionCommand: x.ActionCommand, DeviceID: x.DeviceId, ActionHold: x.ActionHold, ToggleDelay: x.ToggleDelay, ProfileSwitch: x.ProfileSwitch, Red: red, Green: green, Blue: blue})
+			pr.Keys = append(pr.Keys, keyboardassignmentspresentation.Key{KeyIndex: id, KeyName: x.KeyName, SubKeyName: x.SubKeyName, Width: x.Width, Height: x.Height, Left: x.Left, Top: x.Top, CSS: x.Css, KeySpace: x.KeySpace, ExtraCSS: x.ExtraCss, Spacing: append([]int(nil), x.Spacing...), KeyEmpty: append([]string(nil), x.KeyEmpty...), Assignable: !x.OnlyColor, Default: x.Default, NoColor: x.NoColor, ActionType: x.ActionType, ActionCommand: x.ActionCommand, DeviceID: x.DeviceId, ActionHold: x.ActionHold, ModifierKey: x.ModifierKey, RetainOriginal: x.RetainOriginal, ToggleDelay: x.ToggleDelay, ProfileSwitch: x.ProfileSwitch, Red: red, Green: green, Blue: blue})
 		}
 		s.Rows = append(s.Rows, pr)
 	}
@@ -62,6 +62,40 @@ func (d *Device) KeyboardAssignmentsSnapshot() (keyboardassignmentspresentation.
 			return keyboardassignmentspresentation.Snapshot{}, false
 		}
 		s.AssignmentTypes = append(s.AssignmentTypes, keyboardassignmentspresentation.AssignmentType{ID: uint8(id), Label: d.KeyAssignmentTypes[id]})
+	}
+	modifierOptions := map[uint8]string{0: "None"}
+	for _, row := range k.Row {
+		for index, key := range row.Keys {
+			if !key.Modifier {
+				continue
+			}
+			if index < 1 || index > 255 || strings.TrimSpace(key.KeyNameInternal) == "" && strings.TrimSpace(key.KeyName) == "" {
+				return keyboardassignmentspresentation.Snapshot{}, false
+			}
+			label := key.KeyNameInternal
+			if strings.TrimSpace(label) == "" {
+				label = key.KeyName
+			}
+			if _, exists := modifierOptions[uint8(index)]; exists {
+				return keyboardassignmentspresentation.Snapshot{}, false
+			}
+			modifierOptions[uint8(index)] = label
+		}
+	}
+	modifierIDs := make([]int, 0, len(modifierOptions))
+	for id := range modifierOptions {
+		modifierIDs = append(modifierIDs, int(id))
+	}
+	sort.Ints(modifierIDs)
+	for _, id := range modifierIDs {
+		s.ModifierOptions = append(s.ModifierOptions, keyboardassignmentspresentation.ModifierOption{ID: uint8(id), Label: modifierOptions[uint8(id)]})
+	}
+	for _, row := range s.Rows {
+		for _, key := range row.Keys {
+			if _, exists := modifierOptions[key.ModifierKey]; !exists {
+				return keyboardassignmentspresentation.Snapshot{}, false
+			}
+		}
 	}
 	return s, len(s.Rows) > 0
 }

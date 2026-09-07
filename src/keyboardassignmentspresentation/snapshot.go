@@ -4,40 +4,54 @@ package keyboardassignmentspresentation
 
 // Snapshot is a read-only keyboard-assignment capability snapshot.
 type Snapshot struct {
-	Available         bool
-	LiveRGBAvailable  bool
-	LiveRGBEnabled    bool
-	Profiles          []string
-	ActiveProfile     string
-	KeyboardLayouts   []string
-	ActiveKeyboardLayout string
-	ClusterControlled bool
+	Available                   bool
+	LiveRGBAvailable            bool
+	LiveRGBEnabled              bool
+	Profiles                    []string
+	ActiveProfile               string
+	KeyboardLayouts             []string
+	ActiveKeyboardLayout        string
+	ClusterControlled           bool
 	LayoutClass, RowLayoutClass string
-	Rows            []Row
-	AssignmentTypes []AssignmentType
+	Rows                        []Row
+	AssignmentTypes             []AssignmentType
+	ModifierOptions             []ModifierOption
 }
 
-type AssignmentType struct { ID uint8; Label string }
+type AssignmentType struct {
+	ID    uint8
+	Label string
+}
+type ModifierOption struct {
+	ID    uint8
+	Label string
+}
 
 // Row retains device-owned layout placement while presenting keys in a stable
 // order suitable for the template.
-type Row struct { Index, Top int; CSS, OverrideCSS string; Keys []Key }
+type Row struct {
+	Index, Top       int
+	CSS, OverrideCSS string
+	Keys             []Key
+}
 
 // Key is the small assignment and geometry contract the workspace needs.
 type Key struct {
-	KeyIndex int
-	KeyName, SubKeyName string
-	Width, Height, Left, Top int
-	CSS string
-	KeySpace, ExtraCSS string
-	Spacing []int
-	KeyEmpty []string
+	KeyIndex                     int
+	KeyName, SubKeyName          string
+	Width, Height, Left, Top     int
+	CSS                          string
+	KeySpace, ExtraCSS           string
+	Spacing                      []int
+	KeyEmpty                     []string
 	Assignable, Default, NoColor bool
-	ActionType uint8
-	ActionCommand uint16
-	DeviceID string
-	ActionHold bool
-	ToggleDelay uint16
-	ProfileSwitch bool
-	Red, Green, Blue float64
+	ActionType                   uint8
+	ActionCommand                uint16
+	DeviceID                     string
+	ActionHold                   bool
+	ModifierKey                  uint8
+	RetainOriginal               bool
+	ToggleDelay                  uint16
+	ProfileSwitch                bool
+	Red, Green, Blue             float64
 }

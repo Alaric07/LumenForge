@@ -3356,6 +3356,10 @@ type devicesKeyboardAssignmentTypeSummary struct {
 	ID    uint8
 	Label string
 }
+type devicesKeyboardAssignmentModifierSummary struct {
+	ID    uint8
+	Label string
+}
 type devicesKeyboardAssignmentKeySummary struct {
 	KeyIndex                     int
 	KeyName, SubKeyName          string
@@ -3368,6 +3372,8 @@ type devicesKeyboardAssignmentKeySummary struct {
 	ActionCommand                uint16
 	DeviceID                     string
 	ActionHold                   bool
+	ModifierKey                  uint8
+	RetainOriginal               bool
 	ToggleDelay                  uint16
 	ProfileSwitch                bool
 	Red, Green, Blue             float64
@@ -3380,6 +3386,7 @@ type devicesKeyboardAssignmentRowSummary struct {
 type devicesKeyboardAssignmentsWorkspaceSummary struct {
 	Rows                                                             []devicesKeyboardAssignmentRowSummary
 	AssignmentTypes                                                  []devicesKeyboardAssignmentTypeSummary
+	ModifierOptions                                                  []devicesKeyboardAssignmentModifierSummary
 	Profiles, KeyboardLayouts                                        []string
 	ActiveProfile, ActiveKeyboardLayout, LayoutClass, RowLayoutClass string
 	ClusterControlled, LiveRGBAvailable, LiveRGBEnabled              bool
@@ -3399,13 +3406,24 @@ func devicesKeyboardAssignmentsWorkspaceSummaryFromSnapshot(snapshot keyboardass
 		}
 		summary.AssignmentTypes = append(summary.AssignmentTypes, devicesKeyboardAssignmentTypeSummary{ID: assignmentType.ID, Label: assignmentType.Label})
 	}
+	modifierIDs := map[uint8]bool{}
+	for _, option := range snapshot.ModifierOptions {
+		if strings.TrimSpace(option.Label) == "" || modifierIDs[option.ID] {
+			return nil
+		}
+		modifierIDs[option.ID] = true
+		summary.ModifierOptions = append(summary.ModifierOptions, devicesKeyboardAssignmentModifierSummary{ID: option.ID, Label: option.Label})
+	}
 	for _, row := range snapshot.Rows {
 		presented := devicesKeyboardAssignmentRowSummary{Index: row.Index, Top: row.Top, CSS: row.CSS, OverrideCSS: row.OverrideCSS}
 		for _, key := range row.Keys {
 			if key.KeyName == "" || key.Width < 1 || key.Height < 1 {
 				return nil
 			}
-			presented.Keys = append(presented.Keys, devicesKeyboardAssignmentKeySummary{KeyIndex: key.KeyIndex, KeyName: key.KeyName, SubKeyName: key.SubKeyName, Width: key.Width, Height: key.Height, Left: key.Left, Top: key.Top, CSS: key.CSS, KeySpace: key.KeySpace, ExtraCSS: key.ExtraCSS, Spacing: append([]int(nil), key.Spacing...), KeyEmpty: append([]string(nil), key.KeyEmpty...), Red: key.Red, Green: key.Green, Blue: key.Blue, Assignable: key.Assignable, Default: key.Default, NoColor: key.NoColor, ActionType: key.ActionType, ActionCommand: key.ActionCommand, DeviceID: key.DeviceID, ActionHold: key.ActionHold, ToggleDelay: key.ToggleDelay, ProfileSwitch: key.ProfileSwitch})
+			if len(snapshot.ModifierOptions) > 0 && !modifierIDs[key.ModifierKey] {
+				return nil
+			}
+			presented.Keys = append(presented.Keys, devicesKeyboardAssignmentKeySummary{KeyIndex: key.KeyIndex, KeyName: key.KeyName, SubKeyName: key.SubKeyName, Width: key.Width, Height: key.Height, Left: key.Left, Top: key.Top, CSS: key.CSS, KeySpace: key.KeySpace, ExtraCSS: key.ExtraCSS, Spacing: append([]int(nil), key.Spacing...), KeyEmpty: append([]string(nil), key.KeyEmpty...), Red: key.Red, Green: key.Green, Blue: key.Blue, Assignable: key.Assignable, Default: key.Default, NoColor: key.NoColor, ActionType: key.ActionType, ActionCommand: key.ActionCommand, DeviceID: key.DeviceID, ActionHold: key.ActionHold, ModifierKey: key.ModifierKey, RetainOriginal: key.RetainOriginal, ToggleDelay: key.ToggleDelay, ProfileSwitch: key.ProfileSwitch})
 		}
 		summary.Rows = append(summary.Rows, presented)
 	}
