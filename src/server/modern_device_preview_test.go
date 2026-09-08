@@ -109,19 +109,23 @@ func TestCommanderDuoModernDevicePreviewRendersFixtureWithoutRegistration(t *tes
 	}
 }
 
-func TestK95ModernDevicePreviewsRenderKeyboardPerformanceAndProfilesWithoutRegistration(t *testing.T) {
+func TestModernKeyboardDevicePreviewsRenderWorkspaceWithoutRegistration(t *testing.T) {
 	router := legacyDevicePreviewRouter(t, true)
 	keyboards.Init()
 	for _, fixture := range []struct {
-		key, serial, geometry, rowGeometry, polling, special string
-		rows, keys                                           int
+		key, serial, geometry, rowGeometry, polling string
+		requiredNames                               []string
+		rows, keys                                  int
+		noModifiers, noAdvanced                     bool
 	}{
-		{"k70-lux-modern", "preview-k70-lux-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", "BTS", 7, 113},
-		{"k70-lux-rgb-modern", "preview-k70-lux-rgb-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", "BTS", 7, 113},
-		{"k70-rgb-rf-modern", "preview-k70-rgb-rf-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", "BTS", 7, 113},
-		{"k70-mk2-modern", "preview-k70-mk2-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", "BTS", 7, 116},
-		{"k95-modern", "preview-k95-modern", "keyboard-7", "keyboard-row-27", "1000 Hz / 1 msec", "G1", 7, 135},
-		{"k95-platinum-xt-modern", "preview-k95-platinum-xt-modern", "keyboard-8", "keyboard-row-26", "1000 Hz / 1 msec", "G1", 8, 139},
+		{"k65-rgb-modern", "preview-k65-rgb-modern", "keyboard-7", "keyboard-row-20", "1000 Hz / 1 msec", []string{"A", "BTS"}, 7, 92, true, true},
+		{"k65-rgb-rapidfire-modern", "preview-k65-rgb-rapidfire-modern", "keyboard-7", "keyboard-row-20", "1000 Hz / 1 msec", []string{"A", "BTS"}, 7, 92, true, true},
+		{"k70-lux-modern", "preview-k70-lux-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A", "BTS", "Play"}, 7, 113, false, false},
+		{"k70-lux-rgb-modern", "preview-k70-lux-rgb-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A", "BTS", "Play"}, 7, 113, false, false},
+		{"k70-rgb-rf-modern", "preview-k70-rgb-rf-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A", "BTS", "Play"}, 7, 113, false, false},
+		{"k70-mk2-modern", "preview-k70-mk2-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A", "BTS", "Play"}, 7, 116, false, false},
+		{"k95-modern", "preview-k95-modern", "keyboard-7", "keyboard-row-27", "1000 Hz / 1 msec", []string{"A", "G1", "Play"}, 7, 135, false, false},
+		{"k95-platinum-xt-modern", "preview-k95-platinum-xt-modern", "keyboard-8", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A", "G1", "Play"}, 8, 139, false, false},
 	} {
 		if devices.GetDevice(fixture.serial) != nil {
 			t.Fatalf("fixture serial %q unexpectedly registered", fixture.serial)
@@ -131,7 +135,7 @@ func TestK95ModernDevicePreviewsRenderKeyboardPerformanceAndProfilesWithoutRegis
 			t.Fatalf("missing preview fixture %q", fixture.key)
 		}
 		summary := preview.Build()
-		if summary.KeyboardAssignments == nil || summary.KeyboardAssignments.LayoutClass != fixture.geometry || summary.KeyboardAssignments.RowLayoutClass != fixture.rowGeometry || len(summary.KeyboardAssignments.Rows) != fixture.rows {
+		if summary.KeyboardAssignments == nil || summary.Performance == nil || summary.DeviceProfiles == nil || !summary.LegacyLighting || summary.KeyboardAssignments.LayoutClass != fixture.geometry || summary.KeyboardAssignments.RowLayoutClass != fixture.rowGeometry || len(summary.KeyboardAssignments.Rows) != fixture.rows {
 			t.Fatalf("%s keyboard summary = %#v", fixture.key, summary.KeyboardAssignments)
 		}
 		keyCount := 0
@@ -142,8 +146,19 @@ func TestK95ModernDevicePreviewsRenderKeyboardPerformanceAndProfilesWithoutRegis
 				keyNames[key.KeyName] = true
 			}
 		}
-		if keyCount != fixture.keys || !keyNames["A"] || !keyNames[fixture.special] || !keyNames["Play"] {
+		if keyCount != fixture.keys {
 			t.Fatalf("%s keyboard rows=%d keys=%d names=%#v", fixture.key, len(summary.KeyboardAssignments.Rows), keyCount, keyNames)
+		}
+		for _, name := range fixture.requiredNames {
+			if !keyNames[name] {
+				t.Fatalf("%s keyboard names=%#v, missing %q", fixture.key, keyNames, name)
+			}
+		}
+		if fixture.noModifiers && len(summary.KeyboardAssignments.ModifierOptions) != 0 {
+			t.Fatalf("%s advertised modifier options: %#v", fixture.key, summary.KeyboardAssignments.ModifierOptions)
+		}
+		if fixture.noAdvanced && (summary.KeyActuation != nil || summary.FlashTap != nil) {
+			t.Fatalf("%s advertised unsupported advanced controls", fixture.key)
 		}
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/"+fixture.key+"?view=keyboard"))
@@ -151,7 +166,8 @@ func TestK95ModernDevicePreviewsRenderKeyboardPerformanceAndProfilesWithoutRegis
 			t.Fatalf("%s status = %d: %s", fixture.key, recorder.Code, recorder.Body.String())
 		}
 		body := recorder.Body.String()
-		for _, expected := range []string{"A", fixture.special, "Play", fixture.geometry, fixture.polling, "Disable Win Key", "perf_shiftTab", "perf_altTab", "perf_altF4"} {
+		expected := append([]string{fixture.geometry, fixture.polling, "Disable Win Key", "perf_shiftTab", "perf_altTab", "perf_altF4"}, fixture.requiredNames...)
+		for _, expected := range expected {
 			if !strings.Contains(body, expected) {
 				t.Errorf("%s preview omitted %q", fixture.key, expected)
 			}
