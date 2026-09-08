@@ -65,7 +65,7 @@ func TestKeyboardWorkspaceOptionalAdvancedMarkup(t *testing.T) {
 		actuation    *devicesKeyActuationWorkspaceSummary
 		flash        *devicesFlashTapWorkspaceSummary
 		want, absent []string
-	}{{"neither", nil, nil, []string{"data-lf-keyboard-assignments-workspace", "data-lf-keyboard-mode=\"assignments\""}, []string{"data-lf-key-actuation-workspace", "data-lf-flash-tap-workspace", "data-lf-keyboard-mode=\"actuation\"", "data-lf-keyboard-mode=\"flashtap\""}}, {"actuation", actuation, nil, []string{"data-lf-key-actuation-workspace", "data-lf-keyboard-mode=\"assignments\"", "data-lf-keyboard-mode=\"actuation\"", "data-lf-min-value=\"1\"", "data-lf-max-value=\"40\"", "data-lf-secondary-minimum-gap=\"4\"", "data-lf-key-index=\"4\"", "data-lf-supported=\"1\"", "data-lf-supported=\"0\"", "data-lf-actuation-point=\"20\"", "data-lf-secondary-actuation-reset-point=\"34\"", "data-lf-key-actuation-apply-all", "disabled"}, []string{"data-lf-flash-tap-workspace", "data-lf-keyboard-mode=\"flashtap\""}}, {"flash", nil, flashTap, []string{"data-lf-flash-tap-workspace", "data-lf-keyboard-mode=\"flashtap\"", "data-lf-flash-tap-active checked", "option value=\"1\" selected>Last Priority", "data-lf-key-index=\"4\"", "data-lf-eligible=\"1\"", "data-lf-selected=\"1\"", "data-lf-eligible=\"0\"", "data-lf-flash-tap-slot", "data-lf-slot-index=\"0\"", "data-lf-key-index=\"7\"", "data-lf-flash-tap-color-red=\"17\"", "data-lf-flash-tap-color-green=\"93\"", "data-lf-flash-tap-color-blue=\"201\"", "data-lf-flash-tap-save"}, []string{"data-lf-key-actuation-workspace", "data-lf-keyboard-mode=\"actuation\"", "data-lf-flash-tap-mode disabled"}}, {"both", actuation, flashTap, []string{"data-lf-keyboard-assignments-workspace", "data-lf-keyboard-mode=\"assignments\"", "data-lf-keyboard-mode=\"actuation\"", "data-lf-keyboard-mode=\"flashtap\"", "data-lf-key-actuation-workspace", "data-lf-flash-tap-workspace"}, nil}} {
+	}{{"neither", nil, nil, []string{"data-lf-keyboard-assignments-workspace"}, []string{"data-lf-key-actuation-workspace", "data-lf-flash-tap-workspace", "data-lf-keyboard-mode=\"assignments\"", "data-lf-keyboard-mode=\"actuation\"", "data-lf-keyboard-mode=\"flashtap\""}}, {"actuation", actuation, nil, []string{"data-lf-key-actuation-workspace", "data-lf-keyboard-mode=\"actuation\"", "data-lf-min-value=\"1\"", "data-lf-max-value=\"40\"", "data-lf-secondary-minimum-gap=\"4\"", "data-lf-key-index=\"4\"", "data-lf-supported=\"1\"", "data-lf-supported=\"0\"", "data-lf-actuation-point=\"20\"", "data-lf-secondary-actuation-reset-point=\"34\"", "data-lf-key-actuation-apply-all", "disabled"}, []string{"data-lf-flash-tap-workspace", "data-lf-keyboard-mode=\"assignments\"", "data-lf-keyboard-mode=\"flashtap\""}}, {"flash", nil, flashTap, []string{"data-lf-flash-tap-workspace", "data-lf-keyboard-mode=\"flashtap\"", "data-lf-flash-tap-active checked", "option value=\"1\" selected>Last Priority", "data-lf-key-index=\"4\"", "data-lf-eligible=\"1\"", "data-lf-selected=\"1\"", "data-lf-eligible=\"0\"", "data-lf-flash-tap-slot", "data-lf-slot-index=\"0\"", "data-lf-key-index=\"7\"", "data-lf-flash-tap-color-red=\"17\"", "data-lf-flash-tap-color-green=\"93\"", "data-lf-flash-tap-color-blue=\"201\"", "data-lf-flash-tap-save"}, []string{"data-lf-key-actuation-workspace", "data-lf-keyboard-mode=\"assignments\"", "data-lf-keyboard-mode=\"actuation\"", "data-lf-flash-tap-mode disabled"}}, {"both", actuation, flashTap, []string{"data-lf-keyboard-assignments-workspace", "data-lf-keyboard-mode=\"actuation\"", "data-lf-keyboard-mode=\"flashtap\"", "data-lf-key-actuation-workspace", "data-lf-flash-tap-workspace"}, []string{"data-lf-keyboard-mode=\"assignments\""}}} {
 		t.Run(tc.name, func(t *testing.T) {
 			d := *base
 			d.KeyActuation = tc.actuation
@@ -283,7 +283,7 @@ func TestDevicesWorkspaceKeyboardPresentationAndView(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := rendered.String()
-	for _, expected := range []string{"data-lf-keyboard-assignments-workspace", "data-lf-keyboard-key", "data-lf-keyboard-color-key", "data-lf-keyboard-editor", "data-lf-keyboard-assignment-close", "data-lf-keyboard-modifier", "data-lf-keyboard-retain-original", `data-lf-modifier-key="13"`, `data-lf-retain-original="1"`, "keyboard-8", "keyboard-row-26", "keyboard-key wide3", "keyboard-key-empty", "Macro", `data-lf-key-red="12.5"`, `data-lf-normal-color="rgba(12.5, 34, 56, 1)"`} {
+	for _, expected := range []string{"data-lf-keyboard-assignments-workspace", "data-lf-keyboard-key", "data-lf-keyboard-color-key", "data-lf-keyboard-editor", "data-lf-keyboard-assignment-close", "data-lf-keyboard-modifier", "data-lf-keyboard-retain-original", `data-lf-modifier-key="13"`, `data-lf-retain-original="1"`, "keyboard-8", "keyboard-row-26", "keyboard-key wide3", "keyboard-key-empty", "Macro", `data-lf-key-red="12.5"`, `data-lf-normal-color="var(--lf-text-primary)"`} {
 		if !strings.Contains(body, expected) {
 			t.Errorf("missing %q", expected)
 		}
@@ -293,13 +293,18 @@ func TestDevicesWorkspaceKeyboardPresentationAndView(t *testing.T) {
 			t.Errorf("missing %q", expected)
 		}
 	}
-	for _, expected := range []string{"lf-keyboard-settings-card", "data-lf-keyboard-settings-card", "Changes save automatically.", "lf-keyboard-lockouts-card", "data-lf-keyboard-lockouts-card", "Keyboard Settings", "Keyboard Layout", `select id="lf-keyboard-layout" class="lf-buttons-select" data-lf-keyboard-layout`, `option value="US" selected`, "Polling Rate", "Key Lockouts", "Color &amp; Key Assignments", "Color &amp; Assignment Preset", `select id="lf-keyboard-layout-profile" class="lf-buttons-select" data-lf-keyboard-profile`, `option value="default" selected>Working Configuration`, "Save Preset As", "Save Preset", "Delete Preset", `href="/devices?device=keyboard-assignment-device&amp;view=keyboard"`, ">Keyboard</a>"} {
+	for _, expected := range []string{"lf-keyboard-settings-card", "data-lf-keyboard-settings-card", "Changes save automatically.", "lf-keyboard-lockouts-card", "data-lf-keyboard-lockouts-card", "Keyboard Settings", "Keyboard Layout", `select id="lf-keyboard-layout" class="lf-buttons-select" data-lf-keyboard-layout`, `option value="US" selected`, "Polling Rate", "Key Lockouts", "Color &amp; Key Assignments", ">Preset<", `select id="lf-keyboard-layout-profile" class="lf-buttons-select" data-lf-keyboard-profile`, `option value="default" selected>Working Configuration`, "Save Preset As", "Save Preset", "Delete Preset", `href="/devices?device=keyboard-assignment-device&amp;view=keyboard"`, ">Keyboard</a>"} {
 		if !strings.Contains(body, expected) {
 			t.Errorf("missing %q", expected)
 		}
 	}
+	for _, redundant := range []string{"Color &amp; Assignment Preset", `data-lf-keyboard-mode-controls`, `data-lf-keyboard-mode="assignments"`} {
+		if strings.Contains(body, redundant) {
+			t.Errorf("basic keyboard workspace retained redundant %q", redundant)
+		}
+	}
 	previous := -1
-	for _, expected := range []string{"Keyboard Settings", "Key Lockouts", "Color &amp; Key Assignments", "Color &amp; Assignment Preset", "lf-keyboard-visualization", "data-lf-keyboard-color-apply", "data-lf-keyboard-assignment-open"} {
+	for _, expected := range []string{"Keyboard Settings", "Key Lockouts", "Color &amp; Key Assignments", ">Preset<", "lf-keyboard-visualization", "data-lf-keyboard-color-apply", "data-lf-keyboard-assignment-open"} {
 		position := strings.Index(body, expected)
 		if position < 0 || position <= previous {
 			t.Errorf("keyboard workspace order omitted or misplaced %q", expected)
@@ -336,7 +341,7 @@ func TestDevicesWorkspaceKeyboardPresentationAndView(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{"--lf-kb-columns: 26", "repeat(var(--lf-kb-columns), var(--lf-kb-key-width))", "keyboard-row-27 { --lf-kb-columns: 27; }", "flex: 0 0 auto", "overflow-x: auto", "--lf-kb-column-gap", ".lf-keyboard-placeholder", "button.lf-keyboard-key-static { opacity: 1; cursor: pointer; }"} {
+	for _, expected := range []string{"--lf-kb-columns: 26", "repeat(var(--lf-kb-columns), var(--lf-kb-key-width))", "keyboard-row-24 { --lf-kb-columns: 24; }", "keyboard-row-27 { --lf-kb-columns: 27; }", "flex: 0 0 auto", "overflow-x: auto", "--lf-kb-column-gap", ".lf-keyboard-placeholder", "button.lf-keyboard-key-static { opacity: 1; cursor: pointer; }"} {
 		if !strings.Contains(string(styles), expected) {
 			t.Errorf("keyboard grid CSS missing %q", expected)
 		}
@@ -345,6 +350,62 @@ func TestDevicesWorkspaceKeyboardPresentationAndView(t *testing.T) {
 		if strings.Contains(string(styles), obsolete) {
 			t.Errorf("keyboard grid CSS retained raw layout %q", obsolete)
 		}
+	}
+}
+
+func TestKeyboardPresentationLabelColorPreservesReadableSourceAndFallsBackForDarkSource(t *testing.T) {
+	if got := keyboardPresentationLabelColor(32, 180, 240); got != "rgba(32, 180, 240, 1)" {
+		t.Fatalf("readable label color = %q", got)
+	}
+	if got := keyboardPresentationLabelColor(0, 0, 0); got != "var(--lf-text-primary)" {
+		t.Fatalf("dark label color = %q", got)
+	}
+	snapshot := keyboardassignmentspresentation.Snapshot{Available: true, Profiles: []string{"default"}, ActiveProfile: "default", AssignmentTypes: []keyboardassignmentspresentation.AssignmentType{{ID: 0, Label: "None"}}, Rows: []keyboardassignmentspresentation.Row{{Keys: []keyboardassignmentspresentation.Key{{KeyIndex: 1, KeyName: "A", Width: 1, Height: 1, Red: 0, Green: 0, Blue: 0}}}}}
+	summary := devicesKeyboardAssignmentsWorkspaceSummaryFromSnapshot(snapshot)
+	if summary == nil || summary.Rows[0].Keys[0].Red != 0 || summary.Rows[0].Keys[0].Green != 0 || summary.Rows[0].Keys[0].Blue != 0 || summary.Rows[0].Keys[0].LabelColor != "var(--lf-text-primary)" {
+		t.Fatalf("presentation changed source color: %#v", summary)
+	}
+}
+
+func TestKeyboardHalfKeyPresentationGroupsOnlyValidAdjacentPairs(t *testing.T) {
+	base := func(index int, name string) keyboardassignmentspresentation.Key {
+		return keyboardassignmentspresentation.Key{KeyIndex: index, KeyName: name, Width: 1, Height: 1, Assignable: true}
+	}
+	start, end, ordinary := base(20, "MUTE"), base(21, "PLAY"), base(22, "VOL+")
+	start.HalfKey, start.HalfKeyStart = true, true
+	end.HalfKey, end.HalfKeyEnd = true, true
+	snapshot := keyboardassignmentspresentation.Snapshot{Available: true, Profiles: []string{"default"}, ActiveProfile: "default", AssignmentTypes: []keyboardassignmentspresentation.AssignmentType{{ID: 0, Label: "None"}}, Rows: []keyboardassignmentspresentation.Row{{Keys: []keyboardassignmentspresentation.Key{start, end, ordinary}}}}
+	summary := devicesKeyboardAssignmentsWorkspaceSummaryFromSnapshot(snapshot)
+	if summary == nil {
+		t.Fatal("missing keyboard summary")
+	}
+	items := summary.Rows[0].Items()
+	if len(items) != 2 || !items[0].HalfKeyPair || len(items[0].Keys) != 2 || items[0].Keys[0].KeyIndex != 20 || items[0].Keys[1].KeyIndex != 21 || items[1].Keys[0].KeyIndex != 22 {
+		t.Fatalf("valid pair items = %#v", items)
+	}
+	if !items[0].Keys[0].HalfKeyStart || !items[0].Keys[1].HalfKeyEnd {
+		t.Fatalf("half-key flags were not preserved: %#v", items[0].Keys)
+	}
+	var rendered bytes.Buffer
+	device := &devicesWorkspaceSummary{Serial: "half-key", Product: "Keyboard", View: "keyboard", KeyboardAssignments: summary}
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Device: device, Devices: map[string]*common.Device{}, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
+	body := rendered.String()
+	if strings.Count(body, "lf-keyboard-half-key-container") != 1 || !strings.Contains(body, `data-lf-key-index="20"`) || !strings.Contains(body, `data-lf-key-index="21"`) {
+		t.Fatalf("half-key template output = %s", body)
+	}
+
+	malformedStart, malformedEnd := base(30, "Start"), base(32, "End")
+	malformedStart.HalfKey, malformedStart.HalfKeyStart = true, true
+	malformedEnd.HalfKey, malformedEnd.HalfKeyEnd = true, true
+	malformed := devicesKeyboardAssignmentRowSummary{Keys: []devicesKeyboardAssignmentKeySummary{{KeyIndex: malformedStart.KeyIndex, KeyName: malformedStart.KeyName, Width: 1, Height: 1, HalfKey: true, HalfKeyStart: true}, {KeyIndex: 31, KeyName: "Middle", Width: 1, Height: 1}, {KeyIndex: malformedEnd.KeyIndex, KeyName: malformedEnd.KeyName, Width: 1, Height: 1, HalfKey: true, HalfKeyEnd: true}}}.Items()
+	if len(malformed) != 3 || malformed[0].HalfKeyPair || malformed[1].HalfKeyPair || malformed[2].HalfKeyPair {
+		t.Fatalf("malformed half-key items = %#v", malformed)
+	}
+	normal := devicesKeyboardAssignmentRowSummary{Keys: []devicesKeyboardAssignmentKeySummary{{KeyIndex: 1, KeyName: "A", Width: 1, Height: 1}, {KeyIndex: 2, KeyName: "B", Width: 1, Height: 1}}}.Items()
+	if len(normal) != 2 || normal[0].HalfKeyPair || normal[1].HalfKeyPair {
+		t.Fatalf("normal layout items = %#v", normal)
 	}
 }
 

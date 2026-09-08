@@ -119,6 +119,11 @@ func TestModernKeyboardDevicePreviewsRenderWorkspaceWithoutRegistration(t *testi
 		noModifiers, requireModifiers, noAdvanced   bool
 		controlDial, sleepTimer                     bool
 	}{
+		{"k55-rgb-modern", "preview-k55-rgb-modern", "keyboard-6", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A"}, 7, 120, true, false, true, false, false},
+		{"k55-core-modern", "preview-k55-core-modern", "keyboard-6", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A"}, 6, 112, true, false, true, false, false},
+		{"k55-core-tkl-modern", "preview-k55-core-tkl-modern", "keyboard-6", "keyboard-row-21", "1000 Hz / 1 msec", []string{"A"}, 6, 92, true, false, true, false, false},
+		{"k55-pro-modern", "preview-k55-pro-modern", "keyboard-7", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A"}, 7, 120, true, false, true, false, false},
+		{"k55-pro-xt-modern", "preview-k55-pro-xt-modern", "keyboard-7", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A"}, 7, 120, true, false, true, false, false},
 		{"k65-plus-usb-modern", "preview-k65-plus-usb-modern", "keyboard-6", "keyboard-row-17", "", []string{"A"}, 6, 81, false, true, true, true, false},
 		{"k65-pro-mini-modern", "preview-k65-pro-mini-modern", "keyboard-5", "keyboard-row-17", "1000 Hz / 1 msec", []string{"A"}, 5, 67, false, true, true, false, false},
 		{"k65-rgb-mini-modern", "preview-k65-rgb-mini-modern", "keyboard-5", "keyboard-row-16", "1000 Hz / 1 msec", []string{"A"}, 5, 61, false, true, true, false, false},
@@ -224,6 +229,49 @@ func TestK70ProTKLModernPreviewProvidesCompleteAdvancedKeyboardWorkspaceWithoutR
 	}
 	if devices.GetDevice(serial) != nil {
 		t.Fatal("preview fixture registered hardware")
+	}
+}
+
+func TestK55CoreModernPreviewPreservesItsSourceRowOverride(t *testing.T) {
+	fixture, ok := modernDevicePreviewFixtureByKey("k55-core-modern")
+	if !ok {
+		t.Fatal("missing K55 CORE modern preview")
+	}
+	summary := fixture.Build()
+	if summary.KeyboardAssignments == nil || len(summary.KeyboardAssignments.Rows) != 6 || summary.KeyboardAssignments.Rows[3].CSS != "keyboard-row-24" {
+		t.Fatalf("K55 CORE rows = %#v", summary.KeyboardAssignments)
+	}
+}
+
+func TestK55CoreModernPreviewsKeepHalfKeyPairsWithinTheirDeclaredTopRows(t *testing.T) {
+	for _, fixture := range []struct {
+		name    string
+		summary *devicesWorkspaceSummary
+		tracks  int
+	}{
+		{name: "K55 CORE RGB", summary: buildK55CoreModernPreview(), tracks: 25},
+		{name: "K55 CORE TKL", summary: buildK55CoreTKLModernPreview(), tracks: 21},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			if fixture.summary.KeyboardAssignments == nil || len(fixture.summary.KeyboardAssignments.Rows) == 0 {
+				t.Fatal("missing keyboard workspace")
+			}
+			items := fixture.summary.KeyboardAssignments.Rows[0].Items()
+			tracks, groups := 0, 0
+			for _, item := range items {
+				tracks += len(item.KeyEmpty) + len(item.Spacing) + 1
+				if item.HalfKeyPair {
+					groups++
+				}
+			}
+			if tracks != fixture.tracks || groups != 2 {
+				t.Fatalf("top row tracks=%d groups=%d items=%#v", tracks, groups, items)
+			}
+			last := items[len(items)-1].Keys[0]
+			if last.KeyName != "VOL+" || last.KeyIndex != 22 {
+				t.Fatalf("top row last key = %#v", last)
+			}
+		})
 	}
 }
 

@@ -37,21 +37,22 @@ type Row struct {
 
 // Key is the small assignment and geometry contract the workspace needs.
 type Key struct {
-	KeyIndex                     int
-	KeyName, SubKeyName          string
-	Width, Height, Left, Top     int
-	CSS                          string
-	KeySpace, ExtraCSS           string
-	Spacing                      []int
-	KeyEmpty                     []string
-	Assignable, Default, NoColor bool
-	ActionType                   uint8
-	ActionCommand                uint16
-	DeviceID                     string
-	ActionHold                   bool
-	ModifierKey                  uint8
-	RetainOriginal               bool
-	ToggleDelay                  uint16
-	ProfileSwitch                bool
-	Red, Green, Blue             float64
+	KeyIndex                          int
+	KeyName, SubKeyName               string
+	Width, Height, Left, Top          int
+	CSS                               string
+	KeySpace, ExtraCSS                string
+	Spacing                           []int
+	KeyEmpty                          []string
+	Assignable, Default, NoColor      bool
+	HalfKey, HalfKeyStart, HalfKeyEnd bool
+	ActionType                        uint8
+	ActionCommand                     uint16
+	DeviceID                          string
+	ActionHold                        bool
+	ModifierKey                       uint8
+	RetainOriginal                    bool
+	ToggleDelay                       uint16
+	ProfileSwitch                     bool
+	Red, Green, Blue                  float64
 }

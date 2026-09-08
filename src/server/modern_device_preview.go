@@ -2,6 +2,11 @@ package server
 
 import (
 	"LumenForge/src/common"
+	"LumenForge/src/devices/k55"
+	"LumenForge/src/devices/k55core"
+	"LumenForge/src/devices/k55coretkl"
+	"LumenForge/src/devices/k55pro"
+	"LumenForge/src/devices/k55proXT"
 	"LumenForge/src/devices/k65plusW"
 	"LumenForge/src/devices/k65plusWU"
 	"LumenForge/src/devices/k65pm"
@@ -52,6 +57,11 @@ type modernDevicePreviewNavigation struct {
 }
 
 var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
+	{Key: "k55-rgb-modern", Title: "K55 RGB", ProductType: common.ProductTypeK55, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55RGBModernPreview},
+	{Key: "k55-core-modern", Title: "K55 CORE RGB", ProductType: common.ProductTypeK55Core, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55CoreModernPreview},
+	{Key: "k55-core-tkl-modern", Title: "K55 CORE TKL", ProductType: common.ProductTypeK55CoreTkl, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55CoreTKLModernPreview},
+	{Key: "k55-pro-modern", Title: "K55 PRO RGB", ProductType: common.ProductTypeK55Pro, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55ProModernPreview},
+	{Key: "k55-pro-xt-modern", Title: "K55 RGB PRO XT", ProductType: common.ProductTypeK55ProXT, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55ProXTModernPreview},
 	{Key: "k65-plus-usb-modern", Title: "K65 PLUS", ProductType: common.ProductTypeK65Plus, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK65PlusUSBModernPreview},
 	{Key: "k65-plus-wireless-modern", Title: "K65 PLUS Wireless", ProductType: common.ProductTypeK65PlusW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK65PlusWirelessModernPreview},
 	{Key: "k65-pro-mini-modern", Title: "K65 PRO MINI", ProductType: common.ProductTypeK65PM, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK65ProMiniModernPreview},
@@ -131,6 +141,68 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "scimitar-elite-modern", Title: "SCIMITAR ELITE", ProductType: common.ProductTypeScimitarRgbElite, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildScimitarEliteModernPreview},
 	{Key: "katar-pro-modern", Title: "Katar Pro", ProductType: common.ProductTypeKatarPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProModernPreview},
 	{Key: "katar-pro-xt-modern", Title: "Katar Pro XT", ProductType: common.ProductTypeKatarProXT, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProXTModernPreview},
+}
+
+func buildK55RGBModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k55-rgb-modern"
+	keyboard := keyboards.GetKeyboard("k55-default-US")
+	profile := &k55.DeviceProfile{Profile: "Default", Profiles: []string{"Default"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 4, DisableWinKey: true}
+	device := &k55.Device{Serial: serial, UIKeyboard: "keyboard-6", UIKeyboardRow: "keyboard-row-26", Layouts: []string{"US"}, KeyAssignmentTypes: k55BasicAssignmentTypes(), PollingRates: k55PollingRates(), DeviceProfile: profile, UserProfiles: map[string]*k55.DeviceProfile{"Default": {Active: true}}}
+	return buildK55ModernPreviewSummary(serial, "K55 RGB", common.ProductTypeK55, device)
+}
+
+func buildK55CoreModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k55-core-modern"
+	keyboard := keyboards.GetKeyboard("k55core-default-US")
+	profile := &k55core.DeviceProfile{Profile: "Default", Profiles: []string{"Default"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 4, DisableWinKey: true}
+	device := &k55core.Device{Serial: serial, UIKeyboard: "keyboard-6", UIKeyboardRow: "keyboard-row-25", Layouts: []string{"US"}, KeyAssignmentTypes: k55BasicAssignmentTypes(), PollingRates: k55PollingRates(), DeviceProfile: profile, UserProfiles: map[string]*k55core.DeviceProfile{"Default": {Active: true}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K55 CORE RGB", ProductType: common.ProductTypeK55Core, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func buildK55CoreTKLModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k55-core-tkl-modern"
+	keyboard := keyboards.GetKeyboard("k55coretkl-default-US")
+	profile := &k55coretkl.DeviceProfile{Profile: "Default", Profiles: []string{"Default"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 4, DisableWinKey: true}
+	device := &k55coretkl.Device{Serial: serial, UIKeyboard: "keyboard-6", UIKeyboardRow: "keyboard-row-21", Layouts: []string{"US"}, KeyAssignmentTypes: map[int]string{0: "None", 1: "Media Keys", 3: "Keyboard", 8: "Sniper", 9: "Mouse", 10: "Macro", 13: "Scroll Up", 14: "Scroll Down", 15: "Zoom In", 16: "Zoom Out", 17: "Screen Brightness +", 18: "Screen Brightness -"}, PollingRates: k55PollingRates(), DeviceProfile: profile, UserProfiles: map[string]*k55coretkl.DeviceProfile{"Default": {Active: true}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K55 CORE TKL", ProductType: common.ProductTypeK55CoreTkl, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func buildK55ProModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k55-pro-modern"
+	keyboard := keyboards.GetKeyboard("k55pro-default-US")
+	profile := &k55pro.DeviceProfile{Profile: "Default", Profiles: []string{"Default"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 4, DisableWinKey: true}
+	device := &k55pro.Device{Serial: serial, UIKeyboard: "keyboard-7", UIKeyboardRow: "keyboard-row-26", Layouts: []string{"US"}, KeyAssignmentTypes: k55BasicAssignmentTypes(), PollingRates: k55PollingRates(), DeviceProfile: profile, UserProfiles: map[string]*k55pro.DeviceProfile{"Default": {Active: true}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K55 PRO RGB", ProductType: common.ProductTypeK55Pro, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func buildK55ProXTModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k55-pro-xt-modern"
+	keyboard := keyboards.GetKeyboard("k55proXT-default-US")
+	profile := &k55proXT.DeviceProfile{Profile: "Default", Profiles: []string{"Default"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 4, DisableWinKey: true}
+	device := &k55proXT.Device{Serial: serial, UIKeyboard: "keyboard-7", UIKeyboardRow: "keyboard-row-26", Layouts: []string{"US"}, KeyAssignmentTypes: k55BasicAssignmentTypes(), PollingRates: k55PollingRates(), DeviceProfile: profile, UserProfiles: map[string]*k55proXT.DeviceProfile{"Default": {Active: true}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K55 RGB PRO XT", ProductType: common.ProductTypeK55ProXT, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func buildK55ModernPreviewSummary(serial, product string, productType uint16, device *k55.Device) *devicesWorkspaceSummary {
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: product, ProductType: productType, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func k55BasicAssignmentTypes() map[int]string {
+	return map[int]string{0: "None", 1: "Media Keys", 3: "Keyboard", 8: "Sniper", 9: "Mouse", 10: "Macro"}
+}
+
+func k55PollingRates() map[int]string {
+	return map[int]string{0: "Not Set", 1: "125 Hz / 8 msec", 2: "250 Hz / 4 msec", 3: "500 Hz / 2 msec", 4: "1000 Hz / 1 msec"}
 }
 
 func buildK70CoreModernPreview() *devicesWorkspaceSummary {

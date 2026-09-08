@@ -3367,28 +3367,55 @@ type devicesKeyboardAssignmentModifierSummary struct {
 	Label string
 }
 type devicesKeyboardAssignmentKeySummary struct {
-	KeyIndex                     int
-	KeyName, SubKeyName          string
-	Width, Height, Left, Top     int
-	CSS, KeySpace, ExtraCSS      string
-	Spacing                      []int
-	KeyEmpty                     []string
-	Assignable, Default, NoColor bool
-	ActionType                   uint8
-	ActionCommand                uint16
-	DeviceID                     string
-	ActionHold                   bool
-	ModifierKey                  uint8
-	RetainOriginal               bool
-	ToggleDelay                  uint16
-	ProfileSwitch                bool
-	Red, Green, Blue             float64
+	KeyIndex                          int
+	KeyName, SubKeyName               string
+	Width, Height, Left, Top          int
+	CSS, KeySpace, ExtraCSS           string
+	Spacing                           []int
+	KeyEmpty                          []string
+	Assignable, Default, NoColor      bool
+	HalfKey, HalfKeyStart, HalfKeyEnd bool
+	ActionType                        uint8
+	ActionCommand                     uint16
+	DeviceID                          string
+	ActionHold                        bool
+	ModifierKey                       uint8
+	RetainOriginal                    bool
+	ToggleDelay                       uint16
+	ProfileSwitch                     bool
+	Red, Green, Blue                  float64
+	LabelColor                        string
 }
 type devicesKeyboardAssignmentRowSummary struct {
 	Index, Top       int
 	CSS, OverrideCSS string
 	Keys             []devicesKeyboardAssignmentKeySummary
 }
+type devicesKeyboardAssignmentRenderItem struct {
+	Keys        []devicesKeyboardAssignmentKeySummary
+	KeyEmpty    []string
+	Spacing     []int
+	HalfKeyPair bool
+}
+
+func (row devicesKeyboardAssignmentRowSummary) Items() []devicesKeyboardAssignmentRenderItem {
+	items := make([]devicesKeyboardAssignmentRenderItem, 0, len(row.Keys))
+	for index := 0; index < len(row.Keys); index++ {
+		key := row.Keys[index]
+		item := devicesKeyboardAssignmentRenderItem{Keys: []devicesKeyboardAssignmentKeySummary{key}, KeyEmpty: append([]string(nil), key.KeyEmpty...), Spacing: append([]int(nil), key.Spacing...)}
+		if key.HalfKey && key.HalfKeyStart && index+1 < len(row.Keys) {
+			next := row.Keys[index+1]
+			if next.HalfKey && next.HalfKeyEnd {
+				item.Keys = append(item.Keys, next)
+				item.HalfKeyPair = true
+				index++
+			}
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
 type devicesKeyboardAssignmentsWorkspaceSummary struct {
 	Rows                                                             []devicesKeyboardAssignmentRowSummary
 	AssignmentTypes                                                  []devicesKeyboardAssignmentTypeSummary
@@ -3429,11 +3456,35 @@ func devicesKeyboardAssignmentsWorkspaceSummaryFromSnapshot(snapshot keyboardass
 			if len(snapshot.ModifierOptions) > 0 && !modifierIDs[key.ModifierKey] {
 				return nil
 			}
-			presented.Keys = append(presented.Keys, devicesKeyboardAssignmentKeySummary{KeyIndex: key.KeyIndex, KeyName: key.KeyName, SubKeyName: key.SubKeyName, Width: key.Width, Height: key.Height, Left: key.Left, Top: key.Top, CSS: key.CSS, KeySpace: key.KeySpace, ExtraCSS: key.ExtraCSS, Spacing: append([]int(nil), key.Spacing...), KeyEmpty: append([]string(nil), key.KeyEmpty...), Red: key.Red, Green: key.Green, Blue: key.Blue, Assignable: key.Assignable, Default: key.Default, NoColor: key.NoColor, ActionType: key.ActionType, ActionCommand: key.ActionCommand, DeviceID: key.DeviceID, ActionHold: key.ActionHold, ModifierKey: key.ModifierKey, RetainOriginal: key.RetainOriginal, ToggleDelay: key.ToggleDelay, ProfileSwitch: key.ProfileSwitch})
+			presented.Keys = append(presented.Keys, devicesKeyboardAssignmentKeySummary{KeyIndex: key.KeyIndex, KeyName: key.KeyName, SubKeyName: key.SubKeyName, Width: key.Width, Height: key.Height, Left: key.Left, Top: key.Top, CSS: key.CSS, KeySpace: key.KeySpace, ExtraCSS: key.ExtraCSS, Spacing: append([]int(nil), key.Spacing...), KeyEmpty: append([]string(nil), key.KeyEmpty...), Red: key.Red, Green: key.Green, Blue: key.Blue, LabelColor: keyboardPresentationLabelColor(key.Red, key.Green, key.Blue), Assignable: key.Assignable, Default: key.Default, NoColor: key.NoColor, HalfKey: key.HalfKey, HalfKeyStart: key.HalfKeyStart, HalfKeyEnd: key.HalfKeyEnd, ActionType: key.ActionType, ActionCommand: key.ActionCommand, DeviceID: key.DeviceID, ActionHold: key.ActionHold, ModifierKey: key.ModifierKey, RetainOriginal: key.RetainOriginal, ToggleDelay: key.ToggleDelay, ProfileSwitch: key.ProfileSwitch})
 		}
 		summary.Rows = append(summary.Rows, presented)
 	}
 	return summary
+}
+
+func keyboardPresentationLabelColor(red, green, blue float64) string {
+	channels := []float64{red, green, blue}
+	for index, channel := range channels {
+		if channel < 0 {
+			channels[index] = 0
+		} else if channel > 255 {
+			channels[index] = 255
+		}
+	}
+	luminance := 0.2126*keyboardPresentationLinearChannel(channels[0]) + 0.7152*keyboardPresentationLinearChannel(channels[1]) + 0.0722*keyboardPresentationLinearChannel(channels[2])
+	if luminance < 0.18 {
+		return "var(--lf-text-primary)"
+	}
+	return fmt.Sprintf("rgba(%g, %g, %g, 1)", channels[0], channels[1], channels[2])
+}
+
+func keyboardPresentationLinearChannel(value float64) float64 {
+	value /= 255
+	if value <= 0.04045 {
+		return value / 12.92
+	}
+	return math.Pow((value+0.055)/1.055, 2.4)
 }
 
 type devicesKeyActuationKeySummary struct {

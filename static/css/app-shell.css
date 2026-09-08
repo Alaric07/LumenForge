@@ -1772,9 +1772,20 @@
 .lf-app-shell .lf-keyboard-visualization { --lf-kb-columns: 26; --lf-kb-key-width: clamp(26px, 2.75vw, 40px); --lf-kb-key-height: calc(var(--lf-kb-key-width) * 1.12); --lf-kb-column-gap: clamp(2px, .32vw, 5px); --lf-kb-row-gap: clamp(3px, .4vw, 6px); --lf-kb-double-row-height: calc((var(--lf-kb-key-height) * 2) + var(--lf-kb-row-gap)); --lf-kb-radius: 7px; --lf-kb-top-offset: calc(var(--lf-kb-key-height) * .45); box-sizing: border-box; display: grid; flex: 0 0 auto; grid-auto-rows: max-content; row-gap: var(--lf-kb-row-gap); width: max-content; margin: 0 auto; padding: var(--lf-kb-column-gap); user-select: none; }
 .lf-app-shell .lf-keyboard-visualization.keyboard-8 { grid-template-rows: none; }
 .lf-app-shell .lf-keyboard-row { display: grid; grid-template-columns: repeat(var(--lf-kb-columns), var(--lf-kb-key-width)); height: var(--lf-kb-key-height); min-height: 0; column-gap: var(--lf-kb-column-gap); }
+.lf-app-shell .lf-keyboard-row.keyboard-row-16 { --lf-kb-columns: 16; }
+.lf-app-shell .lf-keyboard-row.keyboard-row-17 { --lf-kb-columns: 17; }
+.lf-app-shell .lf-keyboard-row.keyboard-row-18 { --lf-kb-columns: 18; }
+.lf-app-shell .lf-keyboard-row.keyboard-row-19 { --lf-kb-columns: 19; }
+.lf-app-shell .lf-keyboard-row.keyboard-row-20 { --lf-kb-columns: 20; }
+.lf-app-shell .lf-keyboard-row.keyboard-row-21 { --lf-kb-columns: 21; }
+.lf-app-shell .lf-keyboard-row.keyboard-row-22 { --lf-kb-columns: 22; }
+.lf-app-shell .lf-keyboard-row.keyboard-row-23 { --lf-kb-columns: 23; }
+.lf-app-shell .lf-keyboard-row.keyboard-row-24 { --lf-kb-columns: 24; }
 .lf-app-shell .lf-keyboard-row.keyboard-row-25 { --lf-kb-columns: 25; }
 .lf-app-shell .lf-keyboard-row.keyboard-row-26 { --lf-kb-columns: 26; }
 .lf-app-shell .lf-keyboard-row.keyboard-row-27 { --lf-kb-columns: 27; }
+.lf-app-shell .lf-keyboard-row.keyboard-row-28 { --lf-kb-columns: 28; }
+.lf-app-shell .lf-keyboard-row.keyboard-row-29 { --lf-kb-columns: 29; }
 .lf-app-shell .lf-keyboard-row.lf-keyboard-margin-top { margin-top: var(--lf-kb-top-offset); }
 .lf-app-shell .lf-keyboard-key, .lf-app-shell .lf-keyboard-placeholder, .lf-app-shell .lf-keyboard-visualization .keyboard-key, .lf-app-shell .lf-keyboard-visualization .keyboard-key-empty { box-sizing: border-box; width: var(--lf-kb-key-width); height: var(--lf-kb-key-height); }
 .lf-app-shell .lf-keyboard-placeholder, .lf-app-shell .lf-keyboard-visualization .keyboard-key-empty { visibility: hidden; pointer-events: none; }
@@ -1788,6 +1799,8 @@
 .lf-app-shell .lf-keyboard-visualization .keyboard-key.wide7 { grid-column: span 7; width: auto; }
 .lf-app-shell .lf-keyboard-visualization .keyboard-key.wide8 { grid-column: span 8; width: auto; }
 .lf-app-shell .lf-keyboard-visualization .keyboard-key-half { height: calc(var(--lf-kb-key-height) / 2); }
+.lf-app-shell .lf-keyboard-half-key-container { display: flex; flex-direction: column; height: var(--lf-kb-key-height); min-height: 0; }
+.lf-app-shell .lf-keyboard-half-key { flex: 1 1 0; min-height: 0; height: auto; }
 .lf-app-shell .lf-keyboard-visualization .keyboard-key-half.wide3 { grid-column: span 3; width: auto; }
 .lf-app-shell .lf-keyboard-visualization .keyboard-key-half.wide4 { grid-column: span 4; width: auto; }
 .lf-app-shell .lf-keyboard-visualization .keyboard-key-125, .lf-app-shell .lf-keyboard-visualization .keyboard-key-125-top32 { height: var(--lf-kb-double-row-height); }
