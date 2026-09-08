@@ -195,6 +195,45 @@ func TestK70ProTKLModernPreviewProvidesCompleteAdvancedKeyboardWorkspaceWithoutR
 	}
 }
 
+func TestK70MaxModernPreviewProvidesFullKeyboardWorkspaceWithoutRegistration(t *testing.T) {
+	const serial = "preview-k70-max-modern"
+	if devices.GetDevice(serial) != nil {
+		t.Fatalf("fixture serial %q unexpectedly registered", serial)
+	}
+	fixture, ok := modernDevicePreviewFixtureByKey("k70-max-modern")
+	if !ok || fixture.ProductType != common.ProductTypeK70Max || fixture.Title != "K70 MAX" {
+		t.Fatalf("fixture=%#v ok=%t", fixture, ok)
+	}
+	summary := fixture.Build()
+	if summary.KeyboardAssignments == nil || summary.KeyboardAssignments.LayoutClass != "keyboard-7" || summary.KeyboardAssignments.RowLayoutClass != "keyboard-row-25" || len(summary.KeyboardAssignments.Rows) != 7 || summary.Performance == nil || summary.DeviceProfiles == nil || !summary.LegacyLighting {
+		t.Fatalf("summary=%#v", summary)
+	}
+	keyCount := 0
+	for _, row := range summary.KeyboardAssignments.Rows {
+		keyCount += len(row.Keys)
+	}
+	if keyCount != 117 || len(summary.KeyboardAssignments.ModifierOptions) < 2 || summary.KeyActuation == nil || len(summary.KeyActuation.Keys) != 2 || !summary.KeyActuation.Keys[0].Supported || summary.KeyActuation.Keys[1].Supported {
+		t.Fatalf("keyboard=%#v actuation=%#v", summary.KeyboardAssignments, summary.KeyActuation)
+	}
+	modifierState := false
+	for _, row := range summary.KeyboardAssignments.Rows {
+		for _, key := range row.Keys {
+			if key.KeyIndex == 71 && key.ModifierKey == summary.KeyboardAssignments.ModifierOptions[1].ID && key.RetainOriginal {
+				modifierState = true
+			}
+		}
+	}
+	if !modifierState {
+		t.Fatalf("modifier state=%#v", summary.KeyboardAssignments)
+	}
+	if summary.FlashTap == nil || !summary.FlashTap.Active || summary.FlashTap.Mode != 1 || len(summary.FlashTap.SelectedSlots) != 2 || summary.FlashTap.SelectedSlots[0].KeyIndex != 73 || summary.FlashTap.SelectedSlots[1].KeyIndex != 71 || summary.FlashTap.Color != (devicesFlashTapColorSummary{Red: 19, Green: 97, Blue: 203}) {
+		t.Fatalf("flashTap=%#v", summary.FlashTap)
+	}
+	if devices.GetDevice(serial) != nil {
+		t.Fatal("preview fixture registered hardware")
+	}
+}
+
 func TestCommanderProModernDevicePreviewRendersFixtureWithoutRegistration(t *testing.T) {
 	router := legacyDevicePreviewRouter(t, true)
 	const serial = "preview-commander-pro-modern"

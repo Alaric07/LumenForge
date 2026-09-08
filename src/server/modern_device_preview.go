@@ -6,6 +6,7 @@ import (
 	"LumenForge/src/devices/k70coretkl"
 	"LumenForge/src/devices/k70lux"
 	"LumenForge/src/devices/k70luxrgb"
+	"LumenForge/src/devices/k70max"
 	"LumenForge/src/devices/k70mk2"
 	"LumenForge/src/devices/k70pro"
 	"LumenForge/src/devices/k70protkl"
@@ -49,6 +50,7 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "k70-core-tkl-modern", Title: "K70 CORE TKL", ProductType: common.ProductTypeK70CoreTkl, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70CoreTKLModernPreview},
 	{Key: "k70-pro-modern", Title: "K70 RGB PRO", ProductType: common.ProductTypeK70Pro, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70ProModernPreview},
 	{Key: "k70-pro-tkl-modern", Title: "K70 RGB PRO TKL", ProductType: common.ProductTypeK70ProTkl, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70ProTKLModernPreview},
+	{Key: "k70-max-modern", Title: "K70 MAX", ProductType: common.ProductTypeK70Max, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70MaxModernPreview},
 	{Key: "k70-lux-modern", Title: "K70 LUX", ProductType: common.ProductTypeK70LUX, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70LUXModernPreview},
 	{Key: "k70-lux-rgb-modern", Title: "K70 LUX RGB", ProductType: common.ProductTypeK70LUXRgb, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70LUXRGBModernPreview},
 	{Key: "k70-rgb-rf-modern", Title: "K70 RGB RF", ProductType: common.ProductTypeK70RgbRF, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70RGBRFModernPreview},
@@ -136,6 +138,27 @@ func buildK70ProTKLModernPreview() *devicesWorkspaceSummary {
 	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K70 RGB PRO TKL", ProductType: common.ProductTypeK70ProTkl, Instance: device}}, map[string]stats.BatteryStats{}, serial)
 	summary.KeyActuation = &devicesKeyActuationWorkspaceSummary{Supported: true, MinValue: 1, MaxValue: 40, SecondaryMinimumGap: 4, Keys: []devicesKeyActuationKeySummary{{KeyIndex: 4, KeyName: "A", Supported: true, ActuationPoint: 20, ActuationResetPoint: 18, EnableActuationPointReset: true, EnableSecondaryActuationPoint: true, SecondaryActuationPoint: 30, SecondaryActuationResetPoint: 29}, {KeyIndex: 57, KeyName: "Fn", Supported: false}}}
 	summary.FlashTap = &devicesFlashTapWorkspaceSummary{Supported: true, Active: true, Mode: 1, Modes: []devicesFlashTapOptionSummary{{Value: 0, Label: "Neutral"}, {Value: 1, Label: "Last Priority"}, {Value: 2, Label: "First Priority"}}, Keys: []devicesFlashTapKeySummary{{KeyIndex: 4, KeyName: "A", Eligible: true, Selected: true}, {KeyIndex: 7, KeyName: "D", Eligible: true, Selected: true}, {KeyIndex: 57, KeyName: "Fn", Eligible: false}}, SelectedSlots: []devicesFlashTapSelectedSlotSummary{{SlotIndex: 0, KeyIndex: 7}, {SlotIndex: 1, KeyIndex: 4}}, Color: devicesFlashTapColorSummary{Red: 17, Green: 93, Blue: 201}}
+	summary.LegacyLighting = true
+	return summary
+}
+func buildK70MaxModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k70-max-modern"
+	keyboard := keyboards.GetKeyboard("k70max-default-US")
+	profile := &k70max.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 4, DisableWinKey: true, DisableAltTab: true}
+	device := &k70max.Device{Serial: serial, UIKeyboard: "keyboard-7", UIKeyboardRow: "keyboard-row-25", Layouts: []string{"US"}, KeyAssignmentTypes: k70ModernPreviewAssignmentTypes(), PollingRates: map[int]string{1: "125 Hz / 8 msec", 2: "250 Hz / 4 msec", 3: "500 Hz / 2 msec", 4: "1000 Hz / 1 msec", 5: "2000 Hz / 0.5 msec", 6: "4000 Hz / 0.25 msec", 7: "8000 Hz / 0.125 msec"}, DeviceProfile: profile, UserProfiles: map[string]*k70max.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K70 MAX", ProductType: common.ProductTypeK70Max, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	if summary.KeyboardAssignments != nil && len(summary.KeyboardAssignments.ModifierOptions) > 1 {
+		for row := range summary.KeyboardAssignments.Rows {
+			for key := range summary.KeyboardAssignments.Rows[row].Keys {
+				if summary.KeyboardAssignments.Rows[row].Keys[key].KeyIndex == 71 {
+					summary.KeyboardAssignments.Rows[row].Keys[key].ModifierKey = summary.KeyboardAssignments.ModifierOptions[1].ID
+					summary.KeyboardAssignments.Rows[row].Keys[key].RetainOriginal = true
+				}
+			}
+		}
+	}
+	summary.KeyActuation = &devicesKeyActuationWorkspaceSummary{Supported: true, MinValue: 1, MaxValue: 40, SecondaryMinimumGap: 4, Keys: []devicesKeyActuationKeySummary{{KeyIndex: 71, KeyName: "A", Supported: true, ActuationPoint: 20, ActuationResetPoint: 18, EnableActuationPointReset: true, EnableSecondaryActuationPoint: true, SecondaryActuationPoint: 30, SecondaryActuationResetPoint: 29}, {KeyIndex: 4, KeyName: "Logo", Supported: false}}}
+	summary.FlashTap = &devicesFlashTapWorkspaceSummary{Supported: true, Active: true, Mode: 1, Modes: []devicesFlashTapOptionSummary{{Value: 0, Label: "Neutral"}, {Value: 1, Label: "Last Priority"}, {Value: 2, Label: "First Priority"}}, Keys: []devicesFlashTapKeySummary{{KeyIndex: 71, KeyName: "A", Eligible: true, Selected: true}, {KeyIndex: 73, KeyName: "D", Eligible: true, Selected: true}, {KeyIndex: 4, KeyName: "Logo", Eligible: false}}, SelectedSlots: []devicesFlashTapSelectedSlotSummary{{SlotIndex: 0, KeyIndex: 73}, {SlotIndex: 1, KeyIndex: 71}}, Color: devicesFlashTapColorSummary{Red: 19, Green: 97, Blue: 203}}
 	summary.LegacyLighting = true
 	return summary
 }
