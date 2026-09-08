@@ -11,6 +11,7 @@ import (
 	"LumenForge/src/cluster"
 	"LumenForge/src/common"
 	"LumenForge/src/config"
+	"LumenForge/src/controldialpresentation"
 	"LumenForge/src/coolingpresentation"
 	"LumenForge/src/dashboard"
 	"LumenForge/src/deviceprofilepresentation"
@@ -2745,6 +2746,7 @@ type devicesWorkspaceSummary struct {
 	DPI                 *devicesDPIWorkspaceSummary
 	Performance         *devicesPerformanceWorkspaceSummary
 	SleepTimer          *devicesSleepTimerWorkspaceSummary
+	ControlDial         *devicesControlDialWorkspaceSummary
 	Buttons             *devicesButtonsWorkspaceSummary
 	DeviceProfiles      *devicesDeviceProfileWorkspaceSummary
 	Cooling             *devicesCoolingWorkspaceSummary
@@ -2933,6 +2935,10 @@ type devicesDeviceProfileSnapshotProvider interface {
 type devicesSleepTimerSnapshotProvider interface {
 	SleepTimerDeviceID() string
 	SleepTimerSnapshot() (sleeptimerpresentation.Snapshot, bool)
+}
+type devicesControlDialSnapshotProvider interface {
+	ControlDialDeviceID() string
+	ControlDialSnapshot() (controldialpresentation.Snapshot, bool)
 }
 
 type devicesCoolingSnapshotProvider interface {
@@ -3646,6 +3652,21 @@ type devicesSleepTimerWorkspaceSummary struct {
 	Value   int
 	Options []devicesSleepTimerOptionSummary
 }
+type devicesControlDialWorkspaceSummary struct {
+	Value   int
+	Options []devicesSleepTimerOptionSummary
+}
+
+func devicesControlDialWorkspaceSummaryFromSnapshot(snapshot controldialpresentation.Snapshot) *devicesControlDialWorkspaceSummary {
+	if !controldialpresentation.Valid(snapshot) {
+		return nil
+	}
+	summary := &devicesControlDialWorkspaceSummary{Value: snapshot.Value, Options: make([]devicesSleepTimerOptionSummary, 0, len(snapshot.Options))}
+	for _, option := range snapshot.Options {
+		summary.Options = append(summary.Options, devicesSleepTimerOptionSummary{Value: option.Value, Label: option.Label})
+	}
+	return summary
+}
 
 func devicesSleepTimerWorkspaceSummaryFromSnapshot(snapshot sleeptimerpresentation.Snapshot) *devicesSleepTimerWorkspaceSummary {
 	if len(snapshot.Options) == 0 {
@@ -4083,6 +4104,11 @@ func devicesWorkspaceSummaryForSerial(
 	if sleepTimerDevice, ok := device.Instance.(devicesSleepTimerSnapshotProvider); ok && sleepTimerDevice != nil && sleepTimerDevice.SleepTimerDeviceID() == serial {
 		if snapshot, usable := sleepTimerDevice.SleepTimerSnapshot(); usable {
 			summary.SleepTimer = devicesSleepTimerWorkspaceSummaryFromSnapshot(snapshot)
+		}
+	}
+	if controlDialDevice, ok := device.Instance.(devicesControlDialSnapshotProvider); ok && controlDialDevice != nil && controlDialDevice.ControlDialDeviceID() == serial {
+		if snapshot, usable := controlDialDevice.ControlDialSnapshot(); usable {
+			summary.ControlDial = devicesControlDialWorkspaceSummaryFromSnapshot(snapshot)
 		}
 	}
 	var coolingSnapshot *coolingpresentation.Snapshot

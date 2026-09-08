@@ -354,6 +354,8 @@
 
     function init(browser) {
         initPerformance(browser);
+        const dialWorkspace = browser.document.querySelector("[data-lf-control-dial-workspace]");
+        if (dialWorkspace) { const control=dialWorkspace.querySelector("[data-lf-control-dial-control]"), input=dialWorkspace.querySelector("[data-lf-control-dial-input]"), button=dialWorkspace.querySelector("[data-lf-control-dial-save]"), status=dialWorkspace.querySelector("[data-lf-control-dial-status]"); if(control&&input&&button&&status){button.addEventListener("click",async function(){const value=Number(input.value),deviceId=dialWorkspace.dataset.lfDeviceId;if(!Number.isInteger(value)||value<1||!deviceId||control.dataset.lfSaving==="true"){return;}control.dataset.lfSaving="true";input.disabled=true;button.disabled=true;try{const response=await browser.fetch("/api/keyboard/dial",{method:"POST",body:JSON.stringify({deviceId:deviceId,keyboardControlDial:value})}),result=response.ok?await response.json():null;if(!result||result.status!==1){throw new Error("save rejected");}control.dataset.lfConfirmedValue=String(value);status.textContent="";showPerformanceSaved(browser);}catch(_){input.value=control.dataset.lfConfirmedValue;status.textContent="Unable to save setting. Try again.";}finally{control.dataset.lfSaving="false";input.disabled=false;button.disabled=false;}});}}
         const workspace = browser.document.querySelector("[data-lf-dpi-workspace]");
         const overview = browser.document.querySelector("[data-lf-overview-dpi]");
         if (!workspace) {

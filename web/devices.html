@@ -1004,6 +1004,12 @@
                                     <div class="lf-performance-controls"><div class="lf-performance-control" data-lf-performance-control data-lf-performance-kind="sleepTimer" data-lf-confirmed-value="{{ .Value }}"><label for="lf-sleep-timer">Sleep Timer</label><select id="lf-sleep-timer" data-lf-performance-input aria-label="Sleep Timer">{{ $selected := .Value }}{{ range .Options }}<option value="{{ .Value }}"{{ if eq .Value $selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select><p class="lf-range-control-status" data-lf-performance-status aria-live="polite"></p></div></div>
                                 </section>
                             {{ end }}
+                            {{ with .Device.ControlDial }}
+                                <section class="lf-overview-panel" data-lf-control-dial-workspace data-lf-device-id="{{ $.Device.Serial }}">
+                                    <header class="lf-overview-panel-header"><div><p class="lf-section-kicker">Device configuration</p><h2>Control Dial</h2></div></header>
+                                    <div class="lf-performance-controls"><div class="lf-performance-control" data-lf-control-dial-control data-lf-confirmed-value="{{ .Value }}"><label for="lf-control-dial">Control Dial</label><select id="lf-control-dial" data-lf-control-dial-input>{{ $selected := .Value }}{{ range .Options }}<option value="{{ .Value }}"{{ if eq .Value $selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select><p class="lf-range-control-status" data-lf-control-dial-status aria-live="polite"></p><div class="lf-keyboard-footer-row"><button type="button" class="lf-button" data-lf-control-dial-save>Save</button></div></div></div>
+                                </section>
+                            {{ end }}
                         </div>
                     </section>
                 {{ end }}

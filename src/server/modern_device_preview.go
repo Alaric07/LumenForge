@@ -2,6 +2,8 @@ package server
 
 import (
 	"LumenForge/src/common"
+	"LumenForge/src/devices/k65plusW"
+	"LumenForge/src/devices/k65plusWU"
 	"LumenForge/src/devices/k65pm"
 	"LumenForge/src/devices/k65rgb"
 	"LumenForge/src/devices/k65rgbRF"
@@ -50,6 +52,8 @@ type modernDevicePreviewNavigation struct {
 }
 
 var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
+	{Key: "k65-plus-usb-modern", Title: "K65 PLUS", ProductType: common.ProductTypeK65Plus, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK65PlusUSBModernPreview},
+	{Key: "k65-plus-wireless-modern", Title: "K65 PLUS Wireless", ProductType: common.ProductTypeK65PlusW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK65PlusWirelessModernPreview},
 	{Key: "k65-pro-mini-modern", Title: "K65 PRO MINI", ProductType: common.ProductTypeK65PM, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK65ProMiniModernPreview},
 	{Key: "k65-rgb-mini-modern", Title: "K65 RGB MINI", ProductType: common.ProductTypeK65RM, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK65RGBMiniModernPreview},
 	{Key: "k65-rgb-modern", Title: "K65 RGB", ProductType: common.ProductTypeK65Rgb, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK65RGBModernPreview},
@@ -138,6 +142,25 @@ func buildK65ProMiniModernPreview() *devicesWorkspaceSummary {
 	profile := &k65pm.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 4, DisableWinKey: true, DisableAltTab: true}
 	device := &k65pm.Device{Serial: serial, UIKeyboard: "keyboard-5", UIKeyboardRow: "keyboard-row-17", Layouts: []string{"US"}, KeyAssignmentTypes: map[int]string{0: "None", 1: "Media Keys", 3: "Keyboard", 8: "Sniper", 9: "Mouse", 10: "Macro"}, PollingRates: map[int]string{0: "Not Set", 1: "125 Hz / 8 msec", 2: "250 Hz / 4 msec", 3: "500 Hz / 2 msec", 4: "1000 Hz / 1 msec", 5: "2000 Hz / 0.5 msec", 6: "4000 Hz / 0.25 msec", 7: "8000 Hz / 0.125 msec"}, DeviceProfile: profile, UserProfiles: map[string]*k65pm.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
 	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K65 PRO MINI", ProductType: common.ProductTypeK65PM, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+func buildK65PlusWirelessModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k65-plus-wireless-modern"
+	k := keyboards.GetKeyboard("k65plus-default-US")
+	p := &k65plusW.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": k}, ControlDial: 1, SleepMode: 15, DisableWinKey: true}
+	d := &k65plusW.Device{Serial: serial, UIKeyboard: "keyboard-6", UIKeyboardRow: "keyboard-row-17", Layouts: []string{"US"}, KeyAssignmentTypes: map[int]string{0: "None", 1: "Media Keys", 3: "Keyboard", 8: "Sniper", 9: "Mouse", 10: "Macro"}, ControlDialOptions: map[int]string{1: "Volume Control", 2: "Brightness"}, SleepModes: map[int]string{5: "5 minutes", 15: "15 minutes"}, DeviceProfile: p, UserProfiles: map[string]*k65plusW.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	s, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K65 PLUS", ProductType: common.ProductTypeK65PlusW, Instance: d}}, map[string]stats.BatteryStats{}, serial)
+	s.LegacyLighting = true
+	return s
+}
+
+func buildK65PlusUSBModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k65-plus-usb-modern"
+	keyboard := keyboards.GetKeyboard("k65plus-default-US")
+	profile := &k65plusWU.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, ControlDial: 1, DisableWinKey: true}
+	device := &k65plusWU.Device{Serial: serial, UIKeyboard: "keyboard-6", UIKeyboardRow: "keyboard-row-17", Layouts: []string{"US"}, KeyAssignmentTypes: map[int]string{0: "None", 1: "Media Keys", 3: "Keyboard", 8: "Sniper", 9: "Mouse", 10: "Macro"}, ControlDialOptions: map[int]string{1: "Volume Control", 2: "Brightness"}, DeviceProfile: profile, UserProfiles: map[string]*k65plusWU.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K65 PLUS", ProductType: common.ProductTypeK65Plus, Instance: device}}, map[string]stats.BatteryStats{}, serial)
 	summary.LegacyLighting = true
 	return summary
 }

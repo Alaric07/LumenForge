@@ -117,17 +117,19 @@ func TestModernKeyboardDevicePreviewsRenderWorkspaceWithoutRegistration(t *testi
 		requiredNames                               []string
 		rows, keys                                  int
 		noModifiers, requireModifiers, noAdvanced   bool
+		controlDial, sleepTimer                     bool
 	}{
-		{"k65-pro-mini-modern", "preview-k65-pro-mini-modern", "keyboard-5", "keyboard-row-17", "1000 Hz / 1 msec", []string{"A"}, 5, 67, false, true, true},
-		{"k65-rgb-mini-modern", "preview-k65-rgb-mini-modern", "keyboard-5", "keyboard-row-16", "1000 Hz / 1 msec", []string{"A"}, 5, 61, false, true, true},
-		{"k65-rgb-modern", "preview-k65-rgb-modern", "keyboard-7", "keyboard-row-20", "1000 Hz / 1 msec", []string{"A", "BTS"}, 7, 92, true, false, true},
-		{"k65-rgb-rapidfire-modern", "preview-k65-rgb-rapidfire-modern", "keyboard-7", "keyboard-row-20", "1000 Hz / 1 msec", []string{"A", "BTS"}, 7, 92, true, false, true},
-		{"k70-lux-modern", "preview-k70-lux-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A", "BTS", "Play"}, 7, 113, false, false, false},
-		{"k70-lux-rgb-modern", "preview-k70-lux-rgb-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A", "BTS", "Play"}, 7, 113, false, false, false},
-		{"k70-rgb-rf-modern", "preview-k70-rgb-rf-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A", "BTS", "Play"}, 7, 113, false, false, false},
-		{"k70-mk2-modern", "preview-k70-mk2-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A", "BTS", "Play"}, 7, 116, false, false, false},
-		{"k95-modern", "preview-k95-modern", "keyboard-7", "keyboard-row-27", "1000 Hz / 1 msec", []string{"A", "G1", "Play"}, 7, 135, false, false, false},
-		{"k95-platinum-xt-modern", "preview-k95-platinum-xt-modern", "keyboard-8", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A", "G1", "Play"}, 8, 139, false, false, false},
+		{"k65-plus-usb-modern", "preview-k65-plus-usb-modern", "keyboard-6", "keyboard-row-17", "", []string{"A"}, 6, 81, false, true, true, true, false},
+		{"k65-pro-mini-modern", "preview-k65-pro-mini-modern", "keyboard-5", "keyboard-row-17", "1000 Hz / 1 msec", []string{"A"}, 5, 67, false, true, true, false, false},
+		{"k65-rgb-mini-modern", "preview-k65-rgb-mini-modern", "keyboard-5", "keyboard-row-16", "1000 Hz / 1 msec", []string{"A"}, 5, 61, false, true, true, false, false},
+		{"k65-rgb-modern", "preview-k65-rgb-modern", "keyboard-7", "keyboard-row-20", "1000 Hz / 1 msec", []string{"A", "BTS"}, 7, 92, true, false, true, false, false},
+		{"k65-rgb-rapidfire-modern", "preview-k65-rgb-rapidfire-modern", "keyboard-7", "keyboard-row-20", "1000 Hz / 1 msec", []string{"A", "BTS"}, 7, 92, true, false, true, false, false},
+		{"k70-lux-modern", "preview-k70-lux-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A", "BTS", "Play"}, 7, 113, false, false, false, false, false},
+		{"k70-lux-rgb-modern", "preview-k70-lux-rgb-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A", "BTS", "Play"}, 7, 113, false, false, false, false, false},
+		{"k70-rgb-rf-modern", "preview-k70-rgb-rf-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A", "BTS", "Play"}, 7, 113, false, false, false, false, false},
+		{"k70-mk2-modern", "preview-k70-mk2-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A", "BTS", "Play"}, 7, 116, false, false, false, false, false},
+		{"k95-modern", "preview-k95-modern", "keyboard-7", "keyboard-row-27", "1000 Hz / 1 msec", []string{"A", "G1", "Play"}, 7, 135, false, false, false, false, false},
+		{"k95-platinum-xt-modern", "preview-k95-platinum-xt-modern", "keyboard-8", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A", "G1", "Play"}, 8, 139, false, false, false, false, false},
 	} {
 		if devices.GetDevice(fixture.serial) != nil {
 			t.Fatalf("fixture serial %q unexpectedly registered", fixture.serial)
@@ -165,6 +167,9 @@ func TestModernKeyboardDevicePreviewsRenderWorkspaceWithoutRegistration(t *testi
 		if fixture.noAdvanced && (summary.KeyActuation != nil || summary.FlashTap != nil) {
 			t.Fatalf("%s advertised unsupported advanced controls", fixture.key)
 		}
+		if (summary.ControlDial != nil) != fixture.controlDial || (summary.SleepTimer != nil) != fixture.sleepTimer {
+			t.Fatalf("%s controlDial=%#v sleepTimer=%#v", fixture.key, summary.ControlDial, summary.SleepTimer)
+		}
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/"+fixture.key+"?view=keyboard"))
 		if recorder.Code != http.StatusOK {
@@ -181,6 +186,12 @@ func TestModernKeyboardDevicePreviewsRenderWorkspaceWithoutRegistration(t *testi
 		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/"+fixture.key))
 		if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "Device Profile") || !strings.Contains(recorder.Body.String(), "Default") {
 			t.Errorf("%s overview omitted device-profile state", fixture.key)
+		}
+		if fixture.controlDial && !strings.Contains(recorder.Body.String(), "Control Dial") {
+			t.Errorf("%s overview omitted control dial", fixture.key)
+		}
+		if !fixture.sleepTimer && strings.Contains(recorder.Body.String(), "Sleep Timer") {
+			t.Errorf("%s overview advertised unsupported sleep timer", fixture.key)
 		}
 		if devices.GetDevice(fixture.serial) != nil {
 			t.Fatalf("fixture serial %q registered during preview", fixture.serial)
