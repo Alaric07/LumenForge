@@ -2,8 +2,10 @@ package server
 
 import (
 	"LumenForge/src/common"
+	"LumenForge/src/devices/k65pm"
 	"LumenForge/src/devices/k65rgb"
 	"LumenForge/src/devices/k65rgbRF"
+	"LumenForge/src/devices/k65rm"
 	"LumenForge/src/devices/k70core"
 	"LumenForge/src/devices/k70coretkl"
 	"LumenForge/src/devices/k70lux"
@@ -48,6 +50,8 @@ type modernDevicePreviewNavigation struct {
 }
 
 var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
+	{Key: "k65-pro-mini-modern", Title: "K65 PRO MINI", ProductType: common.ProductTypeK65PM, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK65ProMiniModernPreview},
+	{Key: "k65-rgb-mini-modern", Title: "K65 RGB MINI", ProductType: common.ProductTypeK65RM, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK65RGBMiniModernPreview},
 	{Key: "k65-rgb-modern", Title: "K65 RGB", ProductType: common.ProductTypeK65Rgb, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK65RGBModernPreview},
 	{Key: "k65-rgb-rapidfire-modern", Title: "K65 RGB RAPIDFIRE", ProductType: common.ProductTypeK65Rgb, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK65RGBRapidfireModernPreview},
 	{Key: "k70-core-modern", Title: "K70 CORE", ProductType: common.ProductTypeK70Core, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70CoreModernPreview},
@@ -127,6 +131,24 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 
 func buildK70CoreModernPreview() *devicesWorkspaceSummary {
 	return buildK70CorePreview("preview-k70-core-modern", "K70 CORE", common.ProductTypeK70Core, "k70core-default-US", "keyboard-6", "keyboard-row-25")
+}
+func buildK65ProMiniModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k65-pro-mini-modern"
+	keyboard := keyboards.GetKeyboard("k65pm-default-US")
+	profile := &k65pm.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 4, DisableWinKey: true, DisableAltTab: true}
+	device := &k65pm.Device{Serial: serial, UIKeyboard: "keyboard-5", UIKeyboardRow: "keyboard-row-17", Layouts: []string{"US"}, KeyAssignmentTypes: map[int]string{0: "None", 1: "Media Keys", 3: "Keyboard", 8: "Sniper", 9: "Mouse", 10: "Macro"}, PollingRates: map[int]string{0: "Not Set", 1: "125 Hz / 8 msec", 2: "250 Hz / 4 msec", 3: "500 Hz / 2 msec", 4: "1000 Hz / 1 msec", 5: "2000 Hz / 0.5 msec", 6: "4000 Hz / 0.25 msec", 7: "8000 Hz / 0.125 msec"}, DeviceProfile: profile, UserProfiles: map[string]*k65pm.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K65 PRO MINI", ProductType: common.ProductTypeK65PM, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+func buildK65RGBMiniModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k65-rgb-mini-modern"
+	keyboard := keyboards.GetKeyboard("k65rm-default-US")
+	profile := &k65rm.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 4, DisableWinKey: true, DisableAltTab: true}
+	device := &k65rm.Device{Serial: serial, UIKeyboard: "keyboard-5", UIKeyboardRow: "keyboard-row-16", Layouts: []string{"US"}, KeyAssignmentTypes: map[int]string{0: "None", 1: "Media Keys", 3: "Keyboard", 8: "Sniper", 9: "Mouse", 10: "Macro"}, PollingRates: map[int]string{0: "Not Set", 1: "125 Hz / 8 msec", 2: "250 Hz / 4 msec", 3: "500 Hz / 2 msec", 4: "1000 Hz / 1 msec", 5: "2000 Hz / 0.5 msec", 6: "4000 Hz / 0.25 msec", 7: "8000 Hz / 0.125 msec"}, DeviceProfile: profile, UserProfiles: map[string]*k65rm.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K65 RGB MINI", ProductType: common.ProductTypeK65RM, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
 }
 func buildK65RGBModernPreview() *devicesWorkspaceSummary {
 	const serial = "preview-k65-rgb-modern"
