@@ -204,6 +204,59 @@ func TestModernKeyboardDevicePreviewsRenderWorkspaceWithoutRegistration(t *testi
 	}
 }
 
+func TestModernKeyboardLiveRGBPreviewCapabilitiesMatchDeviceContracts(t *testing.T) {
+	router := legacyDevicePreviewRouter(t, true)
+	keyboards.Init()
+	for _, fixture := range []struct {
+		key, serial string
+		live        bool
+	}{
+		{"k55-rgb-modern", "preview-k55-rgb-modern", false},
+		{"k55-core-modern", "preview-k55-core-modern", false},
+		{"k55-core-tkl-modern", "preview-k55-core-tkl-modern", false},
+		{"k55-pro-modern", "preview-k55-pro-modern", false},
+		{"k55-pro-xt-modern", "preview-k55-pro-xt-modern", false},
+		{"k65-plus-usb-modern", "preview-k65-plus-usb-modern", false},
+		{"k65-plus-wireless-modern", "preview-k65-plus-wireless-modern", false},
+		{"k65-pro-mini-modern", "preview-k65-pro-mini-modern", false},
+		{"k65-rgb-mini-modern", "preview-k65-rgb-mini-modern", false},
+		{"k65-rgb-modern", "preview-k65-rgb-modern", false},
+		{"k65-rgb-rapidfire-modern", "preview-k65-rgb-rapidfire-modern", false},
+		{"k70-core-modern", "preview-k70-core-modern", false},
+		{"k70-core-tkl-modern", "preview-k70-core-tkl-modern", false},
+		{"k70-pro-modern", "preview-k70-pro-modern", false},
+		{"k70-pro-tkl-modern", "preview-k70-pro-tkl-modern", false},
+		{"k70-max-modern", "preview-k70-max-modern", false},
+		{"k70-lux-modern", "preview-k70-lux-modern", false},
+		{"k70-lux-rgb-modern", "preview-k70-lux-rgb-modern", false},
+		{"k70-rgb-rf-modern", "preview-k70-rgb-rf-modern", false},
+		{"k70-mk2-modern", "preview-k70-mk2-modern", false},
+		{"k95-modern", "preview-k95-modern", false},
+		{"k95-platinum-modern", "preview-k95-platinum-modern", true},
+		{"k95-platinum-xt-modern", "preview-k95-platinum-xt-modern", false},
+	} {
+		preview, ok := modernDevicePreviewFixtureByKey(fixture.key)
+		if !ok {
+			t.Fatalf("missing preview fixture %q", fixture.key)
+		}
+		summary := preview.Build()
+		if summary.KeyboardAssignments == nil || summary.KeyboardAssignments.LiveRGBAvailable != fixture.live || (summary.KeyboardAssignments.LiveRGBEnabled && !fixture.live) {
+			t.Fatalf("%s live RGB summary = %#v", fixture.key, summary.KeyboardAssignments)
+		}
+		if devices.GetDevice(fixture.serial) != nil {
+			t.Fatalf("fixture serial %q registered during build", fixture.serial)
+		}
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/"+fixture.key+"?view=keyboard"))
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("%s status = %d: %s", fixture.key, recorder.Code, recorder.Body.String())
+		}
+		if got := strings.Contains(recorder.Body.String(), "data-lf-keyboard-live-rgb"); got != fixture.live {
+			t.Errorf("%s rendered live RGB = %t, want %t", fixture.key, got, fixture.live)
+		}
+	}
+}
+
 func TestK70ProTKLModernPreviewProvidesCompleteAdvancedKeyboardWorkspaceWithoutRegistration(t *testing.T) {
 	const serial = "preview-k70-pro-tkl-modern"
 	if devices.GetDevice(serial) != nil {
