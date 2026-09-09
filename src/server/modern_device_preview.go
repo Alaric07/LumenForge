@@ -7,6 +7,8 @@ import (
 	"LumenForge/src/devices/k55coretkl"
 	"LumenForge/src/devices/k55pro"
 	"LumenForge/src/devices/k55proXT"
+	"LumenForge/src/devices/k57rgbW"
+	"LumenForge/src/devices/k57rgbWU"
 	"LumenForge/src/devices/k60rgbpro"
 	"LumenForge/src/devices/k65plusW"
 	"LumenForge/src/devices/k65plusWU"
@@ -65,6 +67,8 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "k55-core-tkl-modern", Title: "K55 CORE TKL", ProductType: common.ProductTypeK55CoreTkl, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55CoreTKLModernPreview},
 	{Key: "k55-pro-modern", Title: "K55 PRO RGB", ProductType: common.ProductTypeK55Pro, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55ProModernPreview},
 	{Key: "k55-pro-xt-modern", Title: "K55 RGB PRO XT", ProductType: common.ProductTypeK55ProXT, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55ProXTModernPreview},
+	{Key: "k57-rgb-wireless-modern", Title: "K57 RGB Wireless", ProductType: common.ProductTypeK57RgbW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK57RGBWirelessModernPreview},
+	{Key: "k57-rgb-usb-modern", Title: "K57 RGB USB", ProductType: common.ProductTypeK57RgbWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK57RGBUSBModernPreview},
 	{Key: "k60-rgb-pro-modern", Title: "K60 RGB PRO", ProductType: common.ProductTypeK60RgbPro, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK60RGBProModernPreview},
 	{Key: "k65-plus-usb-modern", Title: "K65 PLUS", ProductType: common.ProductTypeK65Plus, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK65PlusUSBModernPreview},
 	{Key: "k65-plus-wireless-modern", Title: "K65 PLUS Wireless", ProductType: common.ProductTypeK65PlusW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK65PlusWirelessModernPreview},
@@ -267,6 +271,26 @@ func buildK60RGBProModernPreview() *devicesWorkspaceSummary {
 	profile := &k60rgbpro.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 4, DisableWinKey: true, DisableAltTab: true}
 	device := &k60rgbpro.Device{Serial: serial, UIKeyboard: "keyboard-6", UIKeyboardRow: "keyboard-row-26", Layouts: []string{"US"}, KeyAssignmentTypes: map[int]string{0: "None", 1: "Media Keys", 3: "Keyboard", 8: "Sniper", 9: "Mouse", 10: "Macro"}, PollingRates: map[int]string{0: "Not Set", 1: "125 Hz / 8 msec", 2: "250 Hz / 4 msec", 3: "500 Hz / 2 msec", 4: "1000 Hz / 1 msec"}, DeviceProfile: profile, UserProfiles: map[string]*k60rgbpro.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
 	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K60 RGB PRO", ProductType: common.ProductTypeK60RgbPro, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func buildK57RGBWirelessModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k57-rgb-wireless-modern"
+	keyboard := keyboards.GetKeyboard("k57rgb-default-US")
+	profile := &k57rgbW.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, SleepMode: 15, DisableWinKey: true, DisableAltTab: true}
+	device := &k57rgbW.Device{Serial: serial, UIKeyboard: "keyboard-7", UIKeyboardRow: "keyboard-row-26", Layouts: []string{"US"}, KeyAssignmentTypes: map[int]string{0: "None", 1: "Media Keys", 3: "Keyboard", 8: "Sniper", 9: "Mouse", 10: "Macro", 11: "Brightness +", 12: "Brightness -", 13: "Scroll Up", 14: "Scroll Down", 15: "Zoom In", 16: "Zoom Out", 17: "Screen Brightness +", 18: "Screen Brightness -"}, SleepModes: map[int]string{1: "1 minute", 5: "5 minutes", 10: "10 minutes", 15: "15 minutes", 30: "30 minutes", 60: "1 hour"}, DeviceProfile: profile, UserProfiles: map[string]*k57rgbW.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K57 RGB", ProductType: common.ProductTypeK57RgbW, Instance: device}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func buildK57RGBUSBModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k57-rgb-usb-modern"
+	keyboard := keyboards.GetKeyboard("k57rgb-default-US")
+	profile := &k57rgbWU.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 4, DisableWinKey: true, DisableAltTab: true}
+	device := &k57rgbWU.Device{Serial: serial, UIKeyboard: "keyboard-7", UIKeyboardRow: "keyboard-row-26", Layouts: []string{"US"}, KeyAssignmentTypes: k70ModernPreviewAssignmentTypes(), PollingRates: map[int]string{0: "Not Set", 1: "125 Hz / 8 msec", 2: "250 Hz / 4 msec", 3: "500 Hz / 2 msec", 4: "1000 Hz / 1 msec"}, DeviceProfile: profile, UserProfiles: map[string]*k57rgbWU.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K57 RGB", ProductType: common.ProductTypeK57RgbWU, Instance: device}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
 	summary.LegacyLighting = true
 	return summary
 }

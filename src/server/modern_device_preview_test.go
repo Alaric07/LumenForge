@@ -124,6 +124,8 @@ func TestModernKeyboardDevicePreviewsRenderWorkspaceWithoutRegistration(t *testi
 		{"k55-core-tkl-modern", "preview-k55-core-tkl-modern", "keyboard-6", "keyboard-row-21", "1000 Hz / 1 msec", []string{"A"}, 6, 92, true, false, true, false, false},
 		{"k55-pro-modern", "preview-k55-pro-modern", "keyboard-7", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A"}, 7, 120, true, false, true, false, false},
 		{"k55-pro-xt-modern", "preview-k55-pro-xt-modern", "keyboard-7", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A"}, 7, 120, true, false, true, false, false},
+		{"k57-rgb-wireless-modern", "preview-k57-rgb-wireless-modern", "keyboard-7", "keyboard-row-26", "", []string{"A"}, 7, 120, true, false, true, false, true},
+		{"k57-rgb-usb-modern", "preview-k57-rgb-usb-modern", "keyboard-7", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A"}, 7, 120, true, false, true, false, false},
 		{"k60-rgb-pro-modern", "preview-k60-rgb-pro-modern", "keyboard-6", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A"}, 6, 104, true, false, true, false, false},
 		{"k65-plus-usb-modern", "preview-k65-plus-usb-modern", "keyboard-6", "keyboard-row-17", "", []string{"A"}, 6, 81, false, true, true, true, false},
 		{"k65-pro-mini-modern", "preview-k65-pro-mini-modern", "keyboard-5", "keyboard-row-17", "1000 Hz / 1 msec", []string{"A"}, 5, 67, false, true, true, false, false},
@@ -218,6 +220,8 @@ func TestModernKeyboardLiveRGBPreviewCapabilitiesMatchDeviceContracts(t *testing
 		{"k55-core-tkl-modern", "preview-k55-core-tkl-modern", false},
 		{"k55-pro-modern", "preview-k55-pro-modern", false},
 		{"k55-pro-xt-modern", "preview-k55-pro-xt-modern", false},
+		{"k57-rgb-wireless-modern", "preview-k57-rgb-wireless-modern", false},
+		{"k57-rgb-usb-modern", "preview-k57-rgb-usb-modern", false},
 		{"k60-rgb-pro-modern", "preview-k60-rgb-pro-modern", false},
 		{"k65-plus-usb-modern", "preview-k65-plus-usb-modern", false},
 		{"k65-plus-wireless-modern", "preview-k65-plus-wireless-modern", false},
@@ -258,6 +262,17 @@ func TestModernKeyboardLiveRGBPreviewCapabilitiesMatchDeviceContracts(t *testing
 		if got := strings.Contains(recorder.Body.String(), "data-lf-keyboard-live-rgb"); got != fixture.live {
 			t.Errorf("%s rendered live RGB = %t, want %t", fixture.key, got, fixture.live)
 		}
+	}
+}
+
+func TestK57ModernPreviewsKeepTransportSpecificBatteryAndSleepCapabilities(t *testing.T) {
+	wireless := buildK57RGBWirelessModernPreview()
+	if !wireless.HasBattery || wireless.BatteryLevel != 78 || wireless.SleepTimer == nil || wireless.Performance == nil || wireless.Performance.PollingRate != nil || wireless.ControlDial != nil {
+		t.Fatalf("wireless summary=%#v", wireless)
+	}
+	usb := buildK57RGBUSBModernPreview()
+	if !usb.HasBattery || usb.BatteryLevel != 78 || usb.SleepTimer != nil || usb.Performance == nil || usb.Performance.PollingRate == nil || usb.ControlDial != nil {
+		t.Fatalf("USB summary=%#v", usb)
 	}
 }
 
