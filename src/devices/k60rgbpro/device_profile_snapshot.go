@@ -1,0 +1,36 @@
+package k60rgbpro
+
+import (
+	"LumenForge/src/deviceprofilepresentation"
+	"sort"
+)
+
+func (d *Device) DeviceProfileDeviceID() string {
+	if d == nil {
+		return ""
+	}
+	return d.Serial
+}
+
+func (d *Device) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bool) {
+	if d == nil || d.DeviceProfile == nil || d.DeviceProfile.Profile == "" || d.DeviceProfile.Keyboards[d.DeviceProfile.Profile] == nil || len(d.UserProfiles) == 0 {
+		return deviceprofilepresentation.Snapshot{}, false
+	}
+	snapshot := deviceprofilepresentation.Snapshot{Supported: true}
+	active := 0
+	for name, profile := range d.UserProfiles {
+		if profile == nil {
+			continue
+		}
+		snapshot.Profiles = append(snapshot.Profiles, name)
+		if profile.Active {
+			active++
+			snapshot.ActiveProfile = name
+		}
+	}
+	sort.Strings(snapshot.Profiles)
+	if active != 1 || snapshot.ActiveProfile == "" || len(snapshot.Profiles) == 0 {
+		return deviceprofilepresentation.Snapshot{}, false
+	}
+	return snapshot, true
+}
