@@ -2,6 +2,8 @@ package server
 
 import (
 	"LumenForge/src/common"
+	"LumenForge/src/devices/k100airW"
+	"LumenForge/src/devices/k100airWU"
 	"LumenForge/src/devices/k55"
 	"LumenForge/src/devices/k55core"
 	"LumenForge/src/devices/k55coretkl"
@@ -69,6 +71,8 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "k55-pro-xt-modern", Title: "K55 RGB PRO XT", ProductType: common.ProductTypeK55ProXT, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55ProXTModernPreview},
 	{Key: "k57-rgb-wireless-modern", Title: "K57 RGB Wireless", ProductType: common.ProductTypeK57RgbW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK57RGBWirelessModernPreview},
 	{Key: "k57-rgb-usb-modern", Title: "K57 RGB USB", ProductType: common.ProductTypeK57RgbWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK57RGBUSBModernPreview},
+	{Key: "k100-air-wireless-modern", Title: "K100 AIR Wireless", ProductType: common.ProductTypeK100AirW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK100AirWirelessModernPreview},
+	{Key: "k100-air-usb-modern", Title: "K100 AIR USB", ProductType: common.ProductTypeK100AirWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK100AirUSBModernPreview},
 	{Key: "k60-rgb-pro-modern", Title: "K60 RGB PRO", ProductType: common.ProductTypeK60RgbPro, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK60RGBProModernPreview},
 	{Key: "k65-plus-usb-modern", Title: "K65 PLUS", ProductType: common.ProductTypeK65Plus, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK65PlusUSBModernPreview},
 	{Key: "k65-plus-wireless-modern", Title: "K65 PLUS Wireless", ProductType: common.ProductTypeK65PlusW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK65PlusWirelessModernPreview},
@@ -294,6 +298,27 @@ func buildK57RGBUSBModernPreview() *devicesWorkspaceSummary {
 	summary.LegacyLighting = true
 	return summary
 }
+
+func buildK100AirWirelessModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k100-air-wireless-modern"
+	keyboard := keyboards.GetKeyboard("k100air-default-US")
+	profile := &k100airW.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, SleepMode: 15, AutoBrightness: 1, DisableWinKey: true, DisableAltTab: true}
+	device := &k100airW.Device{Serial: serial, UIKeyboard: "keyboard-7", UIKeyboardRow: "keyboard-row-25", Layouts: []string{"US", "DE", "FR"}, KeyAssignmentTypes: k70ModernPreviewAssignmentTypes(), SleepModes: map[int]string{1: "1 minute", 5: "5 minutes", 10: "10 minutes", 15: "15 minutes", 30: "30 minutes", 60: "1 hour"}, DeviceProfile: profile, UserProfiles: map[string]*k100airW.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K100 AIR WIRELESS", ProductType: common.ProductTypeK100AirW, Instance: device}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func buildK100AirUSBModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k100-air-usb-modern"
+	keyboard := keyboards.GetKeyboard("k100air-default-US")
+	profile := &k100airWU.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 4, AutoBrightness: 1, DisableWinKey: true, DisableAltTab: true}
+	device := &k100airWU.Device{Serial: serial, UIKeyboard: "keyboard-7", UIKeyboardRow: "keyboard-row-25", Layouts: []string{"US", "DE", "FR"}, KeyAssignmentTypes: k70ModernPreviewAssignmentTypes(), PollingRates: map[int]string{0: "Not Set", 1: "125 Hz / 8 msec", 2: "250 Hz / 4 msec", 3: "500 Hz / 2 msec", 4: "1000 Hz / 1 msec", 5: "2000 Hz / 0.5 msec", 6: "4000 Hz / 0.25 msec", 7: "8000 Hz / 0.125 msec"}, DeviceProfile: profile, UserProfiles: map[string]*k100airWU.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K100 AIR USB", ProductType: common.ProductTypeK100AirWU, Instance: device}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
 func buildK65RGBRapidfireModernPreview() *devicesWorkspaceSummary {
 	const serial = "preview-k65-rgb-rapidfire-modern"
 	keyboard := keyboards.GetKeyboard("k65rgbRF-default-US")

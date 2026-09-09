@@ -7,6 +7,7 @@ package server
 import (
 	"LumenForge/src/audio"
 	"LumenForge/src/backup"
+	"LumenForge/src/booleansettingpresentation"
 	"LumenForge/src/buttonspresentation"
 	"LumenForge/src/cluster"
 	"LumenForge/src/common"
@@ -192,6 +193,11 @@ type devicesDPIWorkspaceTarget interface {
 type devicesSleepTimerTarget interface {
 	devicesSleepTimerSnapshotProvider
 	UpdateSleepTimer(int) uint8
+}
+
+type devicesBooleanSettingTarget interface {
+	devicesBooleanSettingsSnapshotProvider
+	UpdateBooleanSetting(string, bool) uint8
 }
 
 var lookupNativeDeviceLightingWrapper = devices.LookupDevice
@@ -2745,6 +2751,7 @@ type devicesWorkspaceSummary struct {
 	Lighting            *devicesLightingWorkspaceSummary
 	DPI                 *devicesDPIWorkspaceSummary
 	Performance         *devicesPerformanceWorkspaceSummary
+	BooleanSettings     *devicesBooleanSettingsWorkspaceSummary
 	SleepTimer          *devicesSleepTimerWorkspaceSummary
 	ControlDial         *devicesControlDialWorkspaceSummary
 	Buttons             *devicesButtonsWorkspaceSummary
@@ -2935,6 +2942,10 @@ type devicesDeviceProfileSnapshotProvider interface {
 type devicesSleepTimerSnapshotProvider interface {
 	SleepTimerDeviceID() string
 	SleepTimerSnapshot() (sleeptimerpresentation.Snapshot, bool)
+}
+type devicesBooleanSettingsSnapshotProvider interface {
+	BooleanSettingsDeviceID() string
+	BooleanSettingsSnapshot() (booleansettingpresentation.Snapshot, bool)
 }
 type devicesControlDialSnapshotProvider interface {
 	ControlDialDeviceID() string
@@ -3695,6 +3706,15 @@ type devicesPerformanceWorkspaceSummary struct {
 	SaveBooleanSettings bool
 }
 
+type devicesBooleanSettingSummary struct {
+	ID, Label, Action, Description string
+	Value                          bool
+}
+
+type devicesBooleanSettingsWorkspaceSummary struct {
+	Settings []devicesBooleanSettingSummary
+}
+
 type devicesSleepTimerOptionSummary struct {
 	Value int
 	Label string
@@ -3740,6 +3760,29 @@ func devicesSleepTimerWorkspaceSummaryFromSnapshot(snapshot sleeptimerpresentati
 	}
 	if !found {
 		return nil
+	}
+	return summary
+}
+
+func devicesBooleanSettingsWorkspaceSummaryFromSnapshot(snapshot booleansettingpresentation.Snapshot) *devicesBooleanSettingsWorkspaceSummary {
+	if len(snapshot.Settings) == 0 {
+		return nil
+	}
+	summary := &devicesBooleanSettingsWorkspaceSummary{Settings: make([]devicesBooleanSettingSummary, 0, len(snapshot.Settings))}
+	seenIDs, seenActions := map[string]struct{}{}, map[string]struct{}{}
+	for _, setting := range snapshot.Settings {
+		if setting.ID == "" || setting.Label == "" || setting.Action == "" {
+			return nil
+		}
+		if _, duplicate := seenIDs[setting.ID]; duplicate {
+			return nil
+		}
+		if _, duplicate := seenActions[setting.Action]; duplicate {
+			return nil
+		}
+		seenIDs[setting.ID] = struct{}{}
+		seenActions[setting.Action] = struct{}{}
+		summary.Settings = append(summary.Settings, devicesBooleanSettingSummary{ID: setting.ID, Label: setting.Label, Value: setting.Value, Action: setting.Action, Description: setting.Description})
 	}
 	return summary
 }
@@ -4156,6 +4199,11 @@ func devicesWorkspaceSummaryForSerial(
 	if sleepTimerDevice, ok := device.Instance.(devicesSleepTimerSnapshotProvider); ok && sleepTimerDevice != nil && sleepTimerDevice.SleepTimerDeviceID() == serial {
 		if snapshot, usable := sleepTimerDevice.SleepTimerSnapshot(); usable {
 			summary.SleepTimer = devicesSleepTimerWorkspaceSummaryFromSnapshot(snapshot)
+		}
+	}
+	if booleanSettingsDevice, ok := device.Instance.(devicesBooleanSettingsSnapshotProvider); ok && booleanSettingsDevice != nil && booleanSettingsDevice.BooleanSettingsDeviceID() == serial {
+		if snapshot, usable := booleanSettingsDevice.BooleanSettingsSnapshot(); usable {
+			summary.BooleanSettings = devicesBooleanSettingsWorkspaceSummaryFromSnapshot(snapshot)
 		}
 	}
 	if controlDialDevice, ok := device.Instance.(devicesControlDialSnapshotProvider); ok && controlDialDevice != nil && controlDialDevice.ControlDialDeviceID() == serial {
@@ -4865,6 +4913,58 @@ func setDevicesSleepTimer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	(&Response{Code: http.StatusOK, Status: 1, Message: "Sleep timer updated"}).Send(w)
+}
+
+func getDevicesBooleanSettingTarget(serial string) (devicesBooleanSettingTarget, error) {
+	if serial == "" || !common.AlphanumericDashRegex.MatchString(serial) {
+		return nil, fmt.Errorf("invalid boolean setting device serial")
+	}
+	wrapper, ok := lookupDevicesDPIWorkspaceWrapper(serial)
+	if !ok || wrapper == nil || wrapper.Hidden || wrapper.Unavailable || wrapper.Serial != serial {
+		return nil, fmt.Errorf("boolean setting device is not available")
+	}
+	target, ok := wrapper.Instance.(devicesBooleanSettingTarget)
+	if !ok || target == nil || target.BooleanSettingsDeviceID() != serial {
+		return nil, fmt.Errorf("boolean setting workspace is not available")
+	}
+	return target, nil
+}
+
+func setDevicesBooleanSetting(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		DeviceID  *string `json:"deviceId"`
+		SettingID *string `json:"settingId"`
+		Value     *bool   `json:"value"`
+	}
+	if !decodeNativeDeviceLightingRequest(w, r, &req) {
+		return
+	}
+	if req.DeviceID == nil || req.SettingID == nil || req.Value == nil || *req.DeviceID == "" || *req.SettingID == "" {
+		nativeDeviceLightingFailure(w, "Invalid boolean setting request")
+		return
+	}
+	target, err := getDevicesBooleanSettingTarget(*req.DeviceID)
+	if err != nil {
+		nativeDeviceLightingFailure(w, "Boolean setting workspace is not available")
+		return
+	}
+	snapshot, usable := target.BooleanSettingsSnapshot()
+	if !usable || devicesBooleanSettingsWorkspaceSummaryFromSnapshot(snapshot) == nil {
+		nativeDeviceLightingFailure(w, "Invalid boolean setting request")
+		return
+	}
+	var action string
+	for _, setting := range snapshot.Settings {
+		if setting.ID == *req.SettingID {
+			action = setting.Action
+			break
+		}
+	}
+	if action == "" || target.UpdateBooleanSetting(action, *req.Value) != 1 {
+		nativeDeviceLightingFailure(w, "Unable to update boolean setting")
+		return
+	}
+	(&Response{Code: http.StatusOK, Status: 1, Message: "Setting updated"}).Send(w)
 }
 
 func getDevicesDPISnapshotProvider(serial string) (devicesDPISnapshotProvider, error) {
@@ -6000,6 +6100,7 @@ func setRoutes() http.Handler {
 	handleFunc(r, "/api/devices/performance/lift-height", http.MethodPost, changeLiftHeight)
 	handleFunc(r, "/api/devices/performance/keyboard", http.MethodPost, setKeyboardPerformance)
 	handleFunc(r, "/api/devices/sleep-timer", http.MethodPost, setDevicesSleepTimer)
+	handleFunc(r, "/api/devices/boolean-setting", http.MethodPost, setDevicesBooleanSetting)
 	handleFunc(r, "/api/devices/dpi", http.MethodPost, saveDevicesDPIWorkspace)
 	handleFunc(r, "/api/devices/dpi/active", http.MethodPost, selectDevicesDPIWorkspaceStage)
 	handleFunc(r, "/api/devices/dpi/sniper", http.MethodPost, setDevicesDPIWorkspaceSniper)

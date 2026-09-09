@@ -126,6 +126,8 @@ func TestModernKeyboardDevicePreviewsRenderWorkspaceWithoutRegistration(t *testi
 		{"k55-pro-xt-modern", "preview-k55-pro-xt-modern", "keyboard-7", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A"}, 7, 120, true, false, true, false, false},
 		{"k57-rgb-wireless-modern", "preview-k57-rgb-wireless-modern", "keyboard-7", "keyboard-row-26", "", []string{"A"}, 7, 120, true, false, true, false, true},
 		{"k57-rgb-usb-modern", "preview-k57-rgb-usb-modern", "keyboard-7", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A"}, 7, 120, true, false, true, false, false},
+		{"k100-air-wireless-modern", "preview-k100-air-wireless-modern", "keyboard-7", "keyboard-row-25", "", []string{"A"}, 7, 118, false, true, true, false, true},
+		{"k100-air-usb-modern", "preview-k100-air-usb-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A"}, 7, 118, false, true, true, false, false},
 		{"k60-rgb-pro-modern", "preview-k60-rgb-pro-modern", "keyboard-6", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A"}, 6, 104, true, false, true, false, false},
 		{"k65-plus-usb-modern", "preview-k65-plus-usb-modern", "keyboard-6", "keyboard-row-17", "", []string{"A"}, 6, 81, false, true, true, true, false},
 		{"k65-pro-mini-modern", "preview-k65-pro-mini-modern", "keyboard-5", "keyboard-row-17", "1000 Hz / 1 msec", []string{"A"}, 5, 67, false, true, true, false, false},
@@ -190,6 +192,9 @@ func TestModernKeyboardDevicePreviewsRenderWorkspaceWithoutRegistration(t *testi
 			if !strings.Contains(body, expected) {
 				t.Errorf("%s preview omitted %q", fixture.key, expected)
 			}
+		}
+		if strings.HasPrefix(fixture.key, "k100-air-") && (!strings.Contains(body, "Auto Brightness") || !strings.Contains(body, `data-lf-boolean-setting-id="auto-brightness"`)) {
+			t.Errorf("%s preview omitted Auto Brightness setting", fixture.key)
 		}
 		recorder = httptest.NewRecorder()
 		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/"+fixture.key))
@@ -272,6 +277,28 @@ func TestK57ModernPreviewsKeepTransportSpecificBatteryAndSleepCapabilities(t *te
 	}
 	usb := buildK57RGBUSBModernPreview()
 	if !usb.HasBattery || usb.BatteryLevel != 78 || usb.SleepTimer != nil || usb.Performance == nil || usb.Performance.PollingRate == nil || usb.ControlDial != nil {
+		t.Fatalf("USB summary=%#v", usb)
+	}
+}
+
+func TestK100AirModernPreviewsKeepTransportSpecificCapabilities(t *testing.T) {
+	keyboards.Init()
+	for layout, expectedKeys := range map[string]int{"US": 118, "DE": 119, "FR": 119} {
+		keyboard := keyboards.GetKeyboard("k100air-default-" + layout)
+		keyCount := 0
+		for _, row := range keyboard.Row {
+			keyCount += len(row.Keys)
+		}
+		if len(keyboard.Row) != 7 || keyCount != expectedKeys {
+			t.Fatalf("%s geometry rows=%d keys=%d", layout, len(keyboard.Row), keyCount)
+		}
+	}
+	wireless := buildK100AirWirelessModernPreview()
+	if !wireless.HasBattery || wireless.BatteryLevel != 78 || wireless.SleepTimer == nil || wireless.Performance == nil || wireless.Performance.PollingRate != nil || wireless.ControlDial != nil || wireless.BooleanSettings == nil || len(wireless.BooleanSettings.Settings) != 1 || wireless.KeyboardAssignments == nil || wireless.KeyboardAssignments.LayoutClass != "keyboard-7" || wireless.KeyboardAssignments.RowLayoutClass != "keyboard-row-25" || len(wireless.KeyboardAssignments.Rows) != 7 || !wireless.LegacyLighting {
+		t.Fatalf("wireless summary=%#v", wireless)
+	}
+	usb := buildK100AirUSBModernPreview()
+	if !usb.HasBattery || usb.BatteryLevel != 78 || usb.SleepTimer != nil || usb.Performance == nil || usb.Performance.PollingRate == nil || len(usb.Performance.PollingRate.Options) != 8 || usb.ControlDial != nil || usb.BooleanSettings == nil || len(usb.BooleanSettings.Settings) != 1 || usb.KeyboardAssignments == nil || usb.KeyboardAssignments.LayoutClass != "keyboard-7" || usb.KeyboardAssignments.RowLayoutClass != "keyboard-row-25" || len(usb.KeyboardAssignments.Rows) != 7 || !usb.LegacyLighting {
 		t.Fatalf("USB summary=%#v", usb)
 	}
 }

@@ -352,8 +352,40 @@
         });
     }
 
+    function initBooleanSettings(browser) {
+        const controls = Array.from(browser.document.querySelectorAll("[data-lf-boolean-setting]"));
+        controls.forEach(function (control) {
+            const input = control.querySelector("[data-lf-boolean-setting-input]");
+            const status = control.querySelector("[data-lf-boolean-setting-status]");
+            const settingID = control.dataset.lfBooleanSettingId;
+            const workspace = control.closest("[data-lf-performance-workspace]");
+            if (!input || !status || !settingID || !workspace || !workspace.dataset.lfDeviceId) { return; }
+            input.addEventListener("change", async function () {
+                if (control.dataset.lfSaving === "true") { return; }
+                const previous = control.dataset.lfConfirmedValue === "1";
+                control.dataset.lfSaving = "true";
+                input.disabled = true;
+                status.textContent = "";
+                try {
+                    const response = await browser.fetch("/api/devices/boolean-setting", {method: "POST", body: JSON.stringify({deviceId: workspace.dataset.lfDeviceId, settingId: settingID, value: input.checked})});
+                    const result = response.ok ? await response.json() : null;
+                    if (!result || result.status !== 1) { throw new Error("save rejected"); }
+                    control.dataset.lfConfirmedValue = input.checked ? "1" : "0";
+                    showPerformanceSaved(browser);
+                } catch (_) {
+                    input.checked = previous;
+                    status.textContent = "Unable to save setting. Try again.";
+                } finally {
+                    control.dataset.lfSaving = "false";
+                    input.disabled = false;
+                }
+            });
+        });
+    }
+
     function init(browser) {
         initPerformance(browser);
+        initBooleanSettings(browser);
         const dialWorkspace = browser.document.querySelector("[data-lf-control-dial-workspace]");
         if (dialWorkspace) { const control=dialWorkspace.querySelector("[data-lf-control-dial-control]"), input=dialWorkspace.querySelector("[data-lf-control-dial-input]"), button=dialWorkspace.querySelector("[data-lf-control-dial-save]"), status=dialWorkspace.querySelector("[data-lf-control-dial-status]"); if(control&&input&&button&&status){button.addEventListener("click",async function(){const value=Number(input.value),deviceId=dialWorkspace.dataset.lfDeviceId;if(!Number.isInteger(value)||value<1||!deviceId||control.dataset.lfSaving==="true"){return;}control.dataset.lfSaving="true";input.disabled=true;button.disabled=true;try{const response=await browser.fetch("/api/keyboard/dial",{method:"POST",body:JSON.stringify({deviceId:deviceId,keyboardControlDial:value})}),result=response.ok?await response.json():null;if(!result||result.status!==1){throw new Error("save rejected");}control.dataset.lfConfirmedValue=String(value);status.textContent="";showPerformanceSaved(browser);}catch(_){input.value=control.dataset.lfConfirmedValue;status.textContent="Unable to save setting. Try again.";}finally{control.dataset.lfSaving="false";input.disabled=false;button.disabled=false;}});}}
         const workspace = browser.document.querySelector("[data-lf-dpi-workspace]");
@@ -397,5 +429,5 @@
         if (overview) { createStatusPoller(browser, overview); }
     }
 
-    return {applyActiveStageState: applyActiveStageState, applyOverviewDPIState: applyOverviewDPIState, createStatusPoller: createStatusPoller, init: init, initPerformance: initPerformance, keyboardPerformanceControls: keyboardPerformanceControls, normalizeColor: normalizeColor, parseDPI: parseDPI, rangeProgress: rangeProgress, saveKeyboardPerformanceControl: saveKeyboardPerformanceControl, savePerformanceControl: savePerformanceControl, selectActiveStage: selectActiveStage, setSniperActive: setSniperActive};
+    return {applyActiveStageState: applyActiveStageState, applyOverviewDPIState: applyOverviewDPIState, createStatusPoller: createStatusPoller, init: init, initBooleanSettings: initBooleanSettings, initPerformance: initPerformance, keyboardPerformanceControls: keyboardPerformanceControls, normalizeColor: normalizeColor, parseDPI: parseDPI, rangeProgress: rangeProgress, saveKeyboardPerformanceControl: saveKeyboardPerformanceControl, savePerformanceControl: savePerformanceControl, selectActiveStage: selectActiveStage, setSniperActive: setSniperActive};
 });

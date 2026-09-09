@@ -342,3 +342,28 @@ test("keyboard lockouts save the complete current configuration when changed", a
     assert.equal(notifications[0].kind, "success");
     assert.equal(notifications[0].duration, 1500);
 });
+
+function booleanSettingControl(confirmed, checked) {
+    const handlers = {};
+    const input = {checked: Boolean(checked), disabled: false, addEventListener: function (name, handler) { handlers[name] = handler; }, fire: async function (name) { return handlers[name](); }};
+    const status = {textContent: ""};
+    const workspace = {dataset: {lfDeviceId: "k100-air"}};
+    return {
+        dataset: {lfBooleanSettingId: "auto-brightness", lfConfirmedValue: confirmed ? "1" : "0"},
+        querySelector: function (selector) { if (selector === "[data-lf-boolean-setting-input]") { return input; } if (selector === "[data-lf-boolean-setting-status]") { return status; } return null; },
+        closest: function (selector) { return selector === "[data-lf-performance-workspace]" ? workspace : null; }, input: input, status: status
+    };
+}
+
+test("generic boolean settings dispatch their published ID and restore on failure", async function () {
+    const control = booleanSettingControl(true, false); const requests = [];
+    const browser = {document: {querySelectorAll: function (selector) { return selector === "[data-lf-boolean-setting]" ? [control] : []; }}, fetch: function (url, options) { requests.push({url: url, body: JSON.parse(options.body)}); return Promise.resolve({ok: true, json: async function () { return {status: 1}; }}); }};
+    dpi.initBooleanSettings(browser); await control.input.fire("change");
+    assert.deepEqual(requests, [{url: "/api/devices/boolean-setting", body: {deviceId: "k100-air", settingId: "auto-brightness", value: false}}]);
+    assert.equal(control.dataset.lfConfirmedValue, "0");
+    const failed = booleanSettingControl(false, true);
+    dpi.initBooleanSettings({document: {querySelectorAll: function () { return [failed]; }}, fetch: function () { return Promise.resolve({ok: true, json: async function () { return {status: 0}; }}); }});
+    await failed.input.fire("change");
+    assert.equal(failed.input.checked, false);
+    assert.equal(failed.status.textContent, "Unable to save setting. Try again.");
+});
