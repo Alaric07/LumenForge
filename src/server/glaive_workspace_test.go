@@ -27,7 +27,7 @@ func (p glaiveWorkspaceProvider) PerformanceSnapshot() (performancepresentation.
 }
 func (p glaiveWorkspaceProvider) DeviceProfileDeviceID() string { return p.serial }
 func (p glaiveWorkspaceProvider) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bool) {
-	return deviceprofilepresentation.Snapshot{Supported: true, Profiles: []string{"Default", "FPS"}, ActiveProfile: "Default"}, true
+	return deviceprofilepresentation.Snapshot{Supported: true, CanSwitch: true, CanSave: true, CanDelete: true, Profiles: []string{"Default", "FPS"}, ActiveProfile: "Default"}, true
 }
 
 func TestGlaiveWorkspaceSummaryUsesSharedMousePresentations(t *testing.T) {

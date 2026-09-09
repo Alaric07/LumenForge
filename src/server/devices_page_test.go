@@ -439,7 +439,7 @@ func TestDevicesKeyboardAssignmentsRejectMalformedModifierPresentation(t *testin
 
 func TestDevicesOverviewKeyboardDeviceProfilePresentation(t *testing.T) {
 	const serial = "k95-device-profile"
-	snapshot := deviceprofilepresentation.Snapshot{Supported: true, Profiles: []string{"default", "studio"}, ActiveProfile: "default"}
+	snapshot := deviceprofilepresentation.Snapshot{Supported: true, CanSwitch: true, CanSave: true, CanDelete: true, Profiles: []string{"default", "studio"}, ActiveProfile: "default"}
 	keyboardSnapshot := keyboardassignmentspresentation.Snapshot{Available: true, Profiles: []string{"default"}, ActiveProfile: "default", Rows: []keyboardassignmentspresentation.Row{{Keys: []keyboardassignmentspresentation.Key{{KeyName: "A", Width: 1, Height: 1}}}}, AssignmentTypes: []keyboardassignmentspresentation.AssignmentType{{Label: "None"}}}
 	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K95 RGB Platinum", Instance: devicesPageKeyboardDeviceProfileSnapshotProvider{serial: serial, keyboardSnapshot: keyboardSnapshot, profileSnapshot: snapshot}}}, map[string]stats.BatteryStats{}, serial)
 	if !ok || summary.DeviceProfiles == nil || summary.DeviceProfiles.ActiveProfile != "default" || len(summary.DeviceProfiles.ProfileDisplayLabels) != 0 || summary.DeviceProfiles.Description != devicesKeyboardDeviceProfileDescription {
@@ -459,7 +459,7 @@ func TestDevicesOverviewKeyboardDeviceProfilePresentation(t *testing.T) {
 
 func TestDevicesOverviewScimitarEliteDeviceProfilePresentation(t *testing.T) {
 	const serial = "scimitar-elite-device-profile"
-	snapshot := deviceprofilepresentation.Snapshot{Supported: true, Profiles: []string{"default", "studio"}, ActiveProfile: "default"}
+	snapshot := deviceprofilepresentation.Snapshot{Supported: true, CanSwitch: true, CanSave: true, CanDelete: true, Profiles: []string{"default", "studio"}, ActiveProfile: "default"}
 	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "SCIMITAR RGB ELITE", ProductType: common.ProductTypeScimitarRgbElite, Instance: devicesPageDeviceProfileSnapshotProvider{serial: serial, snapshot: snapshot}}}, map[string]stats.BatteryStats{}, serial)
 	if !ok || summary.DeviceProfiles == nil || summary.DeviceProfiles.ActiveProfile != "default" || summary.DeviceProfiles.Description != devicesScimitarEliteDeviceProfileDescription {
 		t.Fatalf("summary = %#v, ok=%t", summary, ok)
@@ -473,6 +473,40 @@ func TestDevicesOverviewScimitarEliteDeviceProfilePresentation(t *testing.T) {
 		if !strings.Contains(body, expected) {
 			t.Errorf("missing %q", expected)
 		}
+	}
+}
+
+func TestDevicesDeviceProfileTemplateGatesActionsByCapability(t *testing.T) {
+	const serial = "device-profile-capabilities"
+	cases := []struct {
+		name                             string
+		canSwitch, canSave, canDelete    bool
+		profiles                         []string
+		wantSwitch, wantSave, wantDelete bool
+	}{
+		{name: "all actions", canSwitch: true, canSave: true, canDelete: true, profiles: []string{"default", "studio"}, wantSwitch: true, wantSave: true, wantDelete: true},
+		{name: "no switch", canSave: true, canDelete: true, profiles: []string{"default", "studio"}, wantSave: true, wantDelete: true},
+		{name: "no save", canSwitch: true, canDelete: true, profiles: []string{"default", "studio"}, wantSwitch: true, wantDelete: true},
+		{name: "no delete", canSwitch: true, canSave: true, profiles: []string{"default", "studio"}, wantSwitch: true, wantSave: true},
+		{name: "one profile", canSwitch: true, canSave: true, canDelete: true, profiles: []string{"default"}, wantSwitch: true, wantSave: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			profiles := &devicesDeviceProfileWorkspaceSummary{Profiles: tc.profiles, ActiveProfile: "default", CanSwitch: tc.canSwitch, CanSave: tc.canSave, CanDelete: tc.canDelete, Label: "Device Profile"}
+			var rendered bytes.Buffer
+			if err := templates.GetTemplate().ExecuteTemplate(&rendered, "lf-device-profile-panel", templates.Web{Device: &devicesWorkspaceSummary{Serial: serial, Product: "Keyboard", DeviceProfiles: profiles}}); err != nil {
+				t.Fatal(err)
+			}
+			body := rendered.String()
+			for _, assertion := range []struct {
+				present bool
+				text    string
+			}{{tc.wantSwitch, `data-lf-device-profile aria-label`}, {tc.wantSave, "Save Device Profile As"}, {tc.wantDelete, "Delete Device Profile"}} {
+				if strings.Contains(body, assertion.text) != assertion.present {
+					t.Errorf("%q present=%t, want %t", assertion.text, strings.Contains(body, assertion.text), assertion.present)
+				}
+			}
+		})
 	}
 }
 
@@ -706,7 +740,7 @@ func TestOpenRGBOverviewGPUTemperaturePresentation(t *testing.T) {
 
 func TestDevicesCCXTModernCoolingWorkspaceAndFullProfile(t *testing.T) {
 	const serial = "ccxt-modern-workspace"
-	profile := deviceprofilepresentation.Snapshot{Supported: true, Profiles: []string{"default", "studio"}, ActiveProfile: "default"}
+	profile := deviceprofilepresentation.Snapshot{Supported: true, CanSwitch: true, CanSave: true, CanDelete: true, Profiles: []string{"default", "studio"}, ActiveProfile: "default"}
 	cooling := coolingpresentation.Snapshot{Available: true, Channels: []coolingpresentation.Channel{{ID: 1, Name: "Fan 1", Label: "Front", RPM: 1040, SelectedProfile: "quiet"}}, ProfileOptions: []coolingpresentation.ProfileOption{{ID: "quiet", Label: "quiet"}}, TemperatureProbes: []coolingpresentation.TemperatureProbe{{ID: 2, Name: "Probe 1", Label: "Coolant", Temperature: "30.0°C"}}}
 	instance := struct {
 		devicesPageDeviceProfileSnapshotProvider
@@ -734,7 +768,7 @@ func TestDevicesCCXTModernCoolingWorkspaceAndFullProfile(t *testing.T) {
 
 func TestDevicesCommanderCoreModernCoolingWorkspaceAndLegacyLightingBoundary(t *testing.T) {
 	const serial = "cc-modern-workspace"
-	profile := deviceprofilepresentation.Snapshot{Supported: true, Profiles: []string{"default", "studio"}, ActiveProfile: "default"}
+	profile := deviceprofilepresentation.Snapshot{Supported: true, CanSwitch: true, CanSave: true, CanDelete: true, Profiles: []string{"default", "studio"}, ActiveProfile: "default"}
 	cooling := coolingpresentation.Snapshot{Available: true, Channels: []coolingpresentation.Channel{{ID: 0, Name: "H150i", Label: "Pump", RPM: 2440, Temperature: "31.2°C", ContainsPump: true, SelectedProfile: "quiet"}, {ID: 1, Name: "Fan 1", Label: "Front", RPM: 1040, SelectedProfile: "quiet"}}, ProfileOptions: []coolingpresentation.ProfileOption{{ID: "quiet", Label: "quiet"}}, TemperatureProbes: []coolingpresentation.TemperatureProbe{{ID: 7, Name: "Temperature Probe 1", Label: "Coolant", Temperature: "30.0°C"}}}
 	instance := struct {
 		devicesPageDeviceProfileSnapshotProvider
@@ -807,7 +841,7 @@ func TestDevicesCommanderCoreOptionalDisplayWorkspace(t *testing.T) {
 
 func TestDevicesLightingProfilePresentation(t *testing.T) {
 	const serial = "mm800-lighting-profile"
-	profileSnapshot := deviceprofilepresentation.Snapshot{Supported: true, Scope: deviceprofilepresentation.ScopeLighting, Profiles: []string{"default", "studio"}, ActiveProfile: "default", DefaultProfileDisplayLabel: deviceprofilepresentation.WorkingConfigurationLabel}
+	profileSnapshot := deviceprofilepresentation.Snapshot{Supported: true, CanSwitch: true, CanSave: true, CanDelete: true, Scope: deviceprofilepresentation.ScopeLighting, Profiles: []string{"default", "studio"}, ActiveProfile: "default", DefaultProfileDisplayLabel: deviceprofilepresentation.WorkingConfigurationLabel}
 	mousepadSnapshot := lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "mousepad", EffectSupported: true, HasBrightness: true, Brightness: 72,
 		AuthoredZoneEditor: &lightingpresentation.AuthoredZoneEditor{EffectID: "mousepad", Heading: "Zones", Description: "Select one or more zones, choose a color, then apply it to the selected zones.", Zones: []lightingpresentation.AuthoredZone{{ID: "1", Label: "Zone 1", ColorHex: "#102030"}}}}
 	device := &common.Device{Serial: serial, Product: "MM800", ProductType: common.ProductTypeMM800, Instance: devicesPageLightingDeviceProfileSnapshotProvider{serial: serial, lightingSnapshot: mousepadSnapshot, profileSnapshot: profileSnapshot}}

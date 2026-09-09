@@ -49,7 +49,7 @@ func TestCommanderDuoDeviceProfileSnapshotUsesActiveUserProfile(t *testing.T) {
 	}}
 
 	snapshot, ok := device.DeviceProfileSnapshot()
-	if !ok || !snapshot.Supported || snapshot.ActiveProfile != "default" {
+	if !ok || !snapshot.Supported || !snapshot.CanSwitch || !snapshot.CanSave || !snapshot.CanDelete || snapshot.ActiveProfile != "default" {
 		t.Fatalf("snapshot = %#v, ok=%t", snapshot, ok)
 	}
 	if want := []string{"default", "studio"}; !reflect.DeepEqual(snapshot.Profiles, want) {

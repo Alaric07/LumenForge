@@ -31,5 +31,6 @@ func (d *Device) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bo
 	if active != 1 || s.ActiveProfile == "" {
 		return deviceprofilepresentation.Snapshot{}, false
 	}
+	s = deviceprofilepresentation.WithMutationCapabilities(s, d)
 	return s, true
 }

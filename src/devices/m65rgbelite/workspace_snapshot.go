@@ -126,5 +126,6 @@ func (d *Device) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bo
 		}
 	}
 	sort.Strings(s.Profiles)
+	s = deviceprofilepresentation.WithMutationCapabilities(s, d)
 	return s, s.ActiveProfile != "" && len(s.Profiles) > 0
 }

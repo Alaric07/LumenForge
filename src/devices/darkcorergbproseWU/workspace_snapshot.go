@@ -153,5 +153,6 @@ func (d *Device) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bo
 		}
 	}
 	sort.Strings(snapshot.Profiles)
+	snapshot = deviceprofilepresentation.WithMutationCapabilities(snapshot, d)
 	return snapshot, snapshot.ActiveProfile != ""
 }

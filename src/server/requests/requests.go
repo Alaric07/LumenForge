@@ -9,6 +9,7 @@ import (
 	"LumenForge/src/common"
 	"LumenForge/src/config"
 	"LumenForge/src/dashboard"
+	"LumenForge/src/deviceprofilepresentation"
 	"LumenForge/src/devices"
 	"LumenForge/src/devices/lcd"
 	"LumenForge/src/display"
@@ -35,7 +36,45 @@ var (
 	callRGBOverrideDeviceMethod = devices.CallDeviceMethod
 	getLabelDevice              = devices.GetDevice
 	callLabelDeviceMethod       = devices.CallDeviceMethod
+	getDeviceProfileDevice      = devices.GetDevice
 )
+
+type deviceProfileSnapshotProvider interface {
+	DeviceProfileDeviceID() string
+	DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bool)
+}
+
+type deviceProfileAction uint8
+
+const (
+	deviceProfileActionSwitch deviceProfileAction = iota
+	deviceProfileActionSave
+	deviceProfileActionDelete
+)
+
+// deviceProfileActionSupported uses the provider's presentation contract as
+// the authority for generic profile-route dispatch. A device without the
+// provider, a mismatched ID, or an incomplete capability fails closed.
+func deviceProfileActionSupported(deviceID string, action deviceProfileAction) bool {
+	provider, ok := getDeviceProfileDevice(deviceID).(deviceProfileSnapshotProvider)
+	if !ok || provider.DeviceProfileDeviceID() != deviceID {
+		return false
+	}
+	snapshot, ok := provider.DeviceProfileSnapshot()
+	if !ok || !snapshot.Supported {
+		return false
+	}
+	switch action {
+	case deviceProfileActionSwitch:
+		return snapshot.CanSwitch
+	case deviceProfileActionSave:
+		return snapshot.CanSave
+	case deviceProfileActionDelete:
+		return snapshot.CanDelete
+	default:
+		return false
+	}
+}
 
 // Payload contains data from a client about device speed change
 type Payload struct {
@@ -847,7 +886,6 @@ func ProcessLcdChange(r *http.Request) *Payload {
 	if devices.GetDevice(req.DeviceId) == nil {
 		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
 	}
-
 	results := devices.CallDeviceMethod(
 		req.DeviceId,
 		"UpdateDeviceLcd",
@@ -944,7 +982,6 @@ func ProcessLcdDeviceChange(r *http.Request) *Payload {
 	if devices.GetDevice(req.DeviceId) == nil {
 		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
 	}
-
 	results := devices.CallDeviceMethod(
 		req.DeviceId,
 		"ChangeDeviceLcd",
@@ -995,7 +1032,6 @@ func ProcessLcdRotationChange(r *http.Request) *Payload {
 	if devices.GetDevice(req.DeviceId) == nil {
 		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
 	}
-
 	results := devices.CallDeviceMethod(
 		req.DeviceId,
 		"UpdateDeviceLcdRotation",
@@ -1046,7 +1082,6 @@ func ProcessLcdBrightnessChange(r *http.Request) *Payload {
 	if devices.GetDevice(req.DeviceId) == nil {
 		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
 	}
-
 	results := devices.CallDeviceMethod(
 		req.DeviceId,
 		"UpdateDeviceLcdBrightness",
@@ -1305,6 +1340,10 @@ func ProcessSaveUserProfile(r *http.Request) *Payload {
 
 	if devices.GetDevice(req.DeviceId) == nil {
 		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
+	}
+
+	if !deviceProfileActionSupported(req.DeviceId, deviceProfileActionSave) {
+		return &Payload{Message: language.GetValue("txtUnableToSaveUserProfile"), Code: http.StatusOK, Status: 0}
 	}
 
 	results := devices.CallDeviceMethod(
@@ -2494,6 +2533,10 @@ func ProcessChangeUserProfile(r *http.Request) *Payload {
 		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
 	}
 
+	if !deviceProfileActionSupported(req.DeviceId, deviceProfileActionSwitch) {
+		return &Payload{Message: language.GetValue("txtUnableToChangeUserProfile"), Code: http.StatusOK, Status: 0}
+	}
+
 	results := devices.CallDeviceMethod(
 		req.DeviceId,
 		"ChangeDeviceProfile",
@@ -2546,6 +2589,9 @@ func ProcessDeleteUserProfile(r *http.Request) *Payload {
 
 	if req.UserProfileName == "default" {
 		return &Payload{Message: language.GetValue("txtDefaultProfileIsRequired"), Code: http.StatusOK, Status: 0}
+	}
+	if !deviceProfileActionSupported(req.DeviceId, deviceProfileActionDelete) {
+		return &Payload{Message: language.GetValue("txtUnableToDeleteProfile"), Code: http.StatusOK, Status: 0}
 	}
 
 	results := devices.CallDeviceMethod(

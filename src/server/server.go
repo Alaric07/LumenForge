@@ -2964,6 +2964,7 @@ type devicesMemorySnapshotProvider interface {
 type devicesDeviceProfileWorkspaceSummary struct {
 	Profiles                                 []string
 	ProfileDisplayLabels                     map[string]string
+	CanSwitch, CanSave, CanDelete            bool
 	ActiveProfile, Scope, Label, Description string
 }
 
@@ -3334,7 +3335,7 @@ func devicesDeviceProfileWorkspaceSummaryFromSnapshot(snapshot deviceprofilepres
 	}
 	for _, profile := range snapshot.Profiles {
 		if profile == snapshot.ActiveProfile {
-			return &devicesDeviceProfileWorkspaceSummary{Profiles: append([]string(nil), snapshot.Profiles...), ProfileDisplayLabels: profileDisplayLabels, ActiveProfile: snapshot.ActiveProfile, Scope: scope}
+			return &devicesDeviceProfileWorkspaceSummary{Profiles: append([]string(nil), snapshot.Profiles...), ProfileDisplayLabels: profileDisplayLabels, CanSwitch: snapshot.CanSwitch, CanSave: snapshot.CanSave, CanDelete: snapshot.CanDelete, ActiveProfile: snapshot.ActiveProfile, Scope: scope}
 		}
 	}
 	return nil
