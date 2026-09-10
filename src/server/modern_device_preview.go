@@ -37,6 +37,7 @@ import (
 	"LumenForge/src/devices/k95"
 	"LumenForge/src/devices/k95platinum"
 	"LumenForge/src/devices/k95platinumXT"
+	"LumenForge/src/devices/strafergbmk2"
 	"LumenForge/src/keyboards"
 	"LumenForge/src/rgb"
 	"LumenForge/src/stats"
@@ -103,6 +104,7 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "k70-lux-rgb-modern", Title: "K70 LUX RGB", ProductType: common.ProductTypeK70LUXRgb, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70LUXRGBModernPreview},
 	{Key: "k70-rgb-rf-modern", Title: "K70 RGB RF", ProductType: common.ProductTypeK70RgbRF, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70RGBRFModernPreview},
 	{Key: "k70-mk2-modern", Title: "K70 MK2", ProductType: common.ProductTypeK70MK2, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70MK2ModernPreview},
+	{Key: "strafe-rgb-mk2-modern", Title: "STRAFE RGB MK2", ProductType: common.ProductTypeStrafeRgbMk2, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildStrafeRGBMK2ModernPreview},
 	{Key: "k95-modern", Title: "K95", ProductType: common.ProductTypeK95, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK95ModernPreview},
 	{Key: "k95-platinum-modern", Title: "K95 PLATINUM", ProductType: common.ProductTypeK95Platinum, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK95PlatinumModernPreview},
 	{Key: "k95-platinum-xt-modern", Title: "K95 PLATINUM XT", ProductType: common.ProductTypeK95PlatinumXT, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK95PlatinumXTModernPreview},
@@ -525,6 +527,16 @@ func buildK70MK2ModernPreview() *devicesWorkspaceSummary {
 	profile := &k70mk2.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 1, DisableWinKey: true, DisableAltTab: true}
 	device := &k70mk2.Device{Serial: serial, UIKeyboard: "keyboard-7", UIKeyboardRow: "keyboard-row-25", Layouts: []string{"US"}, KeyAssignmentTypes: k70ModernPreviewAssignmentTypes(), PollingRates: map[int]string{0: "Not Set", 1: "1000 Hz / 1 msec", 2: "500 Hz / 2 msec", 4: "250 Hz / 4 msec", 8: "125 Hz / 8 msec"}, DeviceProfile: profile, UserProfiles: map[string]*k70mk2.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
 	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K70 MK2", ProductType: common.ProductTypeK70MK2, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func buildStrafeRGBMK2ModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-strafe-rgb-mk2-modern"
+	keyboard := keyboards.GetKeyboard("strafergbmk2-default-US")
+	profile := &strafergbmk2.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 1, DisableWinKey: true, DisableShiftTab: true, DisableAltTab: true, DisableAltF4: true}
+	device := &strafergbmk2.Device{Serial: serial, UIKeyboard: "keyboard-7", UIKeyboardRow: "keyboard-row-25", Layouts: []string{"US"}, KeyAssignmentTypes: k70ModernPreviewAssignmentTypes(), PollingRates: map[int]string{0: "Not Set", 8: "125 Hz / 8 msec", 4: "250 Hz / 4 msec", 2: "500 Hz / 2 msec", 1: "1000 Hz / 1 msec"}, DeviceProfile: profile, UserProfiles: map[string]*strafergbmk2.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "STRAFE RGB MK2", ProductType: common.ProductTypeStrafeRgbMk2, Instance: device}}, map[string]stats.BatteryStats{}, serial)
 	summary.LegacyLighting = true
 	return summary
 }

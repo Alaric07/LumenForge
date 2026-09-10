@@ -145,6 +145,7 @@ func TestModernKeyboardDevicePreviewsRenderWorkspaceWithoutRegistration(t *testi
 		{"k70-pro-mini-usb-modern", "preview-k70-pro-mini-usb-modern", "keyboard-7", "keyboard-row-18", "1000 Hz / 1 msec", []string{"A"}, 7, 93, false, true, true, false, false},
 		{"k70-rgb-tkl-cs-modern", "preview-k70-rgb-tkl-cs-modern", "keyboard-7", "keyboard-row-20", "1000 Hz / 1 msec", []string{"A", "BTS", "PLAY"}, 7, 98, false, true, true, false, false},
 		{"k70-mk2-modern", "preview-k70-mk2-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A", "BTS", "Play"}, 7, 116, false, false, false, false, false},
+		{"strafe-rgb-mk2-modern", "preview-strafe-rgb-mk2-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A", "BTS", "Play"}, 7, 116, true, false, true, false, false},
 		{"k95-modern", "preview-k95-modern", "keyboard-7", "keyboard-row-27", "1000 Hz / 1 msec", []string{"A", "G1", "Play"}, 7, 135, false, false, false, false, false},
 		{"k95-platinum-xt-modern", "preview-k95-platinum-xt-modern", "keyboard-8", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A", "G1", "Play"}, 8, 139, false, false, false, false, false},
 	} {
@@ -276,6 +277,51 @@ func TestModernKeyboardDevicePreviewsRenderWorkspaceWithoutRegistration(t *testi
 		if devices.GetDevice(fixture.serial) != nil {
 			t.Fatalf("fixture serial %q registered during preview", fixture.serial)
 		}
+	}
+}
+
+func TestStrafeRGBMK2ModernPreviewProvidesOnlySourceBackedKeyboardWorkspaceWithoutRegistration(t *testing.T) {
+	const serial = "preview-strafe-rgb-mk2-modern"
+	if devices.GetDevice(serial) != nil {
+		t.Fatalf("fixture serial %q unexpectedly registered", serial)
+	}
+	fixture, ok := modernDevicePreviewFixtureByKey("strafe-rgb-mk2-modern")
+	if !ok || fixture.ProductType != common.ProductTypeStrafeRgbMk2 || fixture.Title != "STRAFE RGB MK2" {
+		t.Fatalf("fixture=%#v ok=%t", fixture, ok)
+	}
+	summary := fixture.Build()
+	if summary == nil {
+		t.Fatal("preview summary is nil")
+	}
+	if !summary.LegacyLighting {
+		t.Fatal("preview did not advertise legacy Lighting")
+	}
+	if summary.KeyboardAssignments == nil || summary.KeyboardAssignments.LayoutClass != "keyboard-7" || summary.KeyboardAssignments.RowLayoutClass != "keyboard-row-25" || len(summary.KeyboardAssignments.Rows) != 7 || len(summary.KeyboardAssignments.ModifierOptions) != 0 || summary.Performance == nil || summary.Performance.PollingRate == nil || len(summary.Performance.BooleanSettings) != 4 || summary.DeviceProfiles == nil || !summary.DeviceProfiles.CanSwitch || !summary.DeviceProfiles.CanSave || !summary.DeviceProfiles.CanDelete {
+		t.Fatalf("summary=%#v", summary)
+	}
+	for value, label := range map[int]string{0: "Not Set", 8: "125 Hz / 8 msec", 4: "250 Hz / 4 msec", 2: "500 Hz / 2 msec", 1: "1000 Hz / 1 msec"} {
+		found := false
+		for _, option := range summary.Performance.PollingRate.Options {
+			if option.Value == value && option.Label == label {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("polling options=%#v, missing %d=%q", summary.Performance.PollingRate.Options, value, label)
+		}
+	}
+	if summary.SleepTimer != nil || summary.ControlDial != nil || summary.OptionColors != nil || summary.KeyActuation != nil || summary.FlashTap != nil || summary.HasBattery || summary.KeyboardAssignments.LiveRGBAvailable {
+		t.Fatalf("unsupported controls leaked into summary=%#v", summary)
+	}
+	keyCount := 0
+	for _, row := range summary.KeyboardAssignments.Rows {
+		keyCount += len(row.Keys)
+	}
+	if keyCount != 116 {
+		t.Fatalf("keyboard key count=%d", keyCount)
+	}
+	if devices.GetDevice(serial) != nil {
+		t.Fatal("preview fixture registered hardware or persistence state")
 	}
 }
 
