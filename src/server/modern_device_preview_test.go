@@ -651,6 +651,31 @@ func TestClipperProMini60ModernPreviewUsesItsShippedKeyboardWithoutRegistration(
 	}
 }
 
+func TestVanguard96ModernPreviewsUseShippedKeyboardWithoutRegistration(t *testing.T) {
+	initializeLegacyDevicePreviewTestProcess(t)
+	keyboards.Init()
+	if source := keyboards.GetKeyboard("vanguard96-default-US"); source == nil || source.Key != "vanguard96-default" || source.Layout != "US" {
+		t.Fatalf("shipped Vanguard keyboard source = %#v", source)
+	}
+	for _, test := range []struct {
+		key, serial string
+		productType uint16
+		actuation   bool
+	}{{"vanguard-96-modern", "preview-vanguard-96-modern", common.ProductTypeVanguard96, false}, {"vanguard-96-pro-modern", "preview-vanguard-96-pro-modern", common.ProductTypeVanguard96Pro, true}} {
+		fixture, ok := modernDevicePreviewFixtureByKey(test.key)
+		if !ok || fixture.ProductType != test.productType {
+			t.Fatalf("fixture=%#v ok=%t", fixture, ok)
+		}
+		summary := fixture.Build()
+		if summary == nil || !summary.LegacyLighting || summary.KeyboardAssignments == nil || summary.KeyboardAssignments.LayoutClass != "keyboard-6" || summary.KeyboardAssignments.RowLayoutClass != "keyboard-row-21" || len(summary.KeyboardAssignments.ModifierOptions) < 2 || summary.Performance == nil || summary.Performance.PollingRate == nil || len(summary.Performance.PollingRate.Options) != 8 || len(summary.Performance.BooleanSettings) != 4 || summary.DeviceProfiles == nil || !summary.DeviceProfiles.CanSwitch || !summary.DeviceProfiles.CanSave || !summary.DeviceProfiles.CanDelete || summary.ControlDial == nil || len(summary.ControlDial.Options) != 7 || summary.FlashTap == nil || len(summary.FlashTap.Modes) != 3 || (summary.KeyActuation != nil) != test.actuation {
+			t.Fatalf("summary=%#v", summary)
+		}
+		if summary.SleepTimer != nil || summary.HasBattery || summary.OptionColors != nil || summary.KeyboardAssignments.LiveRGBAvailable || devices.GetDevice(test.serial) != nil {
+			t.Fatalf("unsupported control or registration leaked: %#v", summary)
+		}
+	}
+}
+
 func TestCommanderProModernDevicePreviewRendersFixtureWithoutRegistration(t *testing.T) {
 	router := legacyDevicePreviewRouter(t, true)
 	const serial = "preview-commander-pro-modern"

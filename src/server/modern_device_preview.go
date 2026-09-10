@@ -41,11 +41,14 @@ import (
 	"LumenForge/src/devices/makr75W"
 	"LumenForge/src/devices/makr75WU"
 	"LumenForge/src/devices/strafergbmk2"
+	"LumenForge/src/devices/vanguard96"
+	"LumenForge/src/devices/vanguard96pro"
 	"LumenForge/src/keyboards"
 	"LumenForge/src/rgb"
 	"LumenForge/src/stats"
 	"LumenForge/src/templates"
 	"net/http"
+	"sort"
 )
 
 const commanderDuoModernPreviewSerial = "preview-commander-duo-modern"
@@ -104,6 +107,8 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "k70-pro-mini-usb-modern", Title: "K70 PRO MINI", ProductType: common.ProductTypeK70PMWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70ProMiniUSBModernPreview},
 	{Key: "k70-max-modern", Title: "K70 MAX", ProductType: common.ProductTypeK70Max, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70MaxModernPreview},
 	{Key: "clipper-pro-mini-60-modern", Title: "CLIPPER PRO MINI 60", ProductType: common.ProductTypeClipperProMini60, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildClipperProMini60ModernPreview},
+	{Key: "vanguard-96-modern", Title: "VANGUARD 96", ProductType: common.ProductTypeVanguard96, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildVanguard96ModernPreview},
+	{Key: "vanguard-96-pro-modern", Title: "VANGUARD 96 PRO", ProductType: common.ProductTypeVanguard96Pro, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildVanguard96ProModernPreview},
 	{Key: "makr75-wireless-modern", Title: "MAKR 75 Wireless", ProductType: common.ProductTypeMakr75W, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildMAKR75WirelessModernPreview},
 	{Key: "makr75-usb-modern", Title: "MAKR 75 USB", ProductType: common.ProductTypeMakr75WU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildMAKR75USBModernPreview},
 	{Key: "k70-lux-modern", Title: "K70 LUX", ProductType: common.ProductTypeK70LUX, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70LUXModernPreview},
@@ -481,6 +486,83 @@ func buildClipperProMini60ModernPreview() *devicesWorkspaceSummary {
 	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "CLIPPER PRO MINI 60", ProductType: common.ProductTypeClipperProMini60, Instance: device}}, map[string]stats.BatteryStats{}, serial)
 	summary.LegacyLighting = true
 	return summary
+}
+
+func buildVanguard96ModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-vanguard-96-modern"
+	keyboard := vanguardPreviewKeyboard()
+	profile := &vanguard96.DeviceProfile{Profile: "default", Profiles: []string{"default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"default": keyboard}, PollingRate: 4, ControlDial: 1, DisableWinKey: true, DisableShiftTab: true, DisableAltTab: true, DisableAltF4: true, FlashTap: &keyboards.FlashTap{Active: 1, Mode: 1, Keys: map[int]keyboards.FlashTapKey{0: {Name: "A", KeyData: 4}, 1: {Name: "D", KeyData: 7}}, Color: rgb.Color{Red: 19, Green: 97, Blue: 203}}}
+	device := &vanguard96.Device{Serial: serial, UIKeyboard: "keyboard-6", UIKeyboardRow: "keyboard-row-21", Layouts: []string{"US"}, KeyAssignmentTypes: vanguardPreviewAssignmentTypes(), PollingRates: k70ProMiniPreviewPollingRates(), ControlDialOptions: vanguardPreviewControlDialOptions(), FlashTapModes: vanguardPreviewFlashTapModes(), DeviceProfile: profile, UserProfiles: map[string]*vanguard96.DeviceProfile{"default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "VANGUARD 96", ProductType: common.ProductTypeVanguard96, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func buildVanguard96ProModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-vanguard-96-pro-modern"
+	keyboard := vanguardPreviewKeyboard()
+	profile := &vanguard96pro.DeviceProfile{Profile: "default", Profiles: []string{"default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"default": keyboard}, PollingRate: 4, ControlDial: 1, DisableWinKey: true, DisableShiftTab: true, DisableAltTab: true, DisableAltF4: true, FlashTap: &keyboards.FlashTap{Active: 1, Mode: 1, Keys: map[int]keyboards.FlashTapKey{0: {Name: "A", KeyData: 4}, 1: {Name: "D", KeyData: 7}}, Color: rgb.Color{Red: 19, Green: 97, Blue: 203}}}
+	device := &vanguard96pro.Device{Serial: serial, UIKeyboard: "keyboard-6", UIKeyboardRow: "keyboard-row-21", Layouts: []string{"US"}, KeyAssignmentTypes: vanguardPreviewAssignmentTypes(), PollingRates: k70ProMiniPreviewPollingRates(), ControlDialOptions: vanguardPreviewControlDialOptions(), FlashTapModes: vanguardPreviewFlashTapModes(), DeviceProfile: profile, UserProfiles: map[string]*vanguard96pro.DeviceProfile{"default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "VANGUARD 96 PRO", ProductType: common.ProductTypeVanguard96Pro, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func vanguardPreviewAssignmentTypes() map[int]string {
+	return map[int]string{0: "None", 1: "Media Keys", 3: "Keyboard", 8: "Sniper", 9: "Mouse", 10: "Macro", 11: "Brightness +", 12: "Brightness -", 13: "Scroll Up", 14: "Scroll Down", 15: "Zoom In", 16: "Zoom Out", 17: "Screen Brightness +", 18: "Screen Brightness -"}
+}
+func vanguardPreviewControlDialOptions() map[int]string {
+	return map[int]string{1: "Volume Control", 2: "Brightness", 3: "Scroll", 4: "Zoom", 5: "Screen Brightness", 6: "Media Control", 7: "Horizontal Scroll"}
+}
+func vanguardPreviewFlashTapModes() map[int]string {
+	return map[int]string{0: "Neutral", 1: "Last Priority", 2: "First Priority"}
+}
+
+// vanguardPreviewKeyboard returns an isolated copy of the shipped Vanguard
+// catalogue. The catalogue uses index 71 for both the physical 6 and G4 keys;
+// use G4's hardware key data as its fixture-local identifier so the shared
+// presentation snapshot can retain both source keys without mutating the
+// catalogue or a real device profile.
+func vanguardPreviewKeyboard() *keyboards.Keyboard {
+	source := keyboards.GetKeyboard("vanguard96-default-US")
+	if source == nil {
+		return nil
+	}
+	fixture := *source
+	fixture.Row = make(map[int]keyboards.Row, len(source.Row))
+	rowIDs := make([]int, 0, len(source.Row))
+	for rowID := range source.Row {
+		rowIDs = append(rowIDs, rowID)
+	}
+	sort.Ints(rowIDs)
+	seen := make(map[int]bool)
+	for _, rowID := range rowIDs {
+		row := source.Row[rowID]
+		fixtureRow := row
+		fixtureRow.Keys = make(map[int]keyboards.Key, len(row.Keys))
+		keyIDs := make([]int, 0, len(row.Keys))
+		for keyID := range row.Keys {
+			keyIDs = append(keyIDs, keyID)
+		}
+		sort.Ints(keyIDs)
+		for _, keyID := range keyIDs {
+			key := row.Keys[keyID]
+			fixtureID := keyID
+			if seen[fixtureID] {
+				if len(key.KeyData) == 0 {
+					return nil
+				}
+				fixtureID = int(key.KeyData[0])
+				if seen[fixtureID] {
+					return nil
+				}
+			}
+			seen[fixtureID] = true
+			fixtureRow.Keys[fixtureID] = key
+		}
+		fixture.Row[rowID] = fixtureRow
+	}
+	return &fixture
 }
 
 func buildMAKR75WirelessModernPreview() *devicesWorkspaceSummary {
