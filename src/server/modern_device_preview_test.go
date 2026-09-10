@@ -575,6 +575,40 @@ func TestK70MaxModernPreviewProvidesFullKeyboardWorkspaceWithoutRegistration(t *
 	}
 }
 
+func TestClipperProMini60ModernPreviewUsesItsShippedKeyboardWithoutRegistration(t *testing.T) {
+	keyboards.Init()
+	const serial = "preview-clipper-pro-mini-60-modern"
+	if source := keyboards.GetKeyboard("clipperpromini60-default-US"); source == nil || source.Key != "clipperpromini60-default" || source.Layout != "US" {
+		t.Fatalf("shipped Clipper keyboard source = %#v", source)
+	}
+	if devices.GetDevice(serial) != nil {
+		t.Fatalf("fixture serial %q unexpectedly registered", serial)
+	}
+	fixture, ok := modernDevicePreviewFixtureByKey("clipper-pro-mini-60-modern")
+	if !ok || fixture.ProductType != common.ProductTypeClipperProMini60 || fixture.Title != "CLIPPER PRO MINI 60" {
+		t.Fatalf("fixture=%#v ok=%t", fixture, ok)
+	}
+	summary := fixture.Build()
+	if summary == nil || !summary.LegacyLighting || summary.KeyboardAssignments == nil || summary.KeyboardAssignments.LayoutClass != "keyboard-5" || summary.KeyboardAssignments.RowLayoutClass != "keyboard-row-16" || len(summary.KeyboardAssignments.Rows) != 5 || len(summary.KeyboardAssignments.AssignmentTypes) != 14 || len(summary.KeyboardAssignments.ModifierOptions) < 2 || summary.Performance == nil || summary.Performance.PollingRate == nil || len(summary.Performance.PollingRate.Options) != 8 || summary.DeviceProfiles == nil || !summary.DeviceProfiles.CanSwitch || !summary.DeviceProfiles.CanSave || !summary.DeviceProfiles.CanDelete || summary.ControlDial == nil || len(summary.ControlDial.Options) != 7 || summary.KeyActuation == nil || summary.FlashTap == nil {
+		t.Fatalf("summary=%#v", summary)
+	}
+	if summary.SleepTimer != nil || summary.HasBattery || summary.OptionColors != nil {
+		t.Fatalf("unsupported controls leaked into summary=%#v", summary)
+	}
+	eligible := false
+	for _, key := range summary.FlashTap.Keys {
+		if key.Eligible {
+			eligible = true
+		}
+	}
+	if !eligible || summary.FlashTap.Mode != 1 || len(summary.FlashTap.Modes) != 3 || summary.FlashTap.Modes[0].Label != "Neutral" || summary.FlashTap.Modes[1].Label != "Last Priority" || summary.FlashTap.Modes[2].Label != "First Priority" {
+		t.Fatalf("advanced snapshots actuation=%#v flashTap=%#v", summary.KeyActuation, summary.FlashTap)
+	}
+	if devices.GetDevice(serial) != nil {
+		t.Fatal("preview fixture registered hardware")
+	}
+}
+
 func TestCommanderProModernDevicePreviewRendersFixtureWithoutRegistration(t *testing.T) {
 	router := legacyDevicePreviewRouter(t, true)
 	const serial = "preview-commander-pro-modern"

@@ -2,6 +2,7 @@ package server
 
 import (
 	"LumenForge/src/common"
+	"LumenForge/src/devices/clipperpromini60"
 	"LumenForge/src/devices/k100"
 	"LumenForge/src/devices/k100airW"
 	"LumenForge/src/devices/k100airWU"
@@ -100,6 +101,7 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "k70-pro-mini-wireless-modern", Title: "K70 PRO MINI Wireless", ProductType: common.ProductTypeK70PMW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70ProMiniWirelessModernPreview},
 	{Key: "k70-pro-mini-usb-modern", Title: "K70 PRO MINI", ProductType: common.ProductTypeK70PMWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70ProMiniUSBModernPreview},
 	{Key: "k70-max-modern", Title: "K70 MAX", ProductType: common.ProductTypeK70Max, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70MaxModernPreview},
+	{Key: "clipper-pro-mini-60-modern", Title: "CLIPPER PRO MINI 60", ProductType: common.ProductTypeClipperProMini60, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildClipperProMini60ModernPreview},
 	{Key: "k70-lux-modern", Title: "K70 LUX", ProductType: common.ProductTypeK70LUX, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70LUXModernPreview},
 	{Key: "k70-lux-rgb-modern", Title: "K70 LUX RGB", ProductType: common.ProductTypeK70LUXRgb, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70LUXRGBModernPreview},
 	{Key: "k70-rgb-rf-modern", Title: "K70 RGB RF", ProductType: common.ProductTypeK70RgbRF, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70RGBRFModernPreview},
@@ -466,6 +468,17 @@ func buildK70MaxModernPreview() *devicesWorkspaceSummary {
 	summary.LegacyLighting = true
 	return summary
 }
+
+func buildClipperProMini60ModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-clipper-pro-mini-60-modern"
+	keyboard := keyboards.GetKeyboard("clipperpromini60-default-US")
+	profile := &clipperpromini60.DeviceProfile{Profile: "default", Profiles: []string{"default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"default": keyboard}, PollingRate: 4, ControlDial: 1, DisableWinKey: true, DisableShiftTab: true, DisableAltTab: true, DisableAltF4: true, FlashTap: &keyboards.FlashTap{Active: 1, Mode: 1, Keys: map[int]keyboards.FlashTapKey{0: {Name: "A", KeyData: 4}, 1: {Name: "D", KeyData: 7}}, Color: rgb.Color{Red: 250, Green: 200, Blue: 0}}}
+	device := &clipperpromini60.Device{Serial: serial, UIKeyboard: "keyboard-5", UIKeyboardRow: "keyboard-row-16", Layouts: []string{"US"}, KeyAssignmentTypes: map[int]string{0: "None", 1: "Media Keys", 3: "Keyboard", 8: "Sniper", 9: "Mouse", 10: "Macro", 11: "Brightness +", 12: "Brightness -", 13: "Scroll Up", 14: "Scroll Down", 15: "Zoom In", 16: "Zoom Out", 17: "Screen Brightness +", 18: "Screen Brightness -"}, PollingRates: map[int]string{0: "Not Set", 1: "125 Hz / 8 msec", 2: "250 Hz / 4 msec", 3: "500 Hz / 2 msec", 4: "1000 Hz / 1 msec", 5: "2000 Hz / 0.5 msec", 6: "4000 Hz / 0.25 msec", 7: "8000 Hz / 0.125 msec"}, ControlDialOptions: map[int]string{1: "Volume Control", 2: "Brightness", 3: "Scroll", 4: "Zoom", 5: "Screen Brightness", 6: "Media Control", 7: "Horizontal Scroll"}, FlashTapModes: map[int]string{0: "Neutral", 1: "Last Priority", 2: "First Priority"}, DeviceProfile: profile, UserProfiles: map[string]*clipperpromini60.DeviceProfile{"default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "CLIPPER PRO MINI 60", ProductType: common.ProductTypeClipperProMini60, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
 func buildK70CorePreview(serial, product string, typ uint16, layout, ui, row string) *devicesWorkspaceSummary {
 	k := keyboards.GetKeyboard(layout)
 	p := &k70core.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": k}, PollingRate: 4, DisableWinKey: true}

@@ -88,6 +88,12 @@ func TestKeyboardWorkspaceOptionalAdvancedMarkup(t *testing.T) {
 			if (tc.actuation != nil || tc.flash != nil) && strings.Contains(body, "KeyData") {
 				t.Error("advanced markup exposed KeyData")
 			}
+			if tc.actuation != nil && !strings.Contains(body, "<div hidden><span data-lf-key-actuation-key") {
+				t.Error("actuation metadata is not grouped outside the controls grid")
+			}
+			if tc.flash != nil && !strings.Contains(body, "<div hidden><span data-lf-flash-tap-key") {
+				t.Error("FlashTap metadata is not grouped outside the controls grid")
+			}
 		})
 	}
 }
