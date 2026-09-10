@@ -126,6 +126,7 @@ func TestModernKeyboardDevicePreviewsRenderWorkspaceWithoutRegistration(t *testi
 		{"k55-pro-xt-modern", "preview-k55-pro-xt-modern", "keyboard-7", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A"}, 7, 120, true, false, true, false, false},
 		{"k57-rgb-wireless-modern", "preview-k57-rgb-wireless-modern", "keyboard-7", "keyboard-row-26", "", []string{"A"}, 7, 120, true, false, true, false, true},
 		{"k57-rgb-usb-modern", "preview-k57-rgb-usb-modern", "keyboard-7", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A"}, 7, 120, true, false, true, false, false},
+		{"k100-modern", "preview-k100-modern", "keyboard-8", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A"}, 8, 165, true, false, true, true, false},
 		{"k100-air-wireless-modern", "preview-k100-air-wireless-modern", "keyboard-7", "keyboard-row-25", "", []string{"A"}, 7, 118, false, true, true, false, true},
 		{"k100-air-usb-modern", "preview-k100-air-usb-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A"}, 7, 118, false, true, true, false, false},
 		{"k60-rgb-pro-modern", "preview-k60-rgb-pro-modern", "keyboard-6", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A"}, 6, 104, true, false, true, false, false},
@@ -193,6 +194,57 @@ func TestModernKeyboardDevicePreviewsRenderWorkspaceWithoutRegistration(t *testi
 				t.Errorf("%s preview omitted %q", fixture.key, expected)
 			}
 		}
+		if fixture.key == "k100-modern" {
+			if strings.Contains(body, "lf-keyboard-lighting-geometry") || strings.Contains(body, `data-lf-key-index="1"`) || strings.Contains(body, `data-lf-key-index="23"`) || strings.Contains(body, `data-lf-key-index="31"`) || !strings.Contains(body, `data-lf-key-index="24"`) || !strings.Contains(body, `data-lf-key-index="25"`) || !strings.Contains(body, `data-lf-key-index="26"`) || !strings.Contains(body, `data-lf-key-index="33"`) || !strings.Contains(body, `data-lf-key-index="34"`) || !strings.Contains(body, `data-lf-key-index="71"`) || !strings.Contains(body, `data-lf-key-index="74"`) || !strings.Contains(body, `data-lf-key-index="50"`) || !strings.Contains(body, `data-lf-key-index="98"`) || strings.Count(body, "data-lf-keyboard-row") != 7 {
+				t.Fatalf("k100-modern lighting-only keyboard rendering is invalid")
+			}
+			lightingOnly := 0
+			for _, row := range summary.KeyboardAssignments.Rows {
+				for _, key := range row.Keys {
+					if key.LightingOnly {
+						lightingOnly++
+						if key.Assignable || key.Width < 1 || key.Height < 1 {
+							t.Fatalf("k100-modern lighting-only summary key = %#v", key)
+						}
+					}
+				}
+			}
+			if lightingOnly == 0 {
+				t.Fatal("k100-modern omitted lighting-only geometry")
+			}
+			keysByIndex := make(map[int]devicesKeyboardAssignmentKeySummary)
+			rowsByIndex := make(map[int]int)
+			for _, row := range summary.KeyboardAssignments.Rows {
+				for _, key := range row.Keys {
+					keysByIndex[key.KeyIndex] = key
+					rowsByIndex[key.KeyIndex] = row.Index
+				}
+			}
+			for index, expected := range map[int]struct {
+				name, keySpace, css string
+			}{
+				81:  {name: "Tab", keySpace: "keyboard-key wide", css: "top-32"},
+				82:  {name: "Q", css: "top-32"},
+				94:  {name: "\\ |", keySpace: "keyboard-key wide", css: "top-32"},
+				124: {name: "Shift", keySpace: "keyboard-key wide3", css: "top-32"},
+				125: {name: "Z", css: "top-32"},
+				135: {name: "Shift", keySpace: "keyboard-key wide3", css: "top-32"},
+			} {
+				key, ok := keysByIndex[index]
+				if !ok || key.KeyName != expected.name || key.KeySpace != expected.keySpace || key.CSS != expected.css || key.Height != 70 || key.Top != 15 || !key.Assignable || key.HalfKey {
+					t.Fatalf("k100-modern ordinary row key %d = %#v", index, key)
+				}
+			}
+			for index, expected := range map[int]struct {
+				name string
+				row  int
+			}{101: {name: "+", row: 4}, 140: {name: "Enter", row: 6}} {
+				key, ok := keysByIndex[index]
+				if !ok || key.KeyName != expected.name || rowsByIndex[index] != expected.row || key.KeySpace != "keyboard-key-125-top32" || key.CSS != "" || key.Height != 155 || key.Top != 15 || !key.Assignable || key.HalfKey {
+					t.Fatalf("k100-modern tall key %d = %#v", index, key)
+				}
+			}
+		}
 		if strings.HasPrefix(fixture.key, "k100-air-") && (!strings.Contains(body, "Auto Brightness") || !strings.Contains(body, `data-lf-boolean-setting-id="auto-brightness"`)) {
 			t.Errorf("%s preview omitted Auto Brightness setting", fixture.key)
 		}
@@ -203,6 +255,15 @@ func TestModernKeyboardDevicePreviewsRenderWorkspaceWithoutRegistration(t *testi
 		}
 		if fixture.controlDial && !strings.Contains(recorder.Body.String(), "Control Dial") {
 			t.Errorf("%s overview omitted control dial", fixture.key)
+		}
+		if fixture.key == "k100-modern" {
+			if !summary.DeviceProfiles.CanSwitch || !summary.DeviceProfiles.CanSave || summary.DeviceProfiles.CanDelete || summary.Performance.DebounceTime == nil || summary.OptionColors == nil || summary.OptionColors.Selected != 1 || len(summary.OptionColors.Options) != 7 {
+				t.Fatalf("k100-modern capabilities = profiles:%#v performance:%#v colors:%#v", summary.DeviceProfiles, summary.Performance, summary.OptionColors)
+			}
+			body := recorder.Body.String()
+			if !strings.Contains(body, "Control Dial Colors") || strings.Contains(body, "Delete Device Profile") {
+				t.Fatalf("k100-modern overview controls = %s", body)
+			}
 		}
 		if !fixture.sleepTimer && strings.Contains(recorder.Body.String(), "Sleep Timer") {
 			t.Errorf("%s overview advertised unsupported sleep timer", fixture.key)

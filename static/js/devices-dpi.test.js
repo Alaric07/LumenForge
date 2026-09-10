@@ -367,3 +367,105 @@ test("generic boolean settings dispatch their published ID and restore on failur
     assert.equal(failed.input.checked, false);
     assert.equal(failed.status.textContent, "Unable to save setting. Try again.");
 });
+
+function controlDialState(confirmed, value) {
+    return {
+        workspace: {dataset: {lfDeviceId: "k100-control-dial"}},
+        control: {dataset: {lfConfirmedValue: String(confirmed)}},
+        input: {value: String(value), disabled: false},
+        button: {disabled: false},
+        status: {textContent: ""}
+    };
+}
+
+test("successful Control Dial save preserves its route and reloads for a fresh color target", async function () {
+    const state = controlDialState(1, 4);
+    const requests = [];
+    const notifications = [];
+    let reloads = 0;
+    const browser = {
+        fetch: function (url, options) {
+            requests.push({url: url, body: JSON.parse(options.body)});
+            return Promise.resolve({ok: true, json: async function () { return {status: 1}; }});
+        },
+        LumenForgeDevicesToast: function (message, kind, duration) { notifications.push({message: message, kind: kind, duration: duration}); },
+        location: {reload: function () { reloads += 1; }}
+    };
+    assert.equal(await dpi.saveControlDial(browser, state.workspace, state.control, state.input, state.button, state.status), true);
+    assert.deepEqual(requests, [{url: "/api/keyboard/dial", body: {deviceId: "k100-control-dial", keyboardControlDial: 4}}]);
+    assert.equal(state.control.dataset.lfConfirmedValue, "4");
+    assert.equal(reloads, 1);
+    assert.deepEqual(notifications, [{message: "✓ Saved", kind: "success", duration: 1500}]);
+    assert.equal(state.input.disabled, false);
+    assert.equal(state.button.disabled, false);
+});
+
+test("failed Control Dial save restores its confirmed value without reloading", async function () {
+    const state = controlDialState(1, 4);
+    let reloads = 0;
+    const browser = {
+        fetch: function () { return Promise.resolve({ok: true, json: async function () { return {status: 0}; }}); },
+        location: {reload: function () { reloads += 1; }}
+    };
+    assert.equal(await dpi.saveControlDial(browser, state.workspace, state.control, state.input, state.button, state.status), false);
+    assert.equal(state.input.value, "1");
+    assert.equal(state.status.textContent, "Unable to save setting. Try again.");
+    assert.equal(reloads, 0);
+    assert.equal(state.input.disabled, false);
+    assert.equal(state.button.disabled, false);
+});
+
+test("Control Dial color save targets the rendered current option ID", async function () {
+    const workspace = {dataset: {lfDeviceId: "k100-control-dial"}};
+    const control = {dataset: {lfOptionId: "4", lfOptionColorAction: "control-dial-colors", lfOptionConfirmedColor: "#010203"}};
+    const input = {value: "#1a2b3c"};
+    const status = {textContent: ""};
+    const requests = [];
+    const browser = {fetch: function (url, options) {
+        requests.push({url: url, body: JSON.parse(options.body)});
+        return Promise.resolve({ok: true, json: async function () { return {status: 1}; }});
+    }};
+    assert.equal(await dpi.saveOptionColor(browser, workspace, control, input, status), true);
+    assert.deepEqual(requests, [{url: "/api/keyboard/dial/setColors", body: {deviceId: "k100-control-dial", colorZones: {4: {red: 26, green: 43, blue: 60}}}}]);
+    assert.equal(status.textContent, "");
+    assert.equal(control.dataset.lfOptionConfirmedColor, "#1a2b3c");
+});
+
+test("Control Dial color saves serialize and restore the confirmed color on failure", async function () {
+    const workspace = {dataset: {lfDeviceId: "k100-control-dial"}};
+    const control = {dataset: {lfOptionId: "4", lfOptionColorAction: "control-dial-colors", lfOptionConfirmedColor: "#010203"}};
+    const input = {value: "#aabbcc", disabled: false};
+    const status = {textContent: ""};
+    const requests = [];
+    let resolveFirst;
+    const browser = {fetch: function (url, options) {
+        requests.push({url: url, body: JSON.parse(options.body)});
+        return new Promise(function (resolve) { resolveFirst = resolve; });
+    }};
+    const first = dpi.saveOptionColor(browser, workspace, control, input, status);
+    assert.equal(input.disabled, true);
+    assert.equal(await dpi.saveOptionColor(browser, workspace, control, input, status), false);
+    assert.equal(requests.length, 1);
+    resolveFirst({ok: true, json: async function () { return {status: 1}; }});
+    assert.equal(await first, true);
+    assert.equal(control.dataset.lfOptionConfirmedColor, "#aabbcc");
+    assert.equal(input.disabled, false);
+
+    input.value = "#112233";
+    const failed = dpi.saveOptionColor({fetch: function () { return Promise.resolve({ok: true, json: async function () { return {status: 0}; }}); }}, workspace, control, input, status);
+    assert.equal(input.disabled, true);
+    assert.equal(await failed, false);
+    assert.equal(input.value, "#aabbcc");
+    assert.equal(input.disabled, false);
+    assert.equal(status.textContent, "Unable to save setting. Try again.");
+
+    input.value = "#112233";
+    const retryRequests = [];
+    assert.equal(await dpi.saveOptionColor({fetch: function (url, options) {
+        retryRequests.push({url: url, body: JSON.parse(options.body)});
+        return Promise.resolve({ok: true, json: async function () { return {status: 1}; }});
+    }}, workspace, control, input, status), true);
+    assert.deepEqual(retryRequests, [{url: "/api/keyboard/dial/setColors", body: {deviceId: "k100-control-dial", colorZones: {4: {red: 17, green: 34, blue: 51}}}}]);
+    assert.equal(control.dataset.lfOptionConfirmedColor, "#112233");
+    assert.equal(input.disabled, false);
+});

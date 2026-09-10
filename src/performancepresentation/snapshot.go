@@ -6,6 +6,7 @@ package performancepresentation
 // setting means the device does not support that control.
 type Snapshot struct {
 	PollingRate         *SelectSetting
+	DebounceTime        *SelectSetting
 	ButtonOptimization  *SelectSetting
 	AngleSnapping       *ToggleSetting
 	LiftHeight          *SelectSetting

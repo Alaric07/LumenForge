@@ -341,10 +341,13 @@ func TestDevicesWorkspaceKeyboardPresentationAndView(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{"--lf-kb-columns: 26", "repeat(var(--lf-kb-columns), var(--lf-kb-key-width))", "keyboard-row-24 { --lf-kb-columns: 24; }", "keyboard-row-27 { --lf-kb-columns: 27; }", "flex: 0 0 auto", "overflow-x: auto", "--lf-kb-column-gap", ".lf-keyboard-placeholder", "button.lf-keyboard-key-static { opacity: 1; cursor: pointer; }"} {
+	for _, expected := range []string{"--lf-kb-columns: 26", "repeat(var(--lf-kb-columns), var(--lf-kb-key-width))", "keyboard-row-24 { --lf-kb-columns: 24; }", "keyboard-row-27 { --lf-kb-columns: 27; }", "flex: 0 0 auto", "overflow-x: auto", "--lf-kb-column-gap", ".lf-keyboard-placeholder", ".lf-keyboard-visualization.keyboard-8 { --lf-kb-key-width: clamp(28px, 3vw, 46px); --lf-kb-column-gap: clamp(3px, .48vw, 8px);", ".keyboard-key.top-32 { margin-top: 0; }", ".keyboard-key-125-top32 { align-self: start; position: relative; top: 0; }", "button.lf-keyboard-key-static { opacity: 1; cursor: pointer; }"} {
 		if !strings.Contains(string(styles), expected) {
 			t.Errorf("keyboard grid CSS missing %q", expected)
 		}
+	}
+	if strings.Contains(string(styles), ".lf-keyboard-visualization.keyboard-7 { --lf-kb-key-width") {
+		t.Error("normal keyboard layouts unexpectedly received wide-layout sizing")
 	}
 	for _, obsolete := range []string{"flex: var(--lf-key-width)", "margin-left: calc(var(--lf-key-left)", "top: calc(var(--lf-key-top)"} {
 		if strings.Contains(string(styles), obsolete) {
@@ -406,6 +409,22 @@ func TestKeyboardHalfKeyPresentationGroupsOnlyValidAdjacentPairs(t *testing.T) {
 	normal := devicesKeyboardAssignmentRowSummary{Keys: []devicesKeyboardAssignmentKeySummary{{KeyIndex: 1, KeyName: "A", Width: 1, Height: 1}, {KeyIndex: 2, KeyName: "B", Width: 1, Height: 1}}}.Items()
 	if len(normal) != 2 || normal[0].HalfKeyPair || normal[1].HalfKeyPair {
 		t.Fatalf("normal layout items = %#v", normal)
+	}
+}
+
+func TestKeyboardAssignmentGridExcludesLightingOnlyKeys(t *testing.T) {
+	row := devicesKeyboardAssignmentRowSummary{Keys: []devicesKeyboardAssignmentKeySummary{
+		{KeyIndex: 1, LightingOnly: true, Width: 81, Height: 20},
+		{KeyIndex: 2, KeyName: "DIAL", Width: 65, Height: 40},
+		{KeyIndex: 3, KeyName: "A", Assignable: true, Width: 65, Height: 70},
+	}}
+	items := row.Items()
+	if !row.HasGridItems() || len(items) != 2 || items[0].Keys[0].KeyIndex != 2 || items[1].Keys[0].KeyIndex != 3 {
+		t.Fatalf("grid items = %#v", items)
+	}
+	lightingOnlyRow := devicesKeyboardAssignmentRowSummary{Keys: []devicesKeyboardAssignmentKeySummary{{KeyIndex: 4, LightingOnly: true, Width: 78, Height: 20}}}
+	if lightingOnlyRow.HasGridItems() || len(lightingOnlyRow.Items()) != 0 {
+		t.Fatalf("lighting-only row entered grid: %#v", lightingOnlyRow)
 	}
 }
 

@@ -2,6 +2,7 @@ package server
 
 import (
 	"LumenForge/src/common"
+	"LumenForge/src/devices/k100"
 	"LumenForge/src/devices/k100airW"
 	"LumenForge/src/devices/k100airWU"
 	"LumenForge/src/devices/k55"
@@ -32,6 +33,7 @@ import (
 	"LumenForge/src/devices/k95platinum"
 	"LumenForge/src/devices/k95platinumXT"
 	"LumenForge/src/keyboards"
+	"LumenForge/src/rgb"
 	"LumenForge/src/stats"
 	"LumenForge/src/templates"
 	"net/http"
@@ -71,6 +73,7 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "k55-pro-xt-modern", Title: "K55 RGB PRO XT", ProductType: common.ProductTypeK55ProXT, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55ProXTModernPreview},
 	{Key: "k57-rgb-wireless-modern", Title: "K57 RGB Wireless", ProductType: common.ProductTypeK57RgbW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK57RGBWirelessModernPreview},
 	{Key: "k57-rgb-usb-modern", Title: "K57 RGB USB", ProductType: common.ProductTypeK57RgbWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK57RGBUSBModernPreview},
+	{Key: "k100-modern", Title: "K100", ProductType: common.ProductTypeK100, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK100ModernPreview},
 	{Key: "k100-air-wireless-modern", Title: "K100 AIR Wireless", ProductType: common.ProductTypeK100AirW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK100AirWirelessModernPreview},
 	{Key: "k100-air-usb-modern", Title: "K100 AIR USB", ProductType: common.ProductTypeK100AirWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK100AirUSBModernPreview},
 	{Key: "k60-rgb-pro-modern", Title: "K60 RGB PRO", ProductType: common.ProductTypeK60RgbPro, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK60RGBProModernPreview},
@@ -295,6 +298,16 @@ func buildK57RGBUSBModernPreview() *devicesWorkspaceSummary {
 	profile := &k57rgbWU.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 4, DisableWinKey: true, DisableAltTab: true}
 	device := &k57rgbWU.Device{Serial: serial, UIKeyboard: "keyboard-7", UIKeyboardRow: "keyboard-row-26", Layouts: []string{"US"}, KeyAssignmentTypes: k70ModernPreviewAssignmentTypes(), PollingRates: map[int]string{0: "Not Set", 1: "125 Hz / 8 msec", 2: "250 Hz / 4 msec", 3: "500 Hz / 2 msec", 4: "1000 Hz / 1 msec"}, DeviceProfile: profile, UserProfiles: map[string]*k57rgbWU.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
 	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K57 RGB", ProductType: common.ProductTypeK57RgbWU, Instance: device}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func buildK100ModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k100-modern"
+	keyboard := keyboards.GetKeyboard("k100-default-US")
+	profile := &k100.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 4, ControlDial: 1, DebounceTime: 1, DisableWinKey: true, DisableAltTab: true, ControlDialColors: map[int]*rgb.Color{1: {Red: 255, Green: 255, Blue: 255}, 2: {Red: 0, Green: 255, Blue: 255}, 3: {Red: 255, Green: 127, Blue: 0}, 4: {Red: 255, Green: 0, Blue: 255}, 5: {Red: 0, Green: 255, Blue: 0}, 6: {Red: 0, Green: 0, Blue: 255}, 7: {Red: 255, Green: 0, Blue: 0}}}
+	device := &k100.Device{Serial: serial, UIKeyboard: "keyboard-8", UIKeyboardRow: "keyboard-row-26", Layouts: []string{"US", "DE", "FR", "SE", "UK"}, KeyAssignmentTypes: map[int]string{0: "None", 1: "Media Keys", 2: "DPI +", 3: "Keyboard", 4: "DPI -", 8: "Sniper", 9: "Mouse", 10: "Macro", 13: "Scroll Up", 14: "Scroll Down", 15: "Zoom In", 16: "Zoom Out", 17: "Screen Brightness +", 18: "Screen Brightness -"}, PollingRates: map[int]string{0: "Not Set", 1: "125 Hz / 8 msec", 2: "250 Hz / 4 msec", 3: "500 Hz / 2 msec", 4: "1000 Hz / 1 msec", 5: "2000 Hz / 0.5 msec", 6: "4000 Hz / 0.25 msec", 7: "8000 Hz / 0.125 msec"}, DebounceTimes: map[int]string{1: "1ms", 2: "2ms", 3: "3ms", 4: "4ms", 5: "5ms", 6: "6ms", 7: "7ms", 8: "8ms", 9: "9ms"}, ControlDialOptions: map[int]string{1: "Volume Control", 2: "Brightness", 3: "Vertical Scroll", 4: "Zoom", 5: "Screen Brightness", 6: "Media Control", 7: "Horizontal Scroll"}, DeviceProfile: profile, UserProfiles: map[string]*k100.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K100", ProductType: common.ProductTypeK100, Instance: device}}, map[string]stats.BatteryStats{}, serial)
 	summary.LegacyLighting = true
 	return summary
 }

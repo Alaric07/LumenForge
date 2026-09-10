@@ -19,6 +19,7 @@ type Source struct {
 	RowLayoutClass       string
 	Rows                 map[int]keyboards.Row
 	AssignmentTypes      map[int]string
+	OmitModifierOptions  bool
 }
 
 // BuildSnapshot converts an active keyboard map into a fail-closed snapshot.
@@ -50,14 +51,18 @@ func BuildSnapshot(source Source) (Snapshot, bool) {
 			}
 			seen[id] = true
 			key := row.Keys[id]
-			if strings.TrimSpace(key.KeyName) == "" {
+			// Lighting-only elements (for example, a dial indicator) have no
+			// keyboard legend and cannot be assigned. They are still part of the
+			// physical layout, so preserve them without treating them as editable
+			// keys.
+			if strings.TrimSpace(key.KeyName) == "" && !key.OnlyColor {
 				return Snapshot{}, false
 			}
 			red, green, blue := key.Color.Red, key.Color.Green, key.Color.Blue
 			if key.NoColor {
 				red, green, blue = 255, 255, 255
 			}
-			presented.Keys = append(presented.Keys, Key{KeyIndex: id, KeyName: key.KeyName, SubKeyName: key.SubKeyName, Width: key.Width, Height: key.Height, Left: key.Left, Top: key.Top, CSS: key.Css, KeySpace: key.KeySpace, ExtraCSS: key.ExtraCss, Spacing: append([]int(nil), key.Spacing...), KeyEmpty: append([]string(nil), key.KeyEmpty...), Assignable: !key.OnlyColor, Default: key.Default, NoColor: key.NoColor, ActionType: key.ActionType, ActionCommand: key.ActionCommand, DeviceID: key.DeviceId, ActionHold: key.ActionHold, ModifierKey: key.ModifierKey, RetainOriginal: key.RetainOriginal, ToggleDelay: key.ToggleDelay, ProfileSwitch: key.ProfileSwitch, Red: red, Green: green, Blue: blue})
+			presented.Keys = append(presented.Keys, Key{KeyIndex: id, KeyName: key.KeyName, SubKeyName: key.SubKeyName, Width: key.Width, Height: key.Height, Left: key.Left, Top: key.Top, CSS: key.Css, KeySpace: key.KeySpace, ExtraCSS: key.ExtraCss, Spacing: append([]int(nil), key.Spacing...), KeyEmpty: append([]string(nil), key.KeyEmpty...), Assignable: !key.OnlyColor, LightingOnly: key.OnlyColor && strings.TrimSpace(key.KeyName) == "", Default: key.Default, NoColor: key.NoColor, ActionType: key.ActionType, ActionCommand: key.ActionCommand, DeviceID: key.DeviceId, ActionHold: key.ActionHold, ModifierKey: key.ModifierKey, RetainOriginal: key.RetainOriginal, ToggleDelay: key.ToggleDelay, ProfileSwitch: key.ProfileSwitch, Red: red, Green: green, Blue: blue})
 		}
 		s.Rows = append(s.Rows, presented)
 	}
@@ -71,6 +76,9 @@ func BuildSnapshot(source Source) (Snapshot, bool) {
 			return Snapshot{}, false
 		}
 		s.AssignmentTypes = append(s.AssignmentTypes, AssignmentType{ID: uint8(id), Label: source.AssignmentTypes[id]})
+	}
+	if source.OmitModifierOptions {
+		return s, len(s.Rows) > 0 && len(s.AssignmentTypes) > 0
 	}
 	options := map[uint8]string{0: "None"}
 	for _, row := range source.Rows {

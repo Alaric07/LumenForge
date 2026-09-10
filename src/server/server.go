@@ -38,6 +38,7 @@ import (
 	"LumenForge/src/memorypresentation"
 	"LumenForge/src/metrics"
 	"LumenForge/src/openrgb"
+	"LumenForge/src/optioncolorpresentation"
 	"LumenForge/src/performancepresentation"
 	"LumenForge/src/rgb"
 	"LumenForge/src/scheduler"
@@ -2754,6 +2755,7 @@ type devicesWorkspaceSummary struct {
 	BooleanSettings     *devicesBooleanSettingsWorkspaceSummary
 	SleepTimer          *devicesSleepTimerWorkspaceSummary
 	ControlDial         *devicesControlDialWorkspaceSummary
+	OptionColors        *devicesOptionColorsWorkspaceSummary
 	Buttons             *devicesButtonsWorkspaceSummary
 	DeviceProfiles      *devicesDeviceProfileWorkspaceSummary
 	Cooling             *devicesCoolingWorkspaceSummary
@@ -2950,6 +2952,10 @@ type devicesBooleanSettingsSnapshotProvider interface {
 type devicesControlDialSnapshotProvider interface {
 	ControlDialDeviceID() string
 	ControlDialSnapshot() (controldialpresentation.Snapshot, bool)
+}
+type devicesOptionColorsSnapshotProvider interface {
+	OptionColorsDeviceID() string
+	OptionColorsSnapshot() (optioncolorpresentation.Snapshot, bool)
 }
 
 type devicesCoolingSnapshotProvider interface {
@@ -3379,24 +3385,24 @@ type devicesKeyboardAssignmentModifierSummary struct {
 	Label string
 }
 type devicesKeyboardAssignmentKeySummary struct {
-	KeyIndex                          int
-	KeyName, SubKeyName               string
-	Width, Height, Left, Top          int
-	CSS, KeySpace, ExtraCSS           string
-	Spacing                           []int
-	KeyEmpty                          []string
-	Assignable, Default, NoColor      bool
-	HalfKey, HalfKeyStart, HalfKeyEnd bool
-	ActionType                        uint8
-	ActionCommand                     uint16
-	DeviceID                          string
-	ActionHold                        bool
-	ModifierKey                       uint8
-	RetainOriginal                    bool
-	ToggleDelay                       uint16
-	ProfileSwitch                     bool
-	Red, Green, Blue                  float64
-	LabelColor                        string
+	KeyIndex                                   int
+	KeyName, SubKeyName                        string
+	Width, Height, Left, Top                   int
+	CSS, KeySpace, ExtraCSS                    string
+	Spacing                                    []int
+	KeyEmpty                                   []string
+	Assignable, LightingOnly, Default, NoColor bool
+	HalfKey, HalfKeyStart, HalfKeyEnd          bool
+	ActionType                                 uint8
+	ActionCommand                              uint16
+	DeviceID                                   string
+	ActionHold                                 bool
+	ModifierKey                                uint8
+	RetainOriginal                             bool
+	ToggleDelay                                uint16
+	ProfileSwitch                              bool
+	Red, Green, Blue                           float64
+	LabelColor                                 string
 }
 type devicesKeyboardAssignmentRowSummary struct {
 	Index, Top       int
@@ -3411,12 +3417,18 @@ type devicesKeyboardAssignmentRenderItem struct {
 }
 
 func (row devicesKeyboardAssignmentRowSummary) Items() []devicesKeyboardAssignmentRenderItem {
-	items := make([]devicesKeyboardAssignmentRenderItem, 0, len(row.Keys))
-	for index := 0; index < len(row.Keys); index++ {
-		key := row.Keys[index]
+	gridKeys := make([]devicesKeyboardAssignmentKeySummary, 0, len(row.Keys))
+	for _, key := range row.Keys {
+		if !key.LightingOnly {
+			gridKeys = append(gridKeys, key)
+		}
+	}
+	items := make([]devicesKeyboardAssignmentRenderItem, 0, len(gridKeys))
+	for index := 0; index < len(gridKeys); index++ {
+		key := gridKeys[index]
 		item := devicesKeyboardAssignmentRenderItem{Keys: []devicesKeyboardAssignmentKeySummary{key}, KeyEmpty: append([]string(nil), key.KeyEmpty...), Spacing: append([]int(nil), key.Spacing...)}
-		if key.HalfKey && key.HalfKeyStart && index+1 < len(row.Keys) {
-			next := row.Keys[index+1]
+		if key.HalfKey && key.HalfKeyStart && index+1 < len(gridKeys) {
+			next := gridKeys[index+1]
 			if next.HalfKey && next.HalfKeyEnd {
 				item.Keys = append(item.Keys, next)
 				item.HalfKeyPair = true
@@ -3426,6 +3438,15 @@ func (row devicesKeyboardAssignmentRowSummary) Items() []devicesKeyboardAssignme
 		items = append(items, item)
 	}
 	return items
+}
+
+func (row devicesKeyboardAssignmentRowSummary) HasGridItems() bool {
+	for _, key := range row.Keys {
+		if !key.LightingOnly {
+			return true
+		}
+	}
+	return false
 }
 
 type devicesKeyboardAssignmentsWorkspaceSummary struct {
@@ -3462,13 +3483,13 @@ func devicesKeyboardAssignmentsWorkspaceSummaryFromSnapshot(snapshot keyboardass
 	for _, row := range snapshot.Rows {
 		presented := devicesKeyboardAssignmentRowSummary{Index: row.Index, Top: row.Top, CSS: row.CSS, OverrideCSS: row.OverrideCSS}
 		for _, key := range row.Keys {
-			if key.KeyName == "" || key.Width < 1 || key.Height < 1 {
+			if (key.KeyName == "" && key.Assignable) || key.Width < 1 || key.Height < 1 {
 				return nil
 			}
 			if len(snapshot.ModifierOptions) > 0 && !modifierIDs[key.ModifierKey] {
 				return nil
 			}
-			presented.Keys = append(presented.Keys, devicesKeyboardAssignmentKeySummary{KeyIndex: key.KeyIndex, KeyName: key.KeyName, SubKeyName: key.SubKeyName, Width: key.Width, Height: key.Height, Left: key.Left, Top: key.Top, CSS: key.CSS, KeySpace: key.KeySpace, ExtraCSS: key.ExtraCSS, Spacing: append([]int(nil), key.Spacing...), KeyEmpty: append([]string(nil), key.KeyEmpty...), Red: key.Red, Green: key.Green, Blue: key.Blue, LabelColor: keyboardPresentationLabelColor(key.Red, key.Green, key.Blue), Assignable: key.Assignable, Default: key.Default, NoColor: key.NoColor, HalfKey: key.HalfKey, HalfKeyStart: key.HalfKeyStart, HalfKeyEnd: key.HalfKeyEnd, ActionType: key.ActionType, ActionCommand: key.ActionCommand, DeviceID: key.DeviceID, ActionHold: key.ActionHold, ModifierKey: key.ModifierKey, RetainOriginal: key.RetainOriginal, ToggleDelay: key.ToggleDelay, ProfileSwitch: key.ProfileSwitch})
+			presented.Keys = append(presented.Keys, devicesKeyboardAssignmentKeySummary{KeyIndex: key.KeyIndex, KeyName: key.KeyName, SubKeyName: key.SubKeyName, Width: key.Width, Height: key.Height, Left: key.Left, Top: key.Top, CSS: key.CSS, KeySpace: key.KeySpace, ExtraCSS: key.ExtraCSS, Spacing: append([]int(nil), key.Spacing...), KeyEmpty: append([]string(nil), key.KeyEmpty...), Red: key.Red, Green: key.Green, Blue: key.Blue, LabelColor: keyboardPresentationLabelColor(key.Red, key.Green, key.Blue), Assignable: key.Assignable, LightingOnly: key.LightingOnly, Default: key.Default, NoColor: key.NoColor, HalfKey: key.HalfKey, HalfKeyStart: key.HalfKeyStart, HalfKeyEnd: key.HalfKeyEnd, ActionType: key.ActionType, ActionCommand: key.ActionCommand, DeviceID: key.DeviceID, ActionHold: key.ActionHold, ModifierKey: key.ModifierKey, RetainOriginal: key.RetainOriginal, ToggleDelay: key.ToggleDelay, ProfileSwitch: key.ProfileSwitch})
 		}
 		summary.Rows = append(summary.Rows, presented)
 	}
@@ -3699,6 +3720,7 @@ type devicesPerformanceBooleanSummary struct {
 
 type devicesPerformanceWorkspaceSummary struct {
 	PollingRate         *devicesPerformanceSelectSummary
+	DebounceTime        *devicesPerformanceSelectSummary
 	ButtonOptimization  *devicesPerformanceSelectSummary
 	AngleSnapping       *devicesPerformanceToggleSummary
 	LiftHeight          *devicesPerformanceSelectSummary
@@ -3727,6 +3749,34 @@ type devicesSleepTimerWorkspaceSummary struct {
 type devicesControlDialWorkspaceSummary struct {
 	Value   int
 	Options []devicesSleepTimerOptionSummary
+}
+type devicesOptionColorSummary struct {
+	Value           int
+	Label, ColorHex string
+	Action          string
+}
+type devicesOptionColorsWorkspaceSummary struct {
+	Selected int
+	Options  []devicesOptionColorSummary
+}
+
+func devicesOptionColorsWorkspaceSummaryFromSnapshot(snapshot optioncolorpresentation.Snapshot) *devicesOptionColorsWorkspaceSummary {
+	if len(snapshot.Options) == 0 {
+		return nil
+	}
+	out := &devicesOptionColorsWorkspaceSummary{Selected: snapshot.Selected}
+	seen := map[int]bool{}
+	for _, option := range snapshot.Options {
+		if option.Label == "" || option.Action == "" || seen[option.Value] {
+			return nil
+		}
+		seen[option.Value] = true
+		out.Options = append(out.Options, devicesOptionColorSummary{Value: option.Value, Label: option.Label, ColorHex: fmt.Sprintf("#%02x%02x%02x", uint8(option.Color.Red), uint8(option.Color.Green), uint8(option.Color.Blue)), Action: option.Action})
+	}
+	if !seen[out.Selected] {
+		return nil
+	}
+	return out
 }
 
 func devicesControlDialWorkspaceSummaryFromSnapshot(snapshot controldialpresentation.Snapshot) *devicesControlDialWorkspaceSummary {
@@ -3803,6 +3853,7 @@ func devicesPerformanceWorkspaceSummaryFromSnapshot(snapshot performancepresenta
 		return &devicesPerformanceSelectSummary{Value: setting.Value, Options: options}
 	}
 	summary.PollingRate = copySelect(snapshot.PollingRate)
+	summary.DebounceTime = copySelect(snapshot.DebounceTime)
 	summary.ButtonOptimization = copySelect(snapshot.ButtonOptimization)
 	summary.LiftHeight = copySelect(snapshot.LiftHeight)
 	if snapshot.AngleSnapping != nil {
@@ -3829,7 +3880,7 @@ func devicesPerformanceWorkspaceSummaryFromSnapshot(snapshot performancepresenta
 			summary.SaveBooleanSettings = snapshot.SaveBooleanSettings
 		}
 	}
-	if summary.PollingRate == nil && summary.ButtonOptimization == nil && summary.AngleSnapping == nil && summary.LiftHeight == nil && len(summary.BooleanSettings) == 0 {
+	if summary.PollingRate == nil && summary.DebounceTime == nil && summary.ButtonOptimization == nil && summary.AngleSnapping == nil && summary.LiftHeight == nil && len(summary.BooleanSettings) == 0 {
 		return nil
 	}
 	return summary
@@ -4209,6 +4260,11 @@ func devicesWorkspaceSummaryForSerial(
 	if controlDialDevice, ok := device.Instance.(devicesControlDialSnapshotProvider); ok && controlDialDevice != nil && controlDialDevice.ControlDialDeviceID() == serial {
 		if snapshot, usable := controlDialDevice.ControlDialSnapshot(); usable {
 			summary.ControlDial = devicesControlDialWorkspaceSummaryFromSnapshot(snapshot)
+		}
+	}
+	if optionColorsDevice, ok := device.Instance.(devicesOptionColorsSnapshotProvider); ok && optionColorsDevice != nil && optionColorsDevice.OptionColorsDeviceID() == serial {
+		if snapshot, usable := optionColorsDevice.OptionColorsSnapshot(); usable {
+			summary.OptionColors = devicesOptionColorsWorkspaceSummaryFromSnapshot(snapshot)
 		}
 	}
 	var coolingSnapshot *coolingpresentation.Snapshot

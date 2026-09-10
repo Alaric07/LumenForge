@@ -792,8 +792,9 @@
                                     <p class="lf-keyboard-card-description">Changes save automatically.</p>
                                     <div class="lf-performance-controls">
                                         {{ if and .KeyboardLayouts .ActiveKeyboardLayout }}<div class="lf-performance-control"><label class="lf-keyboard-layout-select" for="lf-keyboard-layout"><span>Keyboard Layout</span><select id="lf-keyboard-layout" class="lf-buttons-select" data-lf-keyboard-layout aria-label="Keyboard Layout">{{ $activeKeyboardLayout := .ActiveKeyboardLayout }}{{ range .KeyboardLayouts }}<option value="{{ . }}"{{ if eq . $activeKeyboardLayout }} selected{{ end }}>{{ . }}</option>{{ end }}</select></label><p class="lf-range-control-status" data-lf-keyboard-layout-status aria-live="polite"></p></div>{{ end }}
-                                        {{ with $.Device.Performance }}
+                                            {{ with $.Device.Performance }}
                                             {{ with .PollingRate }}<div class="lf-performance-control" data-lf-performance-control data-lf-performance-kind="pollingRate" data-lf-confirmed-value="{{ .Value }}"><label for="lf-performance-polling-rate">Polling Rate</label><select id="lf-performance-polling-rate" data-lf-performance-input aria-label="Polling Rate">{{ $selected := .Value }}{{ range .Options }}<option value="{{ .Value }}"{{ if eq .Value $selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select><p class="lf-range-control-status" data-lf-performance-status aria-live="polite"></p></div>{{ end }}
+                                            {{ with .DebounceTime }}<div class="lf-performance-control" data-lf-performance-control data-lf-performance-kind="debounceTime" data-lf-confirmed-value="{{ .Value }}"><label for="lf-performance-debounce-time">Debounce Time</label><select id="lf-performance-debounce-time" data-lf-performance-input aria-label="Debounce Time">{{ $selected := .Value }}{{ range .Options }}<option value="{{ .Value }}"{{ if eq .Value $selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select><p class="lf-range-control-status" data-lf-performance-status aria-live="polite"></p></div>{{ end }}
                                             {{ with .AngleSnapping }}<div class="lf-performance-control" data-lf-performance-control data-lf-performance-kind="angleSnapping" data-lf-confirmed-value="{{ if .Enabled }}1{{ else }}0{{ end }}"><label class="lf-performance-toggle system-toggle compact" for="lf-performance-angle-snapping"><span>Angle Snapping</span><input id="lf-performance-angle-snapping" type="checkbox" data-lf-performance-input{{ if .Enabled }} checked{{ end }}><span class="toggle-track" aria-hidden="true"></span></label><p class="lf-range-control-status" data-lf-performance-status aria-live="polite"></p></div>{{ end }}
                                             {{ with .LiftHeight }}<div class="lf-performance-control" data-lf-performance-control data-lf-performance-kind="liftHeight" data-lf-confirmed-value="{{ .Value }}"><label for="lf-performance-lift-height">Lift Height</label><select id="lf-performance-lift-height" data-lf-performance-input aria-label="Lift Height">{{ $selected := .Value }}{{ range .Options }}<option value="{{ .Value }}"{{ if eq .Value $selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select><p class="lf-range-control-status" data-lf-performance-status aria-live="polite"></p></div>{{ end }}
                                         {{ end }}
@@ -812,7 +813,7 @@
                                 {{ range .Rows }}
                                     {{ $rowClass := $rowLayoutClass }}
                                     {{ if .CSS }}{{ $rowClass = .CSS }}{{ end }}
-                                    <div class="lf-keyboard-row {{ $rowClass }} {{ .OverrideCSS }}{{ if eq .Top 65 }} lf-keyboard-margin-top{{ end }}" data-lf-keyboard-row>
+                                    {{ if .HasGridItems }}<div class="lf-keyboard-row {{ $rowClass }} {{ .OverrideCSS }}{{ if eq .Top 65 }} lf-keyboard-margin-top{{ end }}" data-lf-keyboard-row>
                                     {{ range .Items }}
                                         {{ range .KeyEmpty }}<span class="lf-keyboard-placeholder {{ . }}" aria-hidden="true"></span>{{ end }}
                                         {{ range .Spacing }}<span class="lf-keyboard-placeholder keyboard-key-empty" aria-hidden="true"></span>{{ end }}
@@ -826,7 +827,7 @@
                                                 <button class="lf-keyboard-key lf-keyboard-key-static{{ if $halfKeyPair }} lf-keyboard-half-key{{ end }} {{ .KeySpace }} {{ .CSS }} {{ .ExtraCSS }}" type="button" data-lf-keyboard-color-key data-lf-key-index="{{ .KeyIndex }}" data-lf-key-red="{{ .Red }}" data-lf-key-green="{{ .Green }}" data-lf-key-blue="{{ .Blue }}" data-lf-normal-color="{{ .LabelColor }}" style="color: {{ .LabelColor }};" aria-label="{{ .KeyName }} color"><span>{{ .KeyName }}</span>{{ if .SubKeyName }}<small>{{ .SubKeyName }}</small>{{ end }}</button>
                                             {{ end }}
                                         {{ end }}{{ if $halfKeyPair }}</div>{{ end }}
-                                    {{ end }}</div>
+                                    {{ end }}</div>{{ end }}
                                 {{ end }}
                             </div></div>
                             <footer class="lf-keyboard-footer" data-lf-keyboard-toolbar>
@@ -1014,6 +1015,7 @@
                                     <div class="lf-performance-controls"><div class="lf-performance-control" data-lf-control-dial-control data-lf-confirmed-value="{{ .Value }}"><label for="lf-control-dial">Control Dial</label><select id="lf-control-dial" data-lf-control-dial-input>{{ $selected := .Value }}{{ range .Options }}<option value="{{ .Value }}"{{ if eq .Value $selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select><p class="lf-range-control-status" data-lf-control-dial-status aria-live="polite"></p><div class="lf-keyboard-footer-row"><button type="button" class="lf-button" data-lf-control-dial-save>Save</button></div></div></div>
                                 </section>
                             {{ end }}
+                            {{ with .Device.OptionColors }}<section class="lf-overview-panel" data-lf-option-colors data-lf-device-id="{{ $.Device.Serial }}"><header class="lf-overview-panel-header"><div><p class="lf-section-kicker">Device configuration</p><h2>Control Dial Colors</h2></div></header><div class="lf-performance-controls">{{ $selected := .Selected }}{{ range .Options }}{{ if eq .Value $selected }}<div class="lf-performance-control" data-lf-option-color data-lf-option-id="{{ .Value }}" data-lf-option-color-action="{{ .Action }}"><label>{{ .Label }} <input type="color" value="{{ .ColorHex }}" data-lf-option-color-input></label><p class="lf-range-control-status" data-lf-option-color-status aria-live="polite"></p></div>{{ end }}{{ end }}</div></section>{{ end }}
                         </div>
                     </section>
                 {{ end }}
