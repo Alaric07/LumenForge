@@ -38,6 +38,8 @@ import (
 	"LumenForge/src/devices/k95"
 	"LumenForge/src/devices/k95platinum"
 	"LumenForge/src/devices/k95platinumXT"
+	"LumenForge/src/devices/makr75W"
+	"LumenForge/src/devices/makr75WU"
 	"LumenForge/src/devices/strafergbmk2"
 	"LumenForge/src/keyboards"
 	"LumenForge/src/rgb"
@@ -102,6 +104,8 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "k70-pro-mini-usb-modern", Title: "K70 PRO MINI", ProductType: common.ProductTypeK70PMWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70ProMiniUSBModernPreview},
 	{Key: "k70-max-modern", Title: "K70 MAX", ProductType: common.ProductTypeK70Max, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70MaxModernPreview},
 	{Key: "clipper-pro-mini-60-modern", Title: "CLIPPER PRO MINI 60", ProductType: common.ProductTypeClipperProMini60, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildClipperProMini60ModernPreview},
+	{Key: "makr75-wireless-modern", Title: "MAKR 75 Wireless", ProductType: common.ProductTypeMakr75W, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildMAKR75WirelessModernPreview},
+	{Key: "makr75-usb-modern", Title: "MAKR 75 USB", ProductType: common.ProductTypeMakr75WU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildMAKR75USBModernPreview},
 	{Key: "k70-lux-modern", Title: "K70 LUX", ProductType: common.ProductTypeK70LUX, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70LUXModernPreview},
 	{Key: "k70-lux-rgb-modern", Title: "K70 LUX RGB", ProductType: common.ProductTypeK70LUXRgb, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70LUXRGBModernPreview},
 	{Key: "k70-rgb-rf-modern", Title: "K70 RGB RF", ProductType: common.ProductTypeK70RgbRF, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70RGBRFModernPreview},
@@ -477,6 +481,42 @@ func buildClipperProMini60ModernPreview() *devicesWorkspaceSummary {
 	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "CLIPPER PRO MINI 60", ProductType: common.ProductTypeClipperProMini60, Instance: device}}, map[string]stats.BatteryStats{}, serial)
 	summary.LegacyLighting = true
 	return summary
+}
+
+func buildMAKR75WirelessModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-makr75-wireless-modern"
+	keyboard := keyboards.GetKeyboard("makr75-default-US")
+	profile := &makr75W.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, SleepMode: 15, ControlDial: 1, DisableWinKey: true, DisableShiftTab: true, DisableAltTab: true, DisableAltF4: true}
+	device := &makr75W.Device{Serial: serial, UIKeyboard: "keyboard-6", UIKeyboardRow: "keyboard-row-17", Layouts: []string{"US"}, KeyAssignmentTypes: makr75PreviewAssignmentTypes(), SleepModes: makr75PreviewSleepModes(), ControlDialOptions: makr75PreviewControlDialOptions(), DeviceProfile: profile, UserProfiles: map[string]*makr75W.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "MAKR 75", ProductType: common.ProductTypeMakr75W, Instance: device}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func buildMAKR75USBModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-makr75-usb-modern"
+	keyboard := keyboards.GetKeyboard("makr75-default-US")
+	profile := &makr75WU.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 4, ControlDial: 1, ControlDialColors: makr75PreviewControlDialColors(), DisableWinKey: true, DisableShiftTab: true, DisableAltTab: true, DisableAltF4: true}
+	device := &makr75WU.Device{Serial: serial, UIKeyboard: "keyboard-6", UIKeyboardRow: "keyboard-row-17", Layouts: []string{"US"}, KeyAssignmentTypes: makr75PreviewAssignmentTypes(), PollingRates: k70ProMiniPreviewPollingRates(), ControlDialOptions: makr75PreviewControlDialOptions(), DeviceProfile: profile, UserProfiles: map[string]*makr75WU.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "MAKR 75", ProductType: common.ProductTypeMakr75WU, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func makr75PreviewAssignmentTypes() map[int]string {
+	return map[int]string{0: "None", 1: "Media Keys", 3: "Keyboard", 8: "Sniper", 9: "Mouse", 10: "Macro"}
+}
+
+func makr75PreviewSleepModes() map[int]string {
+	return map[int]string{1: "1 minute", 5: "5 minutes", 10: "10 minutes", 15: "15 minutes", 30: "30 minutes", 60: "1 hour"}
+}
+
+func makr75PreviewControlDialOptions() map[int]string {
+	return map[int]string{1: "Volume Control", 2: "Brightness", 3: "Vertical Scroll", 4: "Zoom", 5: "Screen Brightness", 6: "Media Control", 7: "Horizontal Scroll"}
+}
+
+func makr75PreviewControlDialColors() map[int]*rgb.Color {
+	return map[int]*rgb.Color{1: {Red: 255, Green: 255, Blue: 255}, 2: {Red: 0, Green: 255, Blue: 255}, 3: {Red: 255, Green: 127, Blue: 0}, 4: {Red: 255, Green: 0, Blue: 255}, 5: {Red: 0, Green: 255, Blue: 0}, 6: {Red: 0, Green: 0, Blue: 255}, 7: {Red: 255, Green: 0, Blue: 0}}
 }
 
 func buildK70CorePreview(serial, product string, typ uint16, layout, ui, row string) *devicesWorkspaceSummary {
