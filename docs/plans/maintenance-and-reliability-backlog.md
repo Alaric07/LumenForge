@@ -35,6 +35,15 @@ LumenForge is a local, alpha-stage RGB and fan controller maintained by one deve
   - Added focused LCD tests for replacement, rollback, cleanup, cache and live-state preservation, and concurrent transactions.
   - Ensured metadata files are closed on decode failures in `cpro`, `ccxt`, `lnpro`, and `lsh`.
   - Validated with the full Go test suite, Go vet, focused race tests, frontend tests, installer checks, a successful build, and installation and normal operation on real hardware.
+- Device-profile actions now publish independent Switch, Save, and Delete
+  capabilities, with the shared request dispatch failing closed when the
+  corresponding mutation is unavailable.
+- Generic option-color saves serialize in-flight mutations and restore the last
+  confirmed color after failure; a failed color can then be selected and saved
+  again.
+- Successful Control Dial mode changes refresh the page before selected-option
+  color editing can continue, preventing a stale rendered option target from
+  receiving a color mutation.
 
 ## Observations to revisit only if reproduced
 

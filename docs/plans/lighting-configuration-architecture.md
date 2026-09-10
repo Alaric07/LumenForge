@@ -60,6 +60,13 @@ order. K95 Platinum's `keyboard` mode retains its existing per-key state and is
 edited in the Keyboard workspace rather than through the generic authored-zone
 editor; its keyboard protocol, presets, and lifecycle remain device-owned.
 
+K95 Platinum remains the canonical keyboard-lighting proof. Many additional
+keyboard families now use the modern Devices workspace for non-lighting
+controls such as assignments, performance, profiles, and device settings while
+their lighting remains on the retained legacy path. This separation validates
+that workspace migration is not a lighting cutover; each future keyboard
+lighting migration still requires family-specific renderer and output parity.
+
 Device-authored zone state remains owned by the device profile rather than
 being fabricated as generic `EffectSettings`. The shared authored-zone
 presentation and mutation contract supports persistent multi-selection, clear

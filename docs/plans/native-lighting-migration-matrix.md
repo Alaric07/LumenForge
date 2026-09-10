@@ -164,11 +164,16 @@ signatures.
 
 
 Device-workspace migration is tracked separately from this lighting matrix.
-Scimitar RGB Elite's modern DPI, Performance, Key Assignments, and physical-button
-assignment work does not alter its lighting status. Likewise, adding a shared
-Performance or Overview provider to another native package must not be treated
-as evidence that its lighting implementation has migrated or that unowned
-hardware has been physically validated.
+Modern keyboard Overview, Keyboard, Performance, Profile, assignment, or
+Control Dial providers do not make a package a canonical-lighting migration.
+K95 Platinum is the canonical-lighting **Migrated** keyboard proof; K100, K100
+AIR, K57, K60, K68, K55, K65, and K70 workspace families remain **Legacy** for
+lighting unless their individual matrix row says otherwise. Their retained
+legacy lighting path remains authoritative until a separate family-specific
+lighting cutover. Package-local modern controls do not change that status or
+demonstrate physical lighting validation. The same distinction applies to
+Scimitar RGB Elite's modern DPI, Performance, Key Assignments, and
+physical-button assignment work.
 
 ---
 

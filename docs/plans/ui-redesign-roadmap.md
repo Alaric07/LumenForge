@@ -590,20 +590,44 @@ after every legitimate native consumer has migrated.
 
 ### Native-device workspace expansion
 
-- [x] Add a physically available keyboard as the second native shared-workspace
-  proof. K95 Platinum completes the physical mouse-and-keyboard proof while
-  reusing existing native device behavior rather than introducing replacement
-  hardware logic.
-- [ ] Make Performance presentation fully device-neutral where the second device
-  class exposes assumptions inherited from the initial mouse implementation.
-- [ ] Enrich Overview as a read-only, capability-driven device summary now that
-  a physical mouse and keyboard are represented. It may show active effect,
-  ownership or RGB Cluster state, active profile, polling or performance state,
-  and truthful device statistics only when the selected device reports them.
-- [ ] After the shared contract is proven across owned device classes, add thin
-  Performance providers to other already-native devices where their existing
-  implementations expose the required current state, option inventory, and
-  mutation methods. Do not treat code-derived support as hardware validation.
+- [x] Prove the shared modern keyboard workspace across independently audited
+  keyboard families, while retaining each package's hardware, persistence, and
+  legacy-lighting boundaries. Completed workspace packages are:
+  - K95: `k95`, `k95platinum`, `k95platinumXT`.
+  - K70: `k70lux`, `k70luxrgb`, `k70rgbRF`, `k70mk2`, `k70core`, `k70coretkl`,
+    `k70pro`, `k70protkl`, `k70max`.
+  - K65: `k65rgb`, `k65rgbRF`, `k65pm`, `k65rm`, `k65plusW`, `k65plusWU`.
+  - K55: `k55`, `k55core`, `k55coretkl`, `k55pro`, `k55proXT`.
+  - Other: `k57rgbW`, `k57rgbWU`, `k60rgbpro`, `k68rgb`, `k100airW`,
+    `k100airWU`, and `k100`.
+  This is modern workspace coverage, not a claim of physical validation or
+  canonical-lighting migration.
+- [x] Establish shared source-backed keyboard presentation: assignment presets
+  and key assignments; optional modifiers, Actuation, and FlashTap; polling;
+  four lockouts; full Device Profiles with independently capability-gated
+  Switch/Save/Delete actions; Sleep Timer; battery telemetry; Control Dial mode
+  selection; boolean and select settings such as debounce; selected-option
+  color editing; and Live RGB only when the device publishes that capability.
+  Families whose canonical lighting has not migrated retain their legacy
+  lighting placeholder/path.
+- [x] Correct shared keyboard rendering rather than device geometry: row maps
+  override stale scalar row counts; `keyboard-row-16` through
+  `keyboard-row-29` are supported; dark source labels receive a
+  presentation-only readable fallback; valid half-key Start/End pairs share a
+  grid track; unnamed OnlyColor lighting entries remain presentation data but
+  do not enter assignment-grid flow; and legacy `top-32` offsets are neutral in
+  the modern grid. K100's tall numpad `+` and Enter retain double-row height
+  without the legacy vertical displacement, and keyboard-8 has responsive
+  wide-layout sizing and spacing.
+- [x] Confirm legacy Live RGB parity: K95 Platinum's legacy keyboard UI was
+  the only one that exposed Live RGB. No other migrated or remaining keyboard
+  needs it for parity; technical RGB capability alone is not a migration
+  requirement.
+- [ ] Audit and migrate the remaining keyboard workspace families one at a
+  time: `k70coretklW`, `k70coretklWU`, `k70pmW`, `k70pmWU`, `k70rgbtklcs`,
+  `strafergbmk2`, `clipperpromini60`, `makr75W`, `makr75WU`, `vanguard96`,
+  `vanguard96pro`, `vanguard96W`, `vanguard96WU`, `vanguard99airW`, and
+  `vanguard99airWU`. Do not infer wired/wireless, base/SE, or protocol parity.
 - [x] Complete Memory as a separate family-specific migration proof. Its
   multi-DIMM topology, indexed per-LED `led` mode, parent ownership/Brightness,
   and existing device profile semantics remain device-owned where appropriate
