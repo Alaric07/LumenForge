@@ -22,6 +22,8 @@ import (
 	"LumenForge/src/devices/k68rgb"
 	"LumenForge/src/devices/k70core"
 	"LumenForge/src/devices/k70coretkl"
+	"LumenForge/src/devices/k70coretklW"
+	"LumenForge/src/devices/k70coretklWU"
 	"LumenForge/src/devices/k70lux"
 	"LumenForge/src/devices/k70luxrgb"
 	"LumenForge/src/devices/k70max"
@@ -86,6 +88,8 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "k68-rgb-modern", Title: "K68 RGB", ProductType: common.ProductTypeK68Rgb, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK68RGBModernPreview},
 	{Key: "k70-core-modern", Title: "K70 CORE", ProductType: common.ProductTypeK70Core, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70CoreModernPreview},
 	{Key: "k70-core-tkl-modern", Title: "K70 CORE TKL", ProductType: common.ProductTypeK70CoreTkl, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70CoreTKLModernPreview},
+	{Key: "k70-core-tkl-wireless-modern", Title: "K70 CORE RGB TKL Wireless", ProductType: common.ProductTypeK70CoreTklW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70CoreTKLWirelessModernPreview},
+	{Key: "k70-core-tkl-usb-modern", Title: "K70 CORE RGB TKL USB", ProductType: common.ProductTypeK70CoreTklWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70CoreTKLUSBModernPreview},
 	{Key: "k70-pro-modern", Title: "K70 RGB PRO", ProductType: common.ProductTypeK70Pro, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70ProModernPreview},
 	{Key: "k70-pro-tkl-modern", Title: "K70 RGB PRO TKL", ProductType: common.ProductTypeK70ProTkl, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70ProTKLModernPreview},
 	{Key: "k70-max-modern", Title: "K70 MAX", ProductType: common.ProductTypeK70Max, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70MaxModernPreview},
@@ -353,6 +357,30 @@ func buildK68RGBModernPreview() *devicesWorkspaceSummary {
 }
 func buildK70CoreTKLModernPreview() *devicesWorkspaceSummary {
 	return buildK70CoreTKLPreview("preview-k70-core-tkl-modern", "K70 CORE TKL", common.ProductTypeK70CoreTkl, "k70coretkl-default-US", "keyboard-6", "keyboard-row-20")
+}
+func buildK70CoreTKLWirelessModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k70-core-tkl-wireless-modern"
+	k := keyboards.GetKeyboard("k70coretklW-default-US")
+	p := &k70coretklW.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": k}, SleepMode: 15, ControlDial: 1, DisableWinKey: true}
+	d := &k70coretklW.Device{Serial: serial, UIKeyboard: "keyboard-6", UIKeyboardRow: "keyboard-row-20", Layouts: []string{"US"}, KeyAssignmentTypes: k70ModernPreviewAssignmentTypes(), ControlDialOptions: k70CoreTKLControlDialOptions(), SleepModes: k70CoreTKLSleepModes(), DeviceProfile: p, UserProfiles: map[string]*k70coretklW.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	s, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K70 CORE RGB TKL Wireless", ProductType: common.ProductTypeK70CoreTklW, Instance: d}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
+	s.LegacyLighting = true
+	return s
+}
+func buildK70CoreTKLUSBModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k70-core-tkl-usb-modern"
+	k := keyboards.GetKeyboard("k70coretklW-default-US")
+	p := &k70coretklWU.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": k}, PollingRate: 4, ControlDial: 1, DisableWinKey: true}
+	d := &k70coretklWU.Device{Serial: serial, UIKeyboard: "keyboard-6", UIKeyboardRow: "keyboard-row-20", Layouts: []string{"US"}, KeyAssignmentTypes: k70ModernPreviewAssignmentTypes(), ControlDialOptions: k70CoreTKLControlDialOptions(), PollingRates: map[int]string{0: "Not Set", 1: "125 Hz / 8 msec", 2: "250 Hz / 4 msec", 3: "500 Hz / 2 msec", 4: "1000 Hz / 1 msec"}, DeviceProfile: p, UserProfiles: map[string]*k70coretklWU.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	s, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K70 CORE RGB TKL USB", ProductType: common.ProductTypeK70CoreTklWU, Instance: d}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
+	s.LegacyLighting = true
+	return s
+}
+func k70CoreTKLControlDialOptions() map[int]string {
+	return map[int]string{1: "Volume Control", 2: "Brightness", 3: "Scroll", 4: "Zoom", 5: "Screen Brightness", 6: "Media Control", 7: "Horizontal Scroll"}
+}
+func k70CoreTKLSleepModes() map[int]string {
+	return map[int]string{1: "1 minute", 5: "5 minutes", 10: "10 minutes", 15: "15 minutes", 30: "30 minutes", 60: "1 hour"}
 }
 func buildK70ProModernPreview() *devicesWorkspaceSummary {
 	return buildK70ProModernWorkspacePreview("preview-k70-pro-modern", "K70 RGB PRO", common.ProductTypeK70Pro, "k70pro-default-US", "keyboard-7", "keyboard-row-25")
