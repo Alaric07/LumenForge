@@ -33,6 +33,7 @@ import (
 	"LumenForge/src/devices/k70pro"
 	"LumenForge/src/devices/k70protkl"
 	"LumenForge/src/devices/k70rgbRF"
+	"LumenForge/src/devices/k70rgbtklcs"
 	"LumenForge/src/devices/k95"
 	"LumenForge/src/devices/k95platinum"
 	"LumenForge/src/devices/k95platinumXT"
@@ -94,6 +95,7 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "k70-core-tkl-usb-modern", Title: "K70 CORE RGB TKL USB", ProductType: common.ProductTypeK70CoreTklWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70CoreTKLUSBModernPreview},
 	{Key: "k70-pro-modern", Title: "K70 RGB PRO", ProductType: common.ProductTypeK70Pro, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70ProModernPreview},
 	{Key: "k70-pro-tkl-modern", Title: "K70 RGB PRO TKL", ProductType: common.ProductTypeK70ProTkl, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70ProTKLModernPreview},
+	{Key: "k70-rgb-tkl-cs-modern", Title: "K70 RGB TKL CS", ProductType: common.ProductTypeK70RgbTkl, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70RGBTKLCSModernPreview},
 	{Key: "k70-pro-mini-wireless-modern", Title: "K70 PRO MINI Wireless", ProductType: common.ProductTypeK70PMW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70ProMiniWirelessModernPreview},
 	{Key: "k70-pro-mini-usb-modern", Title: "K70 PRO MINI", ProductType: common.ProductTypeK70PMWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70ProMiniUSBModernPreview},
 	{Key: "k70-max-modern", Title: "K70 MAX", ProductType: common.ProductTypeK70Max, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70MaxModernPreview},
@@ -399,6 +401,20 @@ func buildK70ProTKLModernPreview() *devicesWorkspaceSummary {
 	summary.FlashTap = &devicesFlashTapWorkspaceSummary{Supported: true, Active: true, Mode: 1, Modes: []devicesFlashTapOptionSummary{{Value: 0, Label: "Neutral"}, {Value: 1, Label: "Last Priority"}, {Value: 2, Label: "First Priority"}}, Keys: []devicesFlashTapKeySummary{{KeyIndex: 4, KeyName: "A", Eligible: true, Selected: true}, {KeyIndex: 7, KeyName: "D", Eligible: true, Selected: true}, {KeyIndex: 57, KeyName: "Fn", Eligible: false}}, SelectedSlots: []devicesFlashTapSelectedSlotSummary{{SlotIndex: 0, KeyIndex: 7}, {SlotIndex: 1, KeyIndex: 4}}, Color: devicesFlashTapColorSummary{Red: 17, Green: 93, Blue: 201}}
 	summary.LegacyLighting = true
 	return summary
+}
+func buildK70RGBTKLCSModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-k70-rgb-tkl-cs-modern"
+	keyboard := keyboards.GetKeyboard("k70rgbtklcs-default-US")
+	profile := &k70rgbtklcs.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 4, DisableWinKey: true, DisableAltTab: true}
+	device := &k70rgbtklcs.Device{Serial: serial, UIKeyboard: "keyboard-7", UIKeyboardRow: "keyboard-row-20", Layouts: []string{"US"}, KeyAssignmentTypes: k70RGBTKLCSPreviewAssignmentTypes(), PollingRates: k70RGBTKLCSPreviewPollingRates(), DeviceProfile: profile, UserProfiles: map[string]*k70rgbtklcs.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K70 RGB TKL CS", ProductType: common.ProductTypeK70RgbTkl, Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	return summary
+}
+func k70RGBTKLCSPreviewAssignmentTypes() map[int]string {
+	return map[int]string{0: "None", 1: "Media Keys", 3: "Keyboard", 8: "Sniper", 9: "Mouse", 10: "Macro", 11: "Brightness +", 12: "Brightness -", 13: "Scroll Up", 14: "Scroll Down", 15: "Zoom In", 16: "Zoom Out", 17: "Screen Brightness +", 18: "Screen Brightness -"}
+}
+func k70RGBTKLCSPreviewPollingRates() map[int]string {
+	return map[int]string{0: "Not Set", 1: "125 Hz / 8 msec", 2: "250 Hz / 4 msec", 3: "500 Hz / 2 msec", 4: "1000 Hz / 1 msec", 5: "2000 Hz / 0.5 msec", 6: "4000 Hz / 0.25 msec", 7: "8000 Hz / 0.125 msec"}
 }
 func buildK70ProMiniWirelessModernPreview() *devicesWorkspaceSummary {
 	const serial = "preview-k70-pro-mini-wireless-modern"

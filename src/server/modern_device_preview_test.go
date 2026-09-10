@@ -143,6 +143,7 @@ func TestModernKeyboardDevicePreviewsRenderWorkspaceWithoutRegistration(t *testi
 		{"k70-rgb-rf-modern", "preview-k70-rgb-rf-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A", "BTS", "Play"}, 7, 113, false, false, false, false, false},
 		{"k70-pro-mini-wireless-modern", "preview-k70-pro-mini-wireless-modern", "keyboard-7", "keyboard-row-18", "", []string{"A"}, 7, 93, false, true, true, false, true},
 		{"k70-pro-mini-usb-modern", "preview-k70-pro-mini-usb-modern", "keyboard-7", "keyboard-row-18", "1000 Hz / 1 msec", []string{"A"}, 7, 93, false, true, true, false, false},
+		{"k70-rgb-tkl-cs-modern", "preview-k70-rgb-tkl-cs-modern", "keyboard-7", "keyboard-row-20", "1000 Hz / 1 msec", []string{"A", "BTS", "PLAY"}, 7, 98, false, true, true, false, false},
 		{"k70-mk2-modern", "preview-k70-mk2-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A", "BTS", "Play"}, 7, 116, false, false, false, false, false},
 		{"k95-modern", "preview-k95-modern", "keyboard-7", "keyboard-row-27", "1000 Hz / 1 msec", []string{"A", "G1", "Play"}, 7, 135, false, false, false, false, false},
 		{"k95-platinum-xt-modern", "preview-k95-platinum-xt-modern", "keyboard-8", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A", "G1", "Play"}, 8, 139, false, false, false, false, false},
@@ -412,6 +413,34 @@ func TestK70ProTKLModernPreviewProvidesCompleteAdvancedKeyboardWorkspaceWithoutR
 	}
 	if summary.FlashTap == nil || !summary.FlashTap.Active || summary.FlashTap.Mode != 1 || len(summary.FlashTap.Modes) != 3 || len(summary.FlashTap.SelectedSlots) != 2 || summary.FlashTap.SelectedSlots[0].KeyIndex != 7 || summary.FlashTap.SelectedSlots[1].KeyIndex != 4 || summary.FlashTap.Color != (devicesFlashTapColorSummary{Red: 17, Green: 93, Blue: 201}) {
 		t.Fatalf("flashTap=%#v", summary.FlashTap)
+	}
+	if devices.GetDevice(serial) != nil {
+		t.Fatal("preview fixture registered hardware")
+	}
+}
+
+func TestK70RGBTKLCSModernPreviewProvidesItsSupportedKeyboardWorkspaceWithoutRegistration(t *testing.T) {
+	const serial = "preview-k70-rgb-tkl-cs-modern"
+	if devices.GetDevice(serial) != nil {
+		t.Fatalf("fixture serial %q unexpectedly registered", serial)
+	}
+	fixture, ok := modernDevicePreviewFixtureByKey("k70-rgb-tkl-cs-modern")
+	if !ok || fixture.ProductType != common.ProductTypeK70RgbTkl || fixture.Title != "K70 RGB TKL CS" {
+		t.Fatalf("fixture = %#v, ok = %t", fixture, ok)
+	}
+	summary := fixture.Build()
+	if summary.KeyboardAssignments == nil || summary.KeyboardAssignments.LayoutClass != "keyboard-7" || summary.KeyboardAssignments.RowLayoutClass != "keyboard-row-20" || len(summary.KeyboardAssignments.Rows) != 7 || len(summary.KeyboardAssignments.ModifierOptions) < 2 || summary.Performance == nil || summary.Performance.PollingRate == nil || len(summary.Performance.PollingRate.Options) != 8 || summary.DeviceProfiles == nil || !summary.DeviceProfiles.CanSwitch || !summary.DeviceProfiles.CanSave || !summary.DeviceProfiles.CanDelete || !summary.LegacyLighting {
+		t.Fatalf("summary = %#v", summary)
+	}
+	if summary.SleepTimer != nil || summary.ControlDial != nil || summary.OptionColors != nil || summary.KeyActuation != nil || summary.FlashTap != nil || summary.HasBattery {
+		t.Fatalf("unsupported controls leaked into summary = %#v", summary)
+	}
+	keyCount := 0
+	for _, row := range summary.KeyboardAssignments.Rows {
+		keyCount += len(row.Keys)
+	}
+	if keyCount != 98 {
+		t.Fatalf("keyboard key count = %d", keyCount)
 	}
 	if devices.GetDevice(serial) != nil {
 		t.Fatal("preview fixture registered hardware")
