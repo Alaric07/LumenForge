@@ -141,6 +141,8 @@ func TestModernKeyboardDevicePreviewsRenderWorkspaceWithoutRegistration(t *testi
 		{"k70-core-tkl-usb-modern", "preview-k70-core-tkl-usb-modern", "keyboard-6", "keyboard-row-20", "1000 Hz / 1 msec", []string{"A"}, 6, 86, false, true, true, true, false},
 		{"k70-lux-rgb-modern", "preview-k70-lux-rgb-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A", "BTS", "Play"}, 7, 113, false, false, false, false, false},
 		{"k70-rgb-rf-modern", "preview-k70-rgb-rf-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A", "BTS", "Play"}, 7, 113, false, false, false, false, false},
+		{"k70-pro-mini-wireless-modern", "preview-k70-pro-mini-wireless-modern", "keyboard-7", "keyboard-row-18", "", []string{"A"}, 7, 93, false, true, true, false, true},
+		{"k70-pro-mini-usb-modern", "preview-k70-pro-mini-usb-modern", "keyboard-7", "keyboard-row-18", "1000 Hz / 1 msec", []string{"A"}, 7, 93, false, true, true, false, false},
 		{"k70-mk2-modern", "preview-k70-mk2-modern", "keyboard-7", "keyboard-row-25", "1000 Hz / 1 msec", []string{"A", "BTS", "Play"}, 7, 116, false, false, false, false, false},
 		{"k95-modern", "preview-k95-modern", "keyboard-7", "keyboard-row-27", "1000 Hz / 1 msec", []string{"A", "G1", "Play"}, 7, 135, false, false, false, false, false},
 		{"k95-platinum-xt-modern", "preview-k95-platinum-xt-modern", "keyboard-8", "keyboard-row-26", "1000 Hz / 1 msec", []string{"A", "G1", "Play"}, 8, 139, false, false, false, false, false},
@@ -340,6 +342,17 @@ func TestK57ModernPreviewsKeepTransportSpecificBatteryAndSleepCapabilities(t *te
 	}
 	usb := buildK57RGBUSBModernPreview()
 	if !usb.HasBattery || usb.BatteryLevel != 78 || usb.SleepTimer != nil || usb.Performance == nil || usb.Performance.PollingRate == nil || usb.ControlDial != nil {
+		t.Fatalf("USB summary=%#v", usb)
+	}
+}
+
+func TestK70ProMiniModernPreviewsKeepTransportSpecificCapabilities(t *testing.T) {
+	wireless := buildK70ProMiniWirelessModernPreview()
+	if !wireless.HasBattery || wireless.BatteryLevel != 78 || wireless.SleepTimer == nil || wireless.Performance == nil || wireless.Performance.PollingRate != nil || wireless.ControlDial != nil || wireless.OptionColors != nil || wireless.KeyActuation != nil || wireless.FlashTap != nil || !wireless.LegacyLighting {
+		t.Fatalf("wireless summary=%#v", wireless)
+	}
+	usb := buildK70ProMiniUSBModernPreview()
+	if !usb.HasBattery || usb.BatteryLevel != 78 || usb.SleepTimer != nil || usb.Performance == nil || usb.Performance.PollingRate == nil || len(usb.Performance.PollingRate.Options) != 8 || usb.ControlDial != nil || usb.OptionColors != nil || usb.KeyActuation != nil || usb.FlashTap != nil || !usb.LegacyLighting {
 		t.Fatalf("USB summary=%#v", usb)
 	}
 }
