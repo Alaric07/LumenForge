@@ -64,6 +64,43 @@ func TestModernDevicePreviewDebugGating(t *testing.T) {
 	}
 }
 
+func TestHS80ModernPreviewsMatchSourceBackedMuteIndicatorCapabilities(t *testing.T) {
+	router := legacyDevicePreviewRouter(t, true)
+	for _, test := range []struct {
+		key           string
+		muteIndicator bool
+	}{
+		{"hs80-rgb-modern", false},
+		{"hs80-rgb-wireless-modern", true},
+		{"hs80-rgb-wireless-usb-modern", true},
+	} {
+		fixture, ok := modernDevicePreviewFixtureByKey(test.key)
+		if !ok {
+			t.Fatalf("missing preview fixture %q", test.key)
+		}
+		summary := fixture.Build()
+		if summary.Headset == nil || (summary.Headset.MuteIndicator != nil) != test.muteIndicator || len(summary.Headset.Equalizer) != 10 {
+			t.Fatalf("%s headset=%#v", test.key, summary.Headset)
+		}
+		if summary.Headset.Equalizer[0].Label != "32" || summary.Headset.Equalizer[9].Label != "16K" {
+			t.Fatalf("%s equalizer=%#v", test.key, summary.Headset.Equalizer)
+		}
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/"+test.key))
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("%s status=%d: %s", test.key, recorder.Code, recorder.Body.String())
+		}
+		body := recorder.Body.String()
+		if strings.Contains(body, "Mute Indicator") != test.muteIndicator {
+			t.Fatalf("%s mute indicator rendering mismatch", test.key)
+		}
+		firstBand, lastBand := strings.Index(body, `aria-label="32 equalizer"`), strings.Index(body, `aria-label="16K equalizer"`)
+		if !strings.Contains(body, `type="range" min="-12" max="12"`) || firstBand < 0 || lastBand < 0 || firstBand > lastBand {
+			t.Fatalf("%s equalizer rendering is not ordered sliders", test.key)
+		}
+	}
+}
+
 func TestCommanderDuoModernDevicePreviewRendersFixtureWithoutRegistration(t *testing.T) {
 	router := legacyDevicePreviewRouter(t, true)
 	if devices.GetDevice(commanderDuoModernPreviewSerial) != nil {
