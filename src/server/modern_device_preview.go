@@ -91,6 +91,7 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "hs80-rgb-wireless-usb-modern", Title: "HS80 RGB Wireless USB", ProductType: common.ProductTypeHS80RGB, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: func() *devicesWorkspaceSummary {
 		return buildHS80ModernPreview("HS80 RGB WIRELESS", "preview-hs80-rgb-wireless-usb-modern", true, false, true)
 	}},
+	{Key: "hs80-max-wireless-modern", Title: "HS80 MAX Wireless", ProductType: common.ProductTypeHS80MAXW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildHS80MAXWirelessModernPreview},
 	{Key: "k55-rgb-modern", Title: "K55 RGB", ProductType: common.ProductTypeK55, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55RGBModernPreview},
 	{Key: "k55-core-modern", Title: "K55 CORE RGB", ProductType: common.ProductTypeK55Core, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55CoreModernPreview},
 	{Key: "k55-core-tkl-modern", Title: "K55 CORE TKL", ProductType: common.ProductTypeK55CoreTkl, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55CoreTKLModernPreview},
@@ -217,6 +218,13 @@ func buildHS80ModernPreview(product, serial string, battery, offOption, muteIndi
 		}
 		summary.SleepTimer = &devicesSleepTimerWorkspaceSummary{Value: 15, Options: options}
 	}
+	return summary
+}
+
+func buildHS80MAXWirelessModernPreview() *devicesWorkspaceSummary {
+	summary := buildHS80ModernPreview("HS80 MAX WIRELESS", "preview-hs80-max-wireless-modern", true, true, true)
+	summary.Headset.Sidetone = &devicesHeadsetSidetoneSummary{Value: 1, Options: []devicesHeadsetSelectOptionSummary{{Value: 0, Label: "Disabled"}, {Value: 1, Label: "Enabled"}}, ValueRange: &devicesHeadsetRangeSummary{Value: 50, Minimum: 0, Maximum: 100, Step: 1}}
+	summary.Headset.Assignments = []devicesHeadsetAssignmentSummary{{ID: 1, Label: "Scroll Press", Default: true, Types: []devicesHeadsetAssignmentTypeSummary{{ID: 0, Label: "None"}, {ID: 1, Label: "Media Keys"}, {ID: 3, Label: "Keyboard"}, {ID: 9, Label: "Mouse"}, {ID: 10, Label: "Macro"}, {ID: 11, Label: "Profile Switch"}}}}
 	return summary
 }
 

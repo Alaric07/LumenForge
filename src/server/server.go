@@ -2793,6 +2793,26 @@ type devicesHeadsetWorkspaceSummary struct {
 	HasMicrophoneStatus bool
 	Muted               bool
 	MuteIndicator       *devicesHeadsetSelectSummary
+	Sidetone            *devicesHeadsetSidetoneSummary
+	Assignments         []devicesHeadsetAssignmentSummary
+}
+type devicesHeadsetRangeSummary struct{ Value, Minimum, Maximum, Step int }
+type devicesHeadsetSidetoneSummary struct {
+	Value      int
+	Options    []devicesHeadsetSelectOptionSummary
+	ValueRange *devicesHeadsetRangeSummary
+}
+type devicesHeadsetAssignmentTypeSummary struct {
+	ID    uint8
+	Label string
+}
+type devicesHeadsetAssignmentSummary struct {
+	ID                                      int
+	Label                                   string
+	Default, ActionHold, IsMacro, OnRelease bool
+	ActionType                              uint8
+	ActionCommand                           uint16
+	Types                                   []devicesHeadsetAssignmentTypeSummary
 }
 
 // devicesLightingWorkspaceSummary is the presentation model shared by device
@@ -3859,6 +3879,20 @@ func devicesHeadsetWorkspaceSummaryFromSnapshot(snapshot headsetpresentation.Sna
 		}
 		summary.MuteIndicator = out
 	}
+	if setting := snapshot.Sidetone; setting != nil {
+		out := &devicesHeadsetSidetoneSummary{Value: setting.Value, Options: make([]devicesHeadsetSelectOptionSummary, 0, len(setting.Options)), ValueRange: &devicesHeadsetRangeSummary{Value: setting.ValueRange.Value, Minimum: setting.ValueRange.Minimum, Maximum: setting.ValueRange.Maximum, Step: setting.ValueRange.Step}}
+		for _, option := range setting.Options {
+			out.Options = append(out.Options, devicesHeadsetSelectOptionSummary{Value: option.Value, Label: option.Label})
+		}
+		summary.Sidetone = out
+	}
+	for _, assignment := range snapshot.Assignments {
+		out := devicesHeadsetAssignmentSummary{ID: assignment.ID, Label: assignment.Label, Default: assignment.Default, ActionHold: assignment.ActionHold, IsMacro: assignment.IsMacro, OnRelease: assignment.OnRelease, ActionType: assignment.ActionType, ActionCommand: assignment.ActionCommand, Types: make([]devicesHeadsetAssignmentTypeSummary, 0, len(assignment.Types))}
+		for _, kind := range assignment.Types {
+			out.Types = append(out.Types, devicesHeadsetAssignmentTypeSummary{ID: kind.ID, Label: kind.Label})
+		}
+		summary.Assignments = append(summary.Assignments, out)
+	}
 	return summary
 }
 
@@ -4252,7 +4286,7 @@ func devicesWorkspaceSummaryForSerial(
 		Image:          device.Image,
 		Unavailable:    device.Unavailable,
 		View:           "overview",
-		LegacyLighting: device.ProductType == common.ProductTypeHS80RGB || device.ProductType == common.ProductTypeHS80RGBW || device.ProductType == common.ProductTypeCC || device.ProductType == common.ProductTypeCCXT || device.ProductType == common.ProductTypeCPro || device.ProductType == common.ProductTypeHarpoonRgbPro || device.ProductType == common.ProductTypeKatarPro || device.ProductType == common.ProductTypeKatarProXT || device.ProductType == common.ProductTypeGlaiveRgbPro || device.ProductType == common.ProductTypeGlaiveRgb || device.ProductType == common.ProductTypeM65RgbElite || device.ProductType == common.ProductTypeSabreRgbPro || device.ProductType == common.ProductTypeNightswordRgb || device.ProductType == common.ProductTypeIronClawRgb || device.ProductType == common.ProductTypeM55 || device.ProductType == common.ProductTypeM55RgbPro || device.ProductType == common.ProductTypeM65RgbUltra || device.ProductType == common.ProductTypeM75 || device.ProductType == common.ProductTypeM75W || device.ProductType == common.ProductTypeM75WU || device.ProductType == common.ProductTypeM75AirW || device.ProductType == common.ProductTypeM75AirWU || device.ProductType == common.ProductTypeM65RgbUltraW || device.ProductType == common.ProductTypeM65RgbUltraWU || device.ProductType == common.ProductTypeHarpoonRgbW || device.ProductType == common.ProductTypeHarpoonRgbWU || device.ProductType == common.ProductTypeM55W || device.ProductType == common.ProductTypeNightsabreW || device.ProductType == common.ProductTypeNightsabreWU || device.ProductType == common.ProductTypeSabreRgbProW || device.ProductType == common.ProductTypeSabreRgbProWU || device.ProductType == common.ProductTypeSabreProCs || device.ProductType == common.ProductTypeScimitarRgb || device.ProductType == common.ProductTypeK70CoreTklW || device.ProductType == common.ProductTypeK70CoreTklWU || device.ProductType == common.ProductTypeK70PMW || device.ProductType == common.ProductTypeK70PMWU || device.ProductType == common.ProductTypeK70RgbTkl || device.ProductType == common.ProductTypeStrafeRgbMk2 || device.ProductType == common.ProductTypeClipperProMini60 || device.ProductType == common.ProductTypeMakr75W || device.ProductType == common.ProductTypeMakr75WU || device.ProductType == common.ProductTypeVanguard96 || device.ProductType == common.ProductTypeVanguard96Pro || device.ProductType == common.ProductTypeVanguard96W || device.ProductType == common.ProductTypeVanguard96WU || device.ProductType == common.ProductTypeVanguard99AirW || device.ProductType == common.ProductTypeVanguard99AirWU,
+		LegacyLighting: device.ProductType == common.ProductTypeHS80RGB || device.ProductType == common.ProductTypeHS80RGBW || device.ProductType == common.ProductTypeHS80MAXW || device.ProductType == common.ProductTypeCC || device.ProductType == common.ProductTypeCCXT || device.ProductType == common.ProductTypeCPro || device.ProductType == common.ProductTypeHarpoonRgbPro || device.ProductType == common.ProductTypeKatarPro || device.ProductType == common.ProductTypeKatarProXT || device.ProductType == common.ProductTypeGlaiveRgbPro || device.ProductType == common.ProductTypeGlaiveRgb || device.ProductType == common.ProductTypeM65RgbElite || device.ProductType == common.ProductTypeSabreRgbPro || device.ProductType == common.ProductTypeNightswordRgb || device.ProductType == common.ProductTypeIronClawRgb || device.ProductType == common.ProductTypeM55 || device.ProductType == common.ProductTypeM55RgbPro || device.ProductType == common.ProductTypeM65RgbUltra || device.ProductType == common.ProductTypeM75 || device.ProductType == common.ProductTypeM75W || device.ProductType == common.ProductTypeM75WU || device.ProductType == common.ProductTypeM75AirW || device.ProductType == common.ProductTypeM75AirWU || device.ProductType == common.ProductTypeM65RgbUltraW || device.ProductType == common.ProductTypeM65RgbUltraWU || device.ProductType == common.ProductTypeHarpoonRgbW || device.ProductType == common.ProductTypeHarpoonRgbWU || device.ProductType == common.ProductTypeM55W || device.ProductType == common.ProductTypeNightsabreW || device.ProductType == common.ProductTypeNightsabreWU || device.ProductType == common.ProductTypeSabreRgbProW || device.ProductType == common.ProductTypeSabreRgbProWU || device.ProductType == common.ProductTypeSabreProCs || device.ProductType == common.ProductTypeScimitarRgb || device.ProductType == common.ProductTypeK70CoreTklW || device.ProductType == common.ProductTypeK70CoreTklWU || device.ProductType == common.ProductTypeK70PMW || device.ProductType == common.ProductTypeK70PMWU || device.ProductType == common.ProductTypeK70RgbTkl || device.ProductType == common.ProductTypeStrafeRgbMk2 || device.ProductType == common.ProductTypeClipperProMini60 || device.ProductType == common.ProductTypeMakr75W || device.ProductType == common.ProductTypeMakr75WU || device.ProductType == common.ProductTypeVanguard96 || device.ProductType == common.ProductTypeVanguard96Pro || device.ProductType == common.ProductTypeVanguard96W || device.ProductType == common.ProductTypeVanguard96WU || device.ProductType == common.ProductTypeVanguard99AirW || device.ProductType == common.ProductTypeVanguard99AirWU,
 	}
 	if battery, found := batteryStats[serial]; found {
 		summary.HasBattery = true

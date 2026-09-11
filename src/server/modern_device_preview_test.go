@@ -101,6 +101,40 @@ func TestHS80ModernPreviewsMatchSourceBackedMuteIndicatorCapabilities(t *testing
 	}
 }
 
+func TestHS80MAXWirelessModernPreviewRendersOnlySourceBackedCapabilities(t *testing.T) {
+	router := legacyDevicePreviewRouter(t, true)
+	fixture, ok := modernDevicePreviewFixtureByKey("hs80-max-wireless-modern")
+	if !ok {
+		t.Fatal("missing HS80 MAX Wireless preview fixture")
+	}
+	summary := fixture.Build()
+	if summary.DeviceProfiles == nil || summary.Headset == nil || summary.Headset.MuteIndicator == nil || summary.Headset.Sidetone == nil || len(summary.Headset.Assignments) != 1 || summary.Headset.Assignments[0].Label != "Scroll Press" || !summary.HasBattery || summary.SleepTimer == nil || !summary.LegacyLighting {
+		t.Fatalf("summary=%#v", summary)
+	}
+	if got := summary.Headset.Assignments[0].Types; len(got) != 6 || got[0].Label != "None" || got[5].Label != "Profile Switch" {
+		t.Fatalf("assignment types=%#v", got)
+	}
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/hs80-max-wireless-modern"))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status=%d: %s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	for _, expected := range []string{"Sidetone", "Scroll Press", "Mute Indicator", "Battery", "Sleep Timer", "data-lf-headset-sidetone-value", `min="0" max="100"`} {
+		if !strings.Contains(body, expected) {
+			t.Errorf("missing %q", expected)
+		}
+	}
+	if strings.Contains(body, "Active Noise Cancellation") {
+		t.Error("preview exposed unsupported ANC")
+	}
+	lighting := httptest.NewRecorder()
+	router.ServeHTTP(lighting, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/hs80-max-wireless-modern?view=lighting"))
+	if lighting.Code != http.StatusOK || !strings.Contains(lighting.Body.String(), "Native Lighting migration is not complete.") {
+		t.Fatalf("lighting=%d: %s", lighting.Code, lighting.Body.String())
+	}
+}
+
 func TestCommanderDuoModernDevicePreviewRendersFixtureWithoutRegistration(t *testing.T) {
 	router := legacyDevicePreviewRouter(t, true)
 	if devices.GetDevice(commanderDuoModernPreviewSerial) != nil {
