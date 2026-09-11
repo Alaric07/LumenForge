@@ -676,6 +676,30 @@ func TestVanguard96ModernPreviewsUseShippedKeyboardWithoutRegistration(t *testin
 	}
 }
 
+func TestVanguard96WirelessModernPreviewsExposeOnlySourceBackedWorkspaces(t *testing.T) {
+	initializeLegacyDevicePreviewTestProcess(t)
+	keyboards.Init()
+	for _, test := range []struct {
+		key, serial, row, dial  string
+		battery, sleep, polling bool
+	}{
+		{"vanguard-96-wireless-modern", "preview-vanguard-96-wireless-modern", "keyboard-row-22", "Vertical Scroll", true, true, false},
+		{"vanguard-96-usb-modern", "preview-vanguard-96-usb-modern", "keyboard-row-21", "Scroll", true, false, true},
+	} {
+		fixture, ok := modernDevicePreviewFixtureByKey(test.key)
+		if !ok || devices.GetDevice(test.serial) != nil {
+			t.Fatalf("fixture=%#v ok=%t", fixture, ok)
+		}
+		summary := fixture.Build()
+		if summary == nil || !summary.LegacyLighting || summary.KeyboardAssignments == nil || summary.KeyboardAssignments.RowLayoutClass != test.row || len(summary.KeyboardAssignments.ModifierOptions) < 2 || summary.Performance == nil || len(summary.Performance.BooleanSettings) != 4 || (summary.Performance.PollingRate != nil) != test.polling || summary.DeviceProfiles == nil || !summary.DeviceProfiles.CanSwitch || !summary.DeviceProfiles.CanSave || !summary.DeviceProfiles.CanDelete || summary.ControlDial == nil || len(summary.ControlDial.Options) != 7 || summary.ControlDial.Options[2].Label != test.dial || summary.FlashTap == nil || len(summary.FlashTap.Modes) != 3 || (summary.SleepTimer != nil) != test.sleep || summary.HasBattery != test.battery || summary.KeyActuation != nil || summary.OptionColors != nil || summary.KeyboardAssignments.LiveRGBAvailable {
+			t.Fatalf("summary=%#v", summary)
+		}
+		if devices.GetDevice(test.serial) != nil {
+			t.Fatal("preview fixture registered hardware")
+		}
+	}
+}
+
 func TestCommanderProModernDevicePreviewRendersFixtureWithoutRegistration(t *testing.T) {
 	router := legacyDevicePreviewRouter(t, true)
 	const serial = "preview-commander-pro-modern"
