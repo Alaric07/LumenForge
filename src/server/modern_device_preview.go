@@ -52,6 +52,8 @@ import (
 	"LumenForge/src/devices/virtuosomaxW"
 	"LumenForge/src/devices/virtuosorgbXTW"
 	"LumenForge/src/devices/virtuosorgbXTWU"
+	"LumenForge/src/devices/voidV2W"
+	"LumenForge/src/devices/voideliteW"
 	"LumenForge/src/keyboards"
 	"LumenForge/src/rgb"
 	"LumenForge/src/stats"
@@ -97,6 +99,8 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 		return buildHS80ModernPreview("HS80 RGB WIRELESS", "preview-hs80-rgb-wireless-usb-modern", true, false, true)
 	}},
 	{Key: "hs80-max-wireless-modern", Title: "HS80 MAX Wireless", ProductType: common.ProductTypeHS80MAXW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildHS80MAXWirelessModernPreview},
+	{Key: "void-elite-wireless-modern", Title: "VOID ELITE Wireless", ProductType: common.ProductTypeHS80RGB, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildVOIDEliteWirelessModernPreview},
+	{Key: "void-wireless-v2-modern", Title: "VOID Wireless V2", ProductType: common.ProductTypeVoidV2W, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildVOIDWirelessV2ModernPreview},
 	{Key: "virtuoso-wireless-modern", Title: "Virtuoso Wireless", ProductType: common.ProductTypeVirtuosoW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: func() *devicesWorkspaceSummary {
 		return buildVirtuosoModernPreview("VIRTUOSO", "preview-virtuoso-wireless-modern", true)
 	}},
@@ -295,6 +299,36 @@ func buildVirtuosoRGBXTUSBModernPreview() *devicesWorkspaceSummary {
 	const serial = "preview-virtuoso-rgb-xt-usb-modern"
 	device := &virtuosorgbXTWU.Device{Serial: serial, Usb: true, DeviceProfile: virtuosoRGBXTWUPreviewProfile(), UserProfiles: map[string]*virtuosorgbXTWU.DeviceProfile{"Default": {Active: true}, "Gaming": {}}, MuteIndicators: map[int]string{0: "Disabled", 1: "Enabled"}, SideToneModes: map[int]string{0: "Disabled", 1: "Enabled"}}
 	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "VIRTUOSO XT", ProductType: common.ProductTypeVirtuosoXTWU, Instance: device}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
+	return summary
+}
+
+func voidElitePreviewProfile() *voideliteW.DeviceProfile {
+	profile := &voideliteW.DeviceProfile{Equalizers: map[int]voideliteW.Equalizer{}, SideTone: 1, SideToneValue: 50}
+	for index, label := range []string{"32", "64", "125", "250", "500", "1K", "2K", "4K", "8K", "16K"} {
+		profile.Equalizers[index+1] = voideliteW.Equalizer{Name: label}
+	}
+	return profile
+}
+
+func buildVOIDEliteWirelessModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-void-elite-wireless-modern"
+	device := &voideliteW.Device{Serial: serial, DeviceProfile: voidElitePreviewProfile(), UserProfiles: map[string]*voideliteW.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "VOID ELITE WIRELESS", ProductType: common.ProductTypeHS80RGB, Instance: device}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
+	return summary
+}
+
+func voidV2PreviewProfile() *voidV2W.DeviceProfile {
+	profile := &voidV2W.DeviceProfile{Equalizers: map[int]voidV2W.Equalizer{}, SleepMode: 15, SideTone: 1, SideToneValue: 50}
+	for index, label := range []string{"32", "64", "125", "250", "500", "1K", "2K", "4K", "8K", "16K"} {
+		profile.Equalizers[index+1] = voidV2W.Equalizer{Name: label}
+	}
+	return profile
+}
+
+func buildVOIDWirelessV2ModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-void-wireless-v2-modern"
+	device := &voidV2W.Device{Serial: serial, DeviceProfile: voidV2PreviewProfile(), UserProfiles: map[string]*voidV2W.DeviceProfile{"Default": {Active: true}, "Gaming": {}}, SleepModes: map[int]string{1: "1 minute", 5: "5 minutes", 10: "10 minutes", 15: "15 minutes", 30: "30 minutes", 60: "1 hour"}, SideToneModes: map[int]string{0: "Disabled", 1: "Enabled"}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "VOID WIRELESS V2", ProductType: common.ProductTypeVoidV2W, Instance: device}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
 	return summary
 }
 

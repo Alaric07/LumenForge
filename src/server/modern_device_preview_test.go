@@ -299,6 +299,49 @@ func TestVirtuosoRGBXTWorkspaceSummariesAndPreviewsUseSourceBackedCapabilities(t
 	}
 }
 
+func TestVOIDModernPreviewsRenderOnlySourceBackedCapabilities(t *testing.T) {
+	router := legacyDevicePreviewRouter(t, true)
+	for _, test := range []struct {
+		key, serial string
+		productType uint16
+		sleep       bool
+	}{
+		{"void-elite-wireless-modern", "preview-void-elite-wireless-modern", common.ProductTypeHS80RGB, false},
+		{"void-wireless-v2-modern", "preview-void-wireless-v2-modern", common.ProductTypeVoidV2W, true},
+	} {
+		fixture, ok := modernDevicePreviewFixtureByKey(test.key)
+		if !ok || fixture.ProductType != test.productType || devices.GetDevice(test.serial) != nil {
+			t.Fatalf("missing, misrouted, or registered fixture %q: %#v", test.key, fixture)
+		}
+		summary := fixture.Build()
+		if summary == nil || summary.DeviceProfiles == nil || !summary.DeviceProfiles.CanSwitch || !summary.DeviceProfiles.CanSave || !summary.DeviceProfiles.CanDelete || !summary.HasBattery || !summary.LegacyLighting || (summary.SleepTimer != nil) != test.sleep || summary.Headset == nil || summary.Headset.Sidetone == nil || summary.Headset.MuteIndicator != nil || summary.Headset.NoiseCancellation != nil || len(summary.Headset.Equalizer) != 10 || len(summary.Headset.Assignments) != 0 || len(summary.Headset.Wheels) != 0 {
+			t.Fatalf("%s summary=%#v", test.key, summary)
+		}
+		if got := summary.Headset.Sidetone; got.ValueRange.Minimum != 1 || got.ValueRange.Maximum != 100 || got.ValueRange.Step != 1 {
+			t.Fatalf("%s sidetone=%#v", test.key, got)
+		}
+		if test.sleep {
+			if len(summary.SleepTimer.Options) != 6 {
+				t.Fatalf("%s sleep=%#v", test.key, summary.SleepTimer)
+			}
+			for index, value := range []int{1, 5, 10, 15, 30, 60} {
+				if summary.SleepTimer.Options[index].Value != value {
+					t.Fatalf("%s sleep=%#v", test.key, summary.SleepTimer.Options)
+				}
+			}
+		}
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/"+test.key))
+		body := recorder.Body.String()
+		if recorder.Code != http.StatusOK || strings.Contains(body, "Mute Indicator") || strings.Contains(body, "Active Noise Cancellation") || strings.Contains(body, "Button Assignment") || strings.Contains(body, "Wheel") || strings.Contains(body, "Sleep Timer") != test.sleep || !strings.Contains(body, "Sidetone") || !strings.Contains(body, `min="1" max="100" step="1"`) {
+			t.Fatalf("%s rendered unexpected controls: %s", test.key, body)
+		}
+		if devices.GetDevice(test.serial) != nil {
+			t.Fatalf("fixture %q registered a device", test.key)
+		}
+	}
+}
+
 func TestCommanderDuoModernDevicePreviewRendersFixtureWithoutRegistration(t *testing.T) {
 	router := legacyDevicePreviewRouter(t, true)
 	if devices.GetDevice(commanderDuoModernPreviewSerial) != nil {

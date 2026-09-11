@@ -69,10 +69,15 @@ func Valid(snapshot Snapshot) bool {
 	if len(snapshot.Equalizer) != 10 {
 		return false
 	}
+	seenEqualizerIDs := make(map[int]struct{}, len(snapshot.Equalizer))
 	for _, band := range snapshot.Equalizer {
-		if band.ID < 1 || band.Label == "" {
+		if band.ID < 1 || band.ID > 10 || band.Label == "" || band.Value < -12 || band.Value > 12 {
 			return false
 		}
+		if _, duplicate := seenEqualizerIDs[band.ID]; duplicate {
+			return false
+		}
+		seenEqualizerIDs[band.ID] = struct{}{}
 	}
 	validSelectSetting := func(setting *SelectSetting) bool {
 		if setting == nil || len(setting.Options) == 0 {
