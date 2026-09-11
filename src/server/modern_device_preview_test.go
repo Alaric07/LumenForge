@@ -5,6 +5,8 @@ import (
 	"LumenForge/src/devices"
 	"LumenForge/src/devices/cduo"
 	"LumenForge/src/devices/cpro"
+	"LumenForge/src/devices/virtuosoW"
+	"LumenForge/src/devices/virtuosoWU"
 	"LumenForge/src/keyboards"
 	"LumenForge/src/server/requests"
 	"LumenForge/src/stats"
@@ -132,6 +134,59 @@ func TestHS80MAXWirelessModernPreviewRendersOnlySourceBackedCapabilities(t *test
 	router.ServeHTTP(lighting, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/hs80-max-wireless-modern?view=lighting"))
 	if lighting.Code != http.StatusOK || !strings.Contains(lighting.Body.String(), "Native Lighting migration is not complete.") {
 		t.Fatalf("lighting=%d: %s", lighting.Code, lighting.Body.String())
+	}
+}
+
+func TestVirtuosoModernPreviewsRenderOnlySourceBackedCapabilities(t *testing.T) {
+	router := legacyDevicePreviewRouter(t, true)
+	for _, test := range []struct {
+		key, serial string
+		productType uint16
+		sleep       bool
+	}{
+		{"virtuoso-wireless-modern", "preview-virtuoso-wireless-modern", common.ProductTypeVirtuosoW, true},
+		{"virtuoso-usb-modern", "preview-virtuoso-usb-modern", common.ProductTypeVirtuosoWU, false},
+	} {
+		fixture, ok := modernDevicePreviewFixtureByKey(test.key)
+		if !ok || fixture.ProductType != test.productType {
+			t.Fatalf("missing or misrouted fixture %q: %#v", test.key, fixture)
+		}
+		if devices.GetDevice(test.serial) != nil {
+			t.Fatalf("fixture %q registered a device", test.key)
+		}
+		summary := fixture.Build()
+		if summary == nil || summary.DeviceProfiles == nil || !summary.DeviceProfiles.CanSwitch || !summary.DeviceProfiles.CanSave || !summary.DeviceProfiles.CanDelete || summary.Headset == nil || summary.Headset.MuteIndicator == nil || len(summary.Headset.Equalizer) != 10 || !summary.HasBattery || !summary.LegacyLighting || (summary.SleepTimer != nil) != test.sleep || summary.Headset.Sidetone != nil || len(summary.Headset.Assignments) != 0 {
+			t.Fatalf("%s summary=%#v", test.key, summary)
+		}
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/"+test.key))
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("%s status=%d: %s", test.key, recorder.Code, recorder.Body.String())
+		}
+		body := recorder.Body.String()
+		if strings.Contains(body, "Sleep Timer") != test.sleep || strings.Contains(body, "Sidetone") || strings.Contains(body, "Active Noise Cancellation") || strings.Contains(body, "Scroll Press") || !strings.Contains(body, `type="range" min="-12" max="12" step="1"`) {
+			t.Fatalf("%s rendered unexpected headset controls", test.key)
+		}
+	}
+}
+
+func TestVirtuosoWorkspaceSummariesUseSourceBackedCapabilities(t *testing.T) {
+	labels := []string{"32", "64", "125", "250", "500", "1K", "2K", "4K", "8K", "16K"}
+	wProfile := &virtuosoW.DeviceProfile{Equalizers: map[int]virtuosoW.Equalizer{}, SleepMode: 15}
+	wuProfile := &virtuosoWU.DeviceProfile{Equalizers: map[int]virtuosoWU.Equalizer{}}
+	for index, label := range labels {
+		wProfile.Equalizers[index+1] = virtuosoW.Equalizer{Name: label}
+		wuProfile.Equalizers[index+1] = virtuosoWU.Equalizer{Name: label}
+	}
+	w := &virtuosoW.Device{Serial: "virtuoso-w", DeviceProfile: wProfile, UserProfiles: map[string]*virtuosoW.DeviceProfile{"Default": {Active: true}}, SleepModes: map[int]string{0: "Off", 1: "1 minute", 5: "5 minutes", 10: "10 minutes", 15: "15 minutes", 30: "30 minutes", 60: "1 hour"}, MuteIndicators: map[int]string{0: "Disabled", 1: "Enabled"}}
+	wu := &virtuosoWU.Device{Serial: "virtuoso-wu", Usb: true, DeviceProfile: wuProfile, UserProfiles: map[string]*virtuosoWU.DeviceProfile{"Default": {Active: true}}, MuteIndicators: map[int]string{0: "Disabled", 1: "Enabled"}}
+	devicesBySerial := map[string]*common.Device{"virtuoso-w": {Serial: "virtuoso-w", Product: "VIRTUOSO", ProductType: common.ProductTypeVirtuosoW, Instance: w}, "virtuoso-wu": {Serial: "virtuoso-wu", Product: "VIRTUOSO", ProductType: common.ProductTypeVirtuosoWU, Instance: wu}}
+	batteries := map[string]stats.BatteryStats{"virtuoso-w": {Level: 71}, "virtuoso-wu": {Level: 72}}
+	for serial, wantSleep := range map[string]bool{"virtuoso-w": true, "virtuoso-wu": false} {
+		summary, ok := devicesWorkspaceSummaryForSerial(devicesBySerial, batteries, serial)
+		if !ok || summary == nil || !summary.HasBattery || (summary.SleepTimer != nil) != wantSleep || summary.Headset == nil || summary.Headset.Sidetone != nil || len(summary.Headset.Assignments) != 0 || !summary.LegacyLighting {
+			t.Fatalf("%s summary=%#v, ok=%t", serial, summary, ok)
+		}
 	}
 }
 

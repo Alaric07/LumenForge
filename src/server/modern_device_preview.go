@@ -92,6 +92,12 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 		return buildHS80ModernPreview("HS80 RGB WIRELESS", "preview-hs80-rgb-wireless-usb-modern", true, false, true)
 	}},
 	{Key: "hs80-max-wireless-modern", Title: "HS80 MAX Wireless", ProductType: common.ProductTypeHS80MAXW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildHS80MAXWirelessModernPreview},
+	{Key: "virtuoso-wireless-modern", Title: "Virtuoso Wireless", ProductType: common.ProductTypeVirtuosoW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: func() *devicesWorkspaceSummary {
+		return buildVirtuosoModernPreview("VIRTUOSO", "preview-virtuoso-wireless-modern", true)
+	}},
+	{Key: "virtuoso-usb-modern", Title: "Virtuoso USB", ProductType: common.ProductTypeVirtuosoWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: func() *devicesWorkspaceSummary {
+		return buildVirtuosoModernPreview("VIRTUOSO", "preview-virtuoso-usb-modern", false)
+	}},
 	{Key: "k55-rgb-modern", Title: "K55 RGB", ProductType: common.ProductTypeK55, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55RGBModernPreview},
 	{Key: "k55-core-modern", Title: "K55 CORE RGB", ProductType: common.ProductTypeK55Core, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55CoreModernPreview},
 	{Key: "k55-core-tkl-modern", Title: "K55 CORE TKL", ProductType: common.ProductTypeK55CoreTkl, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55CoreTKLModernPreview},
@@ -225,6 +231,14 @@ func buildHS80MAXWirelessModernPreview() *devicesWorkspaceSummary {
 	summary := buildHS80ModernPreview("HS80 MAX WIRELESS", "preview-hs80-max-wireless-modern", true, true, true)
 	summary.Headset.Sidetone = &devicesHeadsetSidetoneSummary{Value: 1, Options: []devicesHeadsetSelectOptionSummary{{Value: 0, Label: "Disabled"}, {Value: 1, Label: "Enabled"}}, ValueRange: &devicesHeadsetRangeSummary{Value: 50, Minimum: 0, Maximum: 100, Step: 1}}
 	summary.Headset.Assignments = []devicesHeadsetAssignmentSummary{{ID: 1, Label: "Scroll Press", Default: true, Types: []devicesHeadsetAssignmentTypeSummary{{ID: 0, Label: "None"}, {ID: 1, Label: "Media Keys"}, {ID: 3, Label: "Keyboard"}, {ID: 9, Label: "Mouse"}, {ID: 10, Label: "Macro"}, {ID: 11, Label: "Profile Switch"}}}}
+	return summary
+}
+
+func buildVirtuosoModernPreview(product, serial string, sleep bool) *devicesWorkspaceSummary {
+	summary := buildHS80ModernPreview(product, serial, true, sleep, true)
+	if !sleep {
+		summary.SleepTimer = nil
+	}
 	return summary
 }
 
