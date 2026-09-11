@@ -95,6 +95,12 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "scuf-envision-pro-usb-modern", Title: "SCUF Envision Pro USB", ProductType: common.ProductTypeScufEnvisionProWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "controller", Label: "Controller"}, {ID: "assignments", Label: "Assignments"}, {ID: "analog", Label: "Analog"}}, Build: func() *devicesWorkspaceSummary {
 		return buildSCUFEnvisionProModernPreview("SCUF ENVISION PRO", "preview-scuf-envision-pro-usb-modern", true)
 	}},
+	{Key: "scuf-envision-pro-v2-wireless-modern", Title: "SCUF Envision Pro V2 Wireless", ProductType: common.ProductTypeScufEnvisionProV2W, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "controller", Label: "Controller"}, {ID: "assignments", Label: "Assignments"}, {ID: "analog", Label: "Analog"}}, Build: func() *devicesWorkspaceSummary {
+		return buildSCUFEnvisionProModernPreview("SCUF ENVISION PRO V2", "preview-scuf-envision-pro-v2-wireless-modern", false)
+	}},
+	{Key: "scuf-envision-pro-v2-usb-modern", Title: "SCUF Envision Pro V2 USB", ProductType: common.ProductTypeScufEnvisionProV2WU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "controller", Label: "Controller"}, {ID: "assignments", Label: "Assignments"}, {ID: "analog", Label: "Analog"}}, Build: func() *devicesWorkspaceSummary {
+		return buildSCUFEnvisionProModernPreview("SCUF ENVISION PRO V2", "preview-scuf-envision-pro-v2-usb-modern", true)
+	}},
 	{Key: "hs80-rgb-modern", Title: "HS80 RGB", ProductType: common.ProductTypeHS80RGB, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: func() *devicesWorkspaceSummary {
 		return buildHS80ModernPreview("HS80 RGB", "preview-hs80-rgb-modern", false, false, false)
 	}},

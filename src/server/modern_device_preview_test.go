@@ -5,12 +5,15 @@ import (
 	"LumenForge/src/devices"
 	"LumenForge/src/devices/cduo"
 	"LumenForge/src/devices/cpro"
+	"LumenForge/src/devices/scufenvisionproV2W"
+	"LumenForge/src/devices/scufenvisionproV2WU"
 	"LumenForge/src/devices/virtuosoSEW"
 	"LumenForge/src/devices/virtuosoSEWU"
 	"LumenForge/src/devices/virtuosoW"
 	"LumenForge/src/devices/virtuosoWU"
 	"LumenForge/src/devices/virtuosorgbXTW"
 	"LumenForge/src/devices/virtuosorgbXTWU"
+	"LumenForge/src/inputmanager"
 	"LumenForge/src/keyboards"
 	"LumenForge/src/server/requests"
 	"LumenForge/src/stats"
@@ -76,7 +79,7 @@ func TestSCUFEnvisionProModernPreviewsPreserveCapabilitySplit(t *testing.T) {
 		key     string
 		product uint16
 		sleep   bool
-	}{{"scuf-envision-pro-wireless-modern", common.ProductTypeScufEnvisionProW, false}, {"scuf-envision-pro-usb-modern", common.ProductTypeScufEnvisionProWU, true}} {
+	}{{"scuf-envision-pro-wireless-modern", common.ProductTypeScufEnvisionProW, false}, {"scuf-envision-pro-usb-modern", common.ProductTypeScufEnvisionProWU, true}, {"scuf-envision-pro-v2-wireless-modern", common.ProductTypeScufEnvisionProV2W, false}, {"scuf-envision-pro-v2-usb-modern", common.ProductTypeScufEnvisionProV2WU, true}} {
 		fixture, ok := modernDevicePreviewFixtureByKey(test.key)
 		if !ok || fixture.ProductType != test.product {
 			t.Fatalf("fixture %q = %#v", test.key, fixture)
@@ -89,6 +92,62 @@ func TestSCUFEnvisionProModernPreviewsPreserveCapabilitySplit(t *testing.T) {
 			t.Fatalf("%s controller=%#v", test.key, summary.Controller)
 		}
 	}
+}
+
+func TestSCUFEnvisionProV2DongleIsNotAModernControllerPreview(t *testing.T) {
+	for _, fixture := range modernDevicePreviewFixtures {
+		if fixture.ProductType == common.ProductTypeScufDongleV2 {
+			t.Fatalf("V2 dongle fixture unexpectedly registered: %#v", fixture)
+		}
+	}
+}
+
+func TestSCUFEnvisionProV2WorkspaceRoutingUsesDistinctProductTypes(t *testing.T) {
+	for _, test := range []struct {
+		serial  string
+		product uint16
+		device  interface{}
+		sleep   bool
+	}{
+		{"scuf-v2-wireless-routing", common.ProductTypeScufEnvisionProV2W, v2WirelessWorkspaceDevice(), false},
+		{"scuf-v2-usb-routing", common.ProductTypeScufEnvisionProV2WU, v2USBWorkspaceDevice(), true},
+	} {
+		summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{test.serial: {Serial: test.serial, Product: "SCUF ENVISION PRO V2", ProductType: test.product, Instance: test.device}}, map[string]stats.BatteryStats{test.serial: {Level: 78}}, test.serial)
+		if !ok || summary.Controller == nil || summary.DeviceProfiles == nil || !summary.LegacyLighting || !summary.HasBattery || (summary.SleepTimer != nil) != test.sleep {
+			t.Fatalf("%d summary = %#v, ok=%t", test.product, summary, ok)
+		}
+		if len(summary.Controller.AssignmentTypes) != 8 || len(summary.Controller.Assignments) != 8 || summary.Controller.Assignments[6].Index != 2048 || summary.Controller.Assignments[7].Index != 4096 || len(summary.Controller.Analogs) != 4 {
+			t.Fatalf("%d controller = %#v", test.product, summary.Controller)
+		}
+	}
+}
+
+func v2WorkspaceAssignments() map[int]inputmanager.KeyAssignment {
+	return map[int]inputmanager.KeyAssignment{1: {Name: "Left Button", ActionType: 0}, 2: {Name: "DPAD Up", ActionType: 4, ActionCommand: 141}, 4: {Name: "DPAD Down", ActionType: 4, ActionCommand: 142}, 8: {Name: "DPAD Left", ActionType: 4, ActionCommand: 143}, 16: {Name: "DPAD Right", ActionType: 4, ActionCommand: 144}, 32: {Name: "A", ActionType: 4, ActionCommand: 128}, 2048: {Name: "LT", ActionType: 4, ActionCommand: 134}, 4096: {Name: "RT", ActionType: 4, ActionCommand: 135}}
+}
+
+func v2WorkspaceAssignmentTypes() map[int]string {
+	return map[int]string{0: "None", 1: "Media Keys", 2: "DPI", 3: "Keyboard", 4: "Controller", 8: "Sniper", 9: "Mouse", 10: "Macro"}
+}
+
+func v2WirelessWorkspaceDevice() *scufenvisionproV2W.Device {
+	points := map[int]common.CurveData{0: {X: 0, Y: 0}, 1: {X: 20, Y: 20}, 2: {X: 40, Y: 40}, 3: {X: 60, Y: 60}, 4: {X: 80, Y: 80}, 5: {X: 100, Y: 100}}
+	analogs := map[int]scufenvisionproV2W.AnalogData{}
+	for id := 0; id < 4; id++ {
+		analogs[id] = scufenvisionproV2W.AnalogData{DeadZoneMin: 5, DeadZoneMax: 5, Points: points}
+	}
+	profile := &scufenvisionproV2W.DeviceProfile{Active: true, LeftVibrationValue: 60, RightVibrationValue: 50, LeftThumbStickMode: 1, LeftThumbStickSensitivityX: 20, LeftThumbStickSensitivityY: 20, RightThumbStickMode: 2, RightThumbStickSensitivityX: 30, RightThumbStickSensitivityY: 30, AnalogData: analogs}
+	return &scufenvisionproV2W.Device{Serial: "scuf-v2-wireless-routing", DeviceProfile: profile, UserProfiles: map[string]*scufenvisionproV2W.DeviceProfile{"Default": profile}, KeyAssignment: v2WorkspaceAssignments(), KeyAssignmentTypes: v2WorkspaceAssignmentTypes(), ThumbStickModes: map[int]string{0: "None", 1: "Mouse", 2: "Thumbstick"}}
+}
+
+func v2USBWorkspaceDevice() *scufenvisionproV2WU.Device {
+	points := map[int]common.CurveData{0: {X: 0, Y: 0}, 1: {X: 20, Y: 20}, 2: {X: 40, Y: 40}, 3: {X: 60, Y: 60}, 4: {X: 80, Y: 80}, 5: {X: 100, Y: 100}}
+	analogs := map[int]scufenvisionproV2WU.AnalogData{}
+	for id := 0; id < 4; id++ {
+		analogs[id] = scufenvisionproV2WU.AnalogData{DeadZoneMin: 5, DeadZoneMax: 5, Points: points}
+	}
+	profile := &scufenvisionproV2WU.DeviceProfile{Active: true, SleepMode: 15, LeftVibrationValue: 60, RightVibrationValue: 50, LeftThumbStickMode: 1, LeftThumbStickSensitivityX: 20, LeftThumbStickSensitivityY: 20, RightThumbStickMode: 2, RightThumbStickSensitivityX: 30, RightThumbStickSensitivityY: 30, AnalogData: analogs}
+	return &scufenvisionproV2WU.Device{Serial: "scuf-v2-usb-routing", Usb: true, DeviceProfile: profile, UserProfiles: map[string]*scufenvisionproV2WU.DeviceProfile{"Default": profile}, KeyAssignment: v2WorkspaceAssignments(), KeyAssignmentTypes: v2WorkspaceAssignmentTypes(), ThumbStickModes: map[int]string{0: "None", 1: "Mouse", 2: "Thumbstick"}, SleepModes: map[int]string{0: "Never", 1: "1 minute", 5: "5 minutes", 10: "10 minutes", 15: "15 minutes", 30: "30 minutes", 60: "1 hour"}}
 }
 
 func TestSCUFEnvisionProAnalogPreviewRendersIndexedNativePointControls(t *testing.T) {
