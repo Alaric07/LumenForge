@@ -13,6 +13,7 @@ import (
 	"LumenForge/src/common"
 	"LumenForge/src/config"
 	"LumenForge/src/controldialpresentation"
+	"LumenForge/src/controllerpresentation"
 	"LumenForge/src/coolingpresentation"
 	"LumenForge/src/dashboard"
 	"LumenForge/src/deviceprofilepresentation"
@@ -195,6 +196,11 @@ type devicesDPIWorkspaceTarget interface {
 type devicesSleepTimerTarget interface {
 	devicesSleepTimerSnapshotProvider
 	UpdateSleepTimer(int) uint8
+}
+
+type devicesControllerSnapshotProvider interface {
+	ControllerDeviceID() string
+	ControllerSnapshot() (controllerpresentation.Snapshot, bool)
 }
 
 type devicesBooleanSettingTarget interface {
@@ -2769,6 +2775,7 @@ type devicesWorkspaceSummary struct {
 	OverviewDisplay     *devicesOverviewDisplayStatusSummary
 	OverviewTelemetry   []devicesOverviewStatusRow
 	KeyboardAssignments *devicesKeyboardAssignmentsWorkspaceSummary
+	Controller          *devicesControllerWorkspaceSummary
 	KeyActuation        *devicesKeyActuationWorkspaceSummary
 	FlashTap            *devicesFlashTapWorkspaceSummary
 	LegacyLighting      bool
@@ -3800,6 +3807,47 @@ type devicesSleepTimerWorkspaceSummary struct {
 	Value   int
 	Options []devicesSleepTimerOptionSummary
 }
+type devicesControllerAssignmentTypeSummary struct {
+	ID    uint8
+	Label string
+}
+type devicesControllerAssignmentSummary struct {
+	Index                                   int
+	Label                                   string
+	Default, ActionHold, IsMacro, OnRelease bool
+	ActionType                              uint8
+	ActionCommand                           uint16
+}
+type devicesControllerVibrationSummary struct {
+	Module uint8
+	Label  string
+	Value  uint8
+}
+type devicesControllerThumbstickSummary struct {
+	Module                     uint8
+	Label                      string
+	Mode                       uint8
+	SensitivityX, SensitivityY uint8
+	InvertY                    bool
+	Modes                      []devicesControllerAssignmentTypeSummary
+}
+type devicesControllerCurvePointSummary struct {
+	Index int
+	X, Y  uint8
+}
+type devicesControllerAnalogSummary struct {
+	ID                       uint8
+	Label                    string
+	DeadZoneMin, DeadZoneMax uint8
+	Points                   []devicesControllerCurvePointSummary
+}
+type devicesControllerWorkspaceSummary struct {
+	Assignments     []devicesControllerAssignmentSummary
+	AssignmentTypes []devicesControllerAssignmentTypeSummary
+	Vibrations      []devicesControllerVibrationSummary
+	Thumbsticks     []devicesControllerThumbstickSummary
+	Analogs         []devicesControllerAnalogSummary
+}
 type devicesControlDialWorkspaceSummary struct {
 	Value   int
 	Options []devicesSleepTimerOptionSummary
@@ -3866,6 +3914,37 @@ func devicesSleepTimerWorkspaceSummaryFromSnapshot(snapshot sleeptimerpresentati
 		return nil
 	}
 	return summary
+}
+
+func devicesControllerWorkspaceSummaryFromSnapshot(snapshot controllerpresentation.Snapshot) *devicesControllerWorkspaceSummary {
+	if len(snapshot.Assignments) == 0 || len(snapshot.AssignmentTypes) != 8 || len(snapshot.Vibrations) != 2 || len(snapshot.Thumbsticks) != 2 || len(snapshot.Analogs) != 4 {
+		return nil
+	}
+	s := &devicesControllerWorkspaceSummary{}
+	for _, value := range snapshot.AssignmentTypes {
+		s.AssignmentTypes = append(s.AssignmentTypes, devicesControllerAssignmentTypeSummary{ID: value.ID, Label: value.Label})
+	}
+	for _, value := range snapshot.Assignments {
+		s.Assignments = append(s.Assignments, devicesControllerAssignmentSummary{Index: value.Index, Label: value.Label, Default: value.Default, ActionHold: value.ActionHold, IsMacro: value.IsMacro, OnRelease: value.OnRelease, ActionType: value.ActionType, ActionCommand: value.ActionCommand})
+	}
+	for _, value := range snapshot.Vibrations {
+		s.Vibrations = append(s.Vibrations, devicesControllerVibrationSummary{Module: value.Module, Label: value.Label, Value: value.Value})
+	}
+	for _, value := range snapshot.Thumbsticks {
+		item := devicesControllerThumbstickSummary{Module: value.Module, Label: value.Label, Mode: value.Mode, SensitivityX: value.SensitivityX, SensitivityY: value.SensitivityY, InvertY: value.InvertY}
+		for _, mode := range value.Modes {
+			item.Modes = append(item.Modes, devicesControllerAssignmentTypeSummary{ID: mode.ID, Label: mode.Label})
+		}
+		s.Thumbsticks = append(s.Thumbsticks, item)
+	}
+	for _, value := range snapshot.Analogs {
+		item := devicesControllerAnalogSummary{ID: value.ID, Label: value.Label, DeadZoneMin: value.DeadZoneMin, DeadZoneMax: value.DeadZoneMax}
+		for _, point := range value.Points {
+			item.Points = append(item.Points, devicesControllerCurvePointSummary{Index: point.Index, X: point.X, Y: point.Y})
+		}
+		s.Analogs = append(s.Analogs, item)
+	}
+	return s
 }
 
 func devicesHeadsetWorkspaceSummaryFromSnapshot(snapshot headsetpresentation.Snapshot) *devicesHeadsetWorkspaceSummary {
@@ -4307,7 +4386,7 @@ func devicesWorkspaceSummaryForSerial(
 		Image:          device.Image,
 		Unavailable:    device.Unavailable,
 		View:           "overview",
-		LegacyLighting: device.ProductType == common.ProductTypeHS80RGB || device.ProductType == common.ProductTypeHS80RGBW || device.ProductType == common.ProductTypeHS80MAXW || device.ProductType == common.ProductTypeVirtuosoW || device.ProductType == common.ProductTypeVirtuosoWU || device.ProductType == common.ProductTypeVirtuosoSEW || device.ProductType == common.ProductTypeVirtuosoSEWU || device.ProductType == common.ProductTypeVirtuosoMAXW || device.ProductType == common.ProductTypeVoidV2W || device.ProductType == common.ProductTypeCC || device.ProductType == common.ProductTypeCCXT || device.ProductType == common.ProductTypeCPro || device.ProductType == common.ProductTypeHarpoonRgbPro || device.ProductType == common.ProductTypeKatarPro || device.ProductType == common.ProductTypeKatarProXT || device.ProductType == common.ProductTypeGlaiveRgbPro || device.ProductType == common.ProductTypeGlaiveRgb || device.ProductType == common.ProductTypeM65RgbElite || device.ProductType == common.ProductTypeSabreRgbPro || device.ProductType == common.ProductTypeNightswordRgb || device.ProductType == common.ProductTypeIronClawRgb || device.ProductType == common.ProductTypeM55 || device.ProductType == common.ProductTypeM55RgbPro || device.ProductType == common.ProductTypeM65RgbUltra || device.ProductType == common.ProductTypeM75 || device.ProductType == common.ProductTypeM75W || device.ProductType == common.ProductTypeM75WU || device.ProductType == common.ProductTypeM75AirW || device.ProductType == common.ProductTypeM75AirWU || device.ProductType == common.ProductTypeM65RgbUltraW || device.ProductType == common.ProductTypeM65RgbUltraWU || device.ProductType == common.ProductTypeHarpoonRgbW || device.ProductType == common.ProductTypeHarpoonRgbWU || device.ProductType == common.ProductTypeM55W || device.ProductType == common.ProductTypeNightsabreW || device.ProductType == common.ProductTypeNightsabreWU || device.ProductType == common.ProductTypeSabreRgbProW || device.ProductType == common.ProductTypeSabreRgbProWU || device.ProductType == common.ProductTypeSabreProCs || device.ProductType == common.ProductTypeScimitarRgb || device.ProductType == common.ProductTypeK70CoreTklW || device.ProductType == common.ProductTypeK70CoreTklWU || device.ProductType == common.ProductTypeK70PMW || device.ProductType == common.ProductTypeK70PMWU || device.ProductType == common.ProductTypeK70RgbTkl || device.ProductType == common.ProductTypeStrafeRgbMk2 || device.ProductType == common.ProductTypeClipperProMini60 || device.ProductType == common.ProductTypeMakr75W || device.ProductType == common.ProductTypeMakr75WU || device.ProductType == common.ProductTypeVanguard96 || device.ProductType == common.ProductTypeVanguard96Pro || device.ProductType == common.ProductTypeVanguard96W || device.ProductType == common.ProductTypeVanguard96WU || device.ProductType == common.ProductTypeVanguard99AirW || device.ProductType == common.ProductTypeVanguard99AirWU,
+		LegacyLighting: device.ProductType == common.ProductTypeHS80RGB || device.ProductType == common.ProductTypeHS80RGBW || device.ProductType == common.ProductTypeHS80MAXW || device.ProductType == common.ProductTypeVirtuosoW || device.ProductType == common.ProductTypeVirtuosoWU || device.ProductType == common.ProductTypeVirtuosoSEW || device.ProductType == common.ProductTypeVirtuosoSEWU || device.ProductType == common.ProductTypeVirtuosoMAXW || device.ProductType == common.ProductTypeVoidV2W || device.ProductType == common.ProductTypeCC || device.ProductType == common.ProductTypeCCXT || device.ProductType == common.ProductTypeCPro || device.ProductType == common.ProductTypeHarpoonRgbPro || device.ProductType == common.ProductTypeKatarPro || device.ProductType == common.ProductTypeKatarProXT || device.ProductType == common.ProductTypeGlaiveRgbPro || device.ProductType == common.ProductTypeGlaiveRgb || device.ProductType == common.ProductTypeM65RgbElite || device.ProductType == common.ProductTypeSabreRgbPro || device.ProductType == common.ProductTypeNightswordRgb || device.ProductType == common.ProductTypeIronClawRgb || device.ProductType == common.ProductTypeM55 || device.ProductType == common.ProductTypeM55RgbPro || device.ProductType == common.ProductTypeM65RgbUltra || device.ProductType == common.ProductTypeM75 || device.ProductType == common.ProductTypeM75W || device.ProductType == common.ProductTypeM75WU || device.ProductType == common.ProductTypeM75AirW || device.ProductType == common.ProductTypeM75AirWU || device.ProductType == common.ProductTypeM65RgbUltraW || device.ProductType == common.ProductTypeM65RgbUltraWU || device.ProductType == common.ProductTypeHarpoonRgbW || device.ProductType == common.ProductTypeHarpoonRgbWU || device.ProductType == common.ProductTypeM55W || device.ProductType == common.ProductTypeNightsabreW || device.ProductType == common.ProductTypeNightsabreWU || device.ProductType == common.ProductTypeSabreRgbProW || device.ProductType == common.ProductTypeSabreRgbProWU || device.ProductType == common.ProductTypeSabreProCs || device.ProductType == common.ProductTypeScimitarRgb || device.ProductType == common.ProductTypeK70CoreTklW || device.ProductType == common.ProductTypeK70CoreTklWU || device.ProductType == common.ProductTypeK70PMW || device.ProductType == common.ProductTypeK70PMWU || device.ProductType == common.ProductTypeK70RgbTkl || device.ProductType == common.ProductTypeStrafeRgbMk2 || device.ProductType == common.ProductTypeClipperProMini60 || device.ProductType == common.ProductTypeMakr75W || device.ProductType == common.ProductTypeMakr75WU || device.ProductType == common.ProductTypeVanguard96 || device.ProductType == common.ProductTypeVanguard96Pro || device.ProductType == common.ProductTypeVanguard96W || device.ProductType == common.ProductTypeVanguard96WU || device.ProductType == common.ProductTypeVanguard99AirW || device.ProductType == common.ProductTypeVanguard99AirWU || device.ProductType == common.ProductTypeScufEnvisionProW || device.ProductType == common.ProductTypeScufEnvisionProWU,
 	}
 	if battery, found := batteryStats[serial]; found {
 		summary.HasBattery = true
@@ -4356,6 +4435,11 @@ func devicesWorkspaceSummaryForSerial(
 	if sleepTimerDevice, ok := device.Instance.(devicesSleepTimerSnapshotProvider); ok && sleepTimerDevice != nil && sleepTimerDevice.SleepTimerDeviceID() == serial {
 		if snapshot, usable := sleepTimerDevice.SleepTimerSnapshot(); usable {
 			summary.SleepTimer = devicesSleepTimerWorkspaceSummaryFromSnapshot(snapshot)
+		}
+	}
+	if controllerDevice, ok := device.Instance.(devicesControllerSnapshotProvider); ok && controllerDevice != nil && controllerDevice.ControllerDeviceID() == serial {
+		if snapshot, usable := controllerDevice.ControllerSnapshot(); usable {
+			summary.Controller = devicesControllerWorkspaceSummaryFromSnapshot(snapshot)
 		}
 	}
 	if headsetDevice, ok := device.Instance.(devicesHeadsetSnapshotProvider); ok && headsetDevice != nil && headsetDevice.HeadsetDeviceID() == serial {
@@ -4466,6 +4550,10 @@ func devicesWorkspaceView(views []string, device *devicesWorkspaceSummary) strin
 	case "keyboard":
 		if device.KeyboardAssignments != nil {
 			return "keyboard"
+		}
+	case "controller", "assignments", "analog":
+		if device.Controller != nil {
+			return views[0]
 		}
 	}
 	return "overview"

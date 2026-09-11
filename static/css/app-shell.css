@@ -2351,6 +2351,90 @@
     background: var(--lf-surface-subdued);
 }
 
+/* Generic controller workspace cards. Kept capability-neutral for all controller families. */
+.lf-app-shell .lf-controller-vibration-grid,
+.lf-app-shell .lf-controller-thumbstick-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+}
+.lf-app-shell .lf-controller-vibration-card,
+.lf-app-shell .lf-controller-thumbstick-card,
+.lf-app-shell .lf-controller-analog-card {
+    min-width: 0;
+    border: 1px solid var(--lf-border-subtle);
+    border-radius: 11px;
+    background: var(--lf-panel-secondary);
+}
+.lf-app-shell .lf-controller-vibration-card .lf-range-control,
+.lf-app-shell .lf-controller-thumbstick-card .lf-range-control { margin-top: 0; }
+.lf-app-shell .lf-controller-vibration-card > .lf-range-control-status { margin: 8px 14px 12px; }
+.lf-app-shell .lf-controller-thumbstick-card { padding: 16px; }
+.lf-app-shell .lf-controller-thumbstick-card h3,
+.lf-app-shell .lf-controller-points-section h3,
+.lf-app-shell .lf-controller-deadzone-section h3 { margin: 0; color: var(--lf-text-primary); font-size: 16px; font-weight: 720; }
+.lf-app-shell .lf-controller-thumbstick-card .lf-performance-control { grid-template-columns: minmax(0, 1fr); gap: 6px; margin-top: 12px; padding: 10px 12px; }
+.lf-app-shell .lf-controller-sensitivity-grid,
+.lf-app-shell .lf-controller-deadzone-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.lf-app-shell .lf-controller-sensitivity-grid .lf-range-control,
+.lf-app-shell .lf-controller-deadzone-grid .lf-range-control { padding: 12px; }
+.lf-app-shell .lf-controller-sensitivity-grid .lf-range-control-input,
+.lf-app-shell .lf-controller-deadzone-grid .lf-range-control-input { min-height: 34px; margin-top: 8px; }
+.lf-app-shell .lf-controller-invert-toggle { margin-top: 14px; }
+.lf-app-shell .lf-controller-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 14px; }
+.lf-app-shell .lf-controller-card-actions .lf-range-control-status { flex: 1 1 180px; margin: 0; }
+
+.lf-app-shell .lf-controller-assignments-workspace .lf-buttons-table { min-width: 840px; }
+.lf-app-shell .lf-controller-assignments-workspace .lf-buttons-table th:first-child { width: 20%; }
+.lf-app-shell .lf-controller-assignments-workspace .lf-buttons-table th:nth-child(4) { width: 24%; }
+.lf-app-shell .lf-controller-assignments-workspace .lf-buttons-table th:nth-child(5) { width: 13%; }
+.lf-app-shell .lf-controller-assignment-command { width: 100%; min-width: 6ch; padding: 7px 9px; border: 1px solid var(--lf-border-emphasized); border-radius: 7px; color: var(--lf-text-primary); background: var(--lf-surface-subdued); font-variant-numeric: tabular-nums; }
+.lf-app-shell .lf-controller-assignment-action { display: grid; justify-items: start; gap: 4px; }
+.lf-app-shell .lf-controller-assignment-action .lf-range-control-status { margin: 0; }
+
+.lf-app-shell .lf-controller-analog-workspace { display: grid; gap: 12px; margin-top: 24px; }
+.lf-app-shell .lf-controller-analog-card { overflow: hidden; }
+.lf-app-shell .lf-controller-analog-card > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; color: var(--lf-text-primary); cursor: pointer; list-style: none; }
+.lf-app-shell .lf-controller-analog-card > summary::-webkit-details-marker { display: none; }
+.lf-app-shell .lf-controller-analog-card > summary::after { content: "›"; color: var(--lf-text-muted); font-size: 24px; line-height: 1; transition: transform 150ms ease; }
+.lf-app-shell .lf-controller-analog-card[open] > summary { border-bottom: 1px solid var(--lf-border-subtle); }
+.lf-app-shell .lf-controller-analog-card[open] > summary::after { transform: rotate(90deg); }
+.lf-app-shell .lf-controller-analog-card > summary strong { display: block; margin-top: 2px; font-size: 17px; }
+.lf-app-shell .lf-controller-disclosure-hint { margin-left: auto; color: var(--lf-text-muted); font-size: 12px; }
+.lf-app-shell .lf-controller-analog-card-body { display: grid; grid-template-columns: minmax(280px, 1.1fr) minmax(260px, .9fr); gap: 18px; padding: 18px; }
+.lf-app-shell .lf-controller-curve-figure { min-width: 0; }
+.lf-app-shell .lf-controller-curve-figure > header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 7px; }
+.lf-app-shell .lf-controller-curve-figure h3 { margin: 0; color: var(--lf-text-primary); font-size: .84rem; letter-spacing: .02em; }
+.lf-app-shell .lf-controller-curve-scale { display: flex; justify-content: space-between; min-width: 68px; color: var(--lf-text-muted); font-size: .72rem; font-variant-numeric: tabular-nums; }
+.lf-app-shell .lf-controller-curve-figure > canvas { width: 100%; max-width: 560px; height: auto; min-height: 230px; border: 1px solid var(--lf-border-subtle); border-radius: 9px; background-color: var(--lf-surface-subdued); background-image: linear-gradient(to right, color-mix(in srgb, var(--lf-border-subtle) 62%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--lf-border-subtle) 62%, transparent) 1px, transparent 1px); background-size: 10% 10%; }
+.lf-app-shell .lf-controller-points-section { min-width: 0; }
+.lf-app-shell .lf-controller-point-heading,
+.lf-app-shell .lf-controller-point-row { display: grid; grid-template-columns: minmax(68px, .65fr) minmax(88px, 1fr) minmax(88px, 1fr); align-items: center; gap: 8px; }
+.lf-app-shell .lf-controller-point-heading { margin-top: 10px; padding: 0 9px; color: var(--lf-text-muted); font-size: 11px; font-weight: 720; letter-spacing: .04em; text-transform: uppercase; }
+.lf-app-shell .lf-controller-points { display: grid; gap: 5px; margin-top: 5px; }
+.lf-app-shell .lf-controller-point-row { padding: 7px 9px; border: 1px solid var(--lf-border-subtle); border-radius: 8px; background: color-mix(in srgb, var(--lf-surface-subdued) 68%, transparent); }
+.lf-app-shell .lf-controller-point-row strong { color: var(--lf-text-primary); font-size: 13px; font-variant-numeric: tabular-nums; }
+.lf-app-shell .lf-controller-point-row label { display: none; }
+.lf-app-shell .lf-controller-point-row input { width: 100%; min-width: 0; padding: 6px 8px; border: 1px solid var(--lf-border-emphasized); border-radius: 6px; color: var(--lf-text-primary); background: var(--lf-panel-elevated); font-variant-numeric: tabular-nums; }
+.lf-app-shell .lf-controller-deadzone-section { grid-column: 1 / -1; }
+.lf-app-shell .lf-controller-deadzone-section h3 { margin-top: 2px; }
+.lf-app-shell .lf-controller-deadzone-grid { max-width: 720px; }
+.lf-app-shell .lf-controller-analog-card-body > .lf-controller-card-actions { grid-column: 1 / -1; justify-content: flex-end; margin-top: -2px; }
+
+@media (max-width: 900px) {
+    .lf-app-shell .lf-controller-vibration-grid,
+    .lf-app-shell .lf-controller-thumbstick-grid,
+    .lf-app-shell .lf-controller-analog-card-body { grid-template-columns: minmax(0, 1fr); }
+    .lf-app-shell .lf-controller-analog-card-body > .lf-controller-card-actions { grid-column: auto; }
+}
+@media (max-width: 560px) {
+    .lf-app-shell .lf-controller-sensitivity-grid,
+    .lf-app-shell .lf-controller-deadzone-grid { grid-template-columns: minmax(0, 1fr); }
+    .lf-app-shell .lf-controller-analog-card-body { padding: 14px; gap: 14px; }
+    .lf-app-shell .lf-controller-disclosure-hint { display: none; }
+}
+
 .lf-app-shell .lf-color-control {
     margin-top: 26px;
     padding: 18px 20px;

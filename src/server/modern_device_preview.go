@@ -89,6 +89,12 @@ type modernDevicePreviewNavigation struct {
 }
 
 var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
+	{Key: "scuf-envision-pro-wireless-modern", Title: "SCUF Envision Pro Wireless", ProductType: common.ProductTypeScufEnvisionProW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "controller", Label: "Controller"}, {ID: "assignments", Label: "Assignments"}, {ID: "analog", Label: "Analog"}}, Build: func() *devicesWorkspaceSummary {
+		return buildSCUFEnvisionProModernPreview("SCUF ENVISION PRO", "preview-scuf-envision-pro-wireless-modern", false)
+	}},
+	{Key: "scuf-envision-pro-usb-modern", Title: "SCUF Envision Pro USB", ProductType: common.ProductTypeScufEnvisionProWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "controller", Label: "Controller"}, {ID: "assignments", Label: "Assignments"}, {ID: "analog", Label: "Analog"}}, Build: func() *devicesWorkspaceSummary {
+		return buildSCUFEnvisionProModernPreview("SCUF ENVISION PRO", "preview-scuf-envision-pro-usb-modern", true)
+	}},
 	{Key: "hs80-rgb-modern", Title: "HS80 RGB", ProductType: common.ProductTypeHS80RGB, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: func() *devicesWorkspaceSummary {
 		return buildHS80ModernPreview("HS80 RGB", "preview-hs80-rgb-modern", false, false, false)
 	}},
@@ -219,6 +225,20 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "scimitar-elite-modern", Title: "SCIMITAR ELITE", ProductType: common.ProductTypeScimitarRgbElite, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildScimitarEliteModernPreview},
 	{Key: "katar-pro-modern", Title: "Katar Pro", ProductType: common.ProductTypeKatarPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProModernPreview},
 	{Key: "katar-pro-xt-modern", Title: "Katar Pro XT", ProductType: common.ProductTypeKatarProXT, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProXTModernPreview},
+}
+
+func buildSCUFEnvisionProModernPreview(product, serial string, usb bool) *devicesWorkspaceSummary {
+	types := []devicesControllerAssignmentTypeSummary{{0, "None"}, {1, "Media Keys"}, {2, "DPI"}, {3, "Keyboard"}, {4, "Controller"}, {8, "Sniper"}, {9, "Mouse"}, {10, "Macro"}}
+	modes := []devicesControllerAssignmentTypeSummary{{0, "None"}, {1, "Mouse"}, {2, "Thumbstick"}}
+	points := []devicesControllerCurvePointSummary{{0, 0, 0}, {1, 20, 20}, {2, 40, 40}, {3, 60, 60}, {4, 80, 80}, {5, 100, 100}}
+	s := &devicesWorkspaceSummary{Product: product, Serial: serial, Firmware: "1.0.0", Image: "icon-device.svg", View: "overview", HasBattery: true, BatteryLevel: 78, LegacyLighting: true, DeviceProfiles: &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "Gaming"}, ActiveProfile: "Default", CanSwitch: true, CanSave: true, CanDelete: true, Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription}, Controller: &devicesControllerWorkspaceSummary{AssignmentTypes: types, Assignments: []devicesControllerAssignmentSummary{{Index: 1, Label: "Left Button", Default: true, ActionType: 0}, {Index: 32, Label: "A", ActionHold: true, ActionType: 4, ActionCommand: 128}, {Index: 2048, Label: "LT", ActionType: 4, ActionCommand: 134}, {Index: 4096, Label: "RT", ActionType: 4, ActionCommand: 135}, {Index: 2, Label: "DPAD Up", ActionHold: true, ActionType: 4, ActionCommand: 141}, {Index: 4, Label: "DPAD Down", ActionHold: true, ActionType: 4, ActionCommand: 142}, {Index: 8, Label: "DPAD Left", ActionHold: true, ActionType: 4, ActionCommand: 143}, {Index: 16, Label: "DPAD Right", ActionHold: true, ActionType: 4, ActionCommand: 144}}, Vibrations: []devicesControllerVibrationSummary{{0, "Left Vibration", 60}, {1, "Right Vibration", 50}}, Thumbsticks: []devicesControllerThumbstickSummary{{Module: 0, Label: "Left Thumbstick", Mode: 1, SensitivityX: 20, SensitivityY: 20, Modes: modes}, {Module: 1, Label: "Right Thumbstick", Mode: 2, SensitivityX: 20, SensitivityY: 20, Modes: modes}}}}
+	for id, label := range []string{"Left Thumbstick", "Right Thumbstick", "Left Trigger", "Right Trigger"} {
+		s.Controller.Analogs = append(s.Controller.Analogs, devicesControllerAnalogSummary{ID: uint8(id), Label: label, DeadZoneMin: 5, DeadZoneMax: 5, Points: points})
+	}
+	if usb {
+		s.SleepTimer = &devicesSleepTimerWorkspaceSummary{Value: 15, Options: []devicesSleepTimerOptionSummary{{0, "Never"}, {1, "1 minute"}, {5, "5 minutes"}, {10, "10 minutes"}, {15, "15 minutes"}, {30, "30 minutes"}, {60, "1 hour"}}}
+	}
+	return s
 }
 
 func buildHS80ModernPreview(product, serial string, battery, offOption, muteIndicator bool) *devicesWorkspaceSummary {

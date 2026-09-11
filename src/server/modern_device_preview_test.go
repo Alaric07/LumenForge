@@ -17,6 +17,7 @@ import (
 	"LumenForge/src/temperatures"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -67,6 +68,86 @@ func TestModernDevicePreviewDebugGating(t *testing.T) {
 	router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/commander-duo-modern"))
 	if recorder.Code != http.StatusNotFound {
 		t.Fatalf("debug-disabled modern preview status = %d, want 404", recorder.Code)
+	}
+}
+
+func TestSCUFEnvisionProModernPreviewsPreserveCapabilitySplit(t *testing.T) {
+	for _, test := range []struct {
+		key     string
+		product uint16
+		sleep   bool
+	}{{"scuf-envision-pro-wireless-modern", common.ProductTypeScufEnvisionProW, false}, {"scuf-envision-pro-usb-modern", common.ProductTypeScufEnvisionProWU, true}} {
+		fixture, ok := modernDevicePreviewFixtureByKey(test.key)
+		if !ok || fixture.ProductType != test.product {
+			t.Fatalf("fixture %q = %#v", test.key, fixture)
+		}
+		summary := fixture.Build()
+		if summary == nil || summary.Controller == nil || !summary.LegacyLighting || !summary.HasBattery || (summary.SleepTimer != nil) != test.sleep {
+			t.Fatalf("%s summary=%#v", test.key, summary)
+		}
+		if len(summary.Controller.AssignmentTypes) != 8 || len(summary.Controller.Assignments) != 8 || len(summary.Controller.Analogs) != 4 || summary.Controller.Assignments[2].Index != 2048 || summary.Controller.Assignments[3].Index != 4096 {
+			t.Fatalf("%s controller=%#v", test.key, summary.Controller)
+		}
+	}
+}
+
+func TestSCUFEnvisionProAnalogPreviewRendersIndexedNativePointControls(t *testing.T) {
+	router := legacyDevicePreviewRouter(t, true)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/scuf-envision-pro-usb-modern?view=analog"))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status=%d: %s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	for _, expected := range []string{"lf-controller-curve-figure", "Response Curve", "aria-label=\"Curve scale from 0 to 100\"", "data-lf-controller-point", "data-lf-point-index=\"0\"", "data-lf-point-index=\"5\"", "Point 0 X", "Point 5 Y", "data-lf-controller-deadzone-min", "data-lf-controller-deadzone-max", "Save Left Thumbstick", "Save Right Thumbstick", "Save Left Trigger", "Save Right Trigger"} {
+		if !strings.Contains(body, expected) {
+			t.Errorf("missing %q", expected)
+		}
+	}
+	for index := 0; index < 6; index++ {
+		if count := strings.Count(body, `data-lf-point-index="`+strconv.Itoa(index)+`"`); count != 4 {
+			t.Errorf("point %d rendered %d times, want one per analog device", index, count)
+		}
+	}
+	if strings.Index(body, `data-lf-point-index="0"`) > strings.Index(body, `data-lf-point-index="5"`) {
+		t.Fatal("point controls are not rendered in deterministic index order")
+	}
+	if count := strings.Count(body, `data-lf-controller-analog data-lf-analog-device`); count != 4 {
+		t.Fatalf("analog editors=%d, want 4", count)
+	}
+	if count := strings.Count(body, "Response Curve"); count != 4 {
+		t.Errorf("response curve headings=%d, want 4", count)
+	}
+	if count := strings.Count(body, `data-lf-controller-point-x`); count != 24 {
+		t.Errorf("X controls=%d, want 24", count)
+	}
+	if count := strings.Count(body, `data-lf-controller-point-y`); count != 24 {
+		t.Errorf("Y controls=%d, want 24", count)
+	}
+	if !strings.Contains(body, `data-lf-analog-device="0" open`) || strings.Contains(body, `data-lf-analog-device="1" open`) || strings.Contains(body, `data-lf-analog-device="2" open`) || strings.Contains(body, `data-lf-analog-device="3" open`) {
+		t.Error("analog disclosure defaults are incorrect")
+	}
+}
+
+func TestSCUFEnvisionProControllerAndAssignmentsPreviewsRetainIndependentControls(t *testing.T) {
+	router := legacyDevicePreviewRouter(t, true)
+	for _, test := range []struct {
+		view     string
+		expected []string
+	}{
+		{"controller", []string{"data-lf-module=\"0\"", "data-lf-module=\"1\"", "Save Left Thumbstick", "Save Right Thumbstick"}},
+		{"assignments", []string{"data-lf-key-index=\"2048\"", "data-lf-key-index=\"4096\"", "data-lf-controller-assignment-save"}},
+	} {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/scuf-envision-pro-usb-modern?view="+test.view))
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("%s status=%d: %s", test.view, recorder.Code, recorder.Body.String())
+		}
+		for _, expected := range test.expected {
+			if !strings.Contains(recorder.Body.String(), expected) {
+				t.Errorf("%s missing %q", test.view, expected)
+			}
+		}
 	}
 }
 
