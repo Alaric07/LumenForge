@@ -82,6 +82,15 @@ type modernDevicePreviewNavigation struct {
 }
 
 var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
+	{Key: "hs80-rgb-modern", Title: "HS80 RGB", ProductType: common.ProductTypeHS80RGB, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: func() *devicesWorkspaceSummary {
+		return buildHS80ModernPreview("HS80 RGB", "preview-hs80-rgb-modern", false, false, false)
+	}},
+	{Key: "hs80-rgb-wireless-modern", Title: "HS80 RGB Wireless", ProductType: common.ProductTypeHS80RGBW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: func() *devicesWorkspaceSummary {
+		return buildHS80ModernPreview("HS80 RGB WIRELESS", "preview-hs80-rgb-wireless-modern", true, true, true)
+	}},
+	{Key: "hs80-rgb-wireless-usb-modern", Title: "HS80 RGB Wireless USB", ProductType: common.ProductTypeHS80RGB, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: func() *devicesWorkspaceSummary {
+		return buildHS80ModernPreview("HS80 RGB WIRELESS", "preview-hs80-rgb-wireless-usb-modern", true, false, true)
+	}},
 	{Key: "k55-rgb-modern", Title: "K55 RGB", ProductType: common.ProductTypeK55, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55RGBModernPreview},
 	{Key: "k55-core-modern", Title: "K55 CORE RGB", ProductType: common.ProductTypeK55Core, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55CoreModernPreview},
 	{Key: "k55-core-tkl-modern", Title: "K55 CORE TKL", ProductType: common.ProductTypeK55CoreTkl, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55CoreTKLModernPreview},
@@ -189,6 +198,26 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "scimitar-elite-modern", Title: "SCIMITAR ELITE", ProductType: common.ProductTypeScimitarRgbElite, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildScimitarEliteModernPreview},
 	{Key: "katar-pro-modern", Title: "Katar Pro", ProductType: common.ProductTypeKatarPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProModernPreview},
 	{Key: "katar-pro-xt-modern", Title: "Katar Pro XT", ProductType: common.ProductTypeKatarProXT, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProXTModernPreview},
+}
+
+func buildHS80ModernPreview(product, serial string, battery, offOption, muteIndicator bool) *devicesWorkspaceSummary {
+	bands := []string{"32", "64", "125", "250", "500", "1K", "2K", "4K", "8K", "16K"}
+	summary := &devicesWorkspaceSummary{Product: product, Serial: serial, Firmware: "1.0.0", Image: "icon-device.svg", View: "overview", LegacyLighting: true, DeviceProfiles: &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "Gaming"}, CanSwitch: true, CanSave: true, CanDelete: true, ActiveProfile: "Default", Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription}, Headset: &devicesHeadsetWorkspaceSummary{HasMicrophoneStatus: true, Muted: false}}
+	if muteIndicator {
+		summary.Headset.MuteIndicator = &devicesHeadsetSelectSummary{Value: 0, Options: []devicesHeadsetSelectOptionSummary{{Value: 0, Label: "Disabled"}, {Value: 1, Label: "Enabled"}}}
+	}
+	for index, label := range bands {
+		summary.Headset.Equalizer = append(summary.Headset.Equalizer, devicesHeadsetEqualizerBandSummary{ID: index + 1, Label: label})
+	}
+	if battery {
+		summary.HasBattery, summary.BatteryLevel = true, 78
+		options := []devicesSleepTimerOptionSummary{{Value: 1, Label: "1 minute"}, {Value: 5, Label: "5 minutes"}, {Value: 10, Label: "10 minutes"}, {Value: 15, Label: "15 minutes"}, {Value: 30, Label: "30 minutes"}, {Value: 60, Label: "1 hour"}}
+		if offOption {
+			options = append([]devicesSleepTimerOptionSummary{{Value: 0, Label: "Off"}}, options...)
+		}
+		summary.SleepTimer = &devicesSleepTimerWorkspaceSummary{Value: 15, Options: options}
+	}
+	return summary
 }
 
 func buildK55RGBModernPreview() *devicesWorkspaceSummary {

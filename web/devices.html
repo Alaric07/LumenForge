@@ -1003,6 +1003,16 @@
                             {{ end }}
 
                             {{ with .Device.DeviceProfiles }}{{ if eq .Scope "device" }}{{ template "lf-device-profile-panel" $ }}{{ end }}{{ end }}
+                            {{ with .Device.Headset }}
+                                <section class="lf-overview-panel" data-lf-headset-workspace data-lf-device-id="{{ $.Device.Serial }}">
+                                    <header class="lf-overview-panel-header"><div><p class="lf-section-kicker">Audio configuration</p><h2>Equalizer</h2></div></header>
+                                    <div class="lf-performance-controls">
+                                        {{ range .Equalizer }}<label class="lf-range-control"><span class="lf-range-control-header"><span class="lf-range-control-label">{{ .Label }}</span><output class="lf-range-control-value" data-lf-headset-equalizer-value>{{ .Value }}</output></span><input class="lf-range-control-input" type="range" min="-12" max="12" step="1" value="{{ .Value }}" data-lf-headset-equalizer-band data-lf-band-id="{{ .ID }}" aria-label="{{ .Label }} equalizer"></label>{{ end }}
+                                    </div>
+                                    <div class="lf-keyboard-footer-row"><button class="lf-button" type="button" data-lf-headset-equalizer-save>Save Equalizer</button><p class="lf-range-control-status" data-lf-headset-equalizer-status aria-live="polite"></p></div>
+                                </section>
+                                {{ if or .HasMicrophoneStatus .MuteIndicator }}<section class="lf-overview-panel" data-lf-headset-workspace data-lf-device-id="{{ $.Device.Serial }}"><header class="lf-overview-panel-header"><div><p class="lf-section-kicker">Microphone</p><h2>Microphone</h2></div></header>{{ if .HasMicrophoneStatus }}<p class="lf-device-profile-description">Microphone is {{ if .Muted }}muted{{ else }}active{{ end }}.</p>{{ end }}{{ with .MuteIndicator }}<div class="lf-performance-controls"><label class="lf-performance-control"><span>Mute Indicator</span><select data-lf-headset-mute-indicator>{{ $selected := .Value }}{{ range .Options }}<option value="{{ .Value }}"{{ if eq .Value $selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select></label></div><div class="lf-keyboard-footer-row"><button class="lf-button" type="button" data-lf-headset-mute-indicator-save>Save Mute Indicator</button><p class="lf-range-control-status" data-lf-headset-mute-indicator-status aria-live="polite"></p></div>{{ end }}</section>{{ end }}
+                            {{ end }}
                             {{ with .Device.SleepTimer }}
                                 <section class="lf-overview-panel" data-lf-performance-workspace data-lf-device-id="{{ $.Device.Serial }}">
                                     <header class="lf-overview-panel-header"><div><p class="lf-section-kicker">Device configuration</p><h2>Sleep Timer</h2></div></header>
