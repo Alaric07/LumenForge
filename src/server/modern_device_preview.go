@@ -47,6 +47,8 @@ import (
 	"LumenForge/src/devices/vanguard96pro"
 	"LumenForge/src/devices/vanguard99airW"
 	"LumenForge/src/devices/vanguard99airWU"
+	"LumenForge/src/devices/virtuosoSEW"
+	"LumenForge/src/devices/virtuosoSEWU"
 	"LumenForge/src/keyboards"
 	"LumenForge/src/rgb"
 	"LumenForge/src/stats"
@@ -98,6 +100,8 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "virtuoso-usb-modern", Title: "Virtuoso USB", ProductType: common.ProductTypeVirtuosoWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: func() *devicesWorkspaceSummary {
 		return buildVirtuosoModernPreview("VIRTUOSO", "preview-virtuoso-usb-modern", false)
 	}},
+	{Key: "virtuoso-se-wireless-modern", Title: "Virtuoso SE Wireless", ProductType: common.ProductTypeVirtuosoSEW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildVirtuosoSEWirelessModernPreview},
+	{Key: "virtuoso-se-usb-modern", Title: "Virtuoso SE USB", ProductType: common.ProductTypeVirtuosoSEWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildVirtuosoSEUSBModernPreview},
 	{Key: "k55-rgb-modern", Title: "K55 RGB", ProductType: common.ProductTypeK55, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55RGBModernPreview},
 	{Key: "k55-core-modern", Title: "K55 CORE RGB", ProductType: common.ProductTypeK55Core, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55CoreModernPreview},
 	{Key: "k55-core-tkl-modern", Title: "K55 CORE TKL", ProductType: common.ProductTypeK55CoreTkl, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55CoreTKLModernPreview},
@@ -240,6 +244,38 @@ func buildVirtuosoModernPreview(product, serial string, sleep bool) *devicesWork
 		summary.SleepTimer = nil
 	}
 	return summary
+}
+
+func buildVirtuosoSEWirelessModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-virtuoso-se-wireless-modern"
+	profile := virtuosoSEWPreviewProfile()
+	device := &virtuosoSEW.Device{Serial: serial, DeviceProfile: profile, UserProfiles: map[string]*virtuosoSEW.DeviceProfile{"Default": {Active: true}, "Gaming": {}}, SleepModes: map[int]string{0: "Off", 1: "1 minute", 5: "5 minutes", 10: "10 minutes", 15: "15 minutes", 30: "30 minutes", 60: "1 hour"}, MuteIndicators: map[int]string{0: "Disabled", 1: "Enabled"}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "VIRTUOSO SE", ProductType: common.ProductTypeVirtuosoSEW, Instance: device}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
+	return summary
+}
+
+func buildVirtuosoSEUSBModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-virtuoso-se-usb-modern"
+	profile := virtuosoSEWUPreviewProfile()
+	device := &virtuosoSEWU.Device{Serial: serial, Usb: true, DeviceProfile: profile, UserProfiles: map[string]*virtuosoSEWU.DeviceProfile{"Default": {Active: true}, "Gaming": {}}, MuteIndicators: map[int]string{0: "Disabled", 1: "Enabled"}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "VIRTUOSO SE", ProductType: common.ProductTypeVirtuosoSEWU, Instance: device}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
+	return summary
+}
+
+func virtuosoSEWPreviewProfile() *virtuosoSEW.DeviceProfile {
+	profile := &virtuosoSEW.DeviceProfile{Equalizers: map[int]virtuosoSEW.Equalizer{}, SleepMode: 15}
+	for index, label := range []string{"32", "64", "125", "250", "500", "1K", "2K", "4K", "8K", "16K"} {
+		profile.Equalizers[index+1] = virtuosoSEW.Equalizer{Name: label}
+	}
+	return profile
+}
+
+func virtuosoSEWUPreviewProfile() *virtuosoSEWU.DeviceProfile {
+	profile := &virtuosoSEWU.DeviceProfile{Equalizers: map[int]virtuosoSEWU.Equalizer{}}
+	for index, label := range []string{"32", "64", "125", "250", "500", "1K", "2K", "4K", "8K", "16K"} {
+		profile.Equalizers[index+1] = virtuosoSEWU.Equalizer{Name: label}
+	}
+	return profile
 }
 
 func buildK55RGBModernPreview() *devicesWorkspaceSummary {
