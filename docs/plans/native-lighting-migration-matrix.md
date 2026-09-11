@@ -164,16 +164,19 @@ signatures.
 
 
 Device-workspace migration is tracked separately from this lighting matrix.
-Modern keyboard Overview, Keyboard, Performance, Profile, assignment, or
-Control Dial providers do not make a package a canonical-lighting migration.
-K95 Platinum is the canonical-lighting **Migrated** keyboard proof; K100, K100
-AIR, K57, K60, K68, K55, K65, and K70 workspace families remain **Legacy** for
-lighting unless their individual matrix row says otherwise. Their retained
-legacy lighting path remains authoritative until a separate family-specific
-lighting cutover. Package-local modern controls do not change that status or
-demonstrate physical lighting validation. The same distinction applies to
-Scimitar RGB Elite's modern DPI, Performance, Key Assignments, and
-physical-button assignment work.
+Modern keyboard, mouse, headset, and SCUF controller workspace migration is
+complete, but Overview, Keyboard, Performance, Profile, assignment, Control
+Dial, headset, or controller providers do not make a package a
+canonical-lighting migration. K95 Platinum is the canonical-lighting
+**Migrated** keyboard proof; K100, K100 AIR, K57, K60, K68, K55, K65, K70, and
+the other completed keyboard workspace families remain **Legacy** for lighting
+unless their individual matrix row says otherwise. The same applies to the
+completed mouse, headset, and SCUF controller workspace families. Their
+retained legacy lighting path remains authoritative until a separate
+family-specific lighting cutover. Package-local modern controls do not change
+that status or demonstrate physical lighting validation. The same distinction
+also applies to Scimitar RGB Elite's modern DPI, Performance, Key Assignments,
+and physical-button assignment work.
 
 ---
 

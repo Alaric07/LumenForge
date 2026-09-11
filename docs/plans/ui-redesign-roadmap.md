@@ -590,16 +590,22 @@ after every legitimate native consumer has migrated.
 
 ### Native-device workspace expansion
 
-- [x] Prove the shared modern keyboard workspace across independently audited
-  keyboard families, while retaining each package's hardware, persistence, and
-  legacy-lighting boundaries. Completed workspace packages are:
+- [x] Complete the shared modern keyboard workspace migration across
+  independently audited keyboard families, while retaining each package's
+  hardware, persistence, and legacy-lighting boundaries. Completed workspace
+  packages include:
   - K95: `k95`, `k95platinum`, `k95platinumXT`.
   - K70: `k70lux`, `k70luxrgb`, `k70rgbRF`, `k70mk2`, `k70core`, `k70coretkl`,
     `k70pro`, `k70protkl`, `k70max`.
   - K65: `k65rgb`, `k65rgbRF`, `k65pm`, `k65rm`, `k65plusW`, `k65plusWU`.
   - K55: `k55`, `k55core`, `k55coretkl`, `k55pro`, `k55proXT`.
   - Other: `k57rgbW`, `k57rgbWU`, `k60rgbpro`, `k68rgb`, `k100airW`,
-    `k100airWU`, and `k100`.
+    `k100airWU`, `k100`, `k70coretklW`, `k70coretklWU`, `k70pmW`,
+    `k70pmWU`, `k70rgbtklcs`, `strafergbmk2`, `clipperpromini60`, `makr75W`,
+    `makr75WU`, `vanguard96`, `vanguard96pro`, `vanguard96W`, `vanguard96WU`,
+    `vanguard99airW`, and `vanguard99airWU` (`1a81cc9e`, `3e97b3de`,
+    `e651e236`, `617b5f14`, `c8fa3d69`, `13748231`, `f4a923f5`, `d2760e72`,
+    `8df3c2a5`).
   This is modern workspace coverage, not a claim of physical validation or
   canonical-lighting migration.
 - [x] Establish shared source-backed keyboard presentation: assignment presets
@@ -623,11 +629,31 @@ after every legitimate native consumer has migrated.
   the only one that exposed Live RGB. No other migrated or remaining keyboard
   needs it for parity; technical RGB capability alone is not a migration
   requirement.
-- [ ] Audit and migrate the remaining keyboard workspace families one at a
-  time: `k70coretklW`, `k70coretklWU`, `k70pmW`, `k70pmWU`, `k70rgbtklcs`,
-  `strafergbmk2`, `clipperpromini60`, `makr75W`, `makr75WU`, `vanguard96`,
-  `vanguard96pro`, `vanguard96W`, `vanguard96WU`, `vanguard99airW`, and
-  `vanguard99airWU`. Do not infer wired/wireless, base/SE, or protocol parity.
+- [x] Complete the modern mouse workspace migration through individually
+  audited wired and wireless packages (`7bf96504`, `a3efe62c`). This is shared
+  capability presentation, not a claim that any mouse's Lighting path has
+  migrated.
+- [x] Complete the capability-driven modern headset workspace migration. The
+  audited families expose only capabilities backed by their individual source
+  contracts, including Device Profiles, EQ, mute indicator, battery, Sleep
+  Timer, Sidetone, ANC, independent wheel options, and headset assignments
+  where supported. Canonical Lighting has not migrated, so applicable headsets
+  retain the legacy Lighting placeholder. Standalone headset dongles remain
+  transport-only rather than independent workspaces (`b492da9e`, `38cbeb80`,
+  `b5f21707`, `873cba57`, `d63dbf7b`, `3d6a5b4a`, `c1f092f6`).
+- [x] Complete the shared modern SCUF controller workspace for Envision Pro V1
+  W/WU and V2 W/WU. It presents source-backed profiles, assignments, vibration,
+  thumbstick emulation, four analog curve/dead-zone devices, battery where
+  available, and the legacy Lighting placeholder. Its compact Analog sections
+  provide accessible native X/Y point inputs synchronized with canvas editing
+  and source-backed dead zones. Sleep Timer is exposed only for V1 USB and V2
+  USB; V1 Wireless and V2 Wireless omit it because their published SleepModes
+  omit `0`/Never and the presentation fails closed rather than repairing source
+  data. SCUF dongles remain transport-only (`dbbe2926`, `796c1221`).
+- [ ] Audit the remaining cooling, accessory, and miscellaneous packages for
+  legacy-only workspaces, then migrate only stragglers proven by that source
+  audit. Existing cooling/controller coverage is substantial, but universal
+  completion is not claimed until that audit is complete.
 - [x] Complete Memory as a separate family-specific migration proof. Its
   multi-DIMM topology, indexed per-LED `led` mode, parent ownership/Brightness,
   and existing device profile semantics remain device-owned where appropriate
