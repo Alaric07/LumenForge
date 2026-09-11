@@ -49,6 +49,7 @@ import (
 	"LumenForge/src/devices/vanguard99airWU"
 	"LumenForge/src/devices/virtuosoSEW"
 	"LumenForge/src/devices/virtuosoSEWU"
+	"LumenForge/src/devices/virtuosomaxW"
 	"LumenForge/src/devices/virtuosorgbXTW"
 	"LumenForge/src/devices/virtuosorgbXTWU"
 	"LumenForge/src/keyboards"
@@ -106,6 +107,7 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "virtuoso-se-usb-modern", Title: "Virtuoso SE USB", ProductType: common.ProductTypeVirtuosoSEWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildVirtuosoSEUSBModernPreview},
 	{Key: "virtuoso-rgb-xt-wireless-modern", Title: "Virtuoso RGB XT Wireless", ProductType: common.ProductTypeVirtuosoXTW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildVirtuosoRGBXTWirelessModernPreview},
 	{Key: "virtuoso-rgb-xt-usb-modern", Title: "Virtuoso RGB XT USB", ProductType: common.ProductTypeVirtuosoXTWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildVirtuosoRGBXTUSBModernPreview},
+	{Key: "virtuoso-max-wireless-modern", Title: "Virtuoso MAX Wireless", ProductType: common.ProductTypeVirtuosoMAXW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildVirtuosoMAXWirelessModernPreview},
 	{Key: "k55-rgb-modern", Title: "K55 RGB", ProductType: common.ProductTypeK55, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55RGBModernPreview},
 	{Key: "k55-core-modern", Title: "K55 CORE RGB", ProductType: common.ProductTypeK55Core, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55CoreModernPreview},
 	{Key: "k55-core-tkl-modern", Title: "K55 CORE TKL", ProductType: common.ProductTypeK55CoreTkl, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55CoreTKLModernPreview},
@@ -293,6 +295,17 @@ func buildVirtuosoRGBXTUSBModernPreview() *devicesWorkspaceSummary {
 	const serial = "preview-virtuoso-rgb-xt-usb-modern"
 	device := &virtuosorgbXTWU.Device{Serial: serial, Usb: true, DeviceProfile: virtuosoRGBXTWUPreviewProfile(), UserProfiles: map[string]*virtuosorgbXTWU.DeviceProfile{"Default": {Active: true}, "Gaming": {}}, MuteIndicators: map[int]string{0: "Disabled", 1: "Enabled"}, SideToneModes: map[int]string{0: "Disabled", 1: "Enabled"}}
 	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "VIRTUOSO XT", ProductType: common.ProductTypeVirtuosoXTWU, Instance: device}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
+	return summary
+}
+
+func buildVirtuosoMAXWirelessModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-virtuoso-max-wireless-modern"
+	profile := &virtuosomaxW.DeviceProfile{Equalizers: map[int]virtuosomaxW.Equalizer{}, SleepMode: 15, DisableMicIndicator: 0, NoiseCancellation: 0, SideTone: 1, SideToneValue: 50, LeftWheel: 1, RightWheel: 2}
+	for index, label := range []string{"32", "64", "125", "250", "500", "1K", "2K", "4K", "8K", "16K"} {
+		profile.Equalizers[index+1] = virtuosomaxW.Equalizer{Name: label}
+	}
+	device := &virtuosomaxW.Device{Serial: serial, DeviceProfile: profile, UserProfiles: map[string]*virtuosomaxW.DeviceProfile{"Default": {Active: true}, "Gaming": {}}, SleepModes: map[int]string{0: "Off", 1: "1 minute", 5: "5 minutes", 10: "10 minutes", 15: "15 minutes", 30: "30 minutes", 60: "1 hour"}, MuteIndicators: map[int]string{0: "Disabled", 1: "Enabled"}, NoiseCancellations: map[int]string{0: "Off", 1: "On", 2: "Transparency"}, SideToneModes: map[int]string{0: "Disabled", 1: "Enabled"}, WheelOptions: map[int]string{1: "System Volume", 2: "Bluetooth Volume"}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "VIRTUOSO MAX", ProductType: common.ProductTypeVirtuosoMAXW, Instance: device}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
 	return summary
 }
 

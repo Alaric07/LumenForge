@@ -141,6 +141,35 @@ func TestHS80MAXWirelessModernPreviewRendersOnlySourceBackedCapabilities(t *test
 	}
 }
 
+func TestVirtuosoMAXWirelessModernPreviewRendersOnlySourceBackedCapabilities(t *testing.T) {
+	router := legacyDevicePreviewRouter(t, true)
+	fixture, ok := modernDevicePreviewFixtureByKey("virtuoso-max-wireless-modern")
+	if !ok || fixture.ProductType != common.ProductTypeVirtuosoMAXW {
+		t.Fatalf("missing or misrouted Virtuoso MAX preview: %#v", fixture)
+	}
+	summary := fixture.Build()
+	if summary == nil || summary.DeviceProfiles == nil || !summary.DeviceProfiles.CanSwitch || !summary.DeviceProfiles.CanSave || !summary.DeviceProfiles.CanDelete || summary.Headset == nil || summary.Headset.MuteIndicator == nil || summary.Headset.NoiseCancellation == nil || summary.Headset.Sidetone == nil || len(summary.Headset.Wheels) != 2 || len(summary.Headset.Assignments) != 0 || !summary.HasBattery || summary.SleepTimer == nil || !summary.LegacyLighting {
+		t.Fatalf("summary=%#v", summary)
+	}
+	if summary.Headset.Sidetone.ValueRange.Minimum != 1 || summary.Headset.Sidetone.ValueRange.Maximum != 100 || summary.Headset.Wheels[0].ID != 1 || summary.Headset.Wheels[1].ID != 2 {
+		t.Fatalf("headset=%#v", summary.Headset)
+	}
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/virtuoso-max-wireless-modern"))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status=%d: %s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	for _, expected := range []string{"Active Noise Cancellation", "Sidetone", "Left Wheel", "Right Wheel", "Mute Indicator", "Battery", "Sleep Timer", `min="1" max="100"`, "System Volume", "Bluetooth Volume"} {
+		if !strings.Contains(body, expected) {
+			t.Errorf("missing %q", expected)
+		}
+	}
+	if strings.Contains(body, "Button Assignment") {
+		t.Error("preview exposed unsupported button assignments")
+	}
+}
+
 func TestVirtuosoModernPreviewsRenderOnlySourceBackedCapabilities(t *testing.T) {
 	router := legacyDevicePreviewRouter(t, true)
 	for _, test := range []struct {
