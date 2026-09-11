@@ -45,6 +45,8 @@ import (
 	"LumenForge/src/devices/vanguard96W"
 	"LumenForge/src/devices/vanguard96WU"
 	"LumenForge/src/devices/vanguard96pro"
+	"LumenForge/src/devices/vanguard99airW"
+	"LumenForge/src/devices/vanguard99airWU"
 	"LumenForge/src/keyboards"
 	"LumenForge/src/rgb"
 	"LumenForge/src/stats"
@@ -115,6 +117,8 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "vanguard-96-usb-modern", Title: "VANGUARD 96 USB", ProductType: common.ProductTypeVanguard96WU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildVanguard96USBModernPreview},
 	{Key: "makr75-wireless-modern", Title: "MAKR 75 Wireless", ProductType: common.ProductTypeMakr75W, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildMAKR75WirelessModernPreview},
 	{Key: "makr75-usb-modern", Title: "MAKR 75 USB", ProductType: common.ProductTypeMakr75WU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildMAKR75USBModernPreview},
+	{Key: "vanguard99air-wireless-modern", Title: "VANGUARD 99 AIR Wireless", ProductType: common.ProductTypeVanguard99AirW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildVanguard99AirWirelessModernPreview},
+	{Key: "vanguard99air-usb-modern", Title: "VANGUARD 99 AIR USB", ProductType: common.ProductTypeVanguard99AirWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildVanguard99AirUSBModernPreview},
 	{Key: "k70-lux-modern", Title: "K70 LUX", ProductType: common.ProductTypeK70LUX, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70LUXModernPreview},
 	{Key: "k70-lux-rgb-modern", Title: "K70 LUX RGB", ProductType: common.ProductTypeK70LUXRgb, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70LUXRGBModernPreview},
 	{Key: "k70-rgb-rf-modern", Title: "K70 RGB RF", ProductType: common.ProductTypeK70RgbRF, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK70RGBRFModernPreview},
@@ -635,6 +639,30 @@ func makr75PreviewControlDialOptions() map[int]string {
 
 func makr75PreviewControlDialColors() map[int]*rgb.Color {
 	return map[int]*rgb.Color{1: {Red: 255, Green: 255, Blue: 255}, 2: {Red: 0, Green: 255, Blue: 255}, 3: {Red: 255, Green: 127, Blue: 0}, 4: {Red: 255, Green: 0, Blue: 255}, 5: {Red: 0, Green: 255, Blue: 0}, 6: {Red: 0, Green: 0, Blue: 255}, 7: {Red: 255, Green: 0, Blue: 0}}
+}
+
+func buildVanguard99AirWirelessModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-vanguard99air-wireless-modern"
+	keyboard := vanguardPreviewKeyboard("vanguard99air-default-US")
+	profile := &vanguard99airW.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, SleepMode: 15, ControlDial: 1, DisableWinKey: true, DisableShiftTab: true, DisableAltTab: true, DisableAltF4: true, FlashTap: vanguard99AirPreviewFlashTap()}
+	device := &vanguard99airW.Device{Serial: serial, Product: "VANGUARD 99 AIR", UIKeyboard: "keyboard-6", UIKeyboardRow: "keyboard-row-22", Layouts: []string{"US"}, KeyAssignmentTypes: makr75PreviewAssignmentTypes(), SleepModes: makr75PreviewSleepModes(), ControlDialOptions: vanguardWirelessControlDialOptions(), FlashTapModes: vanguardPreviewFlashTapModes(), DeviceProfile: profile, UserProfiles: map[string]*vanguard99airW.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: device.Product, ProductType: common.ProductTypeVanguard99AirW, Instance: device}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func buildVanguard99AirUSBModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-vanguard99air-usb-modern"
+	keyboard := vanguardPreviewKeyboard("vanguard99air-default-US")
+	profile := &vanguard99airWU.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 4, ControlDial: 1, ControlDialColors: makr75PreviewControlDialColors(), DisableWinKey: true, DisableShiftTab: true, DisableAltTab: true, DisableAltF4: true, FlashTap: vanguard99AirPreviewFlashTap()}
+	device := &vanguard99airWU.Device{Serial: serial, Product: "VANGUARD 99 AIR", UIKeyboard: "keyboard-6", UIKeyboardRow: "keyboard-row-22", Layouts: []string{"US"}, KeyAssignmentTypes: makr75PreviewAssignmentTypes(), PollingRates: k70ProMiniPreviewPollingRates(), ControlDialOptions: vanguardPreviewControlDialOptions(), FlashTapModes: vanguardPreviewFlashTapModes(), DeviceProfile: profile, UserProfiles: map[string]*vanguard99airWU.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: device.Product, ProductType: common.ProductTypeVanguard99AirWU, Instance: device}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
+	summary.LegacyLighting = true
+	return summary
+}
+
+func vanguard99AirPreviewFlashTap() *keyboards.FlashTap {
+	return &keyboards.FlashTap{Active: 1, Mode: 1, Keys: map[int]keyboards.FlashTapKey{0: {Name: "A", KeyData: 4}, 1: {Name: "D", KeyData: 7}}, Color: rgb.Color{Red: 19, Green: 97, Blue: 203}}
 }
 
 func buildK70CorePreview(serial, product string, typ uint16, layout, ui, row string) *devicesWorkspaceSummary {

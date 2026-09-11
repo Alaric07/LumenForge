@@ -535,6 +535,48 @@ func TestMAKR75ModernPreviewsProvideOnlyTheirSourceBackedWorkspacesWithoutRegist
 	}
 }
 
+func TestVanguard99AirModernPreviewsProvideOnlyTheirSourceBackedWorkspacesWithoutRegistration(t *testing.T) {
+	initializeLegacyDevicePreviewTestProcess(t)
+	keyboards.Init()
+	for _, test := range []struct {
+		key, serial, title, dial string
+		productType              uint16
+		sleep, polling, colors   bool
+	}{
+		{"vanguard99air-wireless-modern", "preview-vanguard99air-wireless-modern", "VANGUARD 99 AIR Wireless", "Vertical Scroll", common.ProductTypeVanguard99AirW, true, false, false},
+		{"vanguard99air-usb-modern", "preview-vanguard99air-usb-modern", "VANGUARD 99 AIR USB", "Scroll", common.ProductTypeVanguard99AirWU, false, true, true},
+	} {
+		t.Run(test.key, func(t *testing.T) {
+			if devices.GetDevice(test.serial) != nil {
+				t.Fatalf("fixture serial %q unexpectedly registered", test.serial)
+			}
+			fixture, ok := modernDevicePreviewFixtureByKey(test.key)
+			if !ok || fixture.Title != test.title || fixture.ProductType != test.productType {
+				t.Fatalf("fixture=%#v ok=%t", fixture, ok)
+			}
+			summary := fixture.Build()
+			if summary == nil || summary.Product != "VANGUARD 99 AIR" || !summary.LegacyLighting || !summary.HasBattery || summary.BatteryLevel != 78 || summary.KeyboardAssignments == nil || summary.KeyboardAssignments.LayoutClass != "keyboard-6" || summary.KeyboardAssignments.RowLayoutClass != "keyboard-row-22" || len(summary.KeyboardAssignments.Rows) == 0 || len(summary.KeyboardAssignments.AssignmentTypes) != 6 || len(summary.KeyboardAssignments.ModifierOptions) < 2 || summary.KeyboardAssignments.LiveRGBAvailable || summary.Performance == nil || len(summary.Performance.BooleanSettings) != 4 || summary.DeviceProfiles == nil || !summary.DeviceProfiles.CanSwitch || !summary.DeviceProfiles.CanSave || !summary.DeviceProfiles.CanDelete || summary.ControlDial == nil || len(summary.ControlDial.Options) != 7 || summary.ControlDial.Options[2].Label != test.dial || summary.FlashTap == nil || len(summary.FlashTap.Modes) != 3 || summary.KeyActuation != nil {
+				t.Fatalf("summary=%#v", summary)
+			}
+			if (summary.SleepTimer != nil) != test.sleep || (summary.Performance.PollingRate != nil) != test.polling || (summary.OptionColors != nil) != test.colors {
+				t.Fatalf("unsupported or missing capability in summary=%#v", summary)
+			}
+			if test.sleep && len(summary.SleepTimer.Options) != 6 {
+				t.Fatalf("sleep=%#v", summary.SleepTimer)
+			}
+			if test.polling && len(summary.Performance.PollingRate.Options) != 8 {
+				t.Fatalf("polling=%#v", summary.Performance.PollingRate)
+			}
+			if test.colors && (summary.OptionColors.Selected != summary.ControlDial.Value || len(summary.OptionColors.Options) != 7) {
+				t.Fatalf("colors=%#v dial=%#v", summary.OptionColors, summary.ControlDial)
+			}
+			if devices.GetDevice(test.serial) != nil {
+				t.Fatal("preview fixture registered hardware")
+			}
+		})
+	}
+}
+
 func TestK55CoreModernPreviewPreservesItsSourceRowOverride(t *testing.T) {
 	fixture, ok := modernDevicePreviewFixtureByKey("k55-core-modern")
 	if !ok {
