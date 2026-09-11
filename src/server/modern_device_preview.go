@@ -49,6 +49,8 @@ import (
 	"LumenForge/src/devices/vanguard99airWU"
 	"LumenForge/src/devices/virtuosoSEW"
 	"LumenForge/src/devices/virtuosoSEWU"
+	"LumenForge/src/devices/virtuosorgbXTW"
+	"LumenForge/src/devices/virtuosorgbXTWU"
 	"LumenForge/src/keyboards"
 	"LumenForge/src/rgb"
 	"LumenForge/src/stats"
@@ -102,6 +104,8 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	}},
 	{Key: "virtuoso-se-wireless-modern", Title: "Virtuoso SE Wireless", ProductType: common.ProductTypeVirtuosoSEW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildVirtuosoSEWirelessModernPreview},
 	{Key: "virtuoso-se-usb-modern", Title: "Virtuoso SE USB", ProductType: common.ProductTypeVirtuosoSEWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildVirtuosoSEUSBModernPreview},
+	{Key: "virtuoso-rgb-xt-wireless-modern", Title: "Virtuoso RGB XT Wireless", ProductType: common.ProductTypeVirtuosoXTW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildVirtuosoRGBXTWirelessModernPreview},
+	{Key: "virtuoso-rgb-xt-usb-modern", Title: "Virtuoso RGB XT USB", ProductType: common.ProductTypeVirtuosoXTWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildVirtuosoRGBXTUSBModernPreview},
 	{Key: "k55-rgb-modern", Title: "K55 RGB", ProductType: common.ProductTypeK55, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55RGBModernPreview},
 	{Key: "k55-core-modern", Title: "K55 CORE RGB", ProductType: common.ProductTypeK55Core, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55CoreModernPreview},
 	{Key: "k55-core-tkl-modern", Title: "K55 CORE TKL", ProductType: common.ProductTypeK55CoreTkl, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK55CoreTKLModernPreview},
@@ -274,6 +278,36 @@ func virtuosoSEWUPreviewProfile() *virtuosoSEWU.DeviceProfile {
 	profile := &virtuosoSEWU.DeviceProfile{Equalizers: map[int]virtuosoSEWU.Equalizer{}}
 	for index, label := range []string{"32", "64", "125", "250", "500", "1K", "2K", "4K", "8K", "16K"} {
 		profile.Equalizers[index+1] = virtuosoSEWU.Equalizer{Name: label}
+	}
+	return profile
+}
+
+func buildVirtuosoRGBXTWirelessModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-virtuoso-rgb-xt-wireless-modern"
+	device := &virtuosorgbXTW.Device{Serial: serial, DeviceProfile: virtuosoRGBXTWPreviewProfile(), UserProfiles: map[string]*virtuosorgbXTW.DeviceProfile{"Default": {Active: true}, "Gaming": {}}, SleepModes: map[int]string{0: "Off", 1: "1 minute", 5: "5 minutes", 10: "10 minutes", 15: "15 minutes", 30: "30 minutes", 60: "1 hour"}, MuteIndicators: map[int]string{0: "Disabled", 1: "Enabled"}, SideToneModes: map[int]string{0: "Disabled", 1: "Enabled"}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "VIRTUOSO XT", ProductType: common.ProductTypeVirtuosoXTW, Instance: device}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
+	return summary
+}
+
+func buildVirtuosoRGBXTUSBModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-virtuoso-rgb-xt-usb-modern"
+	device := &virtuosorgbXTWU.Device{Serial: serial, Usb: true, DeviceProfile: virtuosoRGBXTWUPreviewProfile(), UserProfiles: map[string]*virtuosorgbXTWU.DeviceProfile{"Default": {Active: true}, "Gaming": {}}, MuteIndicators: map[int]string{0: "Disabled", 1: "Enabled"}, SideToneModes: map[int]string{0: "Disabled", 1: "Enabled"}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "VIRTUOSO XT", ProductType: common.ProductTypeVirtuosoXTWU, Instance: device}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
+	return summary
+}
+
+func virtuosoRGBXTWPreviewProfile() *virtuosorgbXTW.DeviceProfile {
+	profile := &virtuosorgbXTW.DeviceProfile{Equalizers: map[int]virtuosorgbXTW.Equalizer{}, SleepMode: 15, SideTone: 1, SideToneValue: 50}
+	for index, label := range []string{"32", "64", "125", "250", "500", "1K", "2K", "4K", "8K", "16K"} {
+		profile.Equalizers[index+1] = virtuosorgbXTW.Equalizer{Name: label}
+	}
+	return profile
+}
+
+func virtuosoRGBXTWUPreviewProfile() *virtuosorgbXTWU.DeviceProfile {
+	profile := &virtuosorgbXTWU.DeviceProfile{Equalizers: map[int]virtuosorgbXTWU.Equalizer{}, SideTone: 1, SideToneValue: 50}
+	for index, label := range []string{"32", "64", "125", "250", "500", "1K", "2K", "4K", "8K", "16K"} {
+		profile.Equalizers[index+1] = virtuosorgbXTWU.Equalizer{Name: label}
 	}
 	return profile
 }

@@ -4292,6 +4292,9 @@ func devicesWorkspaceSummaryForSerial(
 		summary.HasBattery = true
 		summary.BatteryLevel = battery.Level
 	}
+	if device.ProductType == common.ProductTypeVirtuosoXTW || device.ProductType == common.ProductTypeVirtuosoXTWU {
+		summary.LegacyLighting = true
+	}
 	if openRGBDevice, isOpenRGB := device.Instance.(*openrgbimport.Device); isOpenRGB &&
 		openRGBDevice != nil && openRGBDevice.Serial == serial {
 		snapshot := openRGBDevice.Snapshot()

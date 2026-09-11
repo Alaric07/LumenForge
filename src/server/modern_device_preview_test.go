@@ -9,6 +9,8 @@ import (
 	"LumenForge/src/devices/virtuosoSEWU"
 	"LumenForge/src/devices/virtuosoW"
 	"LumenForge/src/devices/virtuosoWU"
+	"LumenForge/src/devices/virtuosorgbXTW"
+	"LumenForge/src/devices/virtuosorgbXTWU"
 	"LumenForge/src/keyboards"
 	"LumenForge/src/server/requests"
 	"LumenForge/src/stats"
@@ -213,6 +215,57 @@ func TestVirtuosoWorkspaceSummariesUseSourceBackedCapabilities(t *testing.T) {
 		summary, ok := devicesWorkspaceSummaryForSerial(devicesBySerial, batteries, serial)
 		if !ok || summary == nil || !summary.HasBattery || (summary.SleepTimer != nil) != wantSleep || summary.Headset == nil || summary.Headset.Sidetone != nil || len(summary.Headset.Assignments) != 0 || !summary.LegacyLighting {
 			t.Fatalf("%s summary=%#v, ok=%t", serial, summary, ok)
+		}
+	}
+}
+
+func TestVirtuosoRGBXTWorkspaceSummariesAndPreviewsUseSourceBackedCapabilities(t *testing.T) {
+	labels := []string{"32", "64", "125", "250", "500", "1K", "2K", "4K", "8K", "16K"}
+	wProfile := &virtuosorgbXTW.DeviceProfile{Equalizers: map[int]virtuosorgbXTW.Equalizer{}, SleepMode: 15, SideTone: 1, SideToneValue: 50}
+	wuProfile := &virtuosorgbXTWU.DeviceProfile{Equalizers: map[int]virtuosorgbXTWU.Equalizer{}, SideTone: 1, SideToneValue: 50}
+	for index, label := range labels {
+		wProfile.Equalizers[index+1] = virtuosorgbXTW.Equalizer{Name: label}
+		wuProfile.Equalizers[index+1] = virtuosorgbXTWU.Equalizer{Name: label}
+	}
+	w := &virtuosorgbXTW.Device{Serial: "virtuoso-rgb-xt-w", DeviceProfile: wProfile, UserProfiles: map[string]*virtuosorgbXTW.DeviceProfile{"Default": {Active: true}}, SleepModes: map[int]string{0: "Off", 1: "1 minute", 5: "5 minutes", 10: "10 minutes", 15: "15 minutes", 30: "30 minutes", 60: "1 hour"}, MuteIndicators: map[int]string{0: "Disabled", 1: "Enabled"}, SideToneModes: map[int]string{0: "Disabled", 1: "Enabled"}}
+	wu := &virtuosorgbXTWU.Device{Serial: "virtuoso-rgb-xt-wu", Usb: true, DeviceProfile: wuProfile, UserProfiles: map[string]*virtuosorgbXTWU.DeviceProfile{"Default": {Active: true}}, MuteIndicators: map[int]string{0: "Disabled", 1: "Enabled"}, SideToneModes: map[int]string{0: "Disabled", 1: "Enabled"}}
+	devicesBySerial := map[string]*common.Device{"virtuoso-rgb-xt-w": {Serial: "virtuoso-rgb-xt-w", Product: "VIRTUOSO XT", ProductType: common.ProductTypeVirtuosoXTW, Instance: w}, "virtuoso-rgb-xt-wu": {Serial: "virtuoso-rgb-xt-wu", Product: "VIRTUOSO XT", ProductType: common.ProductTypeVirtuosoXTWU, Instance: wu}}
+	batteries := map[string]stats.BatteryStats{"virtuoso-rgb-xt-w": {Level: 71}, "virtuoso-rgb-xt-wu": {Level: 72}}
+	for serial, wantSleep := range map[string]bool{"virtuoso-rgb-xt-w": true, "virtuoso-rgb-xt-wu": false} {
+		summary, ok := devicesWorkspaceSummaryForSerial(devicesBySerial, batteries, serial)
+		if !ok || summary == nil || !summary.HasBattery || (summary.SleepTimer != nil) != wantSleep || summary.Headset == nil || summary.Headset.MuteIndicator == nil || summary.Headset.Sidetone == nil || len(summary.Headset.Assignments) != 0 || !summary.LegacyLighting {
+			t.Fatalf("%s summary=%#v, ok=%t", serial, summary, ok)
+		}
+		if len(summary.Headset.Equalizer) != 10 || summary.Headset.Equalizer[0].Label != "32" || summary.Headset.Equalizer[9].Label != "16K" || len(summary.Headset.MuteIndicator.Options) != 2 || summary.Headset.Sidetone.ValueRange.Minimum != 1 || summary.Headset.Sidetone.ValueRange.Maximum != 100 || summary.Headset.Sidetone.ValueRange.Step != 1 {
+			t.Fatalf("%s headset=%#v", serial, summary.Headset)
+		}
+	}
+
+	router := legacyDevicePreviewRouter(t, true)
+	for _, test := range []struct {
+		key, serial string
+		productType uint16
+		sleep       bool
+	}{
+		{"virtuoso-rgb-xt-wireless-modern", "preview-virtuoso-rgb-xt-wireless-modern", common.ProductTypeVirtuosoXTW, true},
+		{"virtuoso-rgb-xt-usb-modern", "preview-virtuoso-rgb-xt-usb-modern", common.ProductTypeVirtuosoXTWU, false},
+	} {
+		fixture, ok := modernDevicePreviewFixtureByKey(test.key)
+		if !ok || fixture.ProductType != test.productType || devices.GetDevice(test.serial) != nil {
+			t.Fatalf("missing, misrouted, or registered fixture %q: %#v", test.key, fixture)
+		}
+		summary := fixture.Build()
+		if summary == nil || summary.Headset == nil || summary.Headset.Sidetone == nil || (summary.SleepTimer != nil) != test.sleep || summary.Headset.Sidetone.ValueRange.Minimum != 1 || summary.Headset.Sidetone.ValueRange.Maximum != 100 || len(summary.Headset.Assignments) != 0 {
+			t.Fatalf("%s summary=%#v", test.key, summary)
+		}
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/"+test.key))
+		body := recorder.Body.String()
+		if recorder.Code != http.StatusOK || strings.Contains(body, "Active Noise Cancellation") || strings.Contains(body, "Scroll Press") || strings.Contains(body, "Wheel") || strings.Contains(body, "Sleep Timer") != test.sleep || !strings.Contains(body, "Sidetone") || !strings.Contains(body, `min="1" max="100" step="1"`) {
+			t.Fatalf("%s rendered unexpected controls: %s", test.key, body)
+		}
+		if devices.GetDevice(test.serial) != nil {
+			t.Fatalf("fixture %q registered a device", test.key)
 		}
 	}
 }
