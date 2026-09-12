@@ -74,6 +74,56 @@ func TestModernDevicePreviewDebugGating(t *testing.T) {
 	}
 }
 
+func TestPSUModernPreviewsRenderFixtureDataWithoutRegistration(t *testing.T) {
+	router := legacyDevicePreviewRouter(t, true)
+	for _, test := range []struct {
+		key, serial string
+		product     uint16
+	}{
+		{key: "psu-hid-modern", serial: "preview-psu-hid-modern", product: common.ProductTypePSUHid},
+		{key: "psu-dongle-modern", serial: "preview-psu-dongle-modern", product: common.ProductTypePSUDongle},
+	} {
+		if devices.GetDevice(test.serial) != nil {
+			t.Fatalf("fixture serial %q unexpectedly registered", test.serial)
+		}
+		fixture, ok := modernDevicePreviewFixtureByKey(test.key)
+		if !ok || fixture.ProductType != test.product || len(fixture.Views) != 1 || fixture.Views[0].ID != "overview" {
+			t.Fatalf("fixture %q = %#v, ok=%t", test.key, fixture, ok)
+		}
+		summary := fixture.Build()
+		if summary == nil || summary.Serial != test.serial || summary.Firmware != "" || summary.PSU == nil || summary.DeviceProfiles != nil || summary.Lighting != nil || summary.LegacyLighting {
+			t.Fatalf("fixture %q summary = %#v", test.key, summary)
+		}
+		if len(summary.PSU.FanModeOptions) != 8 || summary.PSU.FanMode != 6 || !summary.PSU.FanModeOptions[3].Selected {
+			t.Fatalf("fixture %q fan options = %#v", test.key, summary.PSU.FanModeOptions)
+		}
+		for index, value := range []int{0, 4, 5, 6, 7, 8, 9, 10} {
+			if summary.PSU.FanModeOptions[index].Value != value {
+				t.Fatalf("fixture %q fan options = %#v", test.key, summary.PSU.FanModeOptions)
+			}
+		}
+		for index, label := range []string{"12V Rail", "5V Rail", "3V Rail"} {
+			if len(summary.PSU.Rails) != 3 || summary.PSU.Rails[index].Label != label {
+				t.Fatalf("fixture %q rails = %#v", test.key, summary.PSU.Rails)
+			}
+		}
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/"+test.key))
+		body := recorder.Body.String()
+		if recorder.Code != http.StatusOK || !strings.Contains(body, "PSU Fan") || !strings.Contains(body, "VRM Temperature") || !strings.Contains(body, "Power Out") || !strings.Contains(body, "12V Rail") {
+			t.Fatalf("fixture %q render status=%d body=%s", test.key, recorder.Code, body)
+		}
+		for _, absent := range []string{"InputVoltage", "Device Profile", "Lighting Status", "RgbOff", "Firmware", "Cooling Status"} {
+			if strings.Contains(body, absent) {
+				t.Fatalf("fixture %q unexpectedly rendered %q", test.key, absent)
+			}
+		}
+		if devices.GetDevice(test.serial) != nil {
+			t.Fatalf("fixture %q registered hardware", test.key)
+		}
+	}
+}
+
 func TestSCUFEnvisionProModernPreviewsPreserveCapabilitySplit(t *testing.T) {
 	for _, test := range []struct {
 		key     string

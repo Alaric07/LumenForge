@@ -924,10 +924,24 @@
                             </section>
                             {{ end }}
 
-                            {{ with .Device.OverviewTelemetry }}
+	                            {{ with .Device.OverviewTelemetry }}
                                 <section class="lf-overview-panel lf-overview-device-telemetry">
                                     <header class="lf-overview-panel-header"><div><h2>Device Telemetry</h2></div></header>
                                     <dl class="lf-device-summary-meta">{{ range . }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">{{ .Label }}</dt><dd class="lf-device-summary-value"><span class="lf-telemetry-value">{{ .Value }}</span></dd></div>{{ end }}</dl>
+                                </section>
+	                            {{ end }}
+
+                            {{ with .Device.PSU }}
+                                <section class="lf-overview-panel" data-lf-psu-workspace data-lf-device-id="{{ $.Device.Serial }}">
+                                    <header class="lf-overview-panel-header"><div><p class="lf-section-kicker">Power supply</p><h2>PSU</h2></div></header>
+                                    <div class="lf-performance-controls">
+                                        <div class="lf-performance-control"><span>PSU Fan</span><strong class="lf-telemetry-value">{{ .FanRPM }}</strong><label for="lf-psu-fan-mode">Fan Mode</label><select id="lf-psu-fan-mode" data-lf-psu-fan-mode aria-label="PSU Fan Mode">{{ range .FanModeOptions }}<option value="{{ .Value }}"{{ if .Selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select><p class="lf-range-control-status" data-lf-psu-status aria-live="polite"></p></div>
+                                    </div>
+                                    <dl class="lf-device-summary-meta">
+                                        {{ range .Temperatures }}<div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">{{ .Label }}</dt><dd class="lf-device-summary-value"><span class="lf-telemetry-value">{{ .Value }}</span></dd></div>{{ end }}
+                                        <div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">Power Out</dt><dd class="lf-device-summary-value"><span class="lf-telemetry-value">{{ .PowerOut }}</span></dd></div>
+                                    </dl>
+                                    <div class="lf-performance-controls lf-cooling-channel-grid">{{ range .Rails }}<article class="lf-performance-control lf-cooling-channel"><strong>{{ .Label }}</strong><dl class="lf-device-summary-meta"><div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">Watts</dt><dd class="lf-device-summary-value"><span class="lf-telemetry-value">{{ .Watts }}</span></dd></div><div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">Amps</dt><dd class="lf-device-summary-value"><span class="lf-telemetry-value">{{ .Amps }}</span></dd></div><div class="lf-device-summary-meta-row"><dt class="lf-device-summary-label">Volts</dt><dd class="lf-device-summary-value"><span class="lf-telemetry-value">{{ .Volts }}</span></dd></div></dl></article>{{ end }}</div>
                                 </section>
                             {{ end }}
 

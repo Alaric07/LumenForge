@@ -15,6 +15,7 @@ import (
 	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/memorypresentation"
 	"LumenForge/src/performancepresentation"
+	"LumenForge/src/psupresentation"
 	"LumenForge/src/rgb"
 	"LumenForge/src/stats"
 	"LumenForge/src/templates"
@@ -34,6 +35,45 @@ import (
 )
 
 const devicesPageHelperEnvironment = "LUMENFORGE_DEVICES_PAGE_TEST_HELPER"
+
+type devicesPagePSUSnapshotProvider struct {
+	serial   string
+	snapshot psupresentation.Snapshot
+}
+
+func (p devicesPagePSUSnapshotProvider) PSUID() string { return p.serial }
+func (p devicesPagePSUSnapshotProvider) PSUSnapshot() (psupresentation.Snapshot, bool) {
+	return p.snapshot, true
+}
+
+func TestDevicesWorkspacePSUPresentation(t *testing.T) {
+	const serial = "psu-modern"
+	snapshot := psupresentation.Snapshot{DeviceID: serial, Fan: psupresentation.Fan{RPM: "820 RPM", Mode: 6, Options: []psupresentation.FanMode{{Value: 0, Label: "Default"}, {Value: 4, Label: "40 %"}, {Value: 5, Label: "50 %"}, {Value: 6, Label: "60 %"}, {Value: 7, Label: "70 %"}, {Value: 8, Label: "80 %"}, {Value: 9, Label: "90 %"}, {Value: 10, Label: "100 %"}}}, Temperatures: []psupresentation.Temperature{{Label: "VRM Temperature", Value: "36.5 °C"}, {Label: "PSU Temperature", Value: "39.0 °C"}}, PowerOut: "420 W", Rails: []psupresentation.Rail{{Label: "12V Rail", Watts: "390 W", Amps: "32.5 A", Volts: "12 V"}, {Label: "5V Rail", Watts: "20 W", Amps: "4 A", Volts: "5 V"}, {Label: "3V Rail", Watts: "10 W", Amps: "3 A", Volts: "3.3 V"}}}
+	provider := devicesPagePSUSnapshotProvider{serial: serial, snapshot: snapshot}
+	for _, productType := range []uint16{common.ProductTypePSUHid, common.ProductTypePSUDongle} {
+		summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "PSU", ProductType: productType, Instance: provider}}, map[string]stats.BatteryStats{}, serial)
+		if !ok || summary.PSU == nil || summary.DeviceProfiles != nil || summary.Lighting != nil || summary.LegacyLighting {
+			t.Fatalf("product type %d summary = %#v, ok=%t", productType, summary, ok)
+		}
+		if len(summary.PSU.FanModeOptions) != 8 || !summary.PSU.FanModeOptions[3].Selected || len(summary.PSU.Rails) != 3 || summary.PSU.Rails[0].Label != "12V Rail" || summary.PSU.Rails[1].Label != "5V Rail" || summary.PSU.Rails[2].Label != "3V Rail" {
+			t.Fatalf("product type %d PSU = %#v", productType, summary.PSU)
+		}
+		var rendered bytes.Buffer
+		if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: {Serial: serial, Product: "PSU"}}, Device: summary, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+			t.Fatalf("product type %d Devices template = %v", productType, err)
+		}
+		if body := rendered.String(); !strings.Contains(body, `data-lf-psu-workspace data-lf-device-id="psu-modern"`) || !strings.Contains(body, "12V Rail") {
+			t.Fatalf("product type %d PSU markup = %q", productType, body)
+		}
+	}
+	other, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "Not a PSU", ProductType: common.ProductTypeM55, Instance: provider}}, map[string]stats.BatteryStats{}, serial)
+	if !ok || other.PSU != nil {
+		t.Fatalf("non-PSU summary = %#v, ok=%t", other, ok)
+	}
+	if devicesPSUWorkspaceSummaryFromSnapshot(psupresentation.Snapshot{}) != nil {
+		t.Fatal("incomplete PSU snapshot was accepted")
+	}
+}
 
 func TestAdvancedKeyboardWorkspaceSnapshotConversionsFailClosed(t *testing.T) {
 	actuation := keyactuationpresentation.Snapshot{Supported: true, MinValue: 1, MaxValue: 40, SecondaryMinimumGap: 4, Keys: []keyactuationpresentation.Key{{KeyIndex: 4, KeyName: "A", Supported: true, ActuationPoint: 20, ActuationResetPoint: 19, EnableActuationPointReset: true, EnableSecondaryActuationPoint: true, SecondaryActuationPoint: 35, SecondaryActuationResetPoint: 34}, {KeyIndex: 57, KeyName: "Fn", Supported: false}}}

@@ -171,6 +171,12 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "k95-platinum-xt-modern", Title: "K95 PLATINUM XT", ProductType: common.ProductTypeK95PlatinumXT, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK95PlatinumXTModernPreview},
 	{Key: "commander-duo-modern", Title: "Commander Duo", ProductType: common.ProductTypeCCXT, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: buildCommanderDuoModernPreview},
 	{Key: "commander-pro-modern", Title: "Commander Pro", ProductType: common.ProductTypeCPro, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: buildCommanderProModernPreview},
+	{Key: "psu-hid-modern", Title: "Corsair PSU HID", ProductType: common.ProductTypePSUHid, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}}, Build: func() *devicesWorkspaceSummary {
+		return buildPSUModernPreview("Corsair PSU", "preview-psu-hid-modern")
+	}},
+	{Key: "psu-dongle-modern", Title: "Corsair PSU Dongle", ProductType: common.ProductTypePSUDongle, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}}, Build: func() *devicesWorkspaceSummary {
+		return buildPSUModernPreview("Corsair PSU", "preview-psu-dongle-modern")
+	}},
 	{Key: "harpoon-rgb-pro-modern", Title: "Harpoon RGB Pro", ProductType: common.ProductTypeHarpoonRgbPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildHarpoonRGBProModernPreview},
 	{Key: "glaive-rgb-pro-modern", Title: "Glaive RGB Pro", ProductType: common.ProductTypeGlaiveRgbPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildGlaiveRGBProModernPreview},
 	{Key: "glaive-rgb-modern", Title: "Glaive RGB", ProductType: common.ProductTypeGlaiveRgb, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildGlaiveRGBModernPreview},
@@ -1024,6 +1030,32 @@ func buildCommanderProModernPreview() *devicesWorkspaceSummary {
 		OverviewTelemetry: []devicesOverviewStatusRow{{Label: "+12V", Value: "12.08 V", Telemetry: true}, {Label: "+5V", Value: "5.02 V", Telemetry: true}, {Label: "+3.3V", Value: "3.31 V", Telemetry: true}},
 	}
 	return summary
+}
+
+// buildPSUModernPreview deliberately builds presentation data directly. It
+// must not create a PSU device or touch either HID or serial transport.
+func buildPSUModernPreview(product, serial string) *devicesWorkspaceSummary {
+	return &devicesWorkspaceSummary{
+		Product: product,
+		Serial:  serial,
+		Image:   "icon-psu.svg",
+		View:    "overview",
+		PSU: &devicesPSUWorkspaceSummary{
+			FanRPM:  "820 RPM",
+			FanMode: 6,
+			FanModeOptions: []devicesPSUFanModeSummary{
+				{Value: 0, Label: "Default"}, {Value: 4, Label: "40 %"}, {Value: 5, Label: "50 %"}, {Value: 6, Label: "60 %", Selected: true},
+				{Value: 7, Label: "70 %"}, {Value: 8, Label: "80 %"}, {Value: 9, Label: "90 %"}, {Value: 10, Label: "100 %"},
+			},
+			Temperatures: []devicesOverviewStatusRow{{Label: "VRM Temperature", Value: "36.5 °C", Telemetry: true}, {Label: "PSU Temperature", Value: "39.0 °C", Telemetry: true}},
+			PowerOut:     "420 W",
+			Rails: []devicesPSURailSummary{
+				{Label: "12V Rail", Watts: "390 W", Amps: "32.5 A", Volts: "12 V"},
+				{Label: "5V Rail", Watts: "20 W", Amps: "4 A", Volts: "5 V"},
+				{Label: "3V Rail", Watts: "10 W", Amps: "3 A", Volts: "3.3 V"},
+			},
+		},
+	}
 }
 
 func modernDevicePreviewNavigationForFixture(fixture modernDevicePreviewFixture, currentView string) modernDevicePreviewNavigation {

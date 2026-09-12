@@ -43,6 +43,7 @@ import (
 	"LumenForge/src/openrgb"
 	"LumenForge/src/optioncolorpresentation"
 	"LumenForge/src/performancepresentation"
+	"LumenForge/src/psupresentation"
 	"LumenForge/src/rgb"
 	"LumenForge/src/scheduler"
 	"LumenForge/src/server/requests"
@@ -2776,6 +2777,7 @@ type devicesWorkspaceSummary struct {
 	OverviewPerformance *devicesOverviewPerformanceStatusSummary
 	OverviewDisplay     *devicesOverviewDisplayStatusSummary
 	OverviewTelemetry   []devicesOverviewStatusRow
+	PSU                 *devicesPSUWorkspaceSummary
 	KeyboardAssignments *devicesKeyboardAssignmentsWorkspaceSummary
 	Controller          *devicesControllerWorkspaceSummary
 	KeyActuation        *devicesKeyActuationWorkspaceSummary
@@ -3040,6 +3042,30 @@ type devicesDisplaySnapshotProvider interface {
 type devicesTelemetrySnapshotProvider interface {
 	TelemetryDeviceID() string
 	TelemetrySnapshot() (telemetrypresentation.Snapshot, bool)
+}
+
+type devicesPSUSnapshotProvider interface {
+	PSUID() string
+	PSUSnapshot() (psupresentation.Snapshot, bool)
+}
+
+type devicesPSUFanModeSummary struct {
+	Value    int
+	Label    string
+	Selected bool
+}
+
+type devicesPSURailSummary struct {
+	Label, Watts, Amps, Volts string
+}
+
+type devicesPSUWorkspaceSummary struct {
+	FanRPM         string
+	FanMode        int
+	FanModeOptions []devicesPSUFanModeSummary
+	Temperatures   []devicesOverviewStatusRow
+	PowerOut       string
+	Rails          []devicesPSURailSummary
 }
 
 type devicesMemorySnapshotProvider interface {
@@ -4538,6 +4564,13 @@ func devicesWorkspaceSummaryForSerial(
 			}
 		}
 	}
+	if device.ProductType == common.ProductTypePSUHid || device.ProductType == common.ProductTypePSUDongle {
+		if psuDevice, ok := device.Instance.(devicesPSUSnapshotProvider); ok && psuDevice != nil && psuDevice.PSUID() == serial {
+			if snapshot, usable := psuDevice.PSUSnapshot(); usable && snapshot.DeviceID == serial {
+				summary.PSU = devicesPSUWorkspaceSummaryFromSnapshot(snapshot)
+			}
+		}
+	}
 	if memoryDevice, ok := device.Instance.(devicesMemorySnapshotProvider); ok &&
 		memoryDevice != nil && memoryDevice.MemoryDeviceID() == serial {
 		if snapshot, usable := memoryDevice.MemorySnapshot(); usable {
@@ -4573,6 +4606,42 @@ func devicesWorkspaceSummaryForSerial(
 	}
 
 	return summary, true
+}
+
+func devicesPSUWorkspaceSummaryFromSnapshot(snapshot psupresentation.Snapshot) *devicesPSUWorkspaceSummary {
+	if snapshot.DeviceID == "" || snapshot.Fan.RPM == "" || len(snapshot.Fan.Options) != 8 || len(snapshot.Temperatures) != 2 || snapshot.PowerOut == "" || len(snapshot.Rails) != 3 {
+		return nil
+	}
+	summary := &devicesPSUWorkspaceSummary{FanRPM: snapshot.Fan.RPM, FanMode: snapshot.Fan.Mode, PowerOut: snapshot.PowerOut}
+	selected := 0
+	expectedModes := []int{0, 4, 5, 6, 7, 8, 9, 10}
+	for index, option := range snapshot.Fan.Options {
+		if option.Label == "" || option.Value != expectedModes[index] {
+			return nil
+		}
+		isSelected := option.Value == snapshot.Fan.Mode
+		if isSelected {
+			selected++
+		}
+		summary.FanModeOptions = append(summary.FanModeOptions, devicesPSUFanModeSummary{Value: option.Value, Label: option.Label, Selected: isSelected})
+	}
+	if selected != 1 {
+		return nil
+	}
+	for _, temperature := range snapshot.Temperatures {
+		if temperature.Label == "" || temperature.Value == "" {
+			return nil
+		}
+		summary.Temperatures = append(summary.Temperatures, devicesOverviewStatusRow{Label: temperature.Label, Value: temperature.Value, Telemetry: true})
+	}
+	expectedRails := []string{"12V Rail", "5V Rail", "3V Rail"}
+	for index, rail := range snapshot.Rails {
+		if rail.Label != expectedRails[index] || rail.Watts == "" || rail.Amps == "" || rail.Volts == "" {
+			return nil
+		}
+		summary.Rails = append(summary.Rails, devicesPSURailSummary{Label: rail.Label, Watts: rail.Watts, Amps: rail.Amps, Volts: rail.Volts})
+	}
+	return summary
 }
 
 func devicesWorkspaceView(views []string, device *devicesWorkspaceSummary) string {
