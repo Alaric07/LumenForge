@@ -657,10 +657,6 @@ func ProcessOperatingMode(r *http.Request) *Payload {
 		}
 	}
 
-	if req.OperatingMode < 1 || req.OperatingMode > 2 {
-		return &Payload{Message: language.GetValue("txtUnableToValidateRequest"), Code: http.StatusOK, Status: 0}
-	}
-
 	if len(req.DeviceId) < 1 {
 		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
 	}
@@ -669,8 +665,13 @@ func ProcessOperatingMode(r *http.Request) *Payload {
 		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
 	}
 
-	if devices.GetDevice(req.DeviceId) == nil {
+	device := devices.GetDevice(req.DeviceId)
+	if device == nil {
 		return &Payload{Message: language.GetValue("txtNonExistingDevice"), Code: http.StatusOK, Status: 0}
+	}
+	provider, ok := device.(interface{ OperatingModeOptions(int) map[int]string })
+	if !ok || provider.OperatingModeOptions(req.ChannelId)[req.OperatingMode] == "" {
+		return &Payload{Message: language.GetValue("txtUnableToValidateRequest"), Code: http.StatusOK, Status: 0}
 	}
 
 	// Run it

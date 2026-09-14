@@ -90,6 +90,7 @@ type modernDevicePreviewNavigation struct {
 }
 
 var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
+	{Key: "motherboard-cooling-modern", Title: "ROG STRIX X670E-E GAMING WIFI", ProductType: common.ProductTypeMotherboard, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "cooling", Label: "Cooling"}}, Build: buildMotherboardCoolingModernPreview},
 	{Key: "corsair-one-modern", Title: "CORSAIR ONE", ProductType: common.ProductTypeCorsairOne, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: buildCorsairOneModernPreview},
 	{Key: "elite-aio-modern", Title: "iCUE H150i RGB ELITE", ProductType: common.ProductTypeElite, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: func() *devicesWorkspaceSummary {
 		return buildAIOModernPreview("iCUE H150i RGB ELITE", "preview-elite-aio-modern", "2.11.221", 3, []devicesCoolingProfileOptionSummary{{ID: "Quiet", Label: "Quiet"}, {ID: "Normal", Label: "Normal"}, {ID: "Performance", Label: "Performance"}}, true)
@@ -251,6 +252,21 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "katar-pro-modern", Title: "Katar Pro", ProductType: common.ProductTypeKatarPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProModernPreview},
 	{Key: "katar-pro-xt-modern", Title: "Katar Pro XT", ProductType: common.ProductTypeKatarProXT, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProXTModernPreview},
 	{Key: "katar-pro-wireless-modern", Title: "KATAR PRO WIRELESS", ProductType: common.ProductTypeKatarProW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProWirelessModernPreview},
+}
+
+// buildMotherboardCoolingModernPreview is fixture-only native motherboard
+// presentation data. It does not initialize hwmon, hardware, or persistence.
+func buildMotherboardCoolingModernPreview() *devicesWorkspaceSummary {
+	cooling := &devicesCoolingWorkspaceSummary{
+		ProfileOptions: []devicesCoolingProfileOptionSummary{{ID: "Balanced", Label: "Balanced"}, {ID: "Performance", Label: "Performance"}, {ID: "Quiet", Label: "Quiet"}},
+		Channels: []devicesCoolingChannelSummary{
+			{ID: 1, Name: "CPU Fan", Label: "CPU Cooler", RPM: 1120, SelectedProfile: "Balanced", HeaderMode: 1, OperatingModeOptions: []devicesCoolingOperatingModeOptionSummary{{ID: 0, Label: "BIOS"}, {ID: 1, Label: "PWM"}, {ID: 2, Label: "DC"}}},
+			{ID: 2, Name: "CPU Optional", Label: "CPU Optional", RPM: 980, SelectedProfile: "Quiet", HeaderMode: 1, OperatingModeOptions: []devicesCoolingOperatingModeOptionSummary{{ID: 0, Label: "BIOS"}, {ID: 1, Label: "PWM"}, {ID: 2, Label: "DC"}}},
+			{ID: 3, Name: "Chassis Fan 1", Label: "Front Intake", RPM: 760, SelectedProfile: "Performance", HeaderMode: 2, OperatingModeOptions: []devicesCoolingOperatingModeOptionSummary{{ID: 0, Label: "BIOS"}, {ID: 1, Label: "PWM"}, {ID: 2, Label: "DC"}}},
+			{ID: 4, Name: "Pump", Label: "Pump", RPM: 2450, ContainsPump: true, SelectedProfile: "Balanced", HeaderMode: 0, SpeedProfileDisabled: true, OperatingModeOptions: []devicesCoolingOperatingModeOptionSummary{{ID: 0, Label: "BIOS"}, {ID: 1, Label: "PWM"}, {ID: 2, Label: "DC"}}},
+		},
+	}
+	return &devicesWorkspaceSummary{Product: "ROG STRIX X670E-E GAMING WIFI", Serial: "preview-motherboard-cooling-modern", Image: "icon-motherboard.svg", View: "overview", Cooling: cooling, OverviewCooling: devicesOverviewCoolingStatusFromSummary(cooling), DeviceProfiles: &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "Quiet"}, ActiveProfile: "Default", CanSwitch: true, CanSave: true, CanDelete: true, Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription}}
 }
 
 // buildAIOModernPreview is fixture-only presentation data; it does not

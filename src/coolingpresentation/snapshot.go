@@ -25,6 +25,17 @@ type Channel struct {
 	// PumpModeOptions are device-owned pump selections. Unlike ProfileOptions,
 	// they must not be treated as temperature-profile curves.
 	PumpModeOptions []ProfileOption
+	// OperatingModeOptions are hardware-provided header operating modes. They
+	// are intentionally distinct from temperature profile options.
+	OperatingModeOptions []OperatingModeOption
+	HeaderMode           int
+	SpeedProfileDisabled bool
+}
+
+// OperatingModeOption is a device-provided operating/header mode.
+type OperatingModeOption struct {
+	ID    int
+	Label string
 }
 
 // TemperatureProbe is read-only telemetry from a controller probe channel.

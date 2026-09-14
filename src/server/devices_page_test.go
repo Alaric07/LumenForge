@@ -36,6 +36,15 @@ import (
 
 const devicesPageHelperEnvironment = "LUMENFORGE_DEVICES_PAGE_TEST_HELPER"
 
+func TestOpenRGBMotherboardDoesNotInheritNativeCoolingOrProfiles(t *testing.T) {
+	const serial = "openrgb-motherboard"
+	instance := &openrgbimport.Device{Serial: serial, Product: "Imported Motherboard", IsOpenRGB: true, RGBModes: []string{"static"}, DeviceProfile: &openrgbimport.DeviceProfile{Active: true}}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: instance.Product, ProductType: common.ProductTypeMotherboard, Instance: instance}}, map[string]stats.BatteryStats{}, serial)
+	if !ok || summary.OpenRGB == nil || summary.Cooling != nil || summary.DeviceProfiles != nil {
+		t.Fatalf("summary = %#v, ok=%t", summary, ok)
+	}
+}
+
 type devicesPagePSUSnapshotProvider struct {
 	serial   string
 	snapshot psupresentation.Snapshot

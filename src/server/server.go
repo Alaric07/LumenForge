@@ -3099,12 +3099,20 @@ type devicesCoolingProfileOptionSummary struct {
 	ID, Label string
 }
 
+type devicesCoolingOperatingModeOptionSummary struct {
+	ID    int
+	Label string
+}
+
 type devicesCoolingChannelSummary struct {
 	ID                                        int
 	Name, Label, Temperature, SelectedProfile string
 	ContainsPump                              bool
 	RPM                                       int16
 	PumpModeOptions                           []devicesCoolingProfileOptionSummary
+	OperatingModeOptions                      []devicesCoolingOperatingModeOptionSummary
+	HeaderMode                                int
+	SpeedProfileDisabled                      bool
 }
 
 type devicesCoolingTemperatureProbeSummary struct {
@@ -3208,12 +3216,18 @@ func devicesCoolingWorkspaceSummaryFromSnapshot(snapshot coolingpresentation.Sna
 		if channel.ID < 0 || channel.Name == "" || channel.SelectedProfile == "" {
 			return nil
 		}
-		channelSummary := devicesCoolingChannelSummary{ID: channel.ID, Name: channel.Name, Label: channel.Label, RPM: channel.RPM, Temperature: channel.Temperature, ContainsPump: channel.ContainsPump, SelectedProfile: channel.SelectedProfile}
+		channelSummary := devicesCoolingChannelSummary{ID: channel.ID, Name: channel.Name, Label: channel.Label, RPM: channel.RPM, Temperature: channel.Temperature, ContainsPump: channel.ContainsPump, SelectedProfile: channel.SelectedProfile, HeaderMode: channel.HeaderMode, SpeedProfileDisabled: channel.SpeedProfileDisabled}
 		for _, option := range channel.PumpModeOptions {
 			if option.ID == "" || option.Label == "" {
 				return nil
 			}
 			channelSummary.PumpModeOptions = append(channelSummary.PumpModeOptions, devicesCoolingProfileOptionSummary{ID: option.ID, Label: option.Label})
+		}
+		for _, option := range channel.OperatingModeOptions {
+			if option.Label == "" {
+				return nil
+			}
+			channelSummary.OperatingModeOptions = append(channelSummary.OperatingModeOptions, devicesCoolingOperatingModeOptionSummary{ID: option.ID, Label: option.Label})
 		}
 		summary.Channels = append(summary.Channels, channelSummary)
 	}

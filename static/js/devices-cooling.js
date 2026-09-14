@@ -125,6 +125,24 @@
 				if (status) { status.textContent = "Couldn’t save this cooling setting."; }
 			}).finally(function () { profile.disabled = false; });
         });
+		const operatingMode = row.querySelector("[data-lf-cooling-operating-mode]");
+		if (!operatingMode) { return; }
+		let confirmedMode = operatingMode.value;
+		operatingMode.addEventListener("change", function () {
+			const next = operatingMode.value;
+			if (!next || next === confirmedMode) { operatingMode.value = confirmedMode; return; }
+			operatingMode.disabled = true;
+			if (status) { status.textContent = ""; }
+			return request(browser, "/api/operatingMode", {deviceId: workspace.dataset.lfDeviceId, channelId: channelID, operatingMode: Number(next)}).then(function () {
+				confirmedMode = next;
+				const selected = operatingMode.options ? operatingMode.options[operatingMode.selectedIndex] : null;
+				profile.disabled = Boolean(selected && selected.text === "BIOS");
+				saved(browser);
+			}).catch(function () {
+				operatingMode.value = confirmedMode;
+				if (status) { status.textContent = "Couldn’t save this cooling setting."; }
+			}).finally(function () { operatingMode.disabled = false; });
+		});
     }
 
     function init(browser) {
