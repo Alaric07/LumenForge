@@ -8,6 +8,7 @@ import (
 	"LumenForge/src/devices"
 	"LumenForge/src/devices/lt100"
 	"LumenForge/src/devices/mm700"
+	"LumenForge/src/devices/nautilusLcd"
 	"LumenForge/src/devices/openrgbimport"
 	"LumenForge/src/devices/xc7"
 	"LumenForge/src/displaypresentation"
@@ -65,6 +66,25 @@ func TestXC7WorkspaceUsesDisplayAndLegacyLightingWithoutCooling(t *testing.T) {
 	}
 	if got := devicesWorkspaceView([]string{"display"}, summary); got != "display" {
 		t.Fatalf("view=%q", got)
+	}
+}
+
+func TestNautilusLCDCapWorkspaceProvidesOnlyProfilesAndDisplay(t *testing.T) {
+	const serial = "nautilus-lcd-cap-modern-workspace"
+	instance := &nautilusLcd.Device{
+		Serial: serial, HasLCD: true,
+		DeviceProfile: &nautilusLcd.DeviceProfile{LCDMode: 2, LCDRotation: 0},
+		UserProfiles:  map[string]*nautilusLcd.DeviceProfile{"Default": {Active: true}, "Gaming": {}},
+		LCDModes:      map[int]string{2: "CPU Temperature", 10: "Image / GIF"},
+		LCDRotations:  map[int]string{0: "default", 1: "90 degrees"},
+	}
+	device := &common.Device{Serial: serial, Product: "NAUTILUS LCD CAP", Firmware: "1.0.7", ProductType: common.ProductTypeNautilusLcdCap, Instance: instance}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: device}, map[string]stats.BatteryStats{}, serial)
+	if !ok || summary.DeviceProfiles == nil || summary.Display == nil || summary.LegacyLighting || summary.Lighting != nil || summary.Cooling != nil || len(summary.OverviewTelemetry) != 0 {
+		t.Fatalf("summary = %#v, ok=%t", summary, ok)
+	}
+	if got := devicesWorkspaceView([]string{"display"}, summary); got != "display" {
+		t.Fatalf("display view = %q", got)
 	}
 }
 

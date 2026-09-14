@@ -97,6 +97,7 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "mm700-modern", Title: "MM700 RGB", ProductType: common.ProductTypeMM700, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildMM700ModernPreview},
 	{Key: "lt100-modern", Title: "LT100 RGB", ProductType: common.ProductTypeLT100, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildLT100ModernPreview},
 	{Key: "xc7-modern", Title: "XC7 ELITE LCD CPU Water Block", ProductType: common.ProductTypeXC7, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "display", Label: "Display"}, {ID: "lighting", Label: "Lighting"}}, Build: buildXC7ModernPreview},
+	{Key: "nautilus-lcd-modern", Title: "NAUTILUS LCD CAP", ProductType: common.ProductTypeNautilusLcdCap, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "display", Label: "Display"}}, Build: buildNautilusLCDModernPreview},
 	{Key: "elite-aio-modern", Title: "iCUE H150i RGB ELITE", ProductType: common.ProductTypeElite, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: func() *devicesWorkspaceSummary {
 		return buildAIOModernPreview("iCUE H150i RGB ELITE", "preview-elite-aio-modern", "2.11.221", 3, []devicesCoolingProfileOptionSummary{{ID: "Quiet", Label: "Quiet"}, {ID: "Normal", Label: "Normal"}, {ID: "Performance", Label: "Performance"}}, true)
 	}},
@@ -1135,6 +1136,16 @@ func buildXC7ModernPreview() *devicesWorkspaceSummary {
 		DeviceProfiles:    &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "Gaming"}, ActiveProfile: "Default", CanSwitch: true, CanSave: true, CanDelete: true, Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription},
 		Display:           &devicesDisplayWorkspaceSummary{ImageModeID: 10, Modes: []devicesDisplayOptionSummary{{ID: 0, Label: "Liquid Temperature", Selected: true}, {ID: 10, Label: "Image / GIF"}, {ID: 100, Label: "Arc"}}, Rotations: []devicesDisplayOptionSummary{{ID: 0, Label: "default", Selected: true}, {ID: 1, Label: "90 degrees"}, {ID: 2, Label: "180 degrees"}, {ID: 3, Label: "270 degrees"}}, Images: []devicesDisplayImageSummary{{Name: "loop-status"}, {Name: "system"}}},
 		OverviewTelemetry: []devicesOverviewStatusRow{{Label: "Liquid Temperature", Value: "31.8°C", Telemetry: true}},
+	}
+}
+
+// buildNautilusLCDModernPreview deliberately builds presentation data directly.
+// It must not create a Nautilus device or touch its HID or LCD transport.
+func buildNautilusLCDModernPreview() *devicesWorkspaceSummary {
+	return &devicesWorkspaceSummary{
+		Product: "NAUTILUS LCD CAP", Serial: "preview-nautilus-lcd-modern", Firmware: "1.0.7", Image: "icon-device.svg", View: "overview",
+		DeviceProfiles: &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "Gaming"}, ActiveProfile: "Default", CanSwitch: true, CanSave: true, CanDelete: true, Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription},
+		Display:        &devicesDisplayWorkspaceSummary{ImageModeID: 10, Modes: []devicesDisplayOptionSummary{{ID: 2, Label: "CPU Temperature", Selected: true}, {ID: 3, Label: "GPU Temperature"}, {ID: 6, Label: "CPU / GPU Temp"}, {ID: 10, Label: "Image / GIF"}, {ID: 100, Label: "Arc"}}, Rotations: []devicesDisplayOptionSummary{{ID: 0, Label: "default", Selected: true}, {ID: 1, Label: "90 degrees"}, {ID: 2, Label: "180 degrees"}, {ID: 3, Label: "270 degrees"}}, Images: []devicesDisplayImageSummary{{Name: "loop-status"}, {Name: "system"}}},
 	}
 }
 

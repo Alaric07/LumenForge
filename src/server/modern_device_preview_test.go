@@ -157,6 +157,23 @@ func TestXC7ModernPreviewIsInertAndRendersDisplay(t *testing.T) {
 	}
 }
 
+func TestNautilusLCDModernPreviewIsInertAndRendersOnlyDisplay(t *testing.T) {
+	fixture, ok := modernDevicePreviewFixtureByKey("nautilus-lcd-modern")
+	if !ok || fixture.ProductType != common.ProductTypeNautilusLcdCap || len(fixture.Views) != 2 {
+		t.Fatalf("fixture=%#v ok=%t", fixture, ok)
+	}
+	summary := fixture.Build()
+	if summary == nil || summary.Serial != "preview-nautilus-lcd-modern" || summary.LegacyLighting || summary.Lighting != nil || summary.Cooling != nil || len(summary.OverviewTelemetry) != 0 || summary.Display == nil || summary.Display.ImageModeID != 10 || len(summary.Display.BrightnessLevels) != 0 || summary.DeviceProfiles == nil || devices.GetDevice(summary.Serial) != nil {
+		t.Fatalf("summary=%#v", summary)
+	}
+	router := legacyDevicePreviewRouter(t, true)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/nautilus-lcd-modern?view=display"))
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "Display mode") || strings.Contains(recorder.Body.String(), "lf-display-brightness") || strings.Contains(recorder.Body.String(), ">Lighting<") || strings.Contains(recorder.Body.String(), ">Cooling<") {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func TestAIOModernPreviewsUseInertLegacyLightingSummaries(t *testing.T) {
 	router := legacyDevicePreviewRouter(t, true)
 	for _, test := range []struct {
