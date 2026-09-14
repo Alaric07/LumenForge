@@ -18,6 +18,9 @@ type Channel struct {
 	Celsius         *float32
 	ContainsPump    bool
 	SelectedProfile string
+	// PumpModeOptions are device-owned pump selections. Unlike ProfileOptions,
+	// they must not be treated as temperature-profile curves.
+	PumpModeOptions []ProfileOption
 }
 
 // TemperatureProbe is read-only telemetry from a controller probe channel.

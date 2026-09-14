@@ -74,6 +74,37 @@ func TestModernDevicePreviewDebugGating(t *testing.T) {
 	}
 }
 
+func TestAIOModernPreviewsUseInertLegacyLightingSummaries(t *testing.T) {
+	router := legacyDevicePreviewRouter(t, true)
+	for _, test := range []struct {
+		key     string
+		product uint16
+		fans    int
+		modes   int
+	}{
+		{"elite-aio-modern", common.ProductTypeElite, 3, 3},
+		{"hydro-aio-modern", common.ProductTypeHydro, 1, 2},
+		{"platinum-aio-modern", common.ProductTypePlatinum, 3, 0},
+	} {
+		fixture, ok := modernDevicePreviewFixtureByKey(test.key)
+		if !ok || fixture.ProductType != test.product {
+			t.Fatalf("fixture %q = %#v", test.key, fixture)
+		}
+		summary := fixture.Build()
+		if summary == nil || !summary.LegacyLighting || summary.Lighting != nil || summary.Cooling == nil || len(summary.Cooling.Channels) != test.fans+1 || len(summary.Cooling.Channels[0].PumpModeOptions) != test.modes {
+			t.Fatalf("fixture %q summary = %#v", test.key, summary)
+		}
+		if devices.GetDevice(summary.Serial) != nil {
+			t.Fatalf("fixture %q registered hardware", test.key)
+		}
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/"+test.key+"?view=cooling"))
+		if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "Cooling") || !strings.Contains(recorder.Body.String(), "Pump") {
+			t.Fatalf("fixture %q render status=%d body=%s", test.key, recorder.Code, recorder.Body.String())
+		}
+	}
+}
+
 func TestPSUModernPreviewsRenderFixtureDataWithoutRegistration(t *testing.T) {
 	router := legacyDevicePreviewRouter(t, true)
 	for _, test := range []struct {

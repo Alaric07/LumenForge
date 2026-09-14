@@ -60,6 +60,7 @@ import (
 	"LumenForge/src/templates"
 	"net/http"
 	"sort"
+	"strconv"
 )
 
 const commanderDuoModernPreviewSerial = "preview-commander-duo-modern"
@@ -89,6 +90,15 @@ type modernDevicePreviewNavigation struct {
 }
 
 var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
+	{Key: "elite-aio-modern", Title: "iCUE H150i RGB ELITE", ProductType: common.ProductTypeElite, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: func() *devicesWorkspaceSummary {
+		return buildAIOModernPreview("iCUE H150i RGB ELITE", "preview-elite-aio-modern", "2.11.221", 3, []devicesCoolingProfileOptionSummary{{ID: "Quiet", Label: "Quiet"}, {ID: "Normal", Label: "Normal"}, {ID: "Performance", Label: "Performance"}}, true)
+	}},
+	{Key: "hydro-aio-modern", Title: "H115i HYDRO", ProductType: common.ProductTypeHydro, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: func() *devicesWorkspaceSummary {
+		return buildAIOModernPreview("H115i HYDRO", "preview-hydro-aio-modern", "1.9.14", 1, []devicesCoolingProfileOptionSummary{{ID: "Quiet", Label: "Quiet"}, {ID: "Performance", Label: "Performance"}}, false)
+	}},
+	{Key: "platinum-aio-modern", Title: "H150i PLATINUM", ProductType: common.ProductTypePlatinum, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: func() *devicesWorkspaceSummary {
+		return buildAIOModernPreview("H150i PLATINUM", "preview-platinum-aio-modern", "1.6.7", 3, nil, true)
+	}},
 	{Key: "scuf-envision-pro-wireless-modern", Title: "SCUF Envision Pro Wireless", ProductType: common.ProductTypeScufEnvisionProW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "controller", Label: "Controller"}, {ID: "assignments", Label: "Assignments"}, {ID: "analog", Label: "Analog"}}, Build: func() *devicesWorkspaceSummary {
 		return buildSCUFEnvisionProModernPreview("SCUF ENVISION PRO", "preview-scuf-envision-pro-wireless-modern", false)
 	}},
@@ -240,6 +250,21 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "katar-pro-modern", Title: "Katar Pro", ProductType: common.ProductTypeKatarPro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProModernPreview},
 	{Key: "katar-pro-xt-modern", Title: "Katar Pro XT", ProductType: common.ProductTypeKatarProXT, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProXTModernPreview},
 	{Key: "katar-pro-wireless-modern", Title: "KATAR PRO WIRELESS", ProductType: common.ProductTypeKatarProW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildKatarProWirelessModernPreview},
+}
+
+// buildAIOModernPreview is fixture-only presentation data; it does not
+// instantiate a device package, access persistence, or open hardware.
+func buildAIOModernPreview(product, serial, firmware string, fans int, pumpModes []devicesCoolingProfileOptionSummary, profiles bool) *devicesWorkspaceSummary {
+	cooling := &devicesCoolingWorkspaceSummary{ProfileOptions: []devicesCoolingProfileOptionSummary{{ID: "Quiet", Label: "Quiet"}, {ID: "Balanced", Label: "Balanced"}, {ID: "Performance", Label: "Performance"}}}
+	cooling.Channels = append(cooling.Channels, devicesCoolingChannelSummary{ID: 0, Name: "Pump", Label: "Pump", RPM: 2450, Temperature: "31.5°C", ContainsPump: true, SelectedProfile: "Performance", PumpModeOptions: pumpModes})
+	for fan := 1; fan <= fans; fan++ {
+		cooling.Channels = append(cooling.Channels, devicesCoolingChannelSummary{ID: fan, Name: "Fan " + strconv.Itoa(fan), Label: "Fan " + strconv.Itoa(fan), RPM: int16(1050 + fan*75), SelectedProfile: "Balanced"})
+	}
+	summary := &devicesWorkspaceSummary{Product: product, Serial: serial, Firmware: firmware, Image: "icon-cooler.svg", View: "overview", LegacyLighting: true, Cooling: cooling, OverviewCooling: devicesOverviewCoolingStatusFromSummary(cooling)}
+	if profiles {
+		summary.DeviceProfiles = &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "Quiet"}, CanSwitch: true, CanSave: true, CanDelete: true, ActiveProfile: "Default", Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription}
+	}
+	return summary
 }
 
 func buildSCUFEnvisionProModernPreview(product, serial string, usb bool) *devicesWorkspaceSummary {
