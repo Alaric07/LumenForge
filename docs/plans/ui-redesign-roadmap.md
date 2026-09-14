@@ -660,10 +660,34 @@ after every legitimate native consumer has migrated.
   canonical `static`, source-backed effects, existing Brightness and RGB Cluster
   mutations, and real-hardware validation. This combined migration is a
   deliberate exception, not a general workspace-to-Lighting migration rule.
-- [ ] Audit the remaining cooling, accessory, and miscellaneous packages for
-  legacy-only workspaces, then migrate only stragglers proven by that source
-  audit. Existing cooling/controller coverage is substantial, but universal
-  completion is not claimed until that audit is complete.
+- [x] Complete the shared Corsair PSU HID/Dongle Overview workspace with
+  telemetry, source-backed fan-mode control, and inert `psu-hid-modern` and
+  `psu-dongle-modern` previews (`2fa9bb62`). The PSU packages remain outside
+  canonical Lighting migration.
+- [x] Complete the known standalone cooling workspace targets without claiming
+  a broad cooling completion:
+  - Elite, Hydro, and Platinum AIOs provide modern Overview and Cooling from
+    source-backed pump/fan topology and controls; Elite and Platinum provide
+    Device Profiles, while Hydro intentionally omits them because its contract
+    is incomplete. Their inert `elite-aio-modern`, `hydro-aio-modern`, and
+    `platinum-aio-modern` previews and retained legacy Lighting are recorded in
+    `0c259e69`.
+  - Corsair ONE provides modern Overview, Cooling, source-backed pump modes,
+    Device Profiles, and the inert `corsair-one-modern` preview while retaining
+    legacy Lighting (`bcb68243`).
+  - The native `*motherboard.Device` provider provides modern Overview,
+    Cooling, dynamic fan/header topology, source-backed RPM/profile/header-mode
+    controls, Device Profiles, and the inert `motherboard-cooling-modern`
+    preview. Its capability/provider routing excludes OpenRGB-imported devices
+    that share `ProductTypeMotherboard`; the motherboard package remains outside
+    canonical Lighting migration (`06f81c90`).
+  These are workspace milestones only; they do not claim physical-hardware
+  validation or canonical Lighting migration.
+- [ ] The known standalone cooling targets are now covered, but a repository
+  inventory is still required to identify remaining accessory, display, and
+  miscellaneous legacy-workspace stragglers. Migrate only packages proven by
+  that source audit; universal workspace completion is not claimed until it is
+  complete.
 - [x] Complete Memory as a separate family-specific migration proof. Its
   multi-DIMM topology, indexed per-LED `led` mode, parent ownership/Brightness,
   and existing device profile semantics remain device-owned where appropriate
