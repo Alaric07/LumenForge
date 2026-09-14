@@ -146,6 +146,28 @@
     }
 
     function init(browser) {
+		const connected = browser.document.querySelector("[data-lf-connected-devices]");
+		if (connected && connected.dataset.lfConnectedDevices !== undefined && typeof browser.fetch === "function") {
+			connected.querySelectorAll("[data-lf-connected-device]").forEach(function (card) {
+				const channelId = Number(card.dataset.lfChannelId), status = card.querySelector("[data-lf-connected-status]"), adapter = card.querySelector("[data-lf-link-adapter]"), save = card.querySelector("[data-lf-commander-duo-save]");
+				const post = function (url, body) { return browser.fetch(url, {method: "POST", body: JSON.stringify(body)}).then(async function (response) { const result = response.ok ? await response.json() : null; if (!result || result.status !== 1) { throw new Error("connected device mutation rejected"); } }); };
+				if (adapter) { let confirmed = adapter.value; adapter.addEventListener("change", function () { const next = adapter.value; adapter.disabled = true; post("/api/hub/linkAdapter", {deviceId: connected.dataset.lfDeviceId, channelId: channelId, adapterId: Number(next)}).then(function () { confirmed = next; }).catch(function () { adapter.value = confirmed; if (status) { status.textContent = "Couldn’t save this adapter."; } }).finally(function () { adapter.disabled = false; }); }); }
+				if (save) {
+					const enabled = card.querySelector("[data-lf-commander-duo-enabled]"), leds = card.querySelector("[data-lf-commander-duo-leds]");
+					let confirmedEnabled = enabled.checked, confirmedLEDs = leds.value;
+					save.addEventListener("click", function () {
+						const nextEnabled = enabled.checked, nextLEDs = leds.value;
+						save.disabled = true;
+					return post("/api/color/override/update", {deviceId: connected.dataset.lfDeviceId, channelId: channelId, enabled: nextEnabled, ledChannels: Number(nextLEDs)}).then(function () {
+							confirmedEnabled = nextEnabled; confirmedLEDs = nextLEDs;
+						}).catch(function () {
+							enabled.checked = confirmedEnabled; leds.value = confirmedLEDs;
+							if (status) { status.textContent = "Couldn’t save this override."; }
+						}).finally(function () { save.disabled = false; });
+					});
+				}
+			});
+		}
         const workspace = browser.document.querySelector("[data-lf-cooling-workspace]");
         if (!workspace) { return; }
         Array.from(workspace.querySelectorAll("[data-lf-cooling-channel]")).forEach(function (row) { bindLabel(browser, workspace, row); bindChannel(browser, workspace, row); });

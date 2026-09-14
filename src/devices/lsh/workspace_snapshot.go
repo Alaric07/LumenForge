@@ -6,13 +6,89 @@ import (
 	"LumenForge/src/deviceprofilepresentation"
 	"LumenForge/src/devices/lcd"
 	"LumenForge/src/displaypresentation"
+	"LumenForge/src/linkpresentation"
 	"LumenForge/src/temperatures"
 	"sort"
+	"strconv"
 )
 
 var lshDisplayImages = lcd.GetLcdImages
 var lshDisplayImage = lcd.GetLcdImage
 var lshCoolingTemperatureProfiles = temperatures.GetTemperatureProfiles
+
+func (d *Device) ConnectedDevicesDeviceID() string {
+	if d == nil {
+		return ""
+	}
+	return d.Serial
+}
+
+// ConnectedDevicesSnapshot preserves LSH's persisted card order and exposes
+// only topology controls with complete existing mutation contracts.
+func (d *Device) ConnectedDevicesSnapshot() (linkpresentation.Snapshot, bool) {
+	if d == nil || d.DeviceProfile == nil || d.Serial == "" || len(d.Devices) == 0 {
+		return linkpresentation.Snapshot{}, false
+	}
+	positions := d.DeviceProfile.Positions
+	eligible := make(map[string]*Devices)
+	for _, device := range d.Devices {
+		if device == nil || device.IsVrmCooler || device.ChannelId < 0 || device.Name == "" || device.DeviceId == "" {
+			return linkpresentation.Snapshot{}, false
+		}
+		id := "item_" + strconv.Itoa(device.ChannelId)
+		if _, exists := eligible[id]; exists {
+			return linkpresentation.Snapshot{}, false
+		}
+		eligible[id] = device
+	}
+	if len(positions) != len(eligible) {
+		return linkpresentation.Snapshot{}, false
+	}
+	snapshot := linkpresentation.Snapshot{DeviceID: d.Serial}
+	for _, position := range positions {
+		device, ok := eligible[position]
+		if !ok {
+			return linkpresentation.Snapshot{}, false
+		}
+		delete(eligible, position)
+		out := linkpresentation.Device{ChannelID: device.ChannelId, Position: position, Name: device.Name, DeviceID: device.DeviceId, Description: device.Description, ContainsPump: device.ContainsPump, AIO: device.AIO, HasSpeed: device.HasSpeed, HasLCD: device.LCDSerial != "", TitanAIO: device.TitanAIO}
+		if device.IsLinkAdapter {
+			selected, ok := d.DeviceProfile.ExternalAdapter[device.ChannelId]
+			if !ok {
+				return linkpresentation.Snapshot{}, false
+			}
+			seen := map[int]struct{}{}
+			selectedFound := false
+			for _, adapter := range d.LinkAdapter {
+				if adapter.Index < 0 || adapter.Name == "" {
+					return linkpresentation.Snapshot{}, false
+				}
+				if _, duplicate := seen[adapter.Index]; duplicate {
+					return linkpresentation.Snapshot{}, false
+				}
+				seen[adapter.Index] = struct{}{}
+				out.AdapterOptions = append(out.AdapterOptions, linkpresentation.Option{ID: adapter.Index, Label: adapter.Name})
+				if adapter.Index == selected {
+					selectedFound = true
+				}
+			}
+			if len(out.AdapterOptions) == 0 || !selectedFound {
+				return linkpresentation.Snapshot{}, false
+			}
+			sort.Slice(out.AdapterOptions, func(i, j int) bool { return out.AdapterOptions[i].ID < out.AdapterOptions[j].ID })
+			out.SelectedAdapter = selected
+		}
+		if device.IsCommanderDuo {
+			override, ok := d.DeviceProfile.CommanderDuoOverride[device.ChannelId]
+			if !ok {
+				return linkpresentation.Snapshot{}, false
+			}
+			out.CommanderDuo = &linkpresentation.CommanderDuoOverride{Enabled: override.Enabled, LEDChannels: override.LedChannels}
+		}
+		snapshot.Devices = append(snapshot.Devices, out)
+	}
+	return snapshot, len(eligible) == 0
+}
 
 func (d *Device) DeviceProfileDeviceID() string {
 	if d == nil {

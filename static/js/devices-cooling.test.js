@@ -15,7 +15,7 @@ async function run() {
     const status = {textContent: ""};
     const row = {
         dataset: {lfChannelId: "1", lfConfirmedLabel: "Front", lfConfirmedProfile: "quiet"},
-        querySelector: function (selector) { return selector === "[data-lf-cooling-label]" ? label : selector === "[data-lf-cooling-label-display]" ? labelDisplay : selector === "[data-lf-cooling-profile]" ? profile : status; }
+        querySelector: function (selector) { return selector === "[data-lf-cooling-label]" ? label : selector === "[data-lf-cooling-label-display]" ? labelDisplay : selector === "[data-lf-cooling-profile]" ? profile : selector === "[data-lf-cooling-status]" ? status : null; }
     };
 	const probeLabel = control("Coolant"); probeLabel.hidden = true;
 	const probeDisplay = control("Coolant");
@@ -29,14 +29,32 @@ async function run() {
     const workspace = {dataset: {lfDeviceId: "ccxt-1"}, querySelectorAll: function (selector) { return selector === "[data-lf-cooling-channel]" ? [row] : selector === "[data-lf-cooling-probe]" ? [probeRow] : selector === "[data-lf-cooling-rpm]" ? [rpm] : [temperature]; }};
     const requests = [];
     const browser = {
-        document: {querySelector: function () { return workspace; }},
+		document: {querySelector: function (selector) { return selector === "[data-lf-cooling-workspace]" ? workspace : null; }},
         fetch: async function (url, options) { requests.push({url: url, body: options && JSON.parse(options.body)}); return {ok: true, json: async function () { return url.indexOf("/api/devices/") === 0 ? {device: {devices: {"1": {channelId: 1, rpm: 1200}, "2": {channelId: 2, temperatureString: "33.5°C"}}}} : {status: browser.failLabel && url === "/api/label" ? 0 : 1}; }}; },
 		setInterval: function (handler, delay) { browser.timer = {handler: handler, delay: delay}; return browser.timer; },
 		clearInterval: function (timer) { timer.cleared = true; },
         LumenForgeDevicesToast: function (message) { browser.toast = message; }
     };
 
-    cooling.init(browser);
+	cooling.init(browser);
+	const duoEnabled = control(""); duoEnabled.checked = false;
+	const duoLEDs = control("12");
+	const duoSave = control("");
+	const duoStatus = {textContent: ""};
+	const duoCard = {dataset: {lfChannelId: "6"}, querySelector: function (selector) { return selector === "[data-lf-commander-duo-enabled]" ? duoEnabled : selector === "[data-lf-commander-duo-leds]" ? duoLEDs : selector === "[data-lf-commander-duo-save]" ? duoSave : selector === "[data-lf-connected-status]" ? duoStatus : null; }};
+	const connected = {dataset: {lfConnectedDevices: "", lfDeviceId: "link-hub"}, querySelectorAll: function () { return [duoCard]; }};
+	const duoRequests = [];
+	const duoBrowser = {document: {querySelector: function (selector) { return selector === "[data-lf-connected-devices]" ? connected : null; }}, fetch: async function (url, options) { duoRequests.push({url: url, body: JSON.parse(options.body)}); return {ok: true, json: async function () { return {status: duoBrowser.reject ? 0 : 1}; }}; }};
+	cooling.init(duoBrowser);
+	duoEnabled.checked = true; duoLEDs.value = "18";
+	await duoSave.listeners.click();
+	assert.deepStrictEqual(duoRequests[0], {url: "/api/color/override/update", body: {deviceId: "link-hub", channelId: 6, enabled: true, ledChannels: 18}});
+	assert.strictEqual(duoEnabled.checked, true);
+	assert.strictEqual(duoLEDs.value, "18");
+	duoEnabled.checked = false; duoLEDs.value = "3"; duoBrowser.reject = true;
+	await duoSave.listeners.click();
+	assert.strictEqual(duoEnabled.checked, true);
+	assert.strictEqual(duoLEDs.value, "18");
     profile.value = "balanced";
     await profile.listeners.change();
 	assert.strictEqual(label.hidden, true);

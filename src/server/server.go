@@ -34,6 +34,7 @@ import (
 	"LumenForge/src/lifecycle"
 	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/lightingsettings"
+	"LumenForge/src/linkpresentation"
 	"LumenForge/src/localnetwork"
 	"LumenForge/src/logger"
 	"LumenForge/src/macro"
@@ -2787,6 +2788,7 @@ type devicesWorkspaceSummary struct {
 	KeyActuation        *devicesKeyActuationWorkspaceSummary
 	FlashTap            *devicesFlashTapWorkspaceSummary
 	RGBTopology         *devicesRGBTopologyWorkspaceSummary
+	ConnectedDevices    *devicesConnectedDevicesWorkspaceSummary
 	LegacyLighting      bool
 	View                string
 }
@@ -2971,6 +2973,29 @@ type devicesLightingSnapshotProvider interface {
 type devicesRGBTopologySnapshotProvider interface {
 	RGBTopologyDeviceID() string
 	RGBTopologySnapshot() (rgbtopologypresentation.Snapshot, bool)
+}
+type devicesConnectedDevicesSnapshotProvider interface {
+	ConnectedDevicesDeviceID() string
+	ConnectedDevicesSnapshot() (linkpresentation.Snapshot, bool)
+}
+type devicesConnectedDeviceOptionSummary struct {
+	ID    int
+	Label string
+}
+type devicesConnectedDeviceCommanderDuoSummary struct {
+	Enabled     bool
+	LEDChannels uint8
+}
+type devicesConnectedDeviceSummary struct {
+	ChannelID                                     int
+	Position, Name, DeviceID, Description         string
+	ContainsPump, AIO, HasSpeed, HasLCD, TitanAIO bool
+	AdapterOptions                                []devicesConnectedDeviceOptionSummary
+	SelectedAdapter                               int
+	CommanderDuo                                  *devicesConnectedDeviceCommanderDuoSummary
+}
+type devicesConnectedDevicesWorkspaceSummary struct {
+	Devices []devicesConnectedDeviceSummary
 }
 
 type devicesRGBTopologyOptionSummary struct {
@@ -4622,6 +4647,11 @@ func devicesWorkspaceSummaryForSerial(
 			summary.RGBTopology = devicesRGBTopologyWorkspaceSummaryFromSnapshot(snapshot)
 		}
 	}
+	if connectedDevice, ok := device.Instance.(devicesConnectedDevicesSnapshotProvider); ok && connectedDevice != nil && connectedDevice.ConnectedDevicesDeviceID() == serial {
+		if snapshot, usable := connectedDevice.ConnectedDevicesSnapshot(); usable && snapshot.DeviceID == serial {
+			summary.ConnectedDevices = devicesConnectedDevicesWorkspaceSummaryFromSnapshot(snapshot)
+		}
+	}
 	if dpiDevice, ok := device.Instance.(devicesDPISnapshotProvider); ok &&
 		dpiDevice != nil && dpiDevice.DPIDeviceID() == serial {
 		if dpiSnapshot, usable := dpiDevice.DPISnapshot(); usable {
@@ -4817,6 +4847,50 @@ func devicesRGBTopologyWorkspaceSummaryFromSnapshot(snapshot rgbtopologypresenta
 	return summary
 }
 
+func devicesConnectedDevicesWorkspaceSummaryFromSnapshot(snapshot linkpresentation.Snapshot) *devicesConnectedDevicesWorkspaceSummary {
+	if snapshot.DeviceID == "" || len(snapshot.Devices) == 0 {
+		return nil
+	}
+	summary := &devicesConnectedDevicesWorkspaceSummary{Devices: make([]devicesConnectedDeviceSummary, 0, len(snapshot.Devices))}
+	seenChannels, seenPositions := map[int]struct{}{}, map[string]struct{}{}
+	for _, device := range snapshot.Devices {
+		if device.ChannelID < 0 || device.Position == "" || device.Name == "" || device.DeviceID == "" {
+			return nil
+		}
+		if _, ok := seenChannels[device.ChannelID]; ok {
+			return nil
+		}
+		if _, ok := seenPositions[device.Position]; ok {
+			return nil
+		}
+		seenChannels[device.ChannelID] = struct{}{}
+		seenPositions[device.Position] = struct{}{}
+		out := devicesConnectedDeviceSummary{ChannelID: device.ChannelID, Position: device.Position, Name: device.Name, DeviceID: device.DeviceID, Description: device.Description, ContainsPump: device.ContainsPump, AIO: device.AIO, HasSpeed: device.HasSpeed, HasLCD: device.HasLCD, TitanAIO: device.TitanAIO, SelectedAdapter: device.SelectedAdapter}
+		if len(device.AdapterOptions) > 0 {
+			selected := false
+			previous := -1
+			for _, option := range device.AdapterOptions {
+				if option.ID < 0 || option.ID <= previous || option.Label == "" {
+					return nil
+				}
+				previous = option.ID
+				if option.ID == device.SelectedAdapter {
+					selected = true
+				}
+				out.AdapterOptions = append(out.AdapterOptions, devicesConnectedDeviceOptionSummary{ID: option.ID, Label: option.Label})
+			}
+			if !selected {
+				return nil
+			}
+		}
+		if device.CommanderDuo != nil {
+			out.CommanderDuo = &devicesConnectedDeviceCommanderDuoSummary{Enabled: device.CommanderDuo.Enabled, LEDChannels: device.CommanderDuo.LEDChannels}
+		}
+		summary.Devices = append(summary.Devices, out)
+	}
+	return summary
+}
+
 func rgbTopologyOptionsSummary(options []rgbtopologypresentation.Option, selected int) ([]devicesRGBTopologyOptionSummary, bool) {
 	out := make([]devicesRGBTopologyOptionSummary, 0, len(options))
 	selectedFound := false
@@ -4842,6 +4916,10 @@ func devicesWorkspaceView(views []string, device *devicesWorkspaceSummary) strin
 	case "lighting-setup":
 		if device.RGBTopology != nil {
 			return "lighting-setup"
+		}
+	case "connected-devices":
+		if device.ConnectedDevices != nil {
+			return "connected-devices"
 		}
 	case "lighting":
 		if device.Lighting != nil || device.LegacyLighting || device.Memory != nil {
