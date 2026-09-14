@@ -4,6 +4,7 @@ import (
 	"LumenForge/src/common"
 	"LumenForge/src/devices"
 	"LumenForge/src/devices/cduo"
+	"LumenForge/src/devices/cone"
 	"LumenForge/src/devices/cpro"
 	"LumenForge/src/devices/scufenvisionproV2W"
 	"LumenForge/src/devices/scufenvisionproV2WU"
@@ -18,6 +19,7 @@ import (
 	"LumenForge/src/server/requests"
 	"LumenForge/src/stats"
 	"LumenForge/src/temperatures"
+	"LumenForge/src/templates"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -47,6 +49,31 @@ func TestCommanderDuoWorkspaceSummaryUsesModernCoolingAndProfiles(t *testing.T) 
 	}
 	if summary.DeviceProfiles.ActiveProfile != "Default" || summary.DeviceProfiles.Description != devicesCCXTDeviceProfileDescription {
 		t.Fatalf("profiles = %#v", summary.DeviceProfiles)
+	}
+}
+
+func TestCorsairOneWorkspaceSummaryUsesModernCoolingProfilesAndLegacyLighting(t *testing.T) {
+	initializeLegacyDevicePreviewTestProcess(t)
+	temperatures.Init()
+	const serial = "corsair-one-modern-workspace"
+	instance := &cone.Device{Serial: serial, Firmware: "1.2.3", DeviceProfile: &cone.DeviceProfile{}, UserProfiles: map[string]*cone.DeviceProfile{"Default": {Active: true}, "Gaming": {}}, Devices: map[int]*cone.Devices{
+		0: {ChannelId: 0, Name: "Pump", Label: "Liquid pump", Rpm: 2400, Temperature: 32, TemperatureString: "32.0°C", Profile: "Performance", HasSpeed: true, HasTemps: true, ContainsPump: true, PumpModes: map[byte]string{0: "Quiet", 1: "Normal", 2: "Performance"}},
+		1: {ChannelId: 1, Name: "Fan 1", Label: "Rear fan", Rpm: 1100, Profile: "Balanced", HasSpeed: true},
+	}}
+	device := &common.Device{Serial: serial, Product: "CORSAIR ONE", Firmware: "1.2.3", ProductType: common.ProductTypeCorsairOne, Instance: instance}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: device}, map[string]stats.BatteryStats{}, serial)
+	if !ok || summary.Cooling == nil || summary.DeviceProfiles == nil || !summary.LegacyLighting || summary.Lighting != nil {
+		t.Fatalf("summary = %#v, ok=%t", summary, ok)
+	}
+	if len(summary.Cooling.Channels) != 2 || summary.Cooling.Channels[0].ID != 0 || !summary.Cooling.Channels[0].ContainsPump || summary.Cooling.Channels[1].ID != 1 || summary.Cooling.Channels[1].ContainsPump {
+		t.Fatalf("cooling = %#v", summary.Cooling)
+	}
+	var rendered strings.Builder
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: device}, Device: summary, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatalf("Devices template = %v", err)
+	}
+	if body := rendered.String(); !strings.Contains(body, "Cooling Status") || !strings.Contains(body, "Liquid pump") || !strings.Contains(body, "Rear fan") || !strings.Contains(body, "Device Profile") {
+		t.Fatalf("Devices markup = %q", body)
 	}
 }
 
@@ -82,6 +109,7 @@ func TestAIOModernPreviewsUseInertLegacyLightingSummaries(t *testing.T) {
 		fans    int
 		modes   int
 	}{
+		{"corsair-one-modern", common.ProductTypeCorsairOne, 1, 3},
 		{"elite-aio-modern", common.ProductTypeElite, 3, 3},
 		{"hydro-aio-modern", common.ProductTypeHydro, 1, 2},
 		{"platinum-aio-modern", common.ProductTypePlatinum, 3, 0},

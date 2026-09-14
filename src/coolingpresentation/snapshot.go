@@ -10,7 +10,11 @@ type ProfileOption struct {
 
 // Channel is a speed-capable controller channel.
 type Channel struct {
+	// ID is the existing controller mutation and telemetry key. SourceID, when
+	// populated, retains a device's physical/source channel identity when that
+	// differs from its long-standing controller key.
 	ID              int
+	SourceID        int
 	Name            string
 	Label           string
 	RPM             int16

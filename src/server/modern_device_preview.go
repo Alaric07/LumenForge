@@ -90,6 +90,7 @@ type modernDevicePreviewNavigation struct {
 }
 
 var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
+	{Key: "corsair-one-modern", Title: "CORSAIR ONE", ProductType: common.ProductTypeCorsairOne, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: buildCorsairOneModernPreview},
 	{Key: "elite-aio-modern", Title: "iCUE H150i RGB ELITE", ProductType: common.ProductTypeElite, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: func() *devicesWorkspaceSummary {
 		return buildAIOModernPreview("iCUE H150i RGB ELITE", "preview-elite-aio-modern", "2.11.221", 3, []devicesCoolingProfileOptionSummary{{ID: "Quiet", Label: "Quiet"}, {ID: "Normal", Label: "Normal"}, {ID: "Performance", Label: "Performance"}}, true)
 	}},
@@ -265,6 +266,16 @@ func buildAIOModernPreview(product, serial, firmware string, fans int, pumpModes
 		summary.DeviceProfiles = &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "Quiet"}, CanSwitch: true, CanSave: true, CanDelete: true, ActiveProfile: "Default", Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription}
 	}
 	return summary
+}
+
+// buildCorsairOneModernPreview is inert, manually constructed presentation
+// data. It deliberately does not instantiate the Corsair ONE package.
+func buildCorsairOneModernPreview() *devicesWorkspaceSummary {
+	cooling := &devicesCoolingWorkspaceSummary{ProfileOptions: []devicesCoolingProfileOptionSummary{{ID: "Balanced", Label: "Balanced"}, {ID: "Performance", Label: "Performance"}, {ID: "Quiet", Label: "Quiet"}}, Channels: []devicesCoolingChannelSummary{
+		{ID: 0, Name: "Pump", Label: "Pump", RPM: 2400, Temperature: "32.0°C", ContainsPump: true, SelectedProfile: "Performance", PumpModeOptions: []devicesCoolingProfileOptionSummary{{ID: "Quiet", Label: "Quiet"}, {ID: "Normal", Label: "Normal"}, {ID: "Performance", Label: "Performance"}}},
+		{ID: 1, Name: "Fan 1", Label: "Fan 1", RPM: 1100, SelectedProfile: "Balanced"},
+	}}
+	return &devicesWorkspaceSummary{Product: "CORSAIR ONE", Serial: "preview-corsair-one-modern", Firmware: "1.2.3", Image: "icon-radiator.svg", View: "overview", LegacyLighting: true, Cooling: cooling, OverviewCooling: devicesOverviewCoolingStatusFromSummary(cooling), DeviceProfiles: &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "Gaming"}, ActiveProfile: "Default", CanSwitch: true, CanSave: true, CanDelete: true, Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription}}
 }
 
 func buildSCUFEnvisionProModernPreview(product, serial string, usb bool) *devicesWorkspaceSummary {
