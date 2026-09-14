@@ -24,6 +24,7 @@ import (
 	"LumenForge/src/templates"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -489,6 +490,40 @@ func TestVirtuosoModernPreviewsRenderOnlySourceBackedCapabilities(t *testing.T) 
 		if strings.Contains(body, "Sleep Timer") != test.sleep || strings.Contains(body, "Sidetone") || strings.Contains(body, "Active Noise Cancellation") || strings.Contains(body, "Scroll Press") || !strings.Contains(body, `type="range" min="-12" max="12" step="1"`) {
 			t.Fatalf("%s rendered unexpected headset controls", test.key)
 		}
+	}
+}
+
+func TestMM700ModernPreviewIsInertAndRetainsLegacyLighting(t *testing.T) {
+	const serial = "preview-mm700-modern"
+	fixture, ok := modernDevicePreviewFixtureByKey("mm700-modern")
+	if !ok || fixture.ProductType != common.ProductTypeMM700 || len(fixture.Views) != 2 {
+		t.Fatalf("fixture = %#v, ok=%t", fixture, ok)
+	}
+	if devices.GetDevice(serial) != nil {
+		t.Fatal("MM700 preview registered a device")
+	}
+	summary := fixture.Build()
+	if summary == nil || summary.Product != "MM700 RGB" || summary.Serial != serial || summary.Firmware != "1.0.0" || !summary.LegacyLighting || summary.Lighting != nil || summary.DeviceProfiles == nil || summary.DeviceProfiles.Scope != "lighting" || summary.DeviceProfiles.ActiveProfile != "default" || !summary.DeviceProfiles.CanSwitch || !summary.DeviceProfiles.CanSave || !summary.DeviceProfiles.CanDelete {
+		t.Fatalf("summary = %#v", summary)
+	}
+	if want := []string{"default", "studio"}; !reflect.DeepEqual(summary.DeviceProfiles.Profiles, want) {
+		t.Fatalf("profiles = %#v, want %#v", summary.DeviceProfiles.Profiles, want)
+	}
+
+	router := legacyDevicePreviewRouter(t, true)
+	for _, path := range []string{"/dev/device-preview/mm700-modern", "/dev/device-preview/mm700-modern?view=lighting"} {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, path))
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("%s status=%d: %s", path, recorder.Code, recorder.Body.String())
+		}
+		body := recorder.Body.String()
+		if !strings.Contains(body, "MM700 RGB") || !strings.Contains(body, "Lighting") || strings.Contains(body, "data-lf-authored-zone-control") || strings.Contains(body, "data-lf-lighting-workspace") {
+			t.Fatalf("%s rendered unexpected MM700 controls", path)
+		}
+	}
+	if devices.GetDevice(serial) != nil {
+		t.Fatal("MM700 preview registered a device after rendering")
 	}
 }
 

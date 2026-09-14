@@ -40,6 +40,7 @@ import (
 	"LumenForge/src/devices/k95platinumXT"
 	"LumenForge/src/devices/makr75W"
 	"LumenForge/src/devices/makr75WU"
+	"LumenForge/src/devices/mm700"
 	"LumenForge/src/devices/strafergbmk2"
 	"LumenForge/src/devices/vanguard96"
 	"LumenForge/src/devices/vanguard96W"
@@ -92,6 +93,7 @@ type modernDevicePreviewNavigation struct {
 var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "motherboard-cooling-modern", Title: "ROG STRIX X670E-E GAMING WIFI", ProductType: common.ProductTypeMotherboard, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "cooling", Label: "Cooling"}}, Build: buildMotherboardCoolingModernPreview},
 	{Key: "corsair-one-modern", Title: "CORSAIR ONE", ProductType: common.ProductTypeCorsairOne, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: buildCorsairOneModernPreview},
+	{Key: "mm700-modern", Title: "MM700 RGB", ProductType: common.ProductTypeMM700, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildMM700ModernPreview},
 	{Key: "elite-aio-modern", Title: "iCUE H150i RGB ELITE", ProductType: common.ProductTypeElite, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: func() *devicesWorkspaceSummary {
 		return buildAIOModernPreview("iCUE H150i RGB ELITE", "preview-elite-aio-modern", "2.11.221", 3, []devicesCoolingProfileOptionSummary{{ID: "Quiet", Label: "Quiet"}, {ID: "Normal", Label: "Normal"}, {ID: "Performance", Label: "Performance"}}, true)
 	}},
@@ -294,6 +296,16 @@ func buildCorsairOneModernPreview() *devicesWorkspaceSummary {
 		{ID: 1, Name: "Fan 1", Label: "Fan 1", RPM: 1100, SelectedProfile: "Balanced"},
 	}}
 	return &devicesWorkspaceSummary{Product: "CORSAIR ONE", Serial: "preview-corsair-one-modern", Firmware: "1.2.3", Image: "icon-radiator.svg", View: "overview", LegacyLighting: true, Cooling: cooling, OverviewCooling: devicesOverviewCoolingStatusFromSummary(cooling), DeviceProfiles: &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "Gaming"}, ActiveProfile: "Default", CanSwitch: true, CanSave: true, CanDelete: true, Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription}}
+}
+
+func buildMM700ModernPreview() *devicesWorkspaceSummary {
+	const serial = "preview-mm700-modern"
+	device := &mm700.Device{Serial: serial, UserProfiles: map[string]*mm700.DeviceProfile{
+		"default": {Active: true},
+		"studio":  {Active: false},
+	}}
+	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "MM700 RGB", Firmware: "1.0.0", ProductType: common.ProductTypeMM700, Image: "icon-mousepad.svg", Instance: device}}, map[string]stats.BatteryStats{}, serial)
+	return summary
 }
 
 func buildSCUFEnvisionProModernPreview(product, serial string, usb bool) *devicesWorkspaceSummary {

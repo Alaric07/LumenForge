@@ -1066,7 +1066,7 @@
                                 </section>
                             {{ end }}
 
-                            {{ with .Device.DeviceProfiles }}{{ if eq .Scope "device" }}{{ template "lf-device-profile-panel" $ }}{{ end }}{{ end }}
+                            {{ with .Device.DeviceProfiles }}{{ if or (eq .Scope "device") (and (eq .Scope "lighting") (not $.Device.Lighting)) }}{{ template "lf-device-profile-panel" $ }}{{ end }}{{ end }}
                             {{ with .Device.Headset }}
                                 <section class="lf-overview-panel" data-lf-headset-workspace data-lf-device-id="{{ $.Device.Serial }}">
                                     <header class="lf-overview-panel-header"><div><p class="lf-section-kicker">Audio configuration</p><h2>Equalizer</h2></div></header>

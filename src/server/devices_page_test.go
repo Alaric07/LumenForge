@@ -6,6 +6,7 @@ import (
 	"LumenForge/src/coolingpresentation"
 	"LumenForge/src/deviceprofilepresentation"
 	"LumenForge/src/devices"
+	"LumenForge/src/devices/mm700"
 	"LumenForge/src/devices/openrgbimport"
 	"LumenForge/src/displaypresentation"
 	"LumenForge/src/dpipresentation"
@@ -29,6 +30,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -990,6 +992,56 @@ func TestDevicesLightingProfilePresentation(t *testing.T) {
 	}
 	if strings.Contains(rendered.String(), "data-lf-device-profiles-workspace") {
 		t.Fatal("OpenRGB presentation gained a profile panel")
+	}
+}
+
+func TestMM700WorkspaceRetainsLegacyLightingAndUsesLightingProfiles(t *testing.T) {
+	const serial = "mm700-lighting-profile"
+	instance := &mm700.Device{Serial: serial, UserProfiles: map[string]*mm700.DeviceProfile{
+		"studio":  {Active: false},
+		"default": {Active: true},
+	}}
+	device := &common.Device{Serial: serial, Product: "MM700 RGB", Firmware: "1.0.0", ProductType: common.ProductTypeMM700, Instance: instance}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: device}, map[string]stats.BatteryStats{}, serial)
+	if !ok || !summary.LegacyLighting || summary.Lighting != nil || summary.DeviceProfiles == nil {
+		t.Fatalf("summary = %#v, ok=%t", summary, ok)
+	}
+	profiles := summary.DeviceProfiles
+	if profiles.Scope != deviceprofilepresentation.ScopeLighting || profiles.Label != "Lighting Profile" || profiles.Description != devicesLightingProfileDescription || profiles.ActiveProfile != "default" || !profiles.CanSwitch || !profiles.CanSave || !profiles.CanDelete {
+		t.Fatalf("profiles = %#v", profiles)
+	}
+	if want := []string{"default", "studio"}; !reflect.DeepEqual(profiles.Profiles, want) {
+		t.Fatalf("profiles = %#v, want %#v", profiles.Profiles, want)
+	}
+
+	var rendered bytes.Buffer
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: device}, Device: summary, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
+	body := rendered.String()
+	for _, expected := range []string{"Lighting Profile", devicesLightingProfileDescription, "Active Lighting Profile", "Save Lighting Profile As", "Overview", "Lighting"} {
+		if !strings.Contains(body, expected) {
+			t.Errorf("missing %q", expected)
+		}
+	}
+	if strings.Contains(body, "data-lf-authored-zone-control") || strings.Contains(body, "data-lf-lighting-workspace") {
+		t.Fatal("MM700 overview exposed canonical lighting controls")
+	}
+
+	summary.View = devicesWorkspaceView([]string{"lighting"}, summary)
+	rendered.Reset()
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: device}, Device: summary, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
+	body = rendered.String()
+	if !strings.Contains(body, "Native Lighting migration is not complete") || strings.Contains(body, "data-lf-authored-zone-control") || strings.Contains(body, "data-lf-lighting-workspace") {
+		t.Fatalf("MM700 lighting markup = %q", body)
+	}
+
+	unrelated := &common.Device{Serial: "mm800-unrelated", Product: "MM800", ProductType: common.ProductTypeMM800}
+	unrelatedSummary, unrelatedOK := devicesWorkspaceSummaryForSerial(map[string]*common.Device{unrelated.Serial: unrelated}, nil, unrelated.Serial)
+	if !unrelatedOK || unrelatedSummary.LegacyLighting || unrelatedSummary.DeviceProfiles != nil || unrelatedSummary.Lighting != nil {
+		t.Fatalf("unrelated summary = %#v, ok=%t", unrelatedSummary, unrelatedOK)
 	}
 }
 
