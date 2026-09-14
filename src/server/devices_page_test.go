@@ -6,6 +6,7 @@ import (
 	"LumenForge/src/coolingpresentation"
 	"LumenForge/src/deviceprofilepresentation"
 	"LumenForge/src/devices"
+	"LumenForge/src/devices/lt100"
 	"LumenForge/src/devices/mm700"
 	"LumenForge/src/devices/openrgbimport"
 	"LumenForge/src/displaypresentation"
@@ -1042,6 +1043,40 @@ func TestMM700WorkspaceRetainsLegacyLightingAndUsesLightingProfiles(t *testing.T
 	unrelatedSummary, unrelatedOK := devicesWorkspaceSummaryForSerial(map[string]*common.Device{unrelated.Serial: unrelated}, nil, unrelated.Serial)
 	if !unrelatedOK || unrelatedSummary.LegacyLighting || unrelatedSummary.DeviceProfiles != nil || unrelatedSummary.Lighting != nil {
 		t.Fatalf("unrelated summary = %#v, ok=%t", unrelatedSummary, unrelatedOK)
+	}
+}
+
+func TestLT100WorkspaceRetainsLegacyLightingAndUsesLightingProfiles(t *testing.T) {
+	const serial = "lt100-lighting-profile"
+	instance := &lt100.Device{Serial: serial, UserProfiles: map[string]*lt100.DeviceProfile{
+		"studio":  {Active: false},
+		"default": {Active: true},
+	}}
+	device := &common.Device{Serial: serial, Product: "LT100 RGB", Firmware: "1.2.3", ProductType: common.ProductTypeLT100, Instance: instance}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: device}, map[string]stats.BatteryStats{}, serial)
+	if !ok || !summary.LegacyLighting || summary.Lighting != nil || summary.RGBTopology != nil || summary.DeviceProfiles == nil {
+		t.Fatalf("summary = %#v, ok=%t", summary, ok)
+	}
+	profiles := summary.DeviceProfiles
+	if profiles.Scope != deviceprofilepresentation.ScopeLighting || profiles.Label != "Lighting Profile" || profiles.Description != devicesLightingProfileDescription || profiles.ActiveProfile != "default" || !profiles.CanSwitch || !profiles.CanSave || !profiles.CanDelete {
+		t.Fatalf("profiles = %#v", profiles)
+	}
+	if want := []string{"default", "studio"}; !reflect.DeepEqual(profiles.Profiles, want) {
+		t.Fatalf("profiles = %#v, want %#v", profiles.Profiles, want)
+	}
+
+	var rendered bytes.Buffer
+	if err := templates.GetTemplate().ExecuteTemplate(&rendered, "devices.html", templates.Web{Devices: map[string]*common.Device{serial: device}, Device: summary, BatteryStats: map[string]stats.BatteryStats{}, Page: "devices"}); err != nil {
+		t.Fatal(err)
+	}
+	body := rendered.String()
+	for _, expected := range []string{"Lighting Profile", devicesLightingProfileDescription, "Active Lighting Profile", "Save Lighting Profile As", "Overview", "Lighting"} {
+		if !strings.Contains(body, expected) {
+			t.Errorf("missing %q", expected)
+		}
+	}
+	if strings.Contains(body, "data-lf-authored-zone-control") || strings.Contains(body, "data-lf-lighting-workspace") || strings.Contains(body, "Lighting Setup") {
+		t.Fatal("LT100 overview exposed unsupported lighting controls")
 	}
 }
 

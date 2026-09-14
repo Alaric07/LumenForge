@@ -527,6 +527,40 @@ func TestMM700ModernPreviewIsInertAndRetainsLegacyLighting(t *testing.T) {
 	}
 }
 
+func TestLT100ModernPreviewIsInertAndRetainsLegacyLighting(t *testing.T) {
+	const serial = "preview-lt100-modern"
+	fixture, ok := modernDevicePreviewFixtureByKey("lt100-modern")
+	if !ok || fixture.ProductType != common.ProductTypeLT100 || len(fixture.Views) != 2 {
+		t.Fatalf("fixture = %#v, ok=%t", fixture, ok)
+	}
+	if devices.GetDevice(serial) != nil {
+		t.Fatal("LT100 preview registered a device")
+	}
+	summary := fixture.Build()
+	if summary == nil || summary.Product != "LT100 RGB" || summary.Serial != serial || summary.Firmware != "1.2.3" || !summary.LegacyLighting || summary.Lighting != nil || summary.RGBTopology != nil || summary.DeviceProfiles == nil || summary.DeviceProfiles.Scope != "lighting" || summary.DeviceProfiles.ActiveProfile != "default" || !summary.DeviceProfiles.CanSwitch || !summary.DeviceProfiles.CanSave || !summary.DeviceProfiles.CanDelete {
+		t.Fatalf("summary = %#v", summary)
+	}
+	if want := []string{"default", "studio"}; !reflect.DeepEqual(summary.DeviceProfiles.Profiles, want) {
+		t.Fatalf("profiles = %#v, want %#v", summary.DeviceProfiles.Profiles, want)
+	}
+
+	router := legacyDevicePreviewRouter(t, true)
+	for _, path := range []string{"/dev/device-preview/lt100-modern", "/dev/device-preview/lt100-modern?view=lighting"} {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, path))
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("%s status=%d: %s", path, recorder.Code, recorder.Body.String())
+		}
+		body := recorder.Body.String()
+		if !strings.Contains(body, "LT100 RGB") || !strings.Contains(body, "Lighting") || strings.Contains(body, "Lighting Setup") || strings.Contains(body, "data-lf-authored-zone-control") || strings.Contains(body, "data-lf-lighting-workspace") {
+			t.Fatalf("%s rendered unexpected LT100 controls", path)
+		}
+	}
+	if devices.GetDevice(serial) != nil {
+		t.Fatal("LT100 preview registered a device after rendering")
+	}
+}
+
 func TestVirtuosoSEWorkspaceSummariesUseSourceBackedCapabilities(t *testing.T) {
 	labels := []string{"32", "64", "125", "250", "500", "1K", "2K", "4K", "8K", "16K"}
 	wProfile := &virtuosoSEW.DeviceProfile{Equalizers: map[int]virtuosoSEW.Equalizer{}, SleepMode: 15}
