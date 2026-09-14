@@ -41,6 +41,19 @@ import (
 
 const devicesPageHelperEnvironment = "LUMENFORGE_DEVICES_PAGE_TEST_HELPER"
 
+func TestNEXUSScreenUsesExistingLcdProfileRoute(t *testing.T) {
+	source, err := os.ReadFile("server.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(source), `handleFunc(r, "/api/lcd/profile", http.MethodPost, setDeviceLcdProfile)`) {
+		t.Fatal("existing LCD profile route is not registered")
+	}
+	if strings.Contains(string(source), `"/api/devices/screen"`) {
+		t.Fatal("retired NEXUS screen route remains registered")
+	}
+}
+
 func TestOpenRGBMotherboardDoesNotInheritNativeCoolingOrProfiles(t *testing.T) {
 	const serial = "openrgb-motherboard"
 	instance := &openrgbimport.Device{Serial: serial, Product: "Imported Motherboard", IsOpenRGB: true, RGBModes: []string{"static"}, DeviceProfile: &openrgbimport.DeviceProfile{Active: true}}

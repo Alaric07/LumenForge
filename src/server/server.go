@@ -47,6 +47,7 @@ import (
 	"LumenForge/src/rgb"
 	"LumenForge/src/rgbtopologypresentation"
 	"LumenForge/src/scheduler"
+	"LumenForge/src/screenpresentation"
 	"LumenForge/src/server/requests"
 	"LumenForge/src/sleeptimerpresentation"
 	"LumenForge/src/stats"
@@ -2771,6 +2772,7 @@ type devicesWorkspaceSummary struct {
 	DeviceProfiles      *devicesDeviceProfileWorkspaceSummary
 	Cooling             *devicesCoolingWorkspaceSummary
 	Display             *devicesDisplayWorkspaceSummary
+	Screen              *devicesScreenWorkspaceSummary
 	Memory              *devicesMemoryWorkspaceSummary
 	MouseGestures       *devicesMouseGesturesWorkspaceSummary
 	OverviewCooling     *devicesOverviewCoolingStatusSummary
@@ -3064,6 +3066,11 @@ type devicesDisplaySnapshotProvider interface {
 	DisplaySnapshot() (displaypresentation.Snapshot, bool)
 }
 
+type devicesScreenSnapshotProvider interface {
+	ScreenDeviceID() string
+	ScreenSnapshot() (screenpresentation.Snapshot, bool)
+}
+
 type devicesTelemetrySnapshotProvider interface {
 	TelemetryDeviceID() string
 	TelemetrySnapshot() (telemetrypresentation.Snapshot, bool)
@@ -3202,6 +3209,16 @@ type devicesDisplayWorkspaceSummary struct {
 	ImageModeID      int
 }
 
+type devicesScreenOptionSummary struct {
+	ID       string
+	Label    string
+	Selected bool
+}
+
+type devicesScreenWorkspaceSummary struct {
+	Options []devicesScreenOptionSummary
+}
+
 const (
 	devicesKeyboardDeviceProfileDescription      = "Saves the complete keyboard configuration, including settings, lockouts, colors, assignments, and presets."
 	devicesScimitarEliteDeviceProfileDescription = "Saves the complete mouse configuration, including performance, DPI, assignments, and lighting."
@@ -3296,6 +3313,30 @@ func devicesDisplayWorkspaceSummaryFromSnapshot(snapshot displaypresentation.Sna
 			return nil
 		}
 		summary.Images = append(summary.Images, devicesDisplayImageSummary{Name: image.Name, Selected: image.Selected})
+	}
+	return summary
+}
+
+func devicesScreenWorkspaceSummaryFromSnapshot(snapshot screenpresentation.Snapshot) *devicesScreenWorkspaceSummary {
+	if !snapshot.Available || snapshot.Selected == "" || len(snapshot.Options) == 0 {
+		return nil
+	}
+	summary := &devicesScreenWorkspaceSummary{Options: make([]devicesScreenOptionSummary, 0, len(snapshot.Options))}
+	selected := 0
+	for _, option := range snapshot.Options {
+		if option.ID == "" || option.Label == "" {
+			return nil
+		}
+		if option.Selected {
+			selected++
+			if option.ID != snapshot.Selected {
+				return nil
+			}
+		}
+		summary.Options = append(summary.Options, devicesScreenOptionSummary{ID: option.ID, Label: option.Label, Selected: option.Selected})
+	}
+	if selected != 1 {
+		return nil
 	}
 	return summary
 }
@@ -4609,6 +4650,12 @@ func devicesWorkspaceSummaryForSerial(
 			summary.Display = devicesDisplayWorkspaceSummaryFromSnapshot(snapshot)
 		}
 	}
+	if screenDevice, ok := device.Instance.(devicesScreenSnapshotProvider); ok &&
+		screenDevice != nil && screenDevice.ScreenDeviceID() == serial {
+		if snapshot, usable := screenDevice.ScreenSnapshot(); usable {
+			summary.Screen = devicesScreenWorkspaceSummaryFromSnapshot(snapshot)
+		}
+	}
 	if telemetryDevice, ok := device.Instance.(devicesTelemetrySnapshotProvider); ok && telemetryDevice != nil && telemetryDevice.TelemetryDeviceID() == serial {
 		if snapshot, usable := telemetryDevice.TelemetrySnapshot(); usable && snapshot.Available {
 			for _, row := range snapshot.Rows {
@@ -4766,6 +4813,10 @@ func devicesWorkspaceView(views []string, device *devicesWorkspaceSummary) strin
 	case "display":
 		if device.Display != nil {
 			return "display"
+		}
+	case "screen":
+		if device.Screen != nil {
+			return "screen"
 		}
 	case "buttons":
 		if device.Buttons != nil {
