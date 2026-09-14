@@ -140,6 +140,23 @@ func TestModernDevicePreviewDebugGating(t *testing.T) {
 	}
 }
 
+func TestXC7ModernPreviewIsInertAndRendersDisplay(t *testing.T) {
+	fixture, ok := modernDevicePreviewFixtureByKey("xc7-modern")
+	if !ok || len(fixture.Views) != 3 {
+		t.Fatalf("fixture=%#v ok=%t", fixture, ok)
+	}
+	summary := fixture.Build()
+	if summary == nil || summary.Serial != "preview-xc7-modern" || !summary.LegacyLighting || summary.Lighting != nil || summary.Cooling != nil || summary.Display == nil || summary.Display.ImageModeID != 10 || summary.DeviceProfiles == nil || devices.GetDevice(summary.Serial) != nil {
+		t.Fatalf("summary=%#v", summary)
+	}
+	router := legacyDevicePreviewRouter(t, true)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/xc7-modern?view=display"))
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "Display mode") || strings.Contains(recorder.Body.String(), "lf-display-brightness") {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func TestAIOModernPreviewsUseInertLegacyLightingSummaries(t *testing.T) {
 	router := legacyDevicePreviewRouter(t, true)
 	for _, test := range []struct {

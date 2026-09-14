@@ -9,6 +9,7 @@ import (
 	"LumenForge/src/devices/lt100"
 	"LumenForge/src/devices/mm700"
 	"LumenForge/src/devices/openrgbimport"
+	"LumenForge/src/devices/xc7"
 	"LumenForge/src/displaypresentation"
 	"LumenForge/src/dpipresentation"
 	"LumenForge/src/flashtappresentation"
@@ -45,6 +46,25 @@ func TestOpenRGBMotherboardDoesNotInheritNativeCoolingOrProfiles(t *testing.T) {
 	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: instance.Product, ProductType: common.ProductTypeMotherboard, Instance: instance}}, map[string]stats.BatteryStats{}, serial)
 	if !ok || summary.OpenRGB == nil || summary.Cooling != nil || summary.DeviceProfiles != nil {
 		t.Fatalf("summary = %#v, ok=%t", summary, ok)
+	}
+}
+
+func TestXC7WorkspaceUsesDisplayAndLegacyLightingWithoutCooling(t *testing.T) {
+	const serial = "xc7-modern-workspace"
+	instance := &xc7.Device{
+		Serial: serial, HasLCD: true, Temperature: 31.8, TemperatureString: "31.8°C",
+		DeviceProfile: &xc7.DeviceProfile{LCDMode: 0, LCDRotation: 0},
+		UserProfiles:  map[string]*xc7.DeviceProfile{"Default": {Active: true}, "Gaming": {}},
+		LCDModes:      map[int]string{0: "Liquid Temperature", 10: "Image / GIF"},
+		LCDRotations:  map[int]string{0: "default", 1: "90 degrees"},
+	}
+	device := &common.Device{Serial: serial, Product: "XC7 ELITE LCD CPU Water Block", Firmware: "1.4.12", ProductType: common.ProductTypeXC7, Instance: instance}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: device}, nil, serial)
+	if !ok || !summary.LegacyLighting || summary.Lighting != nil || summary.Cooling != nil || summary.Display == nil || summary.DeviceProfiles == nil || summary.DeviceProfiles.Scope != "device" || len(summary.Display.BrightnessLevels) != 0 || len(summary.OverviewTelemetry) != 1 || summary.OverviewTelemetry[0].Label != "Liquid Temperature" {
+		t.Fatalf("summary=%#v ok=%t", summary, ok)
+	}
+	if got := devicesWorkspaceView([]string{"display"}, summary); got != "display" {
+		t.Fatalf("view=%q", got)
 	}
 }
 
