@@ -6,6 +6,8 @@ import (
 	"LumenForge/src/devices/cduo"
 	"LumenForge/src/devices/cone"
 	"LumenForge/src/devices/cpro"
+	"LumenForge/src/devices/lncore"
+	"LumenForge/src/devices/lnpro"
 	"LumenForge/src/devices/scufenvisionproV2W"
 	"LumenForge/src/devices/scufenvisionproV2WU"
 	"LumenForge/src/devices/virtuosoSEW"
@@ -89,6 +91,42 @@ func TestCommanderProWorkspaceSummaryUsesModernCoolingProfilesAndTelemetry(t *te
 	}
 	if summary.OverviewTelemetry[0].Label != "+12V" || summary.OverviewTelemetry[0].Value != "12.08 V" {
 		t.Fatalf("telemetry = %#v", summary.OverviewTelemetry)
+	}
+}
+
+func TestLightingNodeWorkspaceRoutingKeepsLegacyLightingAndAddsOnlyTopology(t *testing.T) {
+	core := &lncore.Device{Serial: "core", DeviceProfile: &lncore.DeviceProfile{Active: true, ExternalHubDeviceType: 1, ExternalHubDeviceAmount: 2}, UserProfiles: map[string]*lncore.DeviceProfile{"Default": {Active: true}}, ExternalLedDevice: []lncore.ExternalLedDevice{{Index: 1, Name: "HD RGB Series Fan"}}, ExternalLedDeviceAmount: map[int]string{0: "No Device", 2: "2 Devices"}}
+	pro := &lnpro.Device{Serial: "pro", DeviceProfile: &lnpro.DeviceProfile{ExternalHubs: map[int]*lnpro.ExternalHubData{0: {PortId: 0, ExternalHubDeviceType: 1, ExternalHubDeviceAmount: 2}, 1: {PortId: 1, ExternalHubDeviceType: 2, ExternalHubDeviceAmount: 3}}}, UserProfiles: map[string]*lnpro.DeviceProfile{"Default": {Active: true}}, ExternalLedDevice: []lnpro.ExternalLedDevice{{Index: 1, Name: "HD RGB Series Fan"}, {Index: 2, Name: "LL RGB Series Fan"}}, ExternalLedDeviceAmount: map[int]string{0: "No Device", 2: "2 Devices", 3: "3 Devices"}}
+	for serial, device := range map[string]*common.Device{"core": {Serial: "core", Product: "Lighting Node CORE", ProductType: common.ProductTypeLNCore, Instance: core}, "pro": {Serial: "pro", Product: "Lighting Node PRO", ProductType: common.ProductTypeLnPro, Instance: pro}} {
+		summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: device}, nil, serial)
+		if !ok || !summary.LegacyLighting || summary.Lighting != nil || summary.Cooling != nil || summary.DeviceProfiles == nil || summary.RGBTopology == nil {
+			t.Fatalf("%s summary = %#v, ok=%t", serial, summary, ok)
+		}
+		if got := devicesWorkspaceView([]string{"lighting-setup"}, summary); got != "lighting-setup" {
+			t.Fatalf("%s view = %q", serial, got)
+		}
+	}
+}
+
+func TestLightingNodeModernPreviewsAreInertAndRenderTopology(t *testing.T) {
+	router := legacyDevicePreviewRouter(t, true)
+	for _, test := range []struct {
+		key   string
+		ports int
+	}{{"lighting-node-core-modern", 1}, {"lighting-node-pro-modern", 2}} {
+		fixture, ok := modernDevicePreviewFixtureByKey(test.key)
+		if !ok || len(fixture.Views) != 3 {
+			t.Fatalf("fixture %q = %#v", test.key, fixture)
+		}
+		summary := fixture.Build()
+		if summary == nil || !summary.LegacyLighting || summary.Lighting != nil || summary.Cooling != nil || summary.RGBTopology == nil || len(summary.RGBTopology.Ports) != test.ports || devices.GetDevice(summary.Serial) != nil {
+			t.Fatalf("fixture %q summary = %#v", test.key, summary)
+		}
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/"+test.key+"?view=lighting-setup"))
+		if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "Lighting Setup") || !strings.Contains(recorder.Body.String(), "Attached device type") {
+			t.Fatalf("fixture %q render status=%d body=%s", test.key, recorder.Code, recorder.Body.String())
+		}
 	}
 }
 

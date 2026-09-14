@@ -183,6 +183,8 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "k95-platinum-xt-modern", Title: "K95 PLATINUM XT", ProductType: common.ProductTypeK95PlatinumXT, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "keyboard", Label: "Keyboard"}}, Build: buildK95PlatinumXTModernPreview},
 	{Key: "commander-duo-modern", Title: "Commander Duo", ProductType: common.ProductTypeCCXT, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: buildCommanderDuoModernPreview},
 	{Key: "commander-pro-modern", Title: "Commander Pro", ProductType: common.ProductTypeCPro, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: buildCommanderProModernPreview},
+	{Key: "lighting-node-core-modern", Title: "Lighting Node CORE", ProductType: common.ProductTypeLNCore, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting-setup", Label: "Lighting Setup"}, {ID: "lighting", Label: "Lighting"}}, Build: buildLightingNodeCoreModernPreview},
+	{Key: "lighting-node-pro-modern", Title: "Lighting Node PRO", ProductType: common.ProductTypeLnPro, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting-setup", Label: "Lighting Setup"}, {ID: "lighting", Label: "Lighting"}}, Build: buildLightingNodeProModernPreview},
 	{Key: "psu-hid-modern", Title: "Corsair PSU HID", ProductType: common.ProductTypePSUHid, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}}, Build: func() *devicesWorkspaceSummary {
 		return buildPSUModernPreview("Corsair PSU", "preview-psu-hid-modern")
 	}},
@@ -1082,6 +1084,22 @@ func buildCommanderProModernPreview() *devicesWorkspaceSummary {
 		OverviewTelemetry: []devicesOverviewStatusRow{{Label: "+12V", Value: "12.08 V", Telemetry: true}, {Label: "+5V", Value: "5.02 V", Telemetry: true}, {Label: "+3.3V", Value: "3.31 V", Telemetry: true}},
 	}
 	return summary
+}
+
+func buildLightingNodeCoreModernPreview() *devicesWorkspaceSummary {
+	return &devicesWorkspaceSummary{Product: "Lighting Node CORE", Serial: "preview-lighting-node-core-modern", Firmware: "0.9.33", Image: "icon-device.svg", View: "overview", LegacyLighting: true,
+		DeviceProfiles: &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "Studio"}, ActiveProfile: "Default", CanSwitch: true, CanSave: true, CanDelete: true, Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription},
+		RGBTopology:    &devicesRGBTopologyWorkspaceSummary{Ports: []devicesRGBTopologyPortSummary{{ID: 0, Label: "RGB Hub", DeviceTypes: []devicesRGBTopologyOptionSummary{{ID: 0, Label: "No Device"}, {ID: 1, Label: "HD RGB Series Fan"}, {ID: 2, Label: "LL RGB Series Fan"}}, SelectedType: 2, DeviceAmounts: []devicesRGBTopologyOptionSummary{{ID: 0, Label: "No Device"}, {ID: 1, Label: "1 Device"}, {ID: 2, Label: "2 Devices"}, {ID: 3, Label: "3 Devices"}}, SelectedAmount: 3}}},
+	}
+}
+
+func buildLightingNodeProModernPreview() *devicesWorkspaceSummary {
+	options := []devicesRGBTopologyOptionSummary{{ID: 0, Label: "No Device"}, {ID: 1, Label: "HD RGB Series Fan"}, {ID: 2, Label: "LL RGB Series Fan"}, {ID: 4, Label: "QL RGB Series Fan"}}
+	amounts := []devicesRGBTopologyOptionSummary{{ID: 0, Label: "No Device"}, {ID: 1, Label: "1 Device"}, {ID: 2, Label: "2 Devices"}, {ID: 3, Label: "3 Devices"}, {ID: 4, Label: "4 Devices"}}
+	return &devicesWorkspaceSummary{Product: "Lighting Node PRO", Serial: "preview-lighting-node-pro-modern", Firmware: "0.9.33", Image: "icon-device.svg", View: "overview", LegacyLighting: true,
+		DeviceProfiles: &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "Studio"}, ActiveProfile: "Default", CanSwitch: true, CanSave: true, CanDelete: true, Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription},
+		RGBTopology:    &devicesRGBTopologyWorkspaceSummary{Ports: []devicesRGBTopologyPortSummary{{ID: 0, Label: "RGB Port 1", DeviceTypes: options, SelectedType: 1, DeviceAmounts: amounts, SelectedAmount: 2}, {ID: 1, Label: "RGB Port 2", DeviceTypes: options, SelectedType: 4, DeviceAmounts: amounts, SelectedAmount: 3}}},
+	}
 }
 
 // buildPSUModernPreview deliberately builds presentation data directly. It
