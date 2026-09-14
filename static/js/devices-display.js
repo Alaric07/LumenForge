@@ -46,12 +46,14 @@
     }
 
     function init(browser) {
-        const workspace = browser.document.querySelector("[data-lf-display-workspace]");
-        if (!workspace) { return; }
-        bindSelect(browser, workspace, "[data-lf-display-mode]", "/api/lcd", "mode");
-        bindSelect(browser, workspace, "[data-lf-display-rotation]", "/api/lcd/rotation", "rotation");
-        bindSelect(browser, workspace, "[data-lf-display-brightness]", "/api/lcd/brightness", "brightness");
-        bindSelect(browser, workspace, "[data-lf-display-image]", "/api/lcd/image", "image");
+        const workspaces = browser.document.querySelectorAll("[data-lf-display-workspace]");
+        if (!workspaces) { return; }
+        workspaces.forEach(function (workspace) {
+            bindSelect(browser, workspace, "[data-lf-display-mode]", "/api/lcd", "mode");
+            bindSelect(browser, workspace, "[data-lf-display-rotation]", "/api/lcd/rotation", "rotation");
+            bindSelect(browser, workspace, "[data-lf-display-brightness]", "/api/lcd/brightness", "brightness");
+            bindSelect(browser, workspace, "[data-lf-display-image]", "/api/lcd/image", "image");
+        });
     }
 
     return {bindSelect: bindSelect, init: init};

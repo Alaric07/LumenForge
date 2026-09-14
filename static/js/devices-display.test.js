@@ -22,7 +22,7 @@ async function run() {
     };
     const requests = [];
     const browser = {
-        document: {querySelector: function () { return workspace; }},
+        document: {querySelectorAll: function () { return [workspace]; }},
         fetch: async function (url, options) {
             requests.push({url: url, body: JSON.parse(options.body)});
             return {ok: true, json: async function () { return {status: browser.reject && url === "/api/lcd/rotation" ? 0 : 1}; }};

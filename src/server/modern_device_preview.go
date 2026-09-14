@@ -98,6 +98,7 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "lt100-modern", Title: "LT100 RGB", ProductType: common.ProductTypeLT100, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildLT100ModernPreview},
 	{Key: "xc7-modern", Title: "XC7 ELITE LCD CPU Water Block", ProductType: common.ProductTypeXC7, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "display", Label: "Display"}, {ID: "lighting", Label: "Lighting"}}, Build: buildXC7ModernPreview},
 	{Key: "nautilus-lcd-modern", Title: "NAUTILUS LCD CAP", ProductType: common.ProductTypeNautilusLcdCap, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "display", Label: "Display"}}, Build: buildNautilusLCDModernPreview},
+	{Key: "link-hub-modern", Title: "iCUE LINK System Hub", ProductType: common.ProductTypeLinkHub, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}, {ID: "display", Label: "Display"}}, Build: buildLinkHubModernPreview},
 	{Key: "nexus-modern", Title: "iCUE NEXUS", ProductType: common.ProductTypeNexus, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "screen", Label: "Screen"}}, Build: buildNEXUSModernPreview},
 	{Key: "elite-aio-modern", Title: "iCUE H150i RGB ELITE", ProductType: common.ProductTypeElite, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: func() *devicesWorkspaceSummary {
 		return buildAIOModernPreview("iCUE H150i RGB ELITE", "preview-elite-aio-modern", "2.11.221", 3, []devicesCoolingProfileOptionSummary{{ID: "Quiet", Label: "Quiet"}, {ID: "Normal", Label: "Normal"}, {ID: "Performance", Label: "Performance"}}, true)
@@ -1132,10 +1133,12 @@ func buildLightingNodeProModernPreview() *devicesWorkspaceSummary {
 // buildXC7ModernPreview deliberately builds presentation data directly. It
 // must not create an XC7 device or touch its HID or LCD transport.
 func buildXC7ModernPreview() *devicesWorkspaceSummary {
+	display := devicesDisplayWorkspaceSummary{ImageModeID: 10, Modes: []devicesDisplayOptionSummary{{ID: 0, Label: "Liquid Temperature", Selected: true}, {ID: 10, Label: "Image / GIF"}, {ID: 100, Label: "Arc"}}, Rotations: []devicesDisplayOptionSummary{{ID: 0, Label: "default", Selected: true}, {ID: 1, Label: "90 degrees"}, {ID: 2, Label: "180 degrees"}, {ID: 3, Label: "270 degrees"}}, Images: []devicesDisplayImageSummary{{Name: "loop-status"}, {Name: "system"}}}
+	display.Displays = []devicesDisplayWorkspaceSummary{display}
 	return &devicesWorkspaceSummary{
 		Product: "XC7 ELITE LCD CPU Water Block", Serial: "preview-xc7-modern", Firmware: "1.4.12", Image: "icon-cooler.svg", View: "overview", LegacyLighting: true,
 		DeviceProfiles:    &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "Gaming"}, ActiveProfile: "Default", CanSwitch: true, CanSave: true, CanDelete: true, Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription},
-		Display:           &devicesDisplayWorkspaceSummary{ImageModeID: 10, Modes: []devicesDisplayOptionSummary{{ID: 0, Label: "Liquid Temperature", Selected: true}, {ID: 10, Label: "Image / GIF"}, {ID: 100, Label: "Arc"}}, Rotations: []devicesDisplayOptionSummary{{ID: 0, Label: "default", Selected: true}, {ID: 1, Label: "90 degrees"}, {ID: 2, Label: "180 degrees"}, {ID: 3, Label: "270 degrees"}}, Images: []devicesDisplayImageSummary{{Name: "loop-status"}, {Name: "system"}}},
+		Display:           &display,
 		OverviewTelemetry: []devicesOverviewStatusRow{{Label: "Liquid Temperature", Value: "31.8°C", Telemetry: true}},
 	}
 }
@@ -1143,11 +1146,21 @@ func buildXC7ModernPreview() *devicesWorkspaceSummary {
 // buildNautilusLCDModernPreview deliberately builds presentation data directly.
 // It must not create a Nautilus device or touch its HID or LCD transport.
 func buildNautilusLCDModernPreview() *devicesWorkspaceSummary {
+	display := devicesDisplayWorkspaceSummary{ImageModeID: 10, Modes: []devicesDisplayOptionSummary{{ID: 2, Label: "CPU Temperature", Selected: true}, {ID: 3, Label: "GPU Temperature"}, {ID: 6, Label: "CPU / GPU Temp"}, {ID: 10, Label: "Image / GIF"}, {ID: 100, Label: "Arc"}}, Rotations: []devicesDisplayOptionSummary{{ID: 0, Label: "default", Selected: true}, {ID: 1, Label: "90 degrees"}, {ID: 2, Label: "180 degrees"}, {ID: 3, Label: "270 degrees"}}, Images: []devicesDisplayImageSummary{{Name: "loop-status"}, {Name: "system"}}}
+	display.Displays = []devicesDisplayWorkspaceSummary{display}
 	return &devicesWorkspaceSummary{
 		Product: "NAUTILUS LCD CAP", Serial: "preview-nautilus-lcd-modern", Firmware: "1.0.7", Image: "icon-device.svg", View: "overview",
 		DeviceProfiles: &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "Gaming"}, ActiveProfile: "Default", CanSwitch: true, CanSave: true, CanDelete: true, Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription},
-		Display:        &devicesDisplayWorkspaceSummary{ImageModeID: 10, Modes: []devicesDisplayOptionSummary{{ID: 2, Label: "CPU Temperature", Selected: true}, {ID: 3, Label: "GPU Temperature"}, {ID: 6, Label: "CPU / GPU Temp"}, {ID: 10, Label: "Image / GIF"}, {ID: 100, Label: "Arc"}}, Rotations: []devicesDisplayOptionSummary{{ID: 0, Label: "default", Selected: true}, {ID: 1, Label: "90 degrees"}, {ID: 2, Label: "180 degrees"}, {ID: 3, Label: "270 degrees"}}, Images: []devicesDisplayImageSummary{{Name: "loop-status"}, {Name: "system"}}},
+		Display:        &display,
 	}
+}
+
+// buildLinkHubModernPreview is fixture-only presentation data. It does not
+// initialize LINK discovery, register a device, or call profile persistence.
+func buildLinkHubModernPreview() *devicesWorkspaceSummary {
+	cooling := &devicesCoolingWorkspaceSummary{ProfileOptions: []devicesCoolingProfileOptionSummary{{ID: "Balanced", Label: "Balanced"}, {ID: "Quiet", Label: "Quiet"}, {ID: "Performance", Label: "Performance"}}, Channels: []devicesCoolingChannelSummary{{ID: 1, Name: "iCUE LINK RX120", Label: "Front intake", RPM: 1120, SelectedProfile: "Balanced"}, {ID: 4, Name: "iCUE LINK H150i", Label: "CPU cooler", RPM: 2450, Temperature: "31.8°C", ContainsPump: true, SelectedProfile: "Performance"}}}
+	display := devicesDisplayWorkspaceSummary{Displays: []devicesDisplayWorkspaceSummary{{ChannelID: 4, Name: "iCUE LINK H150i", ImageModeID: 10, Modes: []devicesDisplayOptionSummary{{ID: 0, Label: "Liquid Temperature", Selected: true}, {ID: 10, Label: "Image / GIF"}, {ID: 100, Label: "Arc"}}, Rotations: []devicesDisplayOptionSummary{{ID: 0, Label: "default", Selected: true}, {ID: 1, Label: "90 degrees"}, {ID: 2, Label: "180 degrees"}, {ID: 3, Label: "270 degrees"}}, BrightnessLevels: []devicesDisplayOptionSummary{{ID: 0, Label: "Off"}, {ID: 33, Label: "33 %"}, {ID: 66, Label: "66 %"}, {ID: 100, Label: "100 %", Selected: true}}, Images: []devicesDisplayImageSummary{{Name: "loop-status"}, {Name: "system"}}}}}
+	return &devicesWorkspaceSummary{Product: "iCUE LINK System Hub", Serial: "preview-link-hub-modern", Firmware: "2.11.221", Image: "icon-device.svg", View: "overview", LegacyLighting: true, Cooling: cooling, Display: &display, OverviewCooling: devicesOverviewCoolingStatusFromSummary(cooling), OverviewDisplay: devicesOverviewDisplayStatusFromSummary(&display), DeviceProfiles: &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "Quiet"}, ActiveProfile: "Default", CanSwitch: true, CanSave: true, CanDelete: true, Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription}}
 }
 
 // buildNEXUSModernPreview deliberately builds presentation data directly. It

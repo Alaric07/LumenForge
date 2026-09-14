@@ -8,6 +8,7 @@ import (
 	"LumenForge/src/devices/cpro"
 	"LumenForge/src/devices/lncore"
 	"LumenForge/src/devices/lnpro"
+	"LumenForge/src/devices/lsh"
 	"LumenForge/src/devices/scufenvisionproV2W"
 	"LumenForge/src/devices/scufenvisionproV2WU"
 	"LumenForge/src/devices/virtuosoSEW"
@@ -52,6 +53,28 @@ func TestCommanderDuoWorkspaceSummaryUsesModernCoolingAndProfiles(t *testing.T) 
 	}
 	if summary.DeviceProfiles.ActiveProfile != "Default" || summary.DeviceProfiles.Description != devicesCCXTDeviceProfileDescription {
 		t.Fatalf("profiles = %#v", summary.DeviceProfiles)
+	}
+}
+
+func TestLinkHubWorkspaceSummaryUsesProfilesCoolingDisplayAndLegacyLighting(t *testing.T) {
+	initializeLegacyDevicePreviewTestProcess(t)
+	temperatures.Init()
+	const serial = "link-hub-modern-workspace"
+	instance := &lsh.Device{Serial: serial, HasLCD: true, LCDModes: map[int]string{0: "Liquid Temperature"}, LCDRotations: map[int]string{0: "default"}, LCDBrightnessLevels: map[int]string{100: "100 %"}, DeviceProfile: &lsh.DeviceProfile{LCDModes: map[int]uint8{4: 0}, LCDRotations: map[int]uint8{4: 0}, LCDBrightness: map[int]uint8{4: 100}}, UserProfiles: map[string]*lsh.DeviceProfile{"Default": {Active: true}}, Devices: map[int]*lsh.Devices{1: {ChannelId: 1, Name: "RX120", Rpm: 1100, Profile: "Balanced", HasSpeed: true}, 4: {ChannelId: 4, Name: "H150i", Rpm: 2450, Temperature: 31.8, TemperatureString: "31.8°C", Profile: "Balanced", HasSpeed: true, HasTemps: true, ContainsPump: true, LCDSerial: "lcd"}}}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "iCUE LINK System Hub", ProductType: common.ProductTypeLinkHub, Instance: instance}}, nil, serial)
+	if !ok || !summary.LegacyLighting || summary.Lighting != nil || summary.DeviceProfiles == nil || summary.Cooling == nil || summary.Display == nil || len(summary.Display.Displays) != 1 {
+		t.Fatalf("summary=%#v ok=%t", summary, ok)
+	}
+}
+
+func TestLinkHubModernPreviewIsInertAndComplete(t *testing.T) {
+	fixture, ok := modernDevicePreviewFixtureByKey("link-hub-modern")
+	if !ok || fixture.ProductType != common.ProductTypeLinkHub {
+		t.Fatalf("fixture=%#v ok=%t", fixture, ok)
+	}
+	summary := fixture.Build()
+	if summary == nil || !summary.LegacyLighting || summary.Lighting != nil || summary.DeviceProfiles == nil || summary.Cooling == nil || len(summary.Cooling.Channels) != 2 || !summary.Cooling.Channels[1].ContainsPump || summary.Display == nil || len(summary.Display.Displays) != 1 || devices.GetDevice(summary.Serial) != nil {
+		t.Fatalf("summary=%#v", summary)
 	}
 }
 

@@ -718,16 +718,18 @@
                     {{ end }}
                 {{ else if eq .Device.View "display" }}
                     {{ with .Device.Display }}
+                        {{ range .Displays }}
                         <section class="lf-performance-workspace" data-lf-display-workspace data-lf-device-id="{{ $.Device.Serial }}" data-lf-channel-id="{{ .ChannelID }}" data-lf-image-mode-id="{{ .ImageModeID }}">
-                            <h2 class="lf-workspace-section-heading">Display</h2>
+                            <h2 class="lf-workspace-section-heading">Display{{ if .Name }} · {{ .Name }}{{ end }}</h2>
                             <div class="lf-performance-controls">
-                                <div class="lf-performance-control"><label for="lf-display-mode">Display mode<select id="lf-display-mode" data-lf-display-mode>{{ range .Modes }}<option value="{{ .ID }}"{{ if .Selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select></label></div>
-                                {{ if .Images }}<div class="lf-performance-control" data-lf-display-image-control{{ if not .ImageMode }} hidden{{ end }}><label for="lf-display-image">Image<select id="lf-display-image" data-lf-display-image>{{ range .Images }}<option value="{{ .Name }}"{{ if .Selected }} selected{{ end }}>{{ .Name }}</option>{{ end }}</select></label></div>{{ end }}
-                                <div class="lf-performance-control"><label for="lf-display-rotation">Rotation<select id="lf-display-rotation" data-lf-display-rotation>{{ range .Rotations }}<option value="{{ .ID }}"{{ if .Selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select></label></div>
-                                {{ if .BrightnessLevels }}<div class="lf-performance-control"><label for="lf-display-brightness">Brightness<select id="lf-display-brightness" data-lf-display-brightness>{{ range .BrightnessLevels }}<option value="{{ .ID }}"{{ if .Selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select></label></div>{{ end }}
+                                <div class="lf-performance-control"><label for="lf-display-mode-{{ .ChannelID }}">Display mode<select id="lf-display-mode-{{ .ChannelID }}" data-lf-display-mode>{{ range .Modes }}<option value="{{ .ID }}"{{ if .Selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select></label></div>
+                                {{ if .Images }}<div class="lf-performance-control" data-lf-display-image-control{{ if not .ImageMode }} hidden{{ end }}><label for="lf-display-image-{{ .ChannelID }}">Image<select id="lf-display-image-{{ .ChannelID }}" data-lf-display-image>{{ range .Images }}<option value="{{ .Name }}"{{ if .Selected }} selected{{ end }}>{{ .Name }}</option>{{ end }}</select></label></div>{{ end }}
+                                <div class="lf-performance-control"><label for="lf-display-rotation-{{ .ChannelID }}">Rotation<select id="lf-display-rotation-{{ .ChannelID }}" data-lf-display-rotation>{{ range .Rotations }}<option value="{{ .ID }}"{{ if .Selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select></label></div>
+                                {{ if .BrightnessLevels }}<div class="lf-performance-control"><label for="lf-display-brightness-{{ .ChannelID }}">Brightness<select id="lf-display-brightness-{{ .ChannelID }}" data-lf-display-brightness>{{ range .BrightnessLevels }}<option value="{{ .ID }}"{{ if .Selected }} selected{{ end }}>{{ .Label }}</option>{{ end }}</select></label></div>{{ end }}
                             </div>
                             <p class="lf-range-control-status" data-lf-display-status aria-live="polite"></p>
                         </section>
+                        {{ end }}
                     {{ end }}
                 {{ else if eq .Device.View "screen" }}
                     {{ with .Device.Screen }}

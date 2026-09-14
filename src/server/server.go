@@ -19,6 +19,7 @@ import (
 	"LumenForge/src/deviceprofilepresentation"
 	"LumenForge/src/devices"
 	"LumenForge/src/devices/lcd"
+	"LumenForge/src/devices/lsh"
 	"LumenForge/src/devices/openrgbimport"
 	"LumenForge/src/display"
 	"LumenForge/src/displaypresentation"
@@ -3201,12 +3202,14 @@ type devicesDisplayImageSummary struct {
 
 type devicesDisplayWorkspaceSummary struct {
 	ChannelID        int
+	Name             string
 	Modes            []devicesDisplayOptionSummary
 	Rotations        []devicesDisplayOptionSummary
 	BrightnessLevels []devicesDisplayOptionSummary
 	Images           []devicesDisplayImageSummary
 	ImageMode        bool
 	ImageModeID      int
+	Displays         []devicesDisplayWorkspaceSummary
 }
 
 type devicesScreenOptionSummary struct {
@@ -3283,36 +3286,65 @@ func devicesCoolingWorkspaceSummaryFromSnapshot(snapshot coolingpresentation.Sna
 }
 
 func devicesDisplayWorkspaceSummaryFromSnapshot(snapshot displaypresentation.Snapshot) *devicesDisplayWorkspaceSummary {
-	if !snapshot.Available || len(snapshot.Modes) == 0 || len(snapshot.Rotations) == 0 {
+	if !snapshot.Available {
 		return nil
 	}
-	summary := &devicesDisplayWorkspaceSummary{ChannelID: snapshot.ChannelID, ImageMode: snapshot.ImageMode, ImageModeID: snapshot.ImageModeID}
-	convertOptions := func(options []displaypresentation.Option) []devicesDisplayOptionSummary {
-		converted := make([]devicesDisplayOptionSummary, 0, len(options))
-		for _, option := range options {
-			if option.Label == "" {
+	convert := func(display displaypresentation.Display) *devicesDisplayWorkspaceSummary {
+		if len(display.Modes) == 0 || len(display.Rotations) == 0 {
+			return nil
+		}
+		summary := &devicesDisplayWorkspaceSummary{ChannelID: display.ChannelID, Name: display.Name, ImageMode: display.ImageMode, ImageModeID: display.ImageModeID}
+		convertOptions := func(options []displaypresentation.Option) []devicesDisplayOptionSummary {
+			converted := make([]devicesDisplayOptionSummary, 0, len(options))
+			for _, option := range options {
+				if option.Label == "" {
+					return nil
+				}
+				converted = append(converted, devicesDisplayOptionSummary{ID: option.ID, Label: option.Label, Selected: option.Selected})
+			}
+			return converted
+		}
+		if summary.Modes = convertOptions(display.Modes); summary.Modes == nil {
+			return nil
+		}
+		if summary.Rotations = convertOptions(display.Rotations); summary.Rotations == nil {
+			return nil
+		}
+		if len(display.BrightnessLevels) > 0 {
+			if summary.BrightnessLevels = convertOptions(display.BrightnessLevels); summary.BrightnessLevels == nil {
 				return nil
 			}
-			converted = append(converted, devicesDisplayOptionSummary{ID: option.ID, Label: option.Label, Selected: option.Selected})
 		}
-		return converted
-	}
-	if summary.Modes = convertOptions(snapshot.Modes); summary.Modes == nil {
-		return nil
-	}
-	if summary.Rotations = convertOptions(snapshot.Rotations); summary.Rotations == nil {
-		return nil
-	}
-	if len(snapshot.BrightnessLevels) > 0 {
-		if summary.BrightnessLevels = convertOptions(snapshot.BrightnessLevels); summary.BrightnessLevels == nil {
-			return nil
+		for _, image := range display.Images {
+			if image.Name == "" {
+				return nil
+			}
+			summary.Images = append(summary.Images, devicesDisplayImageSummary{Name: image.Name, Selected: image.Selected})
 		}
+		return summary
 	}
-	for _, image := range snapshot.Images {
-		if image.Name == "" {
-			return nil
+	if len(snapshot.Displays) > 0 {
+		summary := &devicesDisplayWorkspaceSummary{Displays: make([]devicesDisplayWorkspaceSummary, 0, len(snapshot.Displays))}
+		seen := make(map[int]struct{}, len(snapshot.Displays))
+		for _, display := range snapshot.Displays {
+			if display.ChannelID < 0 || display.Name == "" {
+				return nil
+			}
+			if _, exists := seen[display.ChannelID]; exists {
+				return nil
+			}
+			seen[display.ChannelID] = struct{}{}
+			converted := convert(display)
+			if converted == nil {
+				return nil
+			}
+			summary.Displays = append(summary.Displays, *converted)
 		}
-		summary.Images = append(summary.Images, devicesDisplayImageSummary{Name: image.Name, Selected: image.Selected})
+		return summary
+	}
+	summary := convert(displaypresentation.Display{ChannelID: snapshot.ChannelID, SelectedMode: snapshot.SelectedMode, Modes: snapshot.Modes, SelectedRotation: snapshot.SelectedRotation, Rotations: snapshot.Rotations, SelectedBrightness: snapshot.SelectedBrightness, BrightnessLevels: snapshot.BrightnessLevels, SelectedImage: snapshot.SelectedImage, Images: snapshot.Images, ImageMode: snapshot.ImageMode, ImageModeID: snapshot.ImageModeID})
+	if summary != nil {
+		summary.Displays = []devicesDisplayWorkspaceSummary{*summary}
 	}
 	return summary
 }
@@ -3489,23 +3521,33 @@ func devicesOverviewDisplayStatusFromSummary(summary *devicesDisplayWorkspaceSum
 		return nil
 	}
 	status := &devicesOverviewDisplayStatusSummary{}
-	for _, mode := range summary.Modes {
-		if mode.Selected && mode.Label != "" {
-			status.Rows = append(status.Rows, devicesOverviewStatusRow{Label: "Mode", Value: mode.Label})
-			break
-		}
+	displays := summary.Displays
+	if len(displays) == 0 {
+		displays = []devicesDisplayWorkspaceSummary{*summary}
 	}
-	for _, brightness := range summary.BrightnessLevels {
-		if brightness.Selected && brightness.Label != "" {
-			status.Rows = append(status.Rows, devicesOverviewStatusRow{Label: "Brightness", Value: brightness.Label, Telemetry: true})
-			break
+	for _, display := range displays {
+		prefix := ""
+		if len(displays) > 1 {
+			prefix = devicesOverviewCoolingLabel(display.Name, "Display") + " "
 		}
-	}
-	if summary.ImageMode {
-		for _, image := range summary.Images {
-			if image.Selected && image.Name != "" {
-				status.Rows = append(status.Rows, devicesOverviewStatusRow{Label: "Image", Value: image.Name})
+		for _, mode := range display.Modes {
+			if mode.Selected && mode.Label != "" {
+				status.Rows = append(status.Rows, devicesOverviewStatusRow{Label: prefix + "Mode", Value: mode.Label})
 				break
+			}
+		}
+		for _, brightness := range display.BrightnessLevels {
+			if brightness.Selected && brightness.Label != "" {
+				status.Rows = append(status.Rows, devicesOverviewStatusRow{Label: prefix + "Brightness", Value: brightness.Label, Telemetry: true})
+				break
+			}
+		}
+		if display.ImageMode {
+			for _, image := range display.Images {
+				if image.Selected && image.Name != "" {
+					status.Rows = append(status.Rows, devicesOverviewStatusRow{Label: prefix + "Image", Value: image.Name})
+					break
+				}
 			}
 		}
 	}
@@ -4541,7 +4583,10 @@ func devicesWorkspaceSummaryForSerial(
 		Image:          device.Image,
 		Unavailable:    device.Unavailable,
 		View:           "overview",
-		LegacyLighting: device.ProductType == common.ProductTypeXC7 || device.ProductType == common.ProductTypeLNCore || device.ProductType == common.ProductTypeLnPro || device.ProductType == common.ProductTypeElite || device.ProductType == common.ProductTypePlatinum || device.ProductType == common.ProductTypeHydro || device.ProductType == common.ProductTypeCorsairOne || device.ProductType == common.ProductTypeMM700 || device.ProductType == common.ProductTypeLT100 || device.ProductType == common.ProductTypeHS80RGB || device.ProductType == common.ProductTypeHS80RGBW || device.ProductType == common.ProductTypeHS80MAXW || device.ProductType == common.ProductTypeVirtuosoW || device.ProductType == common.ProductTypeVirtuosoWU || device.ProductType == common.ProductTypeVirtuosoSEW || device.ProductType == common.ProductTypeVirtuosoSEWU || device.ProductType == common.ProductTypeVirtuosoMAXW || device.ProductType == common.ProductTypeVoidV2W || device.ProductType == common.ProductTypeCC || device.ProductType == common.ProductTypeCCXT || device.ProductType == common.ProductTypeCPro || device.ProductType == common.ProductTypeHarpoonRgbPro || device.ProductType == common.ProductTypeKatarPro || device.ProductType == common.ProductTypeKatarProXT || device.ProductType == common.ProductTypeGlaiveRgbPro || device.ProductType == common.ProductTypeGlaiveRgb || device.ProductType == common.ProductTypeM65RgbElite || device.ProductType == common.ProductTypeSabreRgbPro || device.ProductType == common.ProductTypeNightswordRgb || device.ProductType == common.ProductTypeIronClawRgb || device.ProductType == common.ProductTypeM55 || device.ProductType == common.ProductTypeM55RgbPro || device.ProductType == common.ProductTypeM65RgbUltra || device.ProductType == common.ProductTypeM75 || device.ProductType == common.ProductTypeM75W || device.ProductType == common.ProductTypeM75WU || device.ProductType == common.ProductTypeM75AirW || device.ProductType == common.ProductTypeM75AirWU || device.ProductType == common.ProductTypeM65RgbUltraW || device.ProductType == common.ProductTypeM65RgbUltraWU || device.ProductType == common.ProductTypeHarpoonRgbW || device.ProductType == common.ProductTypeHarpoonRgbWU || device.ProductType == common.ProductTypeM55W || device.ProductType == common.ProductTypeNightsabreW || device.ProductType == common.ProductTypeNightsabreWU || device.ProductType == common.ProductTypeSabreRgbProW || device.ProductType == common.ProductTypeSabreRgbProWU || device.ProductType == common.ProductTypeSabreProCs || device.ProductType == common.ProductTypeScimitarRgb || device.ProductType == common.ProductTypeK70CoreTklW || device.ProductType == common.ProductTypeK70CoreTklWU || device.ProductType == common.ProductTypeK70PMW || device.ProductType == common.ProductTypeK70PMWU || device.ProductType == common.ProductTypeK70RgbTkl || device.ProductType == common.ProductTypeStrafeRgbMk2 || device.ProductType == common.ProductTypeClipperProMini60 || device.ProductType == common.ProductTypeMakr75W || device.ProductType == common.ProductTypeMakr75WU || device.ProductType == common.ProductTypeVanguard96 || device.ProductType == common.ProductTypeVanguard96Pro || device.ProductType == common.ProductTypeVanguard96W || device.ProductType == common.ProductTypeVanguard96WU || device.ProductType == common.ProductTypeVanguard99AirW || device.ProductType == common.ProductTypeVanguard99AirWU || device.ProductType == common.ProductTypeScufEnvisionProW || device.ProductType == common.ProductTypeScufEnvisionProWU || device.ProductType == common.ProductTypeScufEnvisionProV2W || device.ProductType == common.ProductTypeScufEnvisionProV2WU,
+		LegacyLighting: device.ProductType == common.ProductTypeLinkHub || device.ProductType == common.ProductTypeXC7 || device.ProductType == common.ProductTypeLNCore || device.ProductType == common.ProductTypeLnPro || device.ProductType == common.ProductTypeElite || device.ProductType == common.ProductTypePlatinum || device.ProductType == common.ProductTypeHydro || device.ProductType == common.ProductTypeCorsairOne || device.ProductType == common.ProductTypeMM700 || device.ProductType == common.ProductTypeLT100 || device.ProductType == common.ProductTypeHS80RGB || device.ProductType == common.ProductTypeHS80RGBW || device.ProductType == common.ProductTypeHS80MAXW || device.ProductType == common.ProductTypeVirtuosoW || device.ProductType == common.ProductTypeVirtuosoWU || device.ProductType == common.ProductTypeVirtuosoSEW || device.ProductType == common.ProductTypeVirtuosoSEWU || device.ProductType == common.ProductTypeVirtuosoMAXW || device.ProductType == common.ProductTypeVoidV2W || device.ProductType == common.ProductTypeCC || device.ProductType == common.ProductTypeCCXT || device.ProductType == common.ProductTypeCPro || device.ProductType == common.ProductTypeHarpoonRgbPro || device.ProductType == common.ProductTypeKatarPro || device.ProductType == common.ProductTypeKatarProXT || device.ProductType == common.ProductTypeGlaiveRgbPro || device.ProductType == common.ProductTypeGlaiveRgb || device.ProductType == common.ProductTypeM65RgbElite || device.ProductType == common.ProductTypeSabreRgbPro || device.ProductType == common.ProductTypeNightswordRgb || device.ProductType == common.ProductTypeIronClawRgb || device.ProductType == common.ProductTypeM55 || device.ProductType == common.ProductTypeM55RgbPro || device.ProductType == common.ProductTypeM65RgbUltra || device.ProductType == common.ProductTypeM75 || device.ProductType == common.ProductTypeM75W || device.ProductType == common.ProductTypeM75WU || device.ProductType == common.ProductTypeM75AirW || device.ProductType == common.ProductTypeM75AirWU || device.ProductType == common.ProductTypeM65RgbUltraW || device.ProductType == common.ProductTypeM65RgbUltraWU || device.ProductType == common.ProductTypeHarpoonRgbW || device.ProductType == common.ProductTypeHarpoonRgbWU || device.ProductType == common.ProductTypeM55W || device.ProductType == common.ProductTypeNightsabreW || device.ProductType == common.ProductTypeNightsabreWU || device.ProductType == common.ProductTypeSabreRgbProW || device.ProductType == common.ProductTypeSabreRgbProWU || device.ProductType == common.ProductTypeSabreProCs || device.ProductType == common.ProductTypeScimitarRgb || device.ProductType == common.ProductTypeK70CoreTklW || device.ProductType == common.ProductTypeK70CoreTklWU || device.ProductType == common.ProductTypeK70PMW || device.ProductType == common.ProductTypeK70PMWU || device.ProductType == common.ProductTypeK70RgbTkl || device.ProductType == common.ProductTypeStrafeRgbMk2 || device.ProductType == common.ProductTypeClipperProMini60 || device.ProductType == common.ProductTypeMakr75W || device.ProductType == common.ProductTypeMakr75WU || device.ProductType == common.ProductTypeVanguard96 || device.ProductType == common.ProductTypeVanguard96Pro || device.ProductType == common.ProductTypeVanguard96W || device.ProductType == common.ProductTypeVanguard96WU || device.ProductType == common.ProductTypeVanguard99AirW || device.ProductType == common.ProductTypeVanguard99AirWU || device.ProductType == common.ProductTypeScufEnvisionProW || device.ProductType == common.ProductTypeScufEnvisionProWU || device.ProductType == common.ProductTypeScufEnvisionProV2W || device.ProductType == common.ProductTypeScufEnvisionProV2WU,
+	}
+	if device.ProductType == common.ProductTypeLinkHub {
+		_, summary.LegacyLighting = device.Instance.(*lsh.Device)
 	}
 	if battery, found := batteryStats[serial]; found {
 		summary.HasBattery = true
