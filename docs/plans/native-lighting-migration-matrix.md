@@ -172,15 +172,22 @@ signatures.
 
 
 Device-workspace migration is tracked separately from this lighting matrix.
-Modern keyboard, mouse, headset, and SCUF controller workspace migration is
-complete, but Overview, Keyboard, Performance, Profile, assignment, Control
-Dial, headset, or controller providers do not make a package a
-canonical-lighting migration. K95 Platinum is the canonical-lighting
-**Migrated** keyboard proof; K100, K100 AIR, K57, K60, K68, K55, K65, K70, and
-the other completed keyboard workspace families remain **Legacy** for lighting
-unless their individual matrix row says otherwise. The same applies to the
-completed mouse, headset, and SCUF controller workspace families. Their
-retained legacy lighting path remains authoritative until a separate
+The final repository-wide modern device-workspace inventory is complete for
+active supported device families: capability-driven presentation is available
+where each source contract justifies it. XENEON EDGE is intentionally deferred
+because discovery/registration is disabled and its widget/kiosk backend is
+incomplete; KDE/display-touch documentation is not a device-control contract.
+Transport-only Slipstream, dongle, and receiver packages remain transport-only,
+not independent workspaces. None of those workspace classifications changes
+this matrix's lighting status.
+
+Modern keyboard, mouse, headset, SCUF controller, cooling, display, and LINK
+workspace coverage does not make a package a canonical-lighting migration. K95
+Platinum is the canonical-lighting **Migrated** keyboard proof; K100, K100 AIR,
+K57, K60, K68, K55, K65, K70, and the other completed keyboard workspace
+families remain **Legacy** for lighting unless their individual matrix row says
+otherwise. The same applies to completed mouse, headset, SCUF controller, and
+LSH workspaces: retained legacy lighting remains authoritative until a separate
 family-specific lighting cutover. Package-local modern controls do not change
 that status or demonstrate physical lighting validation. The same distinction
 also applies to Scimitar RGB Elite's modern DPI, Performance, Key Assignments,

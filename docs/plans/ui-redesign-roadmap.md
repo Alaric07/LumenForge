@@ -664,6 +664,14 @@ after every legitimate native consumer has migrated.
   telemetry, source-backed fan-mode control, and inert `psu-hid-modern` and
   `psu-dongle-modern` previews (`2fa9bb62`). The PSU packages remain outside
   canonical Lighting migration.
+- [x] Complete the iCUE LINK System Hub (LSH) modern workspace. `02ba9a98`
+  added Overview, Device Profiles, Cooling, per-channel Display, and retained
+  legacy Lighting. `ed21b3a0` added Connected Devices / LINK topology
+  presentation with deterministic persisted device ordering, source
+  channel/device identity, LINK adapter selection, and Commander DUO override
+  controls. It does not invent reorder, label, or RGB contracts. Canonical LSH
+  Lighting remains Legacy and is deferred to a separate family-specific
+  migration.
 - [x] Complete the known standalone cooling workspace targets without claiming
   a broad cooling completion:
   - Elite, Hydro, and Platinum AIOs provide modern Overview and Cooling from
@@ -683,11 +691,15 @@ after every legitimate native consumer has migrated.
     canonical Lighting migration (`06f81c90`).
   These are workspace milestones only; they do not claim physical-hardware
   validation or canonical Lighting migration.
-- [ ] The known standalone cooling targets are now covered, but a repository
-  inventory is still required to identify remaining accessory, display, and
-  miscellaneous legacy-workspace stragglers. Migrate only packages proven by
-  that source audit; universal workspace completion is not claimed until it is
-  complete.
+- [x] Complete the final repository-wide modern device-workspace inventory.
+  Active supported device families now have capability-driven modern workspace
+  coverage where their source contracts justify it. XENEON EDGE remains
+  intentionally deferred because discovery/registration is disabled and its
+  current widget/kiosk backend is incomplete; KDE/display-touch documentation
+  is not a completed device-control contract. Transport-only dongles and
+  receivers remain hidden as independent workspaces. This closes the modern
+  device-workspace migration phase; canonical Lighting migration remains a
+  separate family-specific effort and is not implied by workspace completion.
 - [x] Complete Memory as a separate family-specific migration proof. Its
   multi-DIMM topology, indexed per-LED `led` mode, parent ownership/Brightness,
   and existing device profile semantics remain device-owned where appropriate
@@ -695,8 +707,9 @@ after every legitimate native consumer has migrated.
   `065beb93`). Future native families still require individual audit and parity
   because their channels, sensors, cooling, per-LED behavior, and other
   capabilities may differ materially from existing proofs.
-- [ ] Keep legacy native pages available until the applicable modern workspace
-  reaches control parity for that device family.
+- Retain legacy native pages where an individual family still requires them for
+  supported compatibility; this does not reopen the completed modern
+  device-workspace migration phase or establish canonical Lighting parity.
 
 ### Final cleanup
 

@@ -68,13 +68,16 @@ persistence remain unchanged. The shared UI is reused rather than adding a
 product-specific modern Lighting template. This does not imply that LT100, LN
 Core, LN Pro, MM700, or other accessories share ST100 semantics.
 
-K95 Platinum remains the canonical keyboard-lighting proof. Modern keyboard
-non-Lighting workspace migration is complete, and mice, headsets, and SCUF
-controller families may likewise use modern Devices presentation while their
-native Lighting remains on the retained legacy path. This separation validates
-that workspace completion is not evidence of renderer, output, or persistence
-parity; every future Lighting migration still requires a family-specific audit
-and cutover.
+K95 Platinum remains the canonical keyboard-lighting proof. The non-Lighting
+modern device-workspace migration phase is complete across active supported
+families, but that presentation milestone does not alter Lighting ownership,
+persistence, renderer parity, or migration status. Mice, headsets, SCUF
+controllers, and LSH may use modern Devices presentation while their native
+Lighting remains on the retained legacy path; LSH in particular remains Legacy
+until its own family-specific Lighting audit and cutover. This separation
+validates that modern Overview, Cooling, Display, and Connected Devices are not
+evidence of renderer, output, or persistence parity; every future Lighting
+migration still requires a family-specific audit and cutover.
 
 Device-authored zone state remains owned by the device profile rather than
 being fabricated as generic `EffectSettings`. The shared authored-zone
