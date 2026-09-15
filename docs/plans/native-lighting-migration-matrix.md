@@ -28,6 +28,9 @@ are safe to migrate together.
   completed where hardware is available.
 - **Deferred** — intentionally remains on legacy because safe parity has not yet
   been established.
+- **Dormant/inert Lighting metadata** — RGB-shaped persisted fields or markers
+  exist, but audit found no RGB profile store, Lighting mutation, renderer, or
+  physical LED/output path. It is not a migration target.
 - **Not a lighting target** — manual audit proved the package does not own a
   native lighting implementation requiring migration.
 
@@ -166,8 +169,9 @@ changing state, persist device-owned authored colors, restart local output only
 while the device owns lighting, and suppress local ordinary-zone output while
 RGB Cluster or retained OpenRGB integration owns the device.
 
-Other native packages remain separate **Legacy** migration targets. No parity
-is inferred from similar package names, device shape, or matching audit
+Other source-confirmed native packages remain separate **Legacy** migration
+targets. No parity or target classification is inferred from similar package
+names, device shape, RGB-shaped fields, persistence markers, or matching audit
 signatures.
 
 
@@ -202,17 +206,27 @@ Generated as a read-only architecture inventory. This does not declare migration
 ## Summary
 
 - Packages with any scanned lighting marker: **137**
-- Strong legacy-lighting candidates: **131**
+- Strong-marker packages requiring source-contract classification: **131**
 - Weak-marker-only packages requiring manual review: **6**
+- Corrected native Lighting targets: **120** (previously 123), planned as
+  **90** migration passes (previously 92).
+
+Strong markers are audit leads, not proof of a Lighting implementation.
+RGB-looking fields, `RGBModes`, or persistence metadata count only when the
+source also provides actual Lighting state/mutations and a physical renderer or
+output path. This source-contract audit removed the Sabre V2 W/WU shared batch
+and Nautilus LCD standalone migration from the backlog without changing the
+completed Migrated proof set.
 
 ### Structural shapes
 
-- zoned: **64**
+- zoned: **62**
 - single-profile: **52**
 - multi-channel: **9**
 - weak-marker only: **6**
 - multi-channel + per-LED: **4**
-- other lighting: **2**
+- other lighting: **1**
+- dormant/inert metadata: **3**
 
 ## Package matrix
 
@@ -242,7 +256,7 @@ Generated as a read-only architecture inventory. This does not declare migration
 | `hs80rgb` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `hs80rgbW` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `hs80rgbWU` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
-| `hydro` | Y | Legacy | multi-channel | Y | Y |  |  |  |  |  |  |
+| `hydro` | Y | Legacy | multi-channel | Y | Y |  |  |  |  |  | static-only; no selected-effect mutation |
 | `ironclaw` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `ironclawSEW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `ironclawSEWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
@@ -309,7 +323,7 @@ Generated as a read-only architecture inventory. This does not declare migration
 | `mm700` | Y | Legacy | single-profile | Y | Y |  |  |  | Y | Y | mousepad |
 | `mm800` | Y | Migrated | single-profile |  | Y |  |  |  | Y | Y | mousepad |
 | `motherboard` |  | Not a lighting target | weak-marker only |  |  |  |  |  |  |  |  |
-| `nautilusLcd` | Y | Legacy | other lighting | Y |  |  |  |  |  |  |  |
+| `nautilusLcd` | Y | Not a lighting target | dormant/inert metadata | Y |  |  |  |  |  |  | LCD output only |
 | `nexus` |  | Not a lighting target | weak-marker only |  |  |  |  |  |  |  |  |
 | `nightsabreW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `nightsabreWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
@@ -321,8 +335,8 @@ Generated as a read-only architecture inventory. This does not declare migration
 | `sabrergbpro` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `sabrergbproW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `sabrergbproWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `sabrev2proW` | Y | Legacy | zoned |  | Y |  | Y |  |  |  | mouse |
-| `sabrev2proWU` | Y | Legacy | zoned |  | Y |  | Y |  |  |  | mouse |
+| `sabrev2proW` | Y | Dormant/inert Lighting metadata | dormant/inert metadata |  | Y |  |  |  |  |  | DPI indicator only |
+| `sabrev2proWU` | Y | Dormant/inert Lighting metadata | dormant/inert metadata |  | Y |  |  |  |  |  | DPI indicator only |
 | `scimitar` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `scimitarSEW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `scimitarSEWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
@@ -379,6 +393,26 @@ These packages are therefore classified as **Not a lighting target**. Their
 non-lighting behavior remains supported and must not be disturbed by native
 lighting migration work.
 
+## Strong-marker/source-contract audit
+
+The same source-contract rule applies to strong markers. `sabrev2proW` and
+`sabrev2proWU` persist `RGBProfile`, `BrightnessSlider`,
+`OriginalBrightness`, and `RGBModes`, but neither has an RGB profile store, a
+Lighting mutation, renderer, LED frame, or physical Lighting output. Their
+`rgb.Color` values are DPI-stage indicator state. They are dormant/inert
+metadata, not Legacy Lighting targets.
+
+`nautilusLcd` is not a Lighting target: its physical output is LCD
+feature-report/image transfer. Its `Rgb` and `saveRgbProfile` are orphaned
+RGB-shaped metadata with no renderer, mutation, or LED output consumer.
+
+`hydro` remains a real **Legacy** target. It persists RGB profile data and
+Brightness; `UpdateRgbProfileData` and Brightness mutations feed
+`setConfiguration`, which emits a Brightness-scaled RGB triplet through HID.
+That output always resolves the `static` profile, and no selected-effect
+`UpdateRgbProfile` mutation exists. Hydro is therefore a constrained
+standalone static-output migration, not unknown or delegated ownership.
+
 ## Architectural signature groups
 
 These groups are only an audit shortcut. Matching signatures do NOT mean packages are automatically safe to migrate together.
@@ -409,9 +443,9 @@ Count: **18**
 
 ### zoned + special:mouse
 
-Count: **10**
+Count: **8**
 
-`darkcorergbseW`, `darkcorergbseWU`, `harpoonrgbpro`, `katarpro`, `katarproxt`, `m75`, `m75W`, `m75WU`, `sabrev2proW`, `sabrev2proWU`
+`darkcorergbseW`, `darkcorergbseWU`, `harpoonrgbpro`, `katarpro`, `katarproxt`, `m75`, `m75W`, `m75WU`
 
 ### weak-marker only
 
@@ -451,9 +485,15 @@ Count: **2**
 
 ### other lighting
 
-Count: **2**
+Count: **1**
 
-`nautilusLcd`, `sabreprocs`
+`sabreprocs`
+
+### dormant/inert metadata
+
+Count: **3**
+
+`nautilusLcd`, `sabrev2proW`, `sabrev2proWU`
 
 ### single-profile + cluster + openrgb-target + special:mousepad
 

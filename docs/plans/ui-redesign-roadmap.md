@@ -510,6 +510,14 @@ state for a migrated package and cannot make it participate in the global path.
 The bridge and its compatibility machinery remain until the final `/rgb` cleanup
 after every legitimate native consumer has migrated.
 
+The native Lighting source-contract audit corrects the planning inventory to
+**120** Lighting targets and **90** proposed migration passes (from 123 and 92).
+Family audits may remove false-positive packages from the backlog where
+RGB-shaped fields, `RGBModes`, or persistence markers do not correspond to a
+real Lighting state/mutation and physical renderer/output contract. This is
+independent of the completed modern Devices workspace migration and does not
+change the eight completed canonical native proofs.
+
 - [x] Extract the shared independent-device lighting runtime and move Scimitar
   Pro selected effect to canonical state (`d833da87`, with canonical-read fixes
   in `4aa688a2`).
@@ -589,7 +597,10 @@ after every legitimate native consumer has migrated.
   between workspace and canonical Lighting migration.
 - [ ] Preserve each later family's protocol, packet, topology, lifecycle,
   firmware, device-specific lighting modes, and hardware-specific output
-  behavior while repeating migration one family at a time.
+  behavior while repeating migration one family at a time. Source-contract
+  audits may remove inert/non-target packages rather than inventing a
+  migration; Hydro remains a constrained standalone static-output target
+  because its legacy HID path lacks selected-effect mutation parity.
 - [ ] Remove shared override/global-editor infrastructure only after every
   proven remaining consumer reaches parity.
 

@@ -79,6 +79,17 @@ validates that modern Overview, Cooling, Display, and Connected Devices are not
 evidence of renderer, output, or persistence parity; every future Lighting
 migration still requires a family-specific audit and cutover.
 
+A future native Lighting migration also requires a source-backed Lighting
+contract, not merely RGB-looking fields or helpers. The source must establish
+existing Lighting state and mutation behavior plus sufficient physical renderer
+or output behavior to migrate without inventing hardware capability. The Sabre
+V2 W/WU packages have only dormant RGB metadata and DPI-stage indicator color,
+and Nautilus LCD's RGB-shaped metadata is unrelated to its LCD
+feature-report/image output; neither is a Lighting target. Hydro remains a
+real Legacy target, but its HID output is constrained to the Brightness-scaled
+`static` profile and lacks a selected-effect mutation, so any migration must
+preserve that static-only limit rather than fabricate effect parity.
+
 Device-authored zone state remains owned by the device profile rather than
 being fabricated as generic `EffectSettings`. The shared authored-zone
 presentation and mutation contract supports persistent multi-selection, clear

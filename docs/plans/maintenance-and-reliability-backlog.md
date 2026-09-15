@@ -53,6 +53,10 @@ LumenForge is a local, alpha-stage RGB and fan controller maintained by one deve
   canonical Lighting migration; deferred localization, helper-text, and
   compatibility retirement remain post-native-lighting-migration maintenance
   work.
+- Native Lighting migration uses a source-contract check: RGB-shaped metadata
+  alone is not a target. The completed audit removed dormant Sabre V2 W/WU and
+  Nautilus LCD false positives; it retained Hydro as a constrained static-output
+  legacy target. Detailed classification remains in the migration matrix.
 
 ## Observations to revisit only if reproduced
 
@@ -120,10 +124,12 @@ post-migration maintenance pass, not in hardware migrations.
 
 ## Current project priorities
 
-1. External Source Registry redesign.
-2. Backup restore hardening.
-3. Release-readiness validation.
-4. Next alpha release and tester feedback.
+1. Complete native canonical Lighting migration one source-confirmed family at
+   a time.
+2. External Source Registry redesign.
+3. Backup restore hardening.
+4. Legacy RGB compatibility retirement after native Lighting migration and
+   consumer tracing.
 
 ## Active security work tracked separately
 
