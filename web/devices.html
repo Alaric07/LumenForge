@@ -666,15 +666,18 @@
                                         <p class="lf-range-control-status" data-lf-three-pin-status aria-live="polite"></p>
                                     </section>
                             {{ end }}
+                                    {{ if or .ClusterOwnershipAvailable .ExternalOwnershipAvailable }}
                                     <section class="lf-lighting-ownership-panel" data-lf-lighting-ownership-controls>
                                         <header class="lf-lighting-ownership-header">
                                             <div><p class="lf-section-kicker">Lighting ownership</p><p>Choose which system controls this device's lighting.</p></div>
                                         </header>
                                         <div class="lf-lighting-ownership-controls">
+                                            {{ if .ClusterOwnershipAvailable }}
                                             <div class="lf-lighting-ownership-control" data-lf-lighting-ownership-control data-lf-ownership-kind="cluster" data-lf-device-id="{{ $.Device.Serial }}" data-lf-read-only="{{ .ReadOnly }}" data-lf-confirmed-enabled="{{ if .ClusterControlled }}1{{ else }}0{{ end }}">
                                                 <label class="lf-performance-toggle system-toggle compact" for="lf-lighting-rgb-cluster"><span>RGB Cluster</span><input id="lf-lighting-rgb-cluster" type="checkbox" data-lf-lighting-ownership-input{{ if .ClusterControlled }} checked{{ end }}{{ if or .ReadOnly .ExternalControlled }} disabled{{ end }}><span class="toggle-track" aria-hidden="true"></span></label>
                                                 <p class="lf-range-control-status" data-lf-lighting-ownership-status aria-live="polite"></p>
                                             </div>
+                                            {{ end }}
                                             {{ if .ExternalOwnershipAvailable }}
                                                 <div class="lf-lighting-ownership-control" data-lf-lighting-ownership-control data-lf-ownership-kind="openrgb-integration" data-lf-device-id="{{ $.Device.Serial }}" data-lf-read-only="{{ .ReadOnly }}" data-lf-confirmed-enabled="{{ if .ExternalControlled }}1{{ else }}0{{ end }}">
                                                     <label class="lf-performance-toggle system-toggle compact" for="lf-lighting-openrgb-integration"><span>OpenRGB Integration</span><input id="lf-lighting-openrgb-integration" type="checkbox" data-lf-lighting-ownership-input{{ if .ExternalControlled }} checked{{ end }}{{ if or .ReadOnly .ClusterControlled }} disabled{{ end }}><span class="toggle-track" aria-hidden="true"></span></label>
@@ -683,6 +686,7 @@
                                             {{ end }}
 	                                        </div>
 	                                    </section>
+	                                    {{ end }}
 	                                </div>
 
 	                            </div>

@@ -57,6 +57,7 @@ import (
 	"LumenForge/src/devices/voidV2W"
 	"LumenForge/src/devices/voideliteW"
 	"LumenForge/src/keyboards"
+	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/rgb"
 	"LumenForge/src/stats"
 	"LumenForge/src/templates"
@@ -211,7 +212,7 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "m65-pro-rgb-modern", Title: "M65 PRO RGB", ProductType: common.ProductTypeM65RgbElite, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildM65ProRGBModernPreview},
 	{Key: "m65-rgb-ultra-modern", Title: "M65 RGB ULTRA", ProductType: common.ProductTypeM65RgbUltra, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildM65RGBUltraModernPreview},
 	{Key: "m75-modern", Title: "M75", ProductType: common.ProductTypeM75, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildM75ModernPreview},
-	{Key: "m75-wireless-modern", Title: "M75 Wireless", ProductType: common.ProductTypeM75W, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildM75WirelessModernPreview},
+	{Key: "m75-wireless-modern", Title: "M75 Wireless", ProductType: common.ProductTypeM75W, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildM75WirelessCanonicalModernPreview},
 	{Key: "m75-air-wireless-modern", Title: "M75 AIR Wireless", ProductType: common.ProductTypeM75AirW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
 		return buildWirelessMouseModernPreview("M75 AIR WIRELESS", "preview-m75-air-wireless-modern", true, true)
 	}},
@@ -1378,6 +1379,23 @@ func buildM75WirelessModernPreview() *devicesWorkspaceSummary {
 	s.Product, s.Serial, s.Firmware = "M75 WIRELESS", "preview-m75-wireless-modern", "1.4.32"
 	s.HasBattery, s.BatteryLevel = true, 78
 	s.SleepTimer = &devicesSleepTimerWorkspaceSummary{Value: 15, Options: []devicesSleepTimerOptionSummary{{Value: 1, Label: "1 minute"}, {Value: 5, Label: "5 minutes"}, {Value: 10, Label: "10 minutes"}, {Value: 15, Label: "15 minutes"}, {Value: 30, Label: "30 minutes"}, {Value: 60, Label: "1 hour"}}}
+	return s
+}
+
+func buildM75WirelessCanonicalModernPreview() *devicesWorkspaceSummary {
+	s := buildM75WirelessModernPreview()
+	s.LegacyLighting = false
+	effects := make([]lightingpresentation.EffectOption, 0, 20)
+	for _, effect := range []struct{ id, label string }{
+		{"colorpulse", "Color Pulse"}, {"colorshift", "Color Shift"}, {"colorwarp", "Color Warp"}, {"cpu-temperature", "CPU Temperature"}, {"flickering", "Flickering"}, {"flame", "Flame"}, {"aurora", "Aurora"}, {"cyberpunkglitch", "Cyberpunk Glitch"}, {"tokyonight", "Tokyo Night"}, {"gpu-temperature", "GPU Temperature"}, {"gradient", "Gradient"}, {"mouse", "Mouse"}, {"off", "Off"}, {"rainbow", "Rainbow"}, {"pastelrainbow", "Pastel Rainbow"}, {"rotator", "Rotator"}, {"static", "Static"}, {"storm", "Storm"}, {"watercolor", "Watercolor"}, {"wave", "Wave"},
+	} {
+		effects = append(effects, lightingpresentation.EffectOption{ID: effect.id, Label: effect.label})
+	}
+	s.Lighting = devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "mouse", EffectSupported: true, HasBrightness: true, Brightness: 70, SupportedEffects: effects, AuthoredZoneEditor: &lightingpresentation.AuthoredZoneEditor{EffectID: "mouse", Heading: "Zones", Description: "Select one or more zones, choose a color, then apply it to the selected zones.", Zones: []lightingpresentation.AuthoredZone{{ID: "0", Label: "Bottom", ColorHex: "#ff0000"}, {ID: "1", Label: "Logo", ColorHex: "#ffff00"}}}})
+	// The M75 fixture mirrors the concrete M75 capability result, not the
+	// direct-helper native defaults used by generic presentation fixtures.
+	s.Lighting.ClusterOwnershipAvailable = false
+	s.Lighting.ExternalOwnershipAvailable = false
 	return s
 }
 func buildWirelessMouseModernPreview(product, serial string, polling, lift bool) *devicesWorkspaceSummary {

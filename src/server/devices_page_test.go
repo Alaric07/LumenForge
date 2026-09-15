@@ -1017,7 +1017,7 @@ func TestDevicesLightingProfilePresentation(t *testing.T) {
 		}
 	}
 	zonesAt, profileAt, ownershipAt := strings.Index(body, "<h3>Zones</h3>"), strings.Index(body, "<h2>Lighting Profile</h2>"), strings.Index(body, `class="lf-lighting-ownership-panel"`)
-	if zonesAt < 0 || profileAt <= zonesAt || ownershipAt <= profileAt {
+	if zonesAt < 0 || profileAt <= zonesAt || ownershipAt >= 0 {
 		t.Errorf("MM800 lighting profile order = zones:%d profile:%d ownership:%d", zonesAt, profileAt, ownershipAt)
 	}
 
@@ -1463,6 +1463,8 @@ func TestDevicesPerformanceRoutesUseExistingRequestPayloads(t *testing.T) {
 
 func TestDevicesLightingOwnershipControlsFollowTargetKind(t *testing.T) {
 	native := devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native"})
+	native.ClusterOwnershipAvailable = true
+	native.ExternalOwnershipAvailable = true
 	nativeBody := renderDevicesLightingView(t, native)
 	for _, want := range []string{"RGB Cluster", "OpenRGB Integration", `data-lf-ownership-kind="cluster"`, `data-lf-ownership-kind="openrgb-integration"`} {
 		if !strings.Contains(nativeBody, want) {

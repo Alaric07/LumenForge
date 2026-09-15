@@ -1486,7 +1486,7 @@ func TestHarpoonModernDevicePreviewRendersSharedMouseWorkspace(t *testing.T) {
 func TestM75WirelessModernDevicePreviewRendersSharedMouseWorkspace(t *testing.T) {
 	router := legacyDevicePreviewRouter(t, true)
 	const serial = "preview-m75-wireless-modern"
-	for _, test := range []struct{ query, want string }{{"", "78%"}, {"?view=lighting", "Native Lighting migration is not complete."}, {"?view=dpi", "Sniper"}, {"?view=buttons", "Right Forward"}} {
+	for _, test := range []struct{ query, want string }{{"", "78%"}, {"?view=lighting", "Mouse"}, {"?view=dpi", "Sniper"}, {"?view=buttons", "Right Forward"}} {
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/m75-wireless-modern"+test.query))
 		if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), test.want) {
@@ -1503,6 +1503,19 @@ func TestM75WirelessModernDevicePreviewRendersSharedMouseWorkspace(t *testing.T)
 	for _, expected := range []string{"M75 WIRELESS", "Sleep Timer", "15 minutes", "Firmware 1.4.32", "FPS", `href="/dev/device-preview/m75-wireless-modern?view=buttons"`} {
 		if !strings.Contains(recorder.Body.String(), expected) {
 			t.Errorf("preview omitted %q", expected)
+		}
+	}
+	lightingRecorder := httptest.NewRecorder()
+	router.ServeHTTP(lightingRecorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/m75-wireless-modern?view=lighting"))
+	lightingBody := lightingRecorder.Body.String()
+	for _, expected := range []string{"Color Pulse", "Color Shift", "Color Warp", "CPU Temperature", "Flickering", "Flame", "Aurora", "Cyberpunk Glitch", "Tokyo Night", "GPU Temperature", "Gradient", "Mouse", "Off", "Rainbow", "Pastel Rainbow", "Rotator", "Static", "Storm", "Watercolor", "Wave", "Bottom", "Logo"} {
+		if !strings.Contains(lightingBody, expected) {
+			t.Errorf("M75 canonical Lighting preview omitted %q", expected)
+		}
+	}
+	for _, unexpected := range []string{`data-lf-ownership-kind="cluster"`, `data-lf-ownership-kind="openrgb-integration"`} {
+		if strings.Contains(lightingBody, unexpected) {
+			t.Errorf("M75 canonical Lighting preview exposed %q", unexpected)
 		}
 	}
 	if devices.GetDevice(serial) != nil {

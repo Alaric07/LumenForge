@@ -67,60 +67,64 @@ type DPIProfile struct {
 }
 
 type Device struct {
-	Debug                 bool
-	dev                   *common.Slipstream
-	Manufacturer          string `json:"manufacturer"`
-	Product               string `json:"product"`
-	Serial                string `json:"serial"`
-	Firmware              string `json:"firmware"`
-	activeRgb             *rgb.ActiveRGB
-	UserProfiles          map[string]*DeviceProfile `json:"userProfiles"`
-	ProfileOrder          []string                  `json:"profileOrder"`
-	Devices               map[int]string            `json:"devices"`
-	DeviceProfile         *DeviceProfile
-	OriginalProfile       *DeviceProfile
-	Template              string
-	VendorId              uint16
-	ProductId             uint16
-	SlipstreamId          uint16
-	Brightness            map[int]string
-	PollingRates          map[int]string
-	SwitchModes           map[int]string
-	KeyAssignmentTypes    map[int]string
-	LEDChannels           int
-	ChangeableLedChannels int
-	CpuTemp               float32
-	GpuTemp               float32
-	Layouts               []string
-	Rgb                   *rgb.RGB
-	rgbMutex              sync.RWMutex
-	Endpoint              byte
-	SleepModes            map[int]string
-	LiftHeights           map[int]string
-	Connected             bool
-	deviceLock            sync.Mutex
-	macroMutex            sync.Mutex
-	timer                 *time.Ticker
-	autoRefreshChan       chan struct{}
-	Exit                  bool
-	KeyAssignment         map[int]inputmanager.KeyAssignment
-	InputActions          map[uint16]inputmanager.InputAction
-	PressLoop             bool
-	keyAssignmentFile     string
-	BatteryLevel          uint16
-	KeyAssignmentData     *inputmanager.KeyAssignment
-	ModifierIndex         uint32
-	SniperMode            bool
-	MacroTracker          map[int]uint16
-	RGBModes              []string
-	Usb                   bool
-	MinDPI                int
-	MaxDPI                int
-	ZoneAmount            int
-	DPIAmount             int
-	checkOnlineMu         sync.Mutex
-	stopRepeat            chan struct{}
-	stopRepeatMutex       sync.Mutex
+	Debug                       bool
+	dev                         *common.Slipstream
+	Manufacturer                string `json:"manufacturer"`
+	Product                     string `json:"product"`
+	Serial                      string `json:"serial"`
+	Firmware                    string `json:"firmware"`
+	activeRgb                   *rgb.ActiveRGB
+	lightingSource              m75LightingSource
+	schedulerBrightnessOverride m75SchedulerBrightnessOverride
+	userRGBOff                  m75UserRGBOff
+	lightingRestart             func()
+	UserProfiles                map[string]*DeviceProfile `json:"userProfiles"`
+	ProfileOrder                []string                  `json:"profileOrder"`
+	Devices                     map[int]string            `json:"devices"`
+	DeviceProfile               *DeviceProfile
+	OriginalProfile             *DeviceProfile
+	Template                    string
+	VendorId                    uint16
+	ProductId                   uint16
+	SlipstreamId                uint16
+	Brightness                  map[int]string
+	PollingRates                map[int]string
+	SwitchModes                 map[int]string
+	KeyAssignmentTypes          map[int]string
+	LEDChannels                 int
+	ChangeableLedChannels       int
+	CpuTemp                     float32
+	GpuTemp                     float32
+	Layouts                     []string
+	Rgb                         *rgb.RGB
+	rgbMutex                    sync.RWMutex
+	Endpoint                    byte
+	SleepModes                  map[int]string
+	LiftHeights                 map[int]string
+	Connected                   bool
+	deviceLock                  sync.Mutex
+	macroMutex                  sync.Mutex
+	timer                       *time.Ticker
+	autoRefreshChan             chan struct{}
+	Exit                        bool
+	KeyAssignment               map[int]inputmanager.KeyAssignment
+	InputActions                map[uint16]inputmanager.InputAction
+	PressLoop                   bool
+	keyAssignmentFile           string
+	BatteryLevel                uint16
+	KeyAssignmentData           *inputmanager.KeyAssignment
+	ModifierIndex               uint32
+	SniperMode                  bool
+	MacroTracker                map[int]uint16
+	RGBModes                    []string
+	Usb                         bool
+	MinDPI                      int
+	MaxDPI                      int
+	ZoneAmount                  int
+	DPIAmount                   int
+	checkOnlineMu               sync.Mutex
+	stopRepeat                  chan struct{}
+	stopRepeatMutex             sync.Mutex
 }
 
 var (
@@ -247,10 +251,15 @@ func Init(vendorId, slipstreamId, productId uint16, dev *common.Slipstream, endp
 		DPIAmount:         6,
 	}
 
-	d.getDebugMode()       // Debug mode
-	d.loadRgb()            // Load RGB
+	d.getDebugMode() // Debug mode
+	d.loadRgb()      // Load RGB
+	if err := d.attachIndependentDeviceLightingRuntime(config.GetPaths()); err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to attach canonical device lighting runtime")
+	}
 	d.loadDeviceProfiles() // Load all device profiles
-	d.saveDeviceProfile()  // Save profile
+	if !d.clearLegacyRgbOff() {
+		d.saveDeviceProfile() // Save profile
+	}
 	d.loadKeyAssignments() // Key Assignments
 	return d
 }
@@ -802,6 +811,12 @@ func (d *Device) UpdateRgbProfile(_ int, profile string) uint8 {
 	if !d.Connected {
 		return 0
 	}
+	if d.lightingSource != nil {
+		if err := d.SetLightingEffect(profile); err != nil {
+			return 0
+		}
+		return 1
+	}
 
 	if d.GetRgbProfile(profile) == nil {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
@@ -838,6 +853,12 @@ func (d *Device) ChangeDeviceBrightnessValue(value uint8) uint8 {
 		return 0
 	}
 
+	if d.lightingSource != nil {
+		if err := d.SetLightingBrightness(value); err != nil {
+			return 0
+		}
+		return 1
+	}
 	d.DeviceProfile.BrightnessSlider = &value
 	d.saveDeviceProfile()
 
@@ -853,6 +874,17 @@ func (d *Device) ChangeDeviceBrightnessValue(value uint8) uint8 {
 
 // SchedulerBrightness will change device brightness via scheduler
 func (d *Device) SchedulerBrightness(value uint8) uint8 {
+	if d.lightingSource != nil {
+		var override *uint8
+		if value == 0 {
+			overrideValue := uint8(0)
+			override = &overrideValue
+		}
+		if d.schedulerBrightnessOverride.set(override) {
+			d.restartCanonicalLighting()
+		}
+		return 1
+	}
 	if value == 0 {
 		d.DeviceProfile.OriginalBrightness = *d.DeviceProfile.BrightnessSlider
 		d.DeviceProfile.BrightnessSlider = &value
@@ -1627,6 +1659,14 @@ func (d *Device) ControlDeviceRgb(value bool) {
 		return
 	}
 
+	if d.lightingSource != nil {
+		changed := d.userRGBOff.set(value)
+		cleaned := d.clearLegacyRgbOff()
+		if (changed || cleaned) && d.Connected {
+			d.restartCanonicalLighting()
+		}
+		return
+	}
 	d.DeviceProfile.RgbOff = value
 	d.saveDeviceProfile()
 
@@ -1641,6 +1681,13 @@ func (d *Device) ControlDeviceRgb(value bool) {
 
 // setDeviceColor will activate and set device RGB
 func (d *Device) setDeviceColor(dpi bool) {
+	if d.lightingSource != nil {
+		d.clearLegacyRgbOff()
+		if !d.syncCanonicalLightingAdapter() {
+			logger.Log(logger.Fields{"serial": d.Serial}).Error("Unable to resolve canonical device lighting")
+			return
+		}
+	}
 	buf := make([]byte, d.LEDChannels*3)
 
 	if d.DeviceProfile == nil {
