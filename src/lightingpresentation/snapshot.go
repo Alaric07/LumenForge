@@ -55,9 +55,14 @@ type AuthoredZone struct {
 // device's canonical lighting state. It does not claim current hardware output.
 // TargetKind identifies the corresponding Devices lighting mutation target.
 type Snapshot struct {
-	TargetKind         string
-	ConfiguredEffect   string
-	EffectSupported    bool
+	TargetKind       string
+	ConfiguredEffect string
+	EffectSupported  bool
+	// EffectSelectionAvailable distinguishes a fixed effect identity from a
+	// device that supports changing effects.
+	EffectSelectionAvailable bool
+	// FixedEffect reports a known effect identity which the device cannot change.
+	FixedEffect        bool
 	SupportedEffects   []EffectOption
 	HasBrightness      bool
 	Brightness         uint8

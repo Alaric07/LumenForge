@@ -153,11 +153,14 @@ const (
 type nativeDeviceLightingTarget interface {
 	LightingDeviceID() string
 	SupportsLightingEffect(string) bool
-	SetLightingEffect(string) error
 	SetLightingBrightness(uint8) error
 	ResolveLightingEffectSettings(string) (lightingsettings.EffectSettings, error)
 	SetLightingEffectSettings(string, lightingsettings.EffectSettings) error
 	ResetLightingEffectSettings(string) error
+}
+
+type nativeDeviceLightingEffectSelectionTarget interface {
+	SetLightingEffect(string) error
 }
 
 type nativeDeviceLightingChannelTarget interface {
@@ -2854,6 +2857,7 @@ type devicesLightingWorkspaceSummary struct {
 	ConfiguredEffectLabel      string
 	ConfiguredEffectIconURL    string
 	EffectSupported            bool
+	EffectSelectionAvailable   bool
 	SupportedEffects           []devicesLightingEffectSummary
 	HasBrightness              bool
 	Brightness                 uint8
@@ -4444,6 +4448,7 @@ func devicesLightingWorkspaceSummaryFromSnapshot(snapshot lightingpresentation.S
 		ExternalOwnershipAvailable: snapshot.TargetKind == "native",
 		ConfiguredEffect:           snapshot.ConfiguredEffect,
 		EffectSupported:            snapshot.EffectSupported,
+		EffectSelectionAvailable:   !snapshot.FixedEffect && (snapshot.EffectSelectionAvailable || len(snapshot.SupportedEffects) > 0),
 		HasBrightness:              snapshot.HasBrightness,
 		Brightness:                 snapshot.Brightness,
 		ClusterControlled:          snapshot.ClusterControlled,
@@ -4610,7 +4615,10 @@ func devicesWorkspaceSummaryForSerial(
 		Image:          device.Image,
 		Unavailable:    device.Unavailable,
 		View:           "overview",
-		LegacyLighting: device.ProductType == common.ProductTypeLinkHub || device.ProductType == common.ProductTypeXC7 || device.ProductType == common.ProductTypeLNCore || device.ProductType == common.ProductTypeLnPro || device.ProductType == common.ProductTypeElite || device.ProductType == common.ProductTypePlatinum || device.ProductType == common.ProductTypeHydro || device.ProductType == common.ProductTypeCorsairOne || device.ProductType == common.ProductTypeMM700 || device.ProductType == common.ProductTypeLT100 || device.ProductType == common.ProductTypeHS80RGB || device.ProductType == common.ProductTypeHS80RGBW || device.ProductType == common.ProductTypeHS80MAXW || device.ProductType == common.ProductTypeVirtuosoW || device.ProductType == common.ProductTypeVirtuosoWU || device.ProductType == common.ProductTypeVirtuosoSEW || device.ProductType == common.ProductTypeVirtuosoSEWU || device.ProductType == common.ProductTypeVirtuosoMAXW || device.ProductType == common.ProductTypeVoidV2W || device.ProductType == common.ProductTypeCC || device.ProductType == common.ProductTypeCCXT || device.ProductType == common.ProductTypeCPro || device.ProductType == common.ProductTypeHarpoonRgbPro || device.ProductType == common.ProductTypeKatarPro || device.ProductType == common.ProductTypeKatarProXT || device.ProductType == common.ProductTypeGlaiveRgbPro || device.ProductType == common.ProductTypeGlaiveRgb || device.ProductType == common.ProductTypeM65RgbElite || device.ProductType == common.ProductTypeSabreRgbPro || device.ProductType == common.ProductTypeNightswordRgb || device.ProductType == common.ProductTypeIronClawRgb || device.ProductType == common.ProductTypeM55 || device.ProductType == common.ProductTypeM55RgbPro || device.ProductType == common.ProductTypeM65RgbUltra || device.ProductType == common.ProductTypeM75 || device.ProductType == common.ProductTypeM75AirW || device.ProductType == common.ProductTypeM75AirWU || device.ProductType == common.ProductTypeM65RgbUltraW || device.ProductType == common.ProductTypeM65RgbUltraWU || device.ProductType == common.ProductTypeHarpoonRgbW || device.ProductType == common.ProductTypeHarpoonRgbWU || device.ProductType == common.ProductTypeM55W || device.ProductType == common.ProductTypeNightsabreW || device.ProductType == common.ProductTypeNightsabreWU || device.ProductType == common.ProductTypeSabreRgbProW || device.ProductType == common.ProductTypeSabreRgbProWU || device.ProductType == common.ProductTypeSabreProCs || device.ProductType == common.ProductTypeScimitarRgb || device.ProductType == common.ProductTypeK70CoreTklW || device.ProductType == common.ProductTypeK70CoreTklWU || device.ProductType == common.ProductTypeK70PMW || device.ProductType == common.ProductTypeK70PMWU || device.ProductType == common.ProductTypeK70RgbTkl || device.ProductType == common.ProductTypeStrafeRgbMk2 || device.ProductType == common.ProductTypeClipperProMini60 || device.ProductType == common.ProductTypeMakr75W || device.ProductType == common.ProductTypeMakr75WU || device.ProductType == common.ProductTypeVanguard96 || device.ProductType == common.ProductTypeVanguard96Pro || device.ProductType == common.ProductTypeVanguard96W || device.ProductType == common.ProductTypeVanguard96WU || device.ProductType == common.ProductTypeVanguard99AirW || device.ProductType == common.ProductTypeVanguard99AirWU || device.ProductType == common.ProductTypeScufEnvisionProW || device.ProductType == common.ProductTypeScufEnvisionProWU || device.ProductType == common.ProductTypeScufEnvisionProV2W || device.ProductType == common.ProductTypeScufEnvisionProV2WU,
+		LegacyLighting: device.ProductType == common.ProductTypeLinkHub || device.ProductType == common.ProductTypeXC7 || device.ProductType == common.ProductTypeLNCore || device.ProductType == common.ProductTypeLnPro || device.ProductType == common.ProductTypeElite || device.ProductType == common.ProductTypePlatinum || device.ProductType == common.ProductTypeCorsairOne || device.ProductType == common.ProductTypeMM700 || device.ProductType == common.ProductTypeLT100 || device.ProductType == common.ProductTypeHS80RGB || device.ProductType == common.ProductTypeHS80RGBW || device.ProductType == common.ProductTypeHS80MAXW || device.ProductType == common.ProductTypeVirtuosoW || device.ProductType == common.ProductTypeVirtuosoWU || device.ProductType == common.ProductTypeVirtuosoSEW || device.ProductType == common.ProductTypeVirtuosoSEWU || device.ProductType == common.ProductTypeVirtuosoMAXW || device.ProductType == common.ProductTypeVoidV2W || device.ProductType == common.ProductTypeCC || device.ProductType == common.ProductTypeCCXT || device.ProductType == common.ProductTypeCPro || device.ProductType == common.ProductTypeHarpoonRgbPro || device.ProductType == common.ProductTypeKatarPro || device.ProductType == common.ProductTypeKatarProXT || device.ProductType == common.ProductTypeGlaiveRgbPro || device.ProductType == common.ProductTypeGlaiveRgb || device.ProductType == common.ProductTypeM65RgbElite || device.ProductType == common.ProductTypeSabreRgbPro || device.ProductType == common.ProductTypeNightswordRgb || device.ProductType == common.ProductTypeIronClawRgb || device.ProductType == common.ProductTypeM55 || device.ProductType == common.ProductTypeM55RgbPro || device.ProductType == common.ProductTypeM65RgbUltra || device.ProductType == common.ProductTypeM75 || device.ProductType == common.ProductTypeM75AirW || device.ProductType == common.ProductTypeM75AirWU || device.ProductType == common.ProductTypeM65RgbUltraW || device.ProductType == common.ProductTypeM65RgbUltraWU || device.ProductType == common.ProductTypeHarpoonRgbW || device.ProductType == common.ProductTypeHarpoonRgbWU || device.ProductType == common.ProductTypeM55W || device.ProductType == common.ProductTypeNightsabreW || device.ProductType == common.ProductTypeNightsabreWU || device.ProductType == common.ProductTypeSabreRgbProW || device.ProductType == common.ProductTypeSabreRgbProWU || device.ProductType == common.ProductTypeSabreProCs || device.ProductType == common.ProductTypeScimitarRgb || device.ProductType == common.ProductTypeK70CoreTklW || device.ProductType == common.ProductTypeK70CoreTklWU || device.ProductType == common.ProductTypeK70PMW || device.ProductType == common.ProductTypeK70PMWU || device.ProductType == common.ProductTypeK70RgbTkl || device.ProductType == common.ProductTypeStrafeRgbMk2 || device.ProductType == common.ProductTypeClipperProMini60 || device.ProductType == common.ProductTypeMakr75W || device.ProductType == common.ProductTypeMakr75WU || device.ProductType == common.ProductTypeVanguard96 || device.ProductType == common.ProductTypeVanguard96Pro || device.ProductType == common.ProductTypeVanguard96W || device.ProductType == common.ProductTypeVanguard96WU || device.ProductType == common.ProductTypeVanguard99AirW || device.ProductType == common.ProductTypeVanguard99AirWU || device.ProductType == common.ProductTypeScufEnvisionProW || device.ProductType == common.ProductTypeScufEnvisionProWU || device.ProductType == common.ProductTypeScufEnvisionProV2W || device.ProductType == common.ProductTypeScufEnvisionProV2WU,
+	}
+	if device.ProductType == common.ProductTypeHydro {
+		summary.LegacyLighting = false
 	}
 	if device.ProductType == common.ProductTypeLinkHub {
 		_, summary.LegacyLighting = device.Instance.(*lsh.Device)
@@ -5891,7 +5899,7 @@ func setNativeDeviceLightingEffect(w http.ResponseWriter, r *http.Request) {
 			nativeDeviceLightingFailure(w, "Unable to set effect")
 			return
 		}
-	} else if target.SetLightingEffect(*req.Effect) != nil {
+	} else if selector, ok := target.(nativeDeviceLightingEffectSelectionTarget); !ok || selector.SetLightingEffect(*req.Effect) != nil {
 		nativeDeviceLightingFailure(w, "Unable to set effect")
 		return
 	}

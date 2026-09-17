@@ -105,7 +105,7 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 		return buildAIOModernPreview("iCUE H150i RGB ELITE", "preview-elite-aio-modern", "2.11.221", 3, []devicesCoolingProfileOptionSummary{{ID: "Quiet", Label: "Quiet"}, {ID: "Normal", Label: "Normal"}, {ID: "Performance", Label: "Performance"}}, true)
 	}},
 	{Key: "hydro-aio-modern", Title: "H115i HYDRO", ProductType: common.ProductTypeHydro, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: func() *devicesWorkspaceSummary {
-		return buildAIOModernPreview("H115i HYDRO", "preview-hydro-aio-modern", "1.9.14", 1, []devicesCoolingProfileOptionSummary{{ID: "Quiet", Label: "Quiet"}, {ID: "Performance", Label: "Performance"}}, false)
+		return buildHydroModernPreview()
 	}},
 	{Key: "platinum-aio-modern", Title: "H150i PLATINUM", ProductType: common.ProductTypePlatinum, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "cooling", Label: "Cooling"}}, Build: func() *devicesWorkspaceSummary {
 		return buildAIOModernPreview("H150i PLATINUM", "preview-platinum-aio-modern", "1.6.7", 3, nil, true)
@@ -293,6 +293,18 @@ func buildAIOModernPreview(product, serial, firmware string, fans int, pumpModes
 		summary.DeviceProfiles = &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "Quiet"}, CanSwitch: true, CanSave: true, CanDelete: true, ActiveProfile: "Default", Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription}
 	}
 	return summary
+}
+
+// buildHydroModernPreview is fixture-only canonical fixed-static presentation.
+func buildHydroModernPreview() *devicesWorkspaceSummary {
+	cooling := &devicesCoolingWorkspaceSummary{ProfileOptions: []devicesCoolingProfileOptionSummary{{ID: "Quiet", Label: "Quiet"}, {ID: "Balanced", Label: "Balanced"}, {ID: "Performance", Label: "Performance"}}, Channels: []devicesCoolingChannelSummary{
+		{ID: 0, Name: "Pump", Label: "Pump", RPM: 2450, Temperature: "31.5°C", ContainsPump: true, SelectedProfile: "Performance", PumpModeOptions: []devicesCoolingProfileOptionSummary{{ID: "Quiet", Label: "Quiet"}, {ID: "Performance", Label: "Performance"}}},
+		{ID: 1, Name: "Fan 1", Label: "Fan 1", RPM: 1125, SelectedProfile: "Balanced"},
+	}}
+	lighting := devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "static", EffectSupported: true, FixedEffect: true, SupportedEffects: []lightingpresentation.EffectOption{{ID: "static", Label: "Static"}}, HasBrightness: true, Brightness: 100, PaletteKind: "static-single-color", SingleColorHex: "#ffffff"})
+	lighting.ClusterOwnershipAvailable = false
+	lighting.ExternalOwnershipAvailable = false
+	return &devicesWorkspaceSummary{Product: "H115i HYDRO", Serial: "preview-hydro-aio-modern", Firmware: "1.9.14", Image: "icon-cooler.svg", View: "overview", Lighting: lighting, Cooling: cooling, OverviewCooling: devicesOverviewCoolingStatusFromSummary(cooling)}
 }
 
 // buildCorsairOneModernPreview is inert, manually constructed presentation

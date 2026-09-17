@@ -8,6 +8,7 @@ import (
 	"LumenForge/src/common"
 	"LumenForge/src/config"
 	"LumenForge/src/dashboard"
+	"LumenForge/src/lightingsettings"
 	"LumenForge/src/logger"
 	"LumenForge/src/rgb"
 	"LumenForge/src/stats"
@@ -110,41 +111,44 @@ type TemperatureProbe struct {
 }
 
 type Device struct {
-	dev               *usb.Device
-	ProductId         uint16
-	Manufacturer      string                    `json:"manufacturer"`
-	Product           string                    `json:"product"`
-	Serial            string                    `json:"serial"`
-	Path              string                    `json:"path"`
-	Firmware          string                    `json:"firmware"`
-	RGB               string                    `json:"rgb"`
-	Fans              int                       `json:"fans"`
-	RequireActivation bool                      `json:"requireActivation"`
-	AIO               bool                      `json:"aio"`
-	Devices           map[int]*Devices          `json:"devices"`
-	UserProfiles      map[string]*DeviceProfile `json:"userProfiles"`
-	ActiveDevice      SupportedDevice
-	sequence          byte
-	DeviceProfile     *DeviceProfile
-	TemperatureProbes *[]TemperatureProbe
-	ExternalHub       bool
-	RGBDeviceOnly     bool
-	Template          string
-	Brightness        map[int]string
-	HasLCD            bool
-	CpuTemp           float32
-	GpuTemp           float32
-	Rgb               *rgb.RGB
-	rgbMutex          sync.RWMutex
-	mutex             sync.Mutex
-	deviceLock        sync.Mutex
-	autoRefreshChan   chan struct{}
-	speedRefreshChan  chan struct{}
-	timer             *time.Ticker
-	timerSpeed        *time.Ticker
-	Exit              bool
-	RGBModes          []string
-	instance          *common.Device
+	dev                         *usb.Device
+	ProductId                   uint16
+	Manufacturer                string                    `json:"manufacturer"`
+	Product                     string                    `json:"product"`
+	Serial                      string                    `json:"serial"`
+	Path                        string                    `json:"path"`
+	Firmware                    string                    `json:"firmware"`
+	RGB                         string                    `json:"rgb"`
+	Fans                        int                       `json:"fans"`
+	RequireActivation           bool                      `json:"requireActivation"`
+	AIO                         bool                      `json:"aio"`
+	Devices                     map[int]*Devices          `json:"devices"`
+	UserProfiles                map[string]*DeviceProfile `json:"userProfiles"`
+	ActiveDevice                SupportedDevice
+	sequence                    byte
+	DeviceProfile               *DeviceProfile
+	TemperatureProbes           *[]TemperatureProbe
+	ExternalHub                 bool
+	RGBDeviceOnly               bool
+	Template                    string
+	Brightness                  map[int]string
+	HasLCD                      bool
+	CpuTemp                     float32
+	GpuTemp                     float32
+	Rgb                         *rgb.RGB
+	lightingRuntime             *lightingsettings.IndependentDeviceRuntime
+	schedulerBrightnessOverride hydroSchedulerBrightnessOverride
+	rgbMutex                    sync.RWMutex
+	mutex                       sync.Mutex
+	deviceLock                  sync.Mutex
+	autoRefreshChan             chan struct{}
+	speedRefreshChan            chan struct{}
+	timer                       *time.Ticker
+	timerSpeed                  *time.Ticker
+	Exit                        bool
+	RGBModes                    []string
+	instance                    *common.Device
+	configurationWrite          func([]byte)
 }
 
 var (
@@ -238,9 +242,12 @@ func Init(vendorId, productId uint16, _, path string) *common.Device {
 	dev.SetEndpoints(supportedDevice.EndpointOut, supportedDevice.EndpointIn)
 
 	// Bootstrap
-	d.getManufacturer()     // Manufacturer
-	d.getProduct()          // Product
-	d.getSerial()           // Serial
+	d.getManufacturer() // Manufacturer
+	d.getProduct()      // Product
+	d.getSerial()       // Serial
+	if err = d.attachIndependentDeviceLightingRuntime(config.GetPaths()); err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to attach canonical Hydro lighting runtime")
+	}
 	d.loadRgb()             // Load RGB
 	d.setFans()             // Number of fans
 	d.loadDeviceProfiles()  // Load all device profiles
@@ -496,33 +503,28 @@ func (d *Device) UpdateRgbProfileData(profileName string, profile rgb.Profile) u
 
 	d.Rgb.Profiles[profileName] = *pf
 	d.saveRgbProfile()
-	d.setConfiguration()
 	return 1
 }
 
 // ChangeDeviceBrightnessValue will change device brightness via slider
 func (d *Device) ChangeDeviceBrightnessValue(value uint8) uint8 {
-	if value < 0 || value > 100 {
-		return 0
-	}
-
-	d.DeviceProfile.BrightnessSlider = &value
-	d.saveDeviceProfile()
-	d.setConfiguration()
-
-	return 1
+	// Hydro Lighting is canonical-only. Keep the legacy reflection surface from
+	// becoming an alternate mutation path for the generic gradual endpoint.
+	return 0
 }
 
 // SchedulerBrightness will change device brightness via scheduler
 func (d *Device) SchedulerBrightness(value uint8) uint8 {
-	if value == 0 {
-		d.DeviceProfile.OriginalBrightness = *d.DeviceProfile.BrightnessSlider
-		d.DeviceProfile.BrightnessSlider = &value
-	} else {
-		d.DeviceProfile.BrightnessSlider = &d.DeviceProfile.OriginalBrightness
+	if d == nil || d.lightingRuntime == nil {
+		return 0
 	}
-
-	d.saveDeviceProfile()
+	d.rgbMutex.Lock()
+	defer d.rgbMutex.Unlock()
+	if value == 0 {
+		d.schedulerBrightnessOverride.set(&value)
+	} else {
+		d.schedulerBrightnessOverride.set(nil)
+	}
 	d.setConfiguration()
 	return 1
 }
@@ -1063,21 +1065,12 @@ func (d *Device) setAutoRefresh() {
 
 // setPwdMode will set PWM mode of fans and set static color
 func (d *Device) setConfiguration() {
-	buf := make([]byte, 18)
-
-	profile := d.GetRgbProfile("static")
-	if profile == nil {
-		// Set to white if profile fails
-		buf[0] = 0xff // R
-		buf[1] = 0xff // G
-		buf[2] = 0xff // B
-	} else {
-		profile.StartColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
-		profileColor := rgb.ModifyBrightness(profile.StartColor)
-		buf[0] = byte(profileColor.Red)   // R
-		buf[1] = byte(profileColor.Green) // G
-		buf[2] = byte(profileColor.Blue)  // B
+	color, ok := d.canonicalConfigurationColor()
+	if !ok {
+		return
 	}
+	buf := make([]byte, 18)
+	buf[0], buf[1], buf[2] = color[0], color[1], color[2]
 
 	buf[4] = 0xff
 	buf[5] = 0xff
@@ -1090,6 +1083,10 @@ func (d *Device) setConfiguration() {
 
 	// PWM mode, 0x00 for 3pin mode. 3pin mode runs at 100%
 	buf[17] = 0x01
+	if d.configurationWrite != nil {
+		d.configurationWrite(append([]byte(nil), buf...))
+		return
+	}
 	d.transfer(cmdSetConfiguration, buf)
 }
 

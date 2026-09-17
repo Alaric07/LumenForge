@@ -207,7 +207,6 @@ func TestAIOModernPreviewsUseInertLegacyLightingSummaries(t *testing.T) {
 	}{
 		{"corsair-one-modern", common.ProductTypeCorsairOne, 1, 3},
 		{"elite-aio-modern", common.ProductTypeElite, 3, 3},
-		{"hydro-aio-modern", common.ProductTypeHydro, 1, 2},
 		{"platinum-aio-modern", common.ProductTypePlatinum, 3, 0},
 	} {
 		fixture, ok := modernDevicePreviewFixtureByKey(test.key)
@@ -226,6 +225,39 @@ func TestAIOModernPreviewsUseInertLegacyLightingSummaries(t *testing.T) {
 		if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "Cooling") || !strings.Contains(recorder.Body.String(), "Pump") {
 			t.Fatalf("fixture %q render status=%d body=%s", test.key, recorder.Code, recorder.Body.String())
 		}
+	}
+}
+
+func TestHydroModernPreviewUsesInertCanonicalFixedStaticLighting(t *testing.T) {
+	fixture, ok := modernDevicePreviewFixtureByKey("hydro-aio-modern")
+	if !ok || fixture.ProductType != common.ProductTypeHydro {
+		t.Fatalf("fixture = %#v", fixture)
+	}
+	summary := fixture.Build()
+	if summary == nil || summary.LegacyLighting || summary.Lighting == nil || summary.Lighting.EffectSelectionAvailable || summary.Lighting.ConfiguredEffect != "static" || !summary.Lighting.HasBrightness || summary.Lighting.Brightness != 100 || summary.Lighting.HasSpeedControl || summary.Lighting.ClusterOwnershipAvailable || summary.Lighting.ExternalOwnershipAvailable || summary.Lighting.PaletteKind != "static-single-color" || devices.GetDevice(summary.Serial) != nil {
+		t.Fatalf("summary = %#v", summary)
+	}
+	router := legacyDevicePreviewRouter(t, true)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/hydro-aio-modern?view=lighting"))
+	body := recorder.Body.String()
+	if recorder.Code != http.StatusOK || !strings.Contains(body, "Static") || !strings.Contains(body, "Brightness") || !strings.Contains(body, "lf-lighting-color-input") || strings.Contains(body, "id=\"lf-lighting-effect-selector\"") || strings.Contains(body, "id=\"lf-lighting-speed-slider\"") || strings.Contains(body, "data-lf-cluster-controlled=\"true\"") || strings.Contains(body, "data-lf-external-controlled=\"true\"") {
+		t.Fatalf("status=%d body=%s", recorder.Code, body)
+	}
+}
+
+func TestHydroNeverFallsBackToLegacyLightingWhenCanonicalSnapshotIsUnavailable(t *testing.T) {
+	devicesBySerial := map[string]*common.Device{
+		"hydro-unavailable": {Serial: "hydro-unavailable", ProductType: common.ProductTypeHydro, Instance: struct{}{}},
+		"elite-legacy":      {Serial: "elite-legacy", ProductType: common.ProductTypeElite, Instance: struct{}{}},
+	}
+	hydro, ok := devicesWorkspaceSummaryForSerial(devicesBySerial, nil, "hydro-unavailable")
+	if !ok || hydro.LegacyLighting || hydro.Lighting != nil {
+		t.Fatalf("Hydro unavailable snapshot summary = %#v, %t", hydro, ok)
+	}
+	elite, ok := devicesWorkspaceSummaryForSerial(devicesBySerial, nil, "elite-legacy")
+	if !ok || !elite.LegacyLighting || elite.Lighting != nil {
+		t.Fatalf("unrelated legacy summary = %#v, %t", elite, ok)
 	}
 }
 

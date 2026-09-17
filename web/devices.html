@@ -260,11 +260,11 @@
                                         {{ end }}
 
 	                                        <div class="lf-lighting-effect-stage">
-	                                            {{ if .SupportedEffects }}<strong class="lf-lighting-effect-name lf-lighting-device-effect-name">Device Effect</strong>{{ end }}
+		                                            {{ if .SupportedEffects }}<strong class="lf-lighting-effect-name lf-lighting-device-effect-name">Device Effect</strong>{{ end }}
 	                                            <div class="lf-lighting-effect-identity">
 	                                                {{ if .ConfiguredEffect }}{{ template "lf-lighting-effect-icon" . }}{{ end }}
 	                                                <div class="lf-lighting-effect-control">
-	                                                    {{ if .SupportedEffects }}
+		                                                    {{ if .EffectSelectionAvailable }}
 	                                                        <label class="lf-lighting-label" for="lf-lighting-effect-selector"><span class="lf-visually-hidden">Lighting effect</span></label>
                                                         <select
                                                         class="lf-lighting-effect-selector"
@@ -289,8 +289,10 @@
                                                         {{ end }}
                                                     </select>
                                                     <p class="lf-lighting-effect-status" id="lf-lighting-effect-status" aria-live="polite"></p>
-                                                    {{ else }}
-                                                        <strong class="lf-lighting-effect-name lf-lighting-effect-name-muted">Effect selection unavailable</strong>
+		                                                    {{ else if .ConfiguredEffect }}
+		                                                        <strong class="lf-lighting-effect-name">{{ if .ConfiguredEffectLabel }}{{ .ConfiguredEffectLabel }}{{ else }}{{ .ConfiguredEffect }}{{ end }}</strong>
+		                                                    {{ else }}
+		                                                        <strong class="lf-lighting-effect-name lf-lighting-effect-name-muted">Effect selection unavailable</strong>
                                                         <p class="lf-lighting-effect-unavailable">No supported effects were reported for this controller.</p>
                                                     {{ end }}
                                                 </div>
