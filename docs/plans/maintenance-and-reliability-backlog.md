@@ -53,10 +53,23 @@ LumenForge is a local, alpha-stage RGB and fan controller maintained by one deve
   canonical Lighting migration; deferred localization, helper-text, and
   compatibility retirement remain post-native-lighting-migration maintenance
   work.
-- Native Lighting migration uses a source-contract check: RGB-shaped metadata
-  alone is not a target. The completed audit removed dormant Sabre V2 W/WU and
-  Nautilus LCD false positives; it retained Hydro as a constrained static-output
-  legacy target. Detailed classification remains in the migration matrix.
+- Native Lighting migration uses a strict source-contract check: persisted
+  state, user mutation, renderer/direct output resolver, and device-owned
+  physical write boundary are required, with lifecycle/reconnect proof where
+  applicable. RGB-shaped metadata alone is not a target. The completed master
+  audit removed Sabre V2 W/WU, Nautilus LCD, M75 AIR W/WU, and Katar Pro W
+  false positives; it retained Hydro as a constrained B/static-output legacy
+  target. Structural sibling groups remain discovery candidates only; W/WU
+  packages need focused equivalence proof before a shared implementation pass.
+  M75 W/WU subsequently completed one focused canonical sibling pass
+  (`90f1d10e`, *Migrate M75 wireless lighting*): canonical selected effect and
+  desired Brightness, 19 existing software-rendered effects, and the
+  device-authored Bottom/Logo `mouse` mode retain their device-owned
+  `ZoneColors` persistence/output mapping. They have no RGB Cluster or native
+  OpenRGB Integration support. Automated/source-backed validation is complete;
+  no physical M75 hardware validation is recorded. Detailed classification and
+  the remaining 114 A + 1 constrained-B (`hydro`) queue in 87 tentative passes
+  remain in the migration matrix.
 
 ## Observations to revisit only if reproduced
 

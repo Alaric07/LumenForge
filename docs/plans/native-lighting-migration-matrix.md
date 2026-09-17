@@ -78,7 +78,7 @@ with the global system.
 ### Completed native migration proofs
 
 `scimitarprorgb`, `scimitarrgbelite`, `mm800`, `k95platinum`, `ccxt`, `cc`,
-`memory`, and `st100` are now tracked as **Migrated**. Canonical Device Lighting is
+`memory`, `st100`, `m75W`, and `m75WU` are now tracked as **Migrated**. Canonical Device Lighting is
 authoritative and these packages no longer participate in retained legacy `/rgb` lighting persistence
 or mutation paths.
 
@@ -122,6 +122,16 @@ layer. `stand` remains the device-authored mode, `static` uses the canonical
 single-color editor, and its source-backed effects remain selectable. Brightness
 and RGB Cluster ownership use existing device mutations; this does not imply
 that other lighting accessories have migrated.
+
+M75 W and M75 WU are the focused wireless-mouse sibling proof
+(`90f1d10e`, *Migrate M75 wireless lighting*). Both use canonical selected
+effect and desired Brightness with their 19 existing software-rendered effects.
+Their device-authored `mouse` mode keeps Bottom and Logo colors in the existing
+device-owned `ZoneColors` persistence and output mapping. Neither package
+supports RGB Cluster or native OpenRGB Integration. Automated and source-backed
+validation is complete; no physical M75 hardware validation has been recorded.
+Their shared migration followed focused package-equivalence evidence and does
+not make other W/WU siblings safe to batch.
 
 Commander Core XT and Commander CORE establish the separate multi-channel
 controller proof. Both expose modern Overview, Lighting, and Cooling workspaces,
@@ -208,25 +218,30 @@ Generated as a read-only architecture inventory. This does not declare migration
 - Packages with any scanned lighting marker: **137**
 - Strong-marker packages requiring source-contract classification: **131**
 - Weak-marker-only packages requiring manual review: **6**
-- Corrected native Lighting targets: **120** (previously 123), planned as
-  **90** migration passes (previously 92).
+- Corrected remaining native Lighting targets: **115** (previously 120),
+  comprising **114** complete contracts and **1** constrained contract
+  (`hydro`), planned as **87** tentative migration passes (previously 90).
 
-Strong markers are audit leads, not proof of a Lighting implementation.
-RGB-looking fields, `RGBModes`, or persistence metadata count only when the
-source also provides actual Lighting state/mutations and a physical renderer or
-output path. This source-contract audit removed the Sabre V2 W/WU shared batch
-and Nautilus LCD standalone migration from the backlog without changing the
-completed Migrated proof set.
+Strong markers are audit leads, not proof of a Lighting implementation. A real
+Lighting target requires source-backed persisted state, a user mutation,
+a renderer/direct output resolver, and a device-owned physical write boundary;
+wireless packages also require lifecycle/reconnect proof where applicable.
+RGB-looking fields, `RGBModes`, or persistence metadata alone do not qualify.
+The strict master audit removed the Sabre V2 W/WU shared batch, Nautilus LCD,
+the M75 AIR W/WU sibling batch, and Katar Pro W from the backlog. M75 W/WU
+subsequently completed their focused canonical migration, reducing the queue by
+two packages and one pass. The 137/131/6 marker figures above
+remain historical structural-scan totals, not current target counts.
 
 ### Structural shapes
 
-- zoned: **62**
-- single-profile: **52**
+- zoned: **60**
+- single-profile: **51**
 - multi-channel: **9**
 - weak-marker only: **6**
 - multi-channel + per-LED: **4**
 - other lighting: **1**
-- dormant/inert metadata: **3**
+- dormant/inert metadata: **6**
 
 ## Package matrix
 
@@ -298,7 +313,7 @@ completed Migrated proof set.
 | `k95platinum` | Y | Migrated | single-profile |  | Y |  |  |  | Y |  | keyboard |
 | `k95platinumXT` | Y | Legacy | single-profile | Y |  |  |  |  |  |  | keyboard |
 | `katarpro` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  | mouse |
-| `katarproW` | Y | Legacy | single-profile | Y | Y |  |  |  |  |  |  |
+| `katarproW` | Y | Not a lighting target | dormant/inert metadata | Y | Y |  |  |  |  |  | DPI indicator only |
 | `katarproxt` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  | mouse |
 | `lncore` | Y | Legacy | multi-channel | Y | Y |  |  |  |  |  |  |
 | `lnpro` | Y | Legacy | multi-channel | Y | Y |  |  |  |  |  |  |
@@ -313,10 +328,10 @@ completed Migrated proof set.
 | `m65rgbultraW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `m65rgbultraWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `m75` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  | mouse |
-| `m75AirW` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
-| `m75AirWU` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
-| `m75W` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  | mouse |
-| `m75WU` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  | mouse |
+| `m75AirW` | Y | Not a lighting target | dormant/inert metadata | Y | Y |  | Y |  |  |  | DPI/Sniper indicator only |
+| `m75AirWU` | Y | Not a lighting target | dormant/inert metadata | Y | Y |  | Y |  |  |  | DPI/Sniper indicator only |
+| `m75W` | Y | Migrated | zoned |  | Y |  | Y |  |  |  | mouse |
+| `m75WU` | Y | Migrated | zoned |  | Y |  | Y |  |  |  | mouse |
 | `makr75W` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
 | `makr75WU` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
 | `memory` | Y | Migrated | multi-channel + per-LED |  | Y | Y |  | Y | Y | Y | led |
@@ -406,6 +421,12 @@ metadata, not Legacy Lighting targets.
 feature-report/image transfer. Its `Rgb` and `saveRgbProfile` are orphaned
 RGB-shaped metadata with no renderer, mutation, or LED output consumer.
 
+`m75AirW` and `m75AirWU` are not Lighting targets. Their retained RGB-shaped
+state is not rendered; the only physical color output is the active DPI/Sniper
+indicator. `katarproW` is likewise not a Lighting target: it has no RGB profile
+store or Lighting mutation and flashes a DPI-stage indicator before returning it
+to black. These packages are not candidate sibling/standalone migrations.
+
 `hydro` remains a real **Legacy** target. It persists RGB profile data and
 Brightness; `UpdateRgbProfileData` and Brightness mutations feed
 `setConfiguration`, which emits a Brightness-scaled RGB triplet through HID.
@@ -415,7 +436,10 @@ standalone static-output migration, not unknown or delegated ownership.
 
 ## Architectural signature groups
 
-These groups are only an audit shortcut. Matching signatures do NOT mean packages are automatically safe to migrate together.
+These groups are discovery and scheduling candidates only. Matching signatures
+do NOT mean packages are automatically safe to migrate together; W/WU siblings
+still require a focused package-equivalence audit before a shared implementation
+pass.
 
 ### zoned + cluster + openrgb-target + special:mouse
 
@@ -431,9 +455,9 @@ Count: **27**
 
 ### zoned
 
-Count: **19**
+Count: **17**
 
-`hs80maxW`, `hs80rgb`, `hs80rgbW`, `hs80rgbWU`, `m75AirW`, `m75AirWU`, `scufenvisionproV2W`, `scufenvisionproV2WU`, `scufenvisionproW`, `scufenvisionproWU`, `virtuosoSEW`, `virtuosoSEWU`, `virtuosoW`, `virtuosoWU`, `virtuosomaxW`, `virtuosorgbXTW`, `virtuosorgbXTWU`, `voidV2W`, `voideliteW`
+`hs80maxW`, `hs80rgb`, `hs80rgbW`, `hs80rgbWU`, `scufenvisionproV2W`, `scufenvisionproV2WU`, `scufenvisionproW`, `scufenvisionproWU`, `virtuosoSEW`, `virtuosoSEWU`, `virtuosoW`, `virtuosoWU`, `virtuosomaxW`, `virtuosorgbXTW`, `virtuosorgbXTWU`, `voidV2W`, `voideliteW`
 
 ### single-profile + special:keyboard
 
@@ -443,9 +467,9 @@ Count: **18**
 
 ### zoned + special:mouse
 
-Count: **8**
+Count: **6**
 
-`darkcorergbseW`, `darkcorergbseWU`, `harpoonrgbpro`, `katarpro`, `katarproxt`, `m75`, `m75W`, `m75WU`
+`darkcorergbseW`, `darkcorergbseWU`, `harpoonrgbpro`, `katarpro`, `katarproxt`, `m75`
 
 ### weak-marker only
 
@@ -461,9 +485,9 @@ Count: **3**
 
 ### single-profile
 
-Count: **3**
+Count: **2**
 
-`katarproW`, `m55`, `m55W`
+`m55`, `m55W`
 
 ### multi-channel + cluster + openrgb-target
 
@@ -491,9 +515,9 @@ Count: **1**
 
 ### dormant/inert metadata
 
-Count: **3**
+Count: **6**
 
-`nautilusLcd`, `sabrev2proW`, `sabrev2proWU`
+`katarproW`, `m75AirW`, `m75AirWU`, `nautilusLcd`, `sabrev2proW`, `sabrev2proWU`
 
 ### single-profile + cluster + openrgb-target + special:mousepad
 

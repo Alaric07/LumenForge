@@ -13,8 +13,8 @@ configuration. It covers:
 This is a deliberate clean break for alpha software. Compatibility with old
 lighting customization data is not required. OpenRGB-imported devices and RGB
 Cluster established the canonical model first. Scimitar Pro RGB, Scimitar RGB
-Elite, MM800, K95 Platinum, Commander Core XT, Commander CORE, Memory, and ST100
-RGB now
+Elite, MM800, K95 Platinum, Commander Core XT, Commander CORE, Memory, ST100
+RGB, M75 W, and M75 WU now
 form the completed native migration proof set. Remaining native device families
 still migrate separately and only after their hardware-specific behavior and required controls are understood; they are not
 part of one broad migration milestone.
@@ -34,7 +34,7 @@ the roadmap governs repository-wide cleanup classification.
 
 Scimitar Pro RGB established the first native package on the shared canonical
 independent-device lighting runtime. Scimitar RGB Elite, MM800, K95 Platinum,
-Commander Core XT, Commander CORE, Memory, and ST100 RGB are separate package proofs of the
+Commander Core XT, Commander CORE, Memory, ST100 RGB, M75 W, and M75 WU are separate package proofs of the
 canonical Device Lighting model while retaining their own device-specific
 hardware boundaries.
 
@@ -68,6 +68,15 @@ persistence remain unchanged. The shared UI is reused rather than adding a
 product-specific modern Lighting template. This does not imply that LT100, LN
 Core, LN Pro, MM700, or other accessories share ST100 semantics.
 
+M75 W and M75 WU completed a focused sibling migration in `90f1d10e`
+(*Migrate M75 wireless lighting*). Their canonical contract covers selected
+effect and desired Brightness, 19 existing software-rendered effects, and the
+device-authored `mouse` mode. Bottom and Logo remain device-owned authored
+zones whose `ZoneColors` persistence and output mapping are retained. Neither
+package supports RGB Cluster or native OpenRGB Integration. Automated and
+source-backed validation is complete; physical M75 hardware validation has not
+been recorded. This proof does not infer parity for any other W/WU pair.
+
 K95 Platinum remains the canonical keyboard-lighting proof. The non-Lighting
 modern device-workspace migration phase is complete across active supported
 families, but that presentation milestone does not alter Lighting ownership,
@@ -79,16 +88,18 @@ validates that modern Overview, Cooling, Display, and Connected Devices are not
 evidence of renderer, output, or persistence parity; every future Lighting
 migration still requires a family-specific audit and cutover.
 
-A future native Lighting migration also requires a source-backed Lighting
-contract, not merely RGB-looking fields or helpers. The source must establish
-existing Lighting state and mutation behavior plus sufficient physical renderer
-or output behavior to migrate without inventing hardware capability. The Sabre
-V2 W/WU packages have only dormant RGB metadata and DPI-stage indicator color,
-and Nautilus LCD's RGB-shaped metadata is unrelated to its LCD
-feature-report/image output; neither is a Lighting target. Hydro remains a
-real Legacy target, but its HID output is constrained to the Brightness-scaled
-`static` profile and lacks a selected-effect mutation, so any migration must
-preserve that static-only limit rather than fabricate effect parity.
+A future native Lighting migration requires a source-backed Lighting contract,
+not merely RGB-looking fields or helpers: persisted state, a user mutation, a
+renderer/direct output resolver, and a device-owned physical write boundary,
+plus lifecycle/reconnect proof where applicable. The Sabre V2 W/WU packages,
+M75 AIR W/WU, and Katar Pro W have only dormant RGB metadata or DPI-stage
+indicator color; Nautilus LCD's RGB-shaped metadata is unrelated to its LCD
+feature-report/image output. None is a Lighting target. Hydro remains a real
+constrained B/Legacy target, but its HID output is limited to the
+Brightness-scaled `static` profile and lacks a selected-effect mutation, so any
+migration must preserve that static-only limit rather than fabricate effect
+parity. A complete-contract A classification establishes only that package's
+contract; it does not make structural siblings equivalent or safe to batch.
 
 Device-authored zone state remains owned by the device profile rather than
 being fabricated as generic `EffectSettings`. The shared authored-zone

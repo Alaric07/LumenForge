@@ -510,13 +510,19 @@ state for a migrated package and cannot make it participate in the global path.
 The bridge and its compatibility machinery remain until the final `/rgb` cleanup
 after every legitimate native consumer has migrated.
 
-The native Lighting source-contract audit corrects the planning inventory to
-**120** Lighting targets and **90** proposed migration passes (from 123 and 92).
-Family audits may remove false-positive packages from the backlog where
-RGB-shaped fields, `RGBModes`, or persistence markers do not correspond to a
-real Lighting state/mutation and physical renderer/output contract. This is
-independent of the completed modern Devices workspace migration and does not
-change the eight completed canonical native proofs.
+The strict native Lighting source-contract master audit, followed by the focused
+M75 W/WU migration, corrects the remaining planning inventory to **115**
+Lighting targets: **114** complete contracts and the constrained static-only
+`hydro` contract, in **87** tentative migration passes (from 120 and 90). A
+real target requires source-backed persisted state,
+a user mutation, renderer/direct output resolver, and device-owned physical
+write boundary, plus lifecycle/reconnect proof where applicable. RGB-looking
+fields, `RGBModes`, or persistence markers alone do not qualify. The audit
+removed `m75AirW`, `m75AirWU`, and `katarproW` in addition to the previously
+removed Sabre V2 W/WU and Nautilus LCD false positives. M75 W/WU then completed
+one focused sibling pass (`90f1d10e`, *Migrate M75 wireless lighting*), bringing
+the completed canonical native set to ten packages. This is independent of the
+completed modern Devices workspace migration.
 
 - [x] Extract the shared independent-device lighting runtime and move Scimitar
   Pro selected effect to canonical state (`d833da87`, with canonical-read fixes
@@ -601,6 +607,10 @@ change the eight completed canonical native proofs.
   audits may remove inert/non-target packages rather than inventing a
   migration; Hydro remains a constrained standalone static-output target
   because its legacy HID path lacks selected-effect mutation parity.
+- [ ] Treat structural sibling groups only as discovery/scheduling candidates.
+  An A classification proves a complete contract for that package; it does not
+  prove packages are equivalent or safe to share an implementation. W/WU pairs
+  require a focused package-equivalence audit before any shared migration pass.
 - [ ] Remove shared override/global-editor infrastructure only after every
   proven remaining consumer reaches parity.
 
@@ -1087,13 +1097,18 @@ roadmap does not promise that every duplicate will be deleted.
 after OpenRGB parity.
 23. [~] Migrate native-device families one at a time without changing their
 hardware-specific output behavior. Scimitar Pro RGB, Scimitar RGB Elite, MM800,
-K95 Platinum, Commander Core XT, Commander CORE, Memory, and ST100 RGB are fully migrated
-to the canonical Device Lighting model and no longer participate in legacy
+K95 Platinum, Commander Core XT, Commander CORE, Memory, ST100 RGB, M75 W, and
+M75 WU are fully migrated to the canonical Device Lighting model and no longer participate in legacy
 `/rgb` lighting persistence or mutation paths. Aggregate parent controls for
 Memory and both Commander Core families remain convenience mutations over
 existing canonical children rather than new parent effect state (`aed0d672`).
 ST100 RGB is the deliberate authored-zone accessory/reference exception; other
-native families remain pending.
+native families remain pending. M75 W/WU (`90f1d10e`) retain 19
+software-rendered effects plus their device-authored `mouse` mode; Bottom and
+Logo continue to use the existing device-owned `ZoneColors` persistence/output
+mapping. They have no RGB Cluster or native OpenRGB Integration support.
+Automated/source-backed validation is complete, with no physical M75 hardware
+validation recorded.
 24. [x] Add the generic native authored-zone presentation and mutation contract
 for device-owned modes (`ce890f75`).
 25. [ ] Remove `/rgb`, global mutations, remaining target-local RGB copies,
