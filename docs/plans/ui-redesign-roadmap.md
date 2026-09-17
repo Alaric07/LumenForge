@@ -511,18 +511,20 @@ The bridge and its compatibility machinery remain until the final `/rgb` cleanup
 after every legitimate native consumer has migrated.
 
 The strict native Lighting source-contract master audit, followed by the focused
-M75 W/WU migration, corrects the remaining planning inventory to **115**
-Lighting targets: **114** complete contracts and the constrained static-only
-`hydro` contract, in **87** tentative migration passes (from 120 and 90). A
+M75 W/WU and constrained Hydro migrations, corrects the remaining planning
+inventory to **114** Lighting targets: **114 A** contracts and **0 B**
+constrained contracts, in **86** tentative migration passes (from 120 and 90). A
 real target requires source-backed persisted state,
 a user mutation, renderer/direct output resolver, and device-owned physical
 write boundary, plus lifecycle/reconnect proof where applicable. RGB-looking
 fields, `RGBModes`, or persistence markers alone do not qualify. The audit
 removed `m75AirW`, `m75AirWU`, and `katarproW` in addition to the previously
 removed Sabre V2 W/WU and Nautilus LCD false positives. M75 W/WU then completed
-one focused sibling pass (`90f1d10e`, *Migrate M75 wireless lighting*), bringing
-the completed canonical native set to ten packages. This is independent of the
-completed modern Devices workspace migration.
+one focused sibling pass (`90f1d10e`, *Migrate M75 wireless lighting*), and
+Hydro completed its constrained fixed-static proof (`395b23b9`, *Migrate Hydro
+static lighting*), bringing the completed canonical native set to eleven
+packages. This is independent of the completed modern Devices workspace
+migration.
 
 - [x] Extract the shared independent-device lighting runtime and move Scimitar
   Pro selected effect to canonical state (`d833da87`, with canonical-read fixes
@@ -605,8 +607,9 @@ completed modern Devices workspace migration.
   firmware, device-specific lighting modes, and hardware-specific output
   behavior while repeating migration one family at a time. Source-contract
   audits may remove inert/non-target packages rather than inventing a
-  migration; Hydro remains a constrained standalone static-output target
-  because its legacy HID path lacks selected-effect mutation parity.
+  migration; Hydro is the completed constrained fixed-static proof, retaining
+  its direct existing HID configuration boundary without selected-effect
+  mutation parity.
 - [ ] Treat structural sibling groups only as discovery/scheduling candidates.
   An A classification proves a complete contract for that package; it does not
   prove packages are equivalent or safe to share an implementation. W/WU pairs
@@ -699,8 +702,8 @@ completed modern Devices workspace migration.
     source-backed pump/fan topology and controls; Elite and Platinum provide
     Device Profiles, while Hydro intentionally omits them because its contract
     is incomplete. Their inert `elite-aio-modern`, `hydro-aio-modern`, and
-    `platinum-aio-modern` previews and retained legacy Lighting are recorded in
-    `0c259e69`.
+    `platinum-aio-modern` previews are recorded in `0c259e69`. Hydro's later
+    constrained fixed-static canonical Lighting proof is recorded in `395b23b9`.
   - Corsair ONE provides modern Overview, Cooling, source-backed pump modes,
     Device Profiles, and the inert `corsair-one-modern` preview while retaining
     legacy Lighting (`bcb68243`).
@@ -1097,8 +1100,8 @@ roadmap does not promise that every duplicate will be deleted.
 after OpenRGB parity.
 23. [~] Migrate native-device families one at a time without changing their
 hardware-specific output behavior. Scimitar Pro RGB, Scimitar RGB Elite, MM800,
-K95 Platinum, Commander Core XT, Commander CORE, Memory, ST100 RGB, M75 W, and
-M75 WU are fully migrated to the canonical Device Lighting model and no longer participate in legacy
+K95 Platinum, Commander Core XT, Commander CORE, Memory, ST100 RGB, M75 W,
+M75 WU, and Hydro are fully migrated to the canonical Device Lighting model and no longer participate in legacy
 `/rgb` lighting persistence or mutation paths. Aggregate parent controls for
 Memory and both Commander Core families remain convenience mutations over
 existing canonical children rather than new parent effect state (`aed0d672`).
@@ -1108,7 +1111,12 @@ software-rendered effects plus their device-authored `mouse` mode; Bottom and
 Logo continue to use the existing device-owned `ZoneColors` persistence/output
 mapping. They have no RGB Cluster or native OpenRGB Integration support.
 Automated/source-backed validation is complete, with no physical M75 hardware
-validation recorded.
+validation recorded. Hydro (`395b23b9`) is the constrained fixed-static proof:
+canonical fixed `static` identity, editable Static color, canonical desired
+Brightness, transient scheduler darkness, and its direct existing HID
+configuration boundary; it has no effect-selection mutation, Speed, authored
+zones, RGB Cluster, or native OpenRGB Integration. Automated/source-backed
+validation is complete; no physical Hydro hardware validation is recorded.
 24. [x] Add the generic native authored-zone presentation and mutation contract
 for device-owned modes (`ce890f75`).
 25. [ ] Remove `/rgb`, global mutations, remaining target-local RGB copies,

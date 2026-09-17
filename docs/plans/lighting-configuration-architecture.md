@@ -14,7 +14,7 @@ This is a deliberate clean break for alpha software. Compatibility with old
 lighting customization data is not required. OpenRGB-imported devices and RGB
 Cluster established the canonical model first. Scimitar Pro RGB, Scimitar RGB
 Elite, MM800, K95 Platinum, Commander Core XT, Commander CORE, Memory, ST100
-RGB, M75 W, and M75 WU now
+RGB, M75 W, M75 WU, and Hydro now
 form the completed native migration proof set. Remaining native device families
 still migrate separately and only after their hardware-specific behavior and required controls are understood; they are not
 part of one broad migration milestone.
@@ -34,7 +34,7 @@ the roadmap governs repository-wide cleanup classification.
 
 Scimitar Pro RGB established the first native package on the shared canonical
 independent-device lighting runtime. Scimitar RGB Elite, MM800, K95 Platinum,
-Commander Core XT, Commander CORE, Memory, ST100 RGB, M75 W, and M75 WU are separate package proofs of the
+Commander Core XT, Commander CORE, Memory, ST100 RGB, M75 W, M75 WU, and Hydro are separate package proofs of the
 canonical Device Lighting model while retaining their own device-specific
 hardware boundaries.
 
@@ -77,6 +77,14 @@ package supports RGB Cluster or native OpenRGB Integration. Automated and
 source-backed validation is complete; physical M75 hardware validation has not
 been recorded. This proof does not infer parity for any other W/WU pair.
 
+Hydro completed the constrained fixed-static proof in `395b23b9` (*Migrate
+Hydro static lighting*): canonical fixed `static` identity, editable Static
+color, and canonical desired Brightness. It intentionally has no
+effect-selection mutation, Speed, authored zones, RGB Cluster, or native
+OpenRGB Integration. Scheduler darkness is transient, and the direct existing
+HID configuration boundary remains intact. Automated/source-backed validation
+is complete; no physical Hydro hardware validation is recorded.
+
 K95 Platinum remains the canonical keyboard-lighting proof. The non-Lighting
 modern device-workspace migration phase is complete across active supported
 families, but that presentation milestone does not alter Lighting ownership,
@@ -94,11 +102,10 @@ renderer/direct output resolver, and a device-owned physical write boundary,
 plus lifecycle/reconnect proof where applicable. The Sabre V2 W/WU packages,
 M75 AIR W/WU, and Katar Pro W have only dormant RGB metadata or DPI-stage
 indicator color; Nautilus LCD's RGB-shaped metadata is unrelated to its LCD
-feature-report/image output. None is a Lighting target. Hydro remains a real
-constrained B/Legacy target, but its HID output is limited to the
-Brightness-scaled `static` profile and lacks a selected-effect mutation, so any
-migration must preserve that static-only limit rather than fabricate effect
-parity. A complete-contract A classification establishes only that package's
+feature-report/image output. None is a Lighting target. Hydro is the completed
+constrained fixed-static proof: its HID output remains limited to the
+Brightness-scaled `static` profile and has no selected-effect mutation, without
+fabricating effect parity. A complete-contract A classification establishes only that package's
 contract; it does not make structural siblings equivalent or safe to batch.
 
 Device-authored zone state remains owned by the device profile rather than

@@ -218,9 +218,9 @@ Generated as a read-only architecture inventory. This does not declare migration
 - Packages with any scanned lighting marker: **137**
 - Strong-marker packages requiring source-contract classification: **131**
 - Weak-marker-only packages requiring manual review: **6**
-- Corrected remaining native Lighting targets: **115** (previously 120),
-  comprising **114** complete contracts and **1** constrained contract
-  (`hydro`), planned as **87** tentative migration passes (previously 90).
+- Corrected remaining native Lighting targets: **114** (previously 120),
+  comprising **114 A** contracts and **0 B** constrained contracts,
+  planned as **86** tentative migration passes (previously 90).
 
 Strong markers are audit leads, not proof of a Lighting implementation. A real
 Lighting target requires source-backed persisted state, a user mutation,
@@ -230,7 +230,9 @@ RGB-looking fields, `RGBModes`, or persistence metadata alone do not qualify.
 The strict master audit removed the Sabre V2 W/WU shared batch, Nautilus LCD,
 the M75 AIR W/WU sibling batch, and Katar Pro W from the backlog. M75 W/WU
 subsequently completed their focused canonical migration, reducing the queue by
-two packages and one pass. The 137/131/6 marker figures above
+two packages and one pass. Hydro then completed its constrained fixed-static
+canonical migration in `395b23b9`, reducing the queue by one package and one
+pass. The 137/131/6 marker figures above
 remain historical structural-scan totals, not current target counts.
 
 ### Structural shapes
@@ -271,7 +273,7 @@ remain historical structural-scan totals, not current target counts.
 | `hs80rgb` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `hs80rgbW` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `hs80rgbWU` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
-| `hydro` | Y | Legacy | multi-channel | Y | Y |  |  |  |  |  | static-only; no selected-effect mutation |
+| `hydro` | Y | Migrated | multi-channel |  | Y |  |  |  |  |  | fixed static; no effect-selection mutation |
 | `ironclaw` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `ironclawSEW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `ironclawSEWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
@@ -427,12 +429,13 @@ indicator. `katarproW` is likewise not a Lighting target: it has no RGB profile
 store or Lighting mutation and flashes a DPI-stage indicator before returning it
 to black. These packages are not candidate sibling/standalone migrations.
 
-`hydro` remains a real **Legacy** target. It persists RGB profile data and
-Brightness; `UpdateRgbProfileData` and Brightness mutations feed
-`setConfiguration`, which emits a Brightness-scaled RGB triplet through HID.
-That output always resolves the `static` profile, and no selected-effect
-`UpdateRgbProfile` mutation exists. Hydro is therefore a constrained
-standalone static-output migration, not unknown or delegated ownership.
+`hydro` completed its constrained fixed-static canonical migration in
+`395b23b9` (*Migrate Hydro static lighting*). It has canonical fixed `static`
+identity, editable Static color, and canonical desired Brightness; it has no
+effect-selection mutation, Speed, authored zones, RGB Cluster, or native
+OpenRGB Integration. Scheduler darkness is transient. The direct existing HID
+configuration boundary remains intact. Automated/source-backed validation is
+complete; no physical Hydro hardware validation is recorded.
 
 ## Architectural signature groups
 

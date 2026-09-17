@@ -58,8 +58,7 @@ LumenForge is a local, alpha-stage RGB and fan controller maintained by one deve
   physical write boundary are required, with lifecycle/reconnect proof where
   applicable. RGB-shaped metadata alone is not a target. The completed master
   audit removed Sabre V2 W/WU, Nautilus LCD, M75 AIR W/WU, and Katar Pro W
-  false positives; it retained Hydro as a constrained B/static-output legacy
-  target. Structural sibling groups remain discovery candidates only; W/WU
+  false positives. Structural sibling groups remain discovery candidates only; W/WU
   packages need focused equivalence proof before a shared implementation pass.
   M75 W/WU subsequently completed one focused canonical sibling pass
   (`90f1d10e`, *Migrate M75 wireless lighting*): canonical selected effect and
@@ -67,9 +66,16 @@ LumenForge is a local, alpha-stage RGB and fan controller maintained by one deve
   device-authored Bottom/Logo `mouse` mode retain their device-owned
   `ZoneColors` persistence/output mapping. They have no RGB Cluster or native
   OpenRGB Integration support. Automated/source-backed validation is complete;
-  no physical M75 hardware validation is recorded. Detailed classification and
-  the remaining 114 A + 1 constrained-B (`hydro`) queue in 87 tentative passes
-  remain in the migration matrix.
+  no physical M75 hardware validation is recorded. Hydro then completed the
+  constrained fixed-static canonical proof in `395b23b9` (*Migrate Hydro static
+  lighting*): canonical fixed `static` identity, editable Static color, and
+  canonical desired Brightness; no effect-selection mutation, Speed, authored
+  zones, RGB Cluster, or native OpenRGB Integration; transient scheduler
+  darkness; and the retained direct existing HID configuration boundary.
+  Automated/source-backed validation is complete; no physical Hydro hardware
+  validation is recorded. Detailed classification and the remaining **114 A + 0
+  B** queue of **114 packages** in **86 tentative passes** remain in the
+  migration matrix.
 
 ## Observations to revisit only if reproduced
 
