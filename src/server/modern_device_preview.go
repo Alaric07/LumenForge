@@ -1378,8 +1378,15 @@ func buildM65RGBUltraModernPreview() *devicesWorkspaceSummary {
 	return s
 }
 func buildM75ModernPreview() *devicesWorkspaceSummary {
+	s := buildM75BaseModernPreview()
+	applyM75CanonicalLightingPreview(s)
+	return s
+}
+
+func buildM75BaseModernPreview() *devicesWorkspaceSummary {
 	s := buildM55RGBProModernPreview()
-	s.Product, s.Serial = "M75", "preview-m75-modern"
+	s.Product, s.Serial, s.Firmware = "M75", "preview-m75-modern", "n/a"
+	s.HasBattery, s.BatteryLevel, s.SleepTimer = false, 0, nil
 	s.Performance.ButtonOptimization = &devicesPerformanceSelectSummary{Value: 1, Options: []devicesPerformanceOptionSummary{{Value: 0, Label: "Disabled"}, {Value: 1, Label: "Enabled"}}}
 	s.Performance.AngleSnapping = &devicesPerformanceToggleSummary{Enabled: true}
 	s.Performance.LiftHeight = &devicesPerformanceSelectSummary{Value: 3, Options: []devicesPerformanceOptionSummary{{Value: 2, Label: "Low"}, {Value: 3, Label: "Medium"}, {Value: 4, Label: "High"}}}
@@ -1387,7 +1394,7 @@ func buildM75ModernPreview() *devicesWorkspaceSummary {
 }
 
 func buildM75WirelessModernPreview() *devicesWorkspaceSummary {
-	s := buildM75ModernPreview()
+	s := buildM75BaseModernPreview()
 	s.Product, s.Serial, s.Firmware = "M75 WIRELESS", "preview-m75-wireless-modern", "1.4.32"
 	s.HasBattery, s.BatteryLevel = true, 78
 	s.SleepTimer = &devicesSleepTimerWorkspaceSummary{Value: 15, Options: []devicesSleepTimerOptionSummary{{Value: 1, Label: "1 minute"}, {Value: 5, Label: "5 minutes"}, {Value: 10, Label: "10 minutes"}, {Value: 15, Label: "15 minutes"}, {Value: 30, Label: "30 minutes"}, {Value: 60, Label: "1 hour"}}}
@@ -1396,6 +1403,11 @@ func buildM75WirelessModernPreview() *devicesWorkspaceSummary {
 
 func buildM75WirelessCanonicalModernPreview() *devicesWorkspaceSummary {
 	s := buildM75WirelessModernPreview()
+	applyM75CanonicalLightingPreview(s)
+	return s
+}
+
+func applyM75CanonicalLightingPreview(s *devicesWorkspaceSummary) {
 	s.LegacyLighting = false
 	effects := make([]lightingpresentation.EffectOption, 0, 20)
 	for _, effect := range []struct{ id, label string }{
@@ -1408,7 +1420,6 @@ func buildM75WirelessCanonicalModernPreview() *devicesWorkspaceSummary {
 	// direct-helper native defaults used by generic presentation fixtures.
 	s.Lighting.ClusterOwnershipAvailable = false
 	s.Lighting.ExternalOwnershipAvailable = false
-	return s
 }
 func buildWirelessMouseModernPreview(product, serial string, polling, lift bool) *devicesWorkspaceSummary {
 	return buildWirelessMouseModernPreviewWithCapabilities(product, serial, polling, true, true, lift)

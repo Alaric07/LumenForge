@@ -19,6 +19,7 @@ import (
 	"LumenForge/src/devices/virtuosorgbXTWU"
 	"LumenForge/src/inputmanager"
 	"LumenForge/src/keyboards"
+	"LumenForge/src/lightingpresentation"
 	"LumenForge/src/server/requests"
 	"LumenForge/src/stats"
 	"LumenForge/src/temperatures"
@@ -258,6 +259,22 @@ func TestHydroNeverFallsBackToLegacyLightingWhenCanonicalSnapshotIsUnavailable(t
 	elite, ok := devicesWorkspaceSummaryForSerial(devicesBySerial, nil, "elite-legacy")
 	if !ok || !elite.LegacyLighting || elite.Lighting != nil {
 		t.Fatalf("unrelated legacy summary = %#v, %t", elite, ok)
+	}
+}
+
+func TestM75LightingFallsBackOnlyWhenCanonicalSnapshotIsUnavailable(t *testing.T) {
+	const usableSerial = "m75-canonical"
+	devicesBySerial := map[string]*common.Device{
+		usableSerial:      {Serial: usableSerial, ProductType: common.ProductTypeM75, Instance: devicesPageLightingSnapshotProvider{serial: usableSerial, snapshot: lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "static", EffectSupported: true, SupportedEffects: []lightingpresentation.EffectOption{{ID: "static", Label: "Static"}}}}},
+		"m75-unavailable": {Serial: "m75-unavailable", ProductType: common.ProductTypeM75, Instance: struct{}{}},
+	}
+	usable, ok := devicesWorkspaceSummaryForSerial(devicesBySerial, nil, usableSerial)
+	if !ok || usable.Lighting == nil || usable.LegacyLighting {
+		t.Fatalf("usable M75 summary = %#v, %t", usable, ok)
+	}
+	unavailable, ok := devicesWorkspaceSummaryForSerial(devicesBySerial, nil, "m75-unavailable")
+	if !ok || unavailable.Lighting != nil || !unavailable.LegacyLighting {
+		t.Fatalf("unavailable M75 summary = %#v, %t", unavailable, ok)
 	}
 }
 
@@ -1552,6 +1569,28 @@ func TestM75WirelessModernDevicePreviewRendersSharedMouseWorkspace(t *testing.T)
 	}
 	if devices.GetDevice(serial) != nil {
 		t.Fatalf("fixture serial %q was registered", serial)
+	}
+}
+
+func TestM75WiredCanonicalModernDevicePreviewRemainsInert(t *testing.T) {
+	router := legacyDevicePreviewRouter(t, true)
+	const serial = "preview-m75-modern"
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/m75-modern?view=lighting"))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("wired lighting status = %d", recorder.Code)
+	}
+	for _, expected := range []string{"M75", "Color Pulse", "Bottom", "Logo"} {
+		if !strings.Contains(recorder.Body.String(), expected) {
+			t.Errorf("wired canonical preview omitted %q", expected)
+		}
+	}
+	if strings.Contains(recorder.Body.String(), "Sleep Timer") || devices.GetDevice(serial) != nil {
+		t.Fatalf("wired preview leaked wireless state or registered: %q", recorder.Body.String())
+	}
+	wireless := buildM75WirelessCanonicalModernPreview()
+	if !wireless.HasBattery || wireless.BatteryLevel != 78 || wireless.SleepTimer == nil || wireless.Firmware != "1.4.32" {
+		t.Fatalf("wireless M75 fixture = %#v", wireless)
 	}
 }
 

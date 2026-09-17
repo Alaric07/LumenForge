@@ -4650,6 +4650,9 @@ func devicesWorkspaceSummaryForSerial(
 				_, lighting.ClusterOwnershipAvailable = device.Instance.(interface{ ProcessSetRgbCluster(bool) uint8 })
 				_, lighting.ExternalOwnershipAvailable = device.Instance.(interface{ ProcessSetOpenRgbIntegration(bool) uint8 })
 				summary.Lighting = lighting
+				if device.ProductType == common.ProductTypeM75 {
+					summary.LegacyLighting = false
+				}
 			}
 		}
 	}
