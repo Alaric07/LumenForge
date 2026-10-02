@@ -512,9 +512,10 @@ after every legitimate native consumer has migrated.
 
 After the strict native Lighting source-contract master audit, the focused
 M75 W/WU, constrained Hydro, and wired M75 migrations, and the subsequent
-`m55`/`m55W` false-positive correction and standalone XC7 migration, the remaining
-planning inventory is **110** Lighting targets: **110 A** contracts and **0 B**
-constrained contracts, in **83** tentative migration passes (from 111 and 84). A real target requires
+`m55`/`m55W` false-positive correction and standalone XC7 and wired KATAR PRO
+migrations, the remaining planning inventory is **109** Lighting targets:
+**109 A** contracts and **0 B** constrained contracts, in **82** tentative
+migration passes (from 110 and 83). A real target requires
 source-backed persisted state,
 a user mutation, renderer/direct output resolver, and device-owned physical
 write boundary, plus lifecycle/reconnect proof where applicable. RGB-looking
@@ -528,8 +529,12 @@ static lighting*). Wired M75 then completed one standalone A package/pass
 native set to twelve packages. XC7 subsequently completed its standalone
 canonical migration (`2e948d43`, *Migrate XC7 lighting*), bringing that set to
 thirteen packages. Its matrix scheduling group contains only `xc7`, removing
-one A package and one tentative pass. This is independent of the completed modern Devices workspace
-migration. M75 Air W/WU remain false positives / non-targets: their
+one A package and one tentative pass. Wired KATAR PRO then completed its
+standalone canonical migration (`17631e14`, *Migrate KATAR PRO lighting*), bringing
+the completed native set to fourteen packages and removing one A package/pass.
+Its shared architectural signature does not document a shared pass with
+`katarproxt`; that package remains pending. These canonical milestones are
+independent of the completed modern Devices workspace migration. M75 Air W/WU remain false positives / non-targets: their
 DPI/Sniper indicator behavior is not a complete general Lighting contract.
 `m55` and `m55W` are likewise strong-marker false positives: dormant/inert
 Lighting metadata with DPI/Sniper indicator output only. Removing their one
@@ -1130,7 +1135,7 @@ after OpenRGB parity.
 23. [~] Migrate native-device families one at a time without changing their
 hardware-specific output behavior. Scimitar Pro RGB, Scimitar RGB Elite, MM800,
 K95 Platinum, Commander Core XT, Commander CORE, Memory, ST100 RGB, M75 W,
-M75 WU, wired M75, Hydro, and XC7 are fully migrated to the canonical Device Lighting
+M75 WU, wired M75, Hydro, XC7, and wired KATAR PRO are fully migrated to the canonical Device Lighting
 model and, while the canonical runtime is usable, no longer participate in
 legacy `/rgb` lighting persistence or mutation paths. Aggregate parent controls for
 Memory and both Commander Core families remain convenience mutations over
@@ -1173,6 +1178,42 @@ Display/telemetry and legacy fallback eligibility. Display and telemetry remain
 separate, and the canonical preview is inert. Focused tests/race checks passed
 and CodeRabbit reported no new findings; no physical hardware validation was
 performed. This is separate from XC7's earlier modern workspace milestone.
+
+Wired KATAR PRO (`src/devices/katarpro`) completed its standalone canonical
+Lighting migration in `17631e14` (*Migrate KATAR PRO lighting*), separately from
+its modern Devices workspace migration. Canonical Lighting is presentation/state
+authority over the existing `database/rgb/<serial>.json` effect-settings store
+and active device profile backing state for selected effect, desired Brightness,
+authored zone color, and profile selection. No second RGB database or persistence
+format was introduced; the existing renderer/output/HID path remains authoritative.
+
+Its exact catalogue contains **19 selectable effects**: `colorpulse`, `colorwarp`,
+`cpu-temperature`, `flickering`, `flame`, `aurora`, `cyberpunkglitch`, `tokyonight`,
+`gpu-temperature`, `gradient`, `mouse`, `off`, `rainbow`, `pastelrainbow`, `rotator`,
+`static`, `storm`, `watercolor`, and `wave`. Shared effects `colorshift`, `circle`,
+`circleshift`, and `spinner` remain excluded. The source-backed authored `mouse`
+mode retains exactly one zone: **zone 0, Scroll**, with RGB byte mapping
+**[0, 1, 2]**. Sniper color substitution and brightness application are runtime-only
+and use local copies without mutating persisted Scroll-zone or Sniper DPI colors.
+CPU/GPU temperature effects retain their existing sources and profile
+`MinTemp` / `MaxTemp` semantics.
+
+Desired Brightness remains the active profile's 0..100 `BrightnessSlider` value.
+Scheduler darkness and user RGB-off are independent transient runtime overrides;
+neither replaces desired effect, Brightness, or settings, and clearing them
+restores the latest desired state. Profile switching refreshes canonical state
+and retires stale legacy off state. Canonical mutations persist proposed values
+before publishing state or restarting output; persistence failure leaves prior
+state/output authoritative. Unavailable/stopped mutations fail closed before
+state, persistence, renderer restart, or hardware output changes.
+
+Canonical attachment failure leaves the rest of the mouse workspace usable.
+LegacyLighting remains eligible unless a usable canonical snapshot resolves.
+The canonical modern preview is inert: no Init, HID, device registration,
+persistence, renderer goroutine, or background lifecycle. No RGB Cluster,
+OpenRGB, or per-LED capability was added. `katarproW` remains a separate confirmed
+non-Lighting target. Focused package/server/race tests and `git diff --check`
+passed for the migration; no physical hardware validation was performed.
 
 24. [x] Add the generic native authored-zone presentation and mutation contract
 for device-owned modes (`ce890f75`).

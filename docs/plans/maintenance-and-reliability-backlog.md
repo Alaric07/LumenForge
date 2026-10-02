@@ -103,6 +103,41 @@ LumenForge is a local, alpha-stage RGB and fan controller maintained by one deve
   until a usable canonical snapshot resolves. Its canonical preview is inert.
   Focused tests/race checks passed and CodeRabbit reported no new findings;
   no physical hardware validation was performed.
+  Wired KATAR PRO (`src/devices/katarpro`) completed its standalone canonical
+  Lighting migration in `17631e14` (*Migrate KATAR PRO lighting*), separately from
+  its modern Devices workspace migration. Canonical Lighting is presentation/state
+  authority over the existing `database/rgb/<serial>.json` effect-settings store
+  and active device profile backing state for selected effect, desired Brightness,
+  authored zone color, and profile selection. No second RGB database or persistence
+  format was introduced; the existing renderer/output/HID path remains authoritative.
+
+  Its exact catalogue contains **19 selectable effects**: `colorpulse`, `colorwarp`,
+  `cpu-temperature`, `flickering`, `flame`, `aurora`, `cyberpunkglitch`, `tokyonight`,
+  `gpu-temperature`, `gradient`, `mouse`, `off`, `rainbow`, `pastelrainbow`, `rotator`,
+  `static`, `storm`, `watercolor`, and `wave`. Shared effects `colorshift`, `circle`,
+  `circleshift`, and `spinner` remain excluded. The source-backed authored `mouse`
+  mode retains exactly one zone: **zone 0, Scroll**, with RGB byte mapping
+  **[0, 1, 2]**. Sniper color substitution and brightness application are runtime-only
+  and use local copies without mutating persisted Scroll-zone or Sniper DPI colors.
+  CPU/GPU temperature effects retain their existing sources and profile
+  `MinTemp` / `MaxTemp` semantics.
+
+  Desired Brightness remains the active profile's 0..100 `BrightnessSlider` value.
+  Scheduler darkness and user RGB-off are independent transient runtime overrides;
+  neither replaces desired effect, Brightness, or settings, and clearing them
+  restores the latest desired state. Profile switching refreshes canonical state
+  and retires stale legacy off state. Canonical mutations persist proposed values
+  before publishing state or restarting output; persistence failure leaves prior
+  state/output authoritative. Unavailable/stopped mutations fail closed before
+  state, persistence, renderer restart, or hardware output changes.
+
+  Canonical attachment failure leaves the rest of the mouse workspace usable.
+  LegacyLighting remains eligible unless a usable canonical snapshot resolves.
+  The canonical modern preview is inert: no Init, HID, device registration,
+  persistence, renderer goroutine, or background lifecycle. No RGB Cluster,
+  OpenRGB, or per-LED capability was added. `katarproW` remains a separate confirmed
+  non-Lighting target. Focused package/server/race tests and `git diff --check`
+  passed for the migration; no physical hardware validation was performed.
   K60 RGB PRO (`k60rgbpro`) remains a complete-contract **A** Lighting target,
   but is **Deferred** / scheduling-blocked pending durable authored
   keyboard-color persistence, dual brightness semantics, and a sparse
@@ -116,8 +151,11 @@ LumenForge is a local, alpha-stage RGB and fan controller maintained by one deve
   previous `single-profile` group represented one tentative migration pass;
   removing both A packages left **111 A + 0 B = 111 packages / 84 tentative
   passes**. XC7 then removes one standalone A package/pass: its matrix group
-  contains only `xc7`. The authoritative remaining queue is
-  **110 A + 0 B = 110 packages / 83 tentative passes**. Historical
+  contains only `xc7`, leaving **110 A + 0 B = 110 packages / 83 tentative
+  passes**. Wired KATAR PRO then removes one standalone A package/pass in
+  `17631e14`; its discovery signature group does not document a shared pass with
+  `katarproxt`. The authoritative remaining queue is
+  **109 A + 0 B = 109 packages / 82 tentative passes**. Historical
   structural-scan totals are unchanged.
 
 ### Required presentation cleanup for confirmed non-Lighting targets

@@ -176,6 +176,42 @@ persistence mutation, or renderer goroutines. Focused package/server tests,
 race testing, and `git diff --check` passed; CodeRabbit reported no new findings.
 No physical hardware validation was performed.
 
+Wired KATAR PRO (`src/devices/katarpro`) completed its standalone canonical
+Lighting migration in `17631e14` (*Migrate KATAR PRO lighting*), separately from
+its modern Devices workspace migration. Canonical Lighting is presentation/state
+authority over the existing `database/rgb/<serial>.json` effect-settings store
+and active device profile backing state for selected effect, desired Brightness,
+authored zone color, and profile selection. No second RGB database or persistence
+format was introduced; the existing renderer/output/HID path remains authoritative.
+
+Its exact catalogue contains **19 selectable effects**: `colorpulse`, `colorwarp`,
+`cpu-temperature`, `flickering`, `flame`, `aurora`, `cyberpunkglitch`, `tokyonight`,
+`gpu-temperature`, `gradient`, `mouse`, `off`, `rainbow`, `pastelrainbow`, `rotator`,
+`static`, `storm`, `watercolor`, and `wave`. Shared effects `colorshift`, `circle`,
+`circleshift`, and `spinner` remain excluded. The source-backed authored `mouse`
+mode retains exactly one zone: **zone 0, Scroll**, with RGB byte mapping
+**[0, 1, 2]**. Sniper color substitution and brightness application are runtime-only
+and use local copies without mutating persisted Scroll-zone or Sniper DPI colors.
+CPU/GPU temperature effects retain their existing sources and profile
+`MinTemp` / `MaxTemp` semantics.
+
+Desired Brightness remains the active profile's 0..100 `BrightnessSlider` value.
+Scheduler darkness and user RGB-off are independent transient runtime overrides;
+neither replaces desired effect, Brightness, or settings, and clearing them
+restores the latest desired state. Profile switching refreshes canonical state
+and retires stale legacy off state. Canonical mutations persist proposed values
+before publishing state or restarting output; persistence failure leaves prior
+state/output authoritative. Unavailable/stopped mutations fail closed before
+state, persistence, renderer restart, or hardware output changes.
+
+Canonical attachment failure leaves the rest of the mouse workspace usable.
+LegacyLighting remains eligible unless a usable canonical snapshot resolves.
+The canonical modern preview is inert: no Init, HID, device registration,
+persistence, renderer goroutine, or background lifecycle. No RGB Cluster,
+OpenRGB, or per-LED capability was added. `katarproW` remains a separate confirmed
+non-Lighting target. Focused package/server/race tests and `git diff --check`
+passed for the migration; no physical hardware validation was performed.
+
 Commander Core XT and Commander CORE establish the separate multi-channel
 controller proof. Both expose modern Overview, Lighting, and Cooling workspaces,
 with full Device Profiles on Overview, shared Cooling presentation, controller
@@ -261,9 +297,9 @@ Generated as a read-only architecture inventory. This does not declare migration
 - Packages with any scanned lighting marker: **137**
 - Strong-marker packages requiring source-contract classification: **131**
 - Weak-marker-only packages requiring manual review: **6**
-- Corrected remaining native Lighting targets: **110** (previously 111),
-  comprising **110 A** contracts and **0 B** constrained contracts,
-  planned as **83** tentative migration passes (previously 84).
+- Corrected remaining native Lighting targets: **109** (previously 110),
+  comprising **109 A** contracts and **0 B** constrained contracts,
+  planned as **82** tentative migration passes (previously 83).
 
 Strong markers are audit leads, not proof of a Lighting implementation. A real
 Lighting target requires source-backed persisted state, a user mutation,
@@ -284,8 +320,13 @@ tentative migration pass, so removing it yielded
 **111 A + 0 B = 111 packages / 84 tentative passes**. XC7 then completed
 its standalone A package/pass in `2e948d43`. Its documented
 `single-profile + special:liquid-temperature` group contains only `xc7`, so
-removing that one remaining package/pass yields the authoritative queue:
-**110 A + 0 B = 110 packages / 83 tentative passes**. The 137/131/6
+removing that one remaining package/pass yielded
+**110 A + 0 B = 110 packages / 83 tentative passes**. Wired KATAR PRO then
+completed its standalone A package/pass in `17631e14`. Its shared
+`zoned + special:mouse` signature is a discovery grouping, not a shared migration
+pass with `katarproxt` or the other listed packages. Removing `katarpro` alone
+therefore yields the authoritative remaining queue:
+**109 A + 0 B = 109 packages / 82 tentative passes**. The 137/131/6
 marker figures above remain historical structural-scan totals, not current
 target counts.
 
@@ -370,7 +411,7 @@ Historical structural-scan totals; these are not the current audited queue.
 | `k95` | Y | Legacy | single-profile | Y | Y |  |  |  |  |  | keyboard |
 | `k95platinum` | Y | Migrated | single-profile |  | Y |  |  |  | Y |  | keyboard |
 | `k95platinumXT` | Y | Legacy | single-profile | Y |  |  |  |  |  |  | keyboard |
-| `katarpro` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  | mouse |
+| `katarpro` | Y | Migrated | zoned |  | Y |  | Y |  |  |  | mouse |
 | `katarproW` | Y | Not a lighting target | dormant/inert metadata | Y | Y |  |  |  |  |  | DPI indicator only |
 | `katarproxt` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  | mouse |
 | `lncore` | Y | Legacy | multi-channel | Y | Y |  |  |  |  |  |  |
@@ -561,6 +602,13 @@ Count: **18**
 Count: **6**
 
 `darkcorergbseW`, `darkcorergbseWU`, `harpoonrgbpro`, `katarpro`, `katarproxt`, `m75`
+
+The six-package signature count above records the discovery population, not the
+remaining queue. Wired `m75` (`749f781f`) and `katarpro` (`17631e14`) are completed
+standalone migrations and excluded from remaining scheduling. `katarpro` was
+one standalone planned pass; no shared pass with `katarproxt` was documented.
+The other four packages remain pending; the signature alone does not authorize
+batching them.
 
 ### weak-marker only
 

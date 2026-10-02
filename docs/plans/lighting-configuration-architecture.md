@@ -14,7 +14,7 @@ This is a deliberate clean break for alpha software. Compatibility with old
 lighting customization data is not required. OpenRGB-imported devices and RGB
 Cluster established the canonical model first. Scimitar Pro RGB, Scimitar RGB
 Elite, MM800, K95 Platinum, Commander Core XT, Commander CORE, Memory, ST100
-RGB, wired M75, M75 W, M75 WU, Hydro, and XC7 now
+RGB, wired M75, M75 W, M75 WU, Hydro, XC7, and wired KATAR PRO now
 form the completed native migration proof set. Remaining native device families
 still migrate separately and only after their hardware-specific behavior and required controls are understood; they are not
 part of one broad migration milestone.
@@ -34,7 +34,7 @@ the roadmap governs repository-wide cleanup classification.
 
 Scimitar Pro RGB established the first native package on the shared canonical
 independent-device lighting runtime. Scimitar RGB Elite, MM800, K95 Platinum,
-Commander Core XT, Commander CORE, Memory, ST100 RGB, wired M75, M75 W, M75 WU, Hydro, and XC7 are separate package proofs of the
+Commander Core XT, Commander CORE, Memory, ST100 RGB, wired M75, M75 W, M75 WU, Hydro, XC7, and wired KATAR PRO are separate package proofs of the
 canonical Device Lighting model while retaining their own device-specific
 hardware boundaries.
 
@@ -107,6 +107,42 @@ from Lighting. The canonical preview is inert, and no zones, RGB Cluster, or
 OpenRGB capability was added. Focused tests/race checks passed and CodeRabbit
 reported no new findings; no physical hardware validation was performed.
 This canonical milestone is separate from XC7's earlier modern workspace work.
+
+Wired KATAR PRO (`src/devices/katarpro`) completed its standalone canonical
+Lighting migration in `17631e14` (*Migrate KATAR PRO lighting*), separately from
+its modern Devices workspace migration. Canonical Lighting is presentation/state
+authority over the existing `database/rgb/<serial>.json` effect-settings store
+and active device profile backing state for selected effect, desired Brightness,
+authored zone color, and profile selection. No second RGB database or persistence
+format was introduced; the existing renderer/output/HID path remains authoritative.
+
+Its exact catalogue contains **19 selectable effects**: `colorpulse`, `colorwarp`,
+`cpu-temperature`, `flickering`, `flame`, `aurora`, `cyberpunkglitch`, `tokyonight`,
+`gpu-temperature`, `gradient`, `mouse`, `off`, `rainbow`, `pastelrainbow`, `rotator`,
+`static`, `storm`, `watercolor`, and `wave`. Shared effects `colorshift`, `circle`,
+`circleshift`, and `spinner` remain excluded. The source-backed authored `mouse`
+mode retains exactly one zone: **zone 0, Scroll**, with RGB byte mapping
+**[0, 1, 2]**. Sniper color substitution and brightness application are runtime-only
+and use local copies without mutating persisted Scroll-zone or Sniper DPI colors.
+CPU/GPU temperature effects retain their existing sources and profile
+`MinTemp` / `MaxTemp` semantics.
+
+Desired Brightness remains the active profile's 0..100 `BrightnessSlider` value.
+Scheduler darkness and user RGB-off are independent transient runtime overrides;
+neither replaces desired effect, Brightness, or settings, and clearing them
+restores the latest desired state. Profile switching refreshes canonical state
+and retires stale legacy off state. Canonical mutations persist proposed values
+before publishing state or restarting output; persistence failure leaves prior
+state/output authoritative. Unavailable/stopped mutations fail closed before
+state, persistence, renderer restart, or hardware output changes.
+
+Canonical attachment failure leaves the rest of the mouse workspace usable.
+LegacyLighting remains eligible unless a usable canonical snapshot resolves.
+The canonical modern preview is inert: no Init, HID, device registration,
+persistence, renderer goroutine, or background lifecycle. No RGB Cluster,
+OpenRGB, or per-LED capability was added. `katarproW` remains a separate confirmed
+non-Lighting target. Focused package/server/race tests and `git diff --check`
+passed for the migration; no physical hardware validation was performed.
 
 Hydro completed the constrained fixed-static proof in `395b23b9` (*Migrate
 Hydro static lighting*): canonical fixed `static` identity, editable Static
