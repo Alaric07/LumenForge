@@ -512,9 +512,9 @@ after every legitimate native consumer has migrated.
 
 After the strict native Lighting source-contract master audit, the focused
 M75 W/WU, constrained Hydro, and wired M75 migrations, and the subsequent
-`m55`/`m55W` false-positive correction, the remaining planning inventory is
-**111** Lighting targets: **111 A** contracts and **0 B** constrained contracts,
-in **84** tentative migration passes (from 113 and 85). A real target requires
+`m55`/`m55W` false-positive correction and standalone XC7 migration, the remaining
+planning inventory is **110** Lighting targets: **110 A** contracts and **0 B**
+constrained contracts, in **83** tentative migration passes (from 111 and 84). A real target requires
 source-backed persisted state,
 a user mutation, renderer/direct output resolver, and device-owned physical
 write boundary, plus lifecycle/reconnect proof where applicable. RGB-looking
@@ -525,7 +525,10 @@ one focused sibling pass (`90f1d10e`, *Migrate M75 wireless lighting*), and
 Hydro completed its constrained fixed-static proof (`395b23b9`, *Migrate Hydro
 static lighting*). Wired M75 then completed one standalone A package/pass
 (`749f781f`, *Migrate wired M75 lighting*), bringing the completed canonical
-native set to twelve packages. This is independent of the completed modern Devices workspace
+native set to twelve packages. XC7 subsequently completed its standalone
+canonical migration (`2e948d43`, *Migrate XC7 lighting*), bringing that set to
+thirteen packages. Its matrix scheduling group contains only `xc7`, removing
+one A package and one tentative pass. This is independent of the completed modern Devices workspace
 migration. M75 Air W/WU remain false positives / non-targets: their
 DPI/Sniper indicator behavior is not a complete general Lighting contract.
 `m55` and `m55W` are likewise strong-marker false positives: dormant/inert
@@ -1127,7 +1130,7 @@ after OpenRGB parity.
 23. [~] Migrate native-device families one at a time without changing their
 hardware-specific output behavior. Scimitar Pro RGB, Scimitar RGB Elite, MM800,
 K95 Platinum, Commander Core XT, Commander CORE, Memory, ST100 RGB, M75 W,
-M75 WU, wired M75, and Hydro are fully migrated to the canonical Device Lighting
+M75 WU, wired M75, Hydro, and XC7 are fully migrated to the canonical Device Lighting
 model and, while the canonical runtime is usable, no longer participate in
 legacy `/rgb` lighting persistence or mutation paths. Aggregate parent controls for
 Memory and both Commander Core families remain convenience mutations over
@@ -1156,6 +1159,20 @@ Its canonical preview is migrated and inert. Automated package/server/race
 validation passed for the migration; no physical hardware validation was
 performed. The M75 family now has canonical coverage for wired M75, M75 W,
 and M75 WU, excluding M75 Air W/WU.
+
+XC7 (`2e948d43`, *Migrate XC7 lighting*) retains existing profile persistence,
+31-LED physical rendering, and HID/LCD/temperature transport beneath canonical
+Lighting presentation/state authority. Its exact 23 selectable effects include
+source-backed `liquid-temperature`, CPU temperature, and GPU temperature;
+internal `custom` remains excluded. Existing `MinTemp` / `MaxTemp`, desired
+`BrightnessSlider`, and `GlobalBrightness` guard semantics remain. Scheduler
+and user RGB-off are transient overrides, with profile-switch refresh and
+fail-closed offline/stopped/missing-runtime mutations. LegacyLighting is hidden
+only after a usable canonical snapshot resolves; attachment failure preserves
+Display/telemetry and legacy fallback eligibility. Display and telemetry remain
+separate, and the canonical preview is inert. Focused tests/race checks passed
+and CodeRabbit reported no new findings; no physical hardware validation was
+performed. This is separate from XC7's earlier modern workspace milestone.
 
 24. [x] Add the generic native authored-zone presentation and mutation contract
 for device-owned modes (`ce890f75`).

@@ -78,7 +78,7 @@ with the global system.
 ### Completed native migration proofs
 
 `scimitarprorgb`, `scimitarrgbelite`, `mm800`, `k95platinum`, `ccxt`, `cc`,
-`memory`, `st100`, `m75`, `m75W`, `m75WU`, and `hydro` are now tracked as **Migrated**. Canonical Device Lighting is
+`memory`, `st100`, `m75`, `m75W`, `m75WU`, `hydro`, and `xc7` are now tracked as **Migrated**. Canonical Device Lighting is
 authoritative while the canonical runtime is usable, and these packages then
 no longer participate in retained legacy `/rgb` lighting persistence or mutation
 paths.
@@ -146,6 +146,35 @@ Its canonical preview is migrated and inert. Automated package/server/race
 validation passed for the migration; no physical hardware validation was
 performed. The M75 family now has canonical coverage for wired M75, M75 W,
 and M75 WU, excluding M75 Air W/WU.
+
+XC7 (`src/devices/xc7`) completed its standalone canonical Lighting migration
+in `2e948d43` (*Migrate XC7 lighting*), separately from its earlier modern
+workspace, Display, and liquid-temperature telemetry work. Canonical Lighting
+is now presentation/state authority over the existing XC7 device/RGB profile
+persistence; no second RGB database was introduced. The supported XC7 ELITE LCD
+product retains its 31-LED topology and existing physical renderer/output path,
+HID/LCD/temperature transport, and separate Display/telemetry behavior.
+
+Its exact catalogue contains **23 selectable effects**: `circle`, `circleshift`,
+`colorpulse`, `colorshift`, `colorwarp`, `cpu-temperature`, `flickering`, `flame`,
+`aurora`, `cyberpunkglitch`, `tokyonight`, `gpu-temperature`, `gradient`,
+`liquid-temperature`, `off`, `rainbow`, `pastelrainbow`, `rotator`, `spinner`,
+`static`, `storm`, `watercolor`, and `wave`. The internal renderer `custom`
+branch is not selectable. Liquid/CPU/GPU temperature effects retain their
+existing XC7/CPU/GPU sources and profile `MinTemp` / `MaxTemp` settings.
+`BrightnessSlider` remains desired 0..100 renderer Brightness, with the existing
+`GlobalBrightness` guard. Scheduler darkness and user RGB-off are transient
+runtime overrides; clearing them restores the latest desired state. Profile
+switching refreshes canonical state and clears stale persisted RGB-off state.
+Disconnected, stopped, or missing-runtime canonical mutations fail closed before
+state, persistence, renderer, or hardware changes. Attachment failure leaves
+Display/telemetry usable; LegacyLighting is suppressed only when a usable
+canonical snapshot resolves, retaining the established fallback otherwise.
+There are no authored zones, RGB Cluster, or native OpenRGB Integration controls.
+The canonical modern preview is inert: no device initialization, HID access,
+persistence mutation, or renderer goroutines. Focused package/server tests,
+race testing, and `git diff --check` passed; CodeRabbit reported no new findings.
+No physical hardware validation was performed.
 
 Commander Core XT and Commander CORE establish the separate multi-channel
 controller proof. Both expose modern Overview, Lighting, and Cooling workspaces,
@@ -232,9 +261,9 @@ Generated as a read-only architecture inventory. This does not declare migration
 - Packages with any scanned lighting marker: **137**
 - Strong-marker packages requiring source-contract classification: **131**
 - Weak-marker-only packages requiring manual review: **6**
-- Corrected remaining native Lighting targets: **111** (previously 113),
-  comprising **111 A** contracts and **0 B** constrained contracts,
-  planned as **84** tentative migration passes (previously 85).
+- Corrected remaining native Lighting targets: **110** (previously 111),
+  comprising **110 A** contracts and **0 B** constrained contracts,
+  planned as **83** tentative migration passes (previously 84).
 
 Strong markers are audit leads, not proof of a Lighting implementation. A real
 Lighting target requires source-backed persisted state, a user mutation,
@@ -251,8 +280,12 @@ reducing **114 A + 0 B = 114 packages / 86 tentative passes** to
 **113 A + 0 B = 113 packages / 85 tentative passes**. Focused source-contract
 audits then removed `m55` and `m55W` as strong-marker false positives. Their
 previous two-package `single-profile` scheduling group represented one
-tentative migration pass, so removing it yields the authoritative remaining
-queue: **111 A + 0 B = 111 packages / 84 tentative passes**. The 137/131/6
+tentative migration pass, so removing it yielded
+**111 A + 0 B = 111 packages / 84 tentative passes**. XC7 then completed
+its standalone A package/pass in `2e948d43`. Its documented
+`single-profile + special:liquid-temperature` group contains only `xc7`, so
+removing that one remaining package/pass yields the authoritative queue:
+**110 A + 0 B = 110 packages / 83 tentative passes**. The 137/131/6
 marker figures above remain historical structural-scan totals, not current
 target counts.
 
@@ -407,7 +440,7 @@ Historical structural-scan totals; these are not the current audited queue.
 | `virtuosorgbXTWU` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `voidV2W` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `voideliteW` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
-| `xc7` | Y | Legacy | single-profile | Y | Y |  |  |  |  |  | liquid-temperature |
+| `xc7` | Y | Migrated | single-profile |  | Y |  |  |  |  |  | liquid-temperature |
 | `xeneonedge` |  | Not a lighting target | weak-marker only |  |  |  |  |  |  |  |  |
 
 ## Weak-marker audit
@@ -609,6 +642,7 @@ Count: **1**
 
 ### single-profile + special:liquid-temperature
 
-Count: **1**
+Count: **1** (completed; excluded from remaining migration scheduling)
 
-`xc7`
+`xc7` — standalone canonical migration completed in `2e948d43`; no remaining
+tentative pass.

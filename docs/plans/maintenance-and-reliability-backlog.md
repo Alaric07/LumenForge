@@ -88,6 +88,21 @@ LumenForge is a local, alpha-stage RGB and fan controller maintained by one deve
   validation passed for the migration; no physical hardware validation was
   performed. The M75 family now has canonical coverage for wired M75, M75 W,
   and M75 WU, excluding M75 Air W/WU.
+  XC7 (`src/devices/xc7`) completed its standalone canonical Lighting migration
+  in `2e948d43` (*Migrate XC7 lighting*), separately from its modern workspace,
+  Display, and telemetry milestone. Canonical presentation/state authority adapts
+  existing XC7 profile persistence without a second RGB database; the 31-LED
+  renderer/output and HID/LCD/temperature transport remain intact. Its exact
+  23-effect catalogue includes source-backed `liquid-temperature` and CPU/GPU
+  temperature; existing `MinTemp` / `MaxTemp` settings remain supported and
+  internal `custom` is excluded.
+  Desired `BrightnessSlider` and the `GlobalBrightness` guard are retained;
+  scheduler/user RGB-off darkness is transient and profile switches clear stale
+  RGB-off. Offline/stopped/missing-runtime mutations fail closed. Attachment
+  failure preserves Display/telemetry, and legacy fallback remains eligible
+  until a usable canonical snapshot resolves. Its canonical preview is inert.
+  Focused tests/race checks passed and CodeRabbit reported no new findings;
+  no physical hardware validation was performed.
   K60 RGB PRO (`k60rgbpro`) remains a complete-contract **A** Lighting target,
   but is **Deferred** / scheduling-blocked pending durable authored
   keyboard-color persistence, dual brightness semantics, and a sparse
@@ -99,8 +114,10 @@ LumenForge is a local, alpha-stage RGB and fan controller maintained by one deve
   classify `m55` and `m55W` as strong-marker false positives: **Not a lighting
   target | dormant/inert Lighting metadata | DPI/Sniper indicator only**. Their
   previous `single-profile` group represented one tentative migration pass;
-  removing both A packages leaves the authoritative remaining **111 A + 0 B**
-  queue of **111 packages** in **84 tentative passes**. Historical
+  removing both A packages left **111 A + 0 B = 111 packages / 84 tentative
+  passes**. XC7 then removes one standalone A package/pass: its matrix group
+  contains only `xc7`. The authoritative remaining queue is
+  **110 A + 0 B = 110 packages / 83 tentative passes**. Historical
   structural-scan totals are unchanged.
 
 ### Required presentation cleanup for confirmed non-Lighting targets

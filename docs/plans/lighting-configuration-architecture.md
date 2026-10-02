@@ -14,7 +14,7 @@ This is a deliberate clean break for alpha software. Compatibility with old
 lighting customization data is not required. OpenRGB-imported devices and RGB
 Cluster established the canonical model first. Scimitar Pro RGB, Scimitar RGB
 Elite, MM800, K95 Platinum, Commander Core XT, Commander CORE, Memory, ST100
-RGB, wired M75, M75 W, M75 WU, and Hydro now
+RGB, wired M75, M75 W, M75 WU, Hydro, and XC7 now
 form the completed native migration proof set. Remaining native device families
 still migrate separately and only after their hardware-specific behavior and required controls are understood; they are not
 part of one broad migration milestone.
@@ -34,7 +34,7 @@ the roadmap governs repository-wide cleanup classification.
 
 Scimitar Pro RGB established the first native package on the shared canonical
 independent-device lighting runtime. Scimitar RGB Elite, MM800, K95 Platinum,
-Commander Core XT, Commander CORE, Memory, ST100 RGB, wired M75, M75 W, M75 WU, and Hydro are separate package proofs of the
+Commander Core XT, Commander CORE, Memory, ST100 RGB, wired M75, M75 W, M75 WU, Hydro, and XC7 are separate package proofs of the
 canonical Device Lighting model while retaining their own device-specific
 hardware boundaries.
 
@@ -89,6 +89,24 @@ Its canonical preview is migrated and inert. Automated package/server/race
 validation passed for the migration; no physical hardware validation was
 performed. The M75 family now has canonical coverage for wired M75, M75 W,
 and M75 WU, excluding M75 Air W/WU.
+
+XC7 completed its standalone canonical Lighting migration in `2e948d43`
+(*Migrate XC7 lighting*). It adapts the existing XC7 device/RGB profile
+persistence into canonical presentation/state authority without a second RGB
+database, preserving the existing 31-LED renderer/output and HID/LCD/temperature
+transport. The exact 23-effect catalogue includes source-backed
+`liquid-temperature`, `cpu-temperature`, and `gpu-temperature`; internal `custom`
+is not selectable. Existing profile `MinTemp` / `MaxTemp`, desired 0..100
+`BrightnessSlider`, and the `GlobalBrightness` guard are retained. Scheduler
+and user RGB-off darkness are transient; clearing them restores the latest
+desired state, and profile switching refreshes canonical state without stale
+RGB-off. Offline/stopped/missing-runtime mutations fail closed before changes.
+Attachment failure leaves Display/telemetry usable, with legacy Lighting eligible
+until a usable canonical snapshot resolves. Display and telemetry remain separate
+from Lighting. The canonical preview is inert, and no zones, RGB Cluster, or
+OpenRGB capability was added. Focused tests/race checks passed and CodeRabbit
+reported no new findings; no physical hardware validation was performed.
+This canonical milestone is separate from XC7's earlier modern workspace work.
 
 Hydro completed the constrained fixed-static proof in `395b23b9` (*Migrate
 Hydro static lighting*): canonical fixed `static` identity, editable Static
