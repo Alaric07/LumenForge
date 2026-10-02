@@ -118,9 +118,11 @@ migration still requires a family-specific audit and cutover.
 A future native Lighting migration requires a source-backed Lighting contract,
 not merely RGB-looking fields or helpers: persisted state, a user mutation, a
 renderer/direct output resolver, and a device-owned physical write boundary,
-plus lifecycle/reconnect proof where applicable. The Sabre V2 W/WU packages,
-M75 AIR W/WU, and Katar Pro W have only dormant RGB metadata or DPI-stage
-indicator color; Nautilus LCD's RGB-shaped metadata is unrelated to its LCD
+plus lifecycle/reconnect proof where applicable. M55 and M55 W are confirmed
+strong-marker false positives: dormant/inert Lighting metadata with DPI/Sniper
+indicator output only, not canonical Lighting migration targets. The Sabre V2
+W/WU packages, M75 AIR W/WU, and Katar Pro W have only dormant RGB metadata
+or DPI-stage indicator color; Nautilus LCD's RGB-shaped metadata is unrelated to its LCD
 feature-report/image output. None is a Lighting target. M75 Air W/WU remain false positives / non-targets
 for canonical Lighting: their DPI/Sniper indicator behavior is not a complete
 general Lighting contract. Hydro is the completed
@@ -128,6 +130,19 @@ constrained fixed-static proof: its HID output remains limited to the
 Brightness-scaled `static` profile and has no selected-effect mutation, without
 fabricating effect parity. A complete-contract A classification establishes only that package's
 contract; it does not make structural siblings equivalent or safe to batch.
+
+If a package does not have a complete source-backed Lighting contract, the
+modern workspace must not advertise a Lighting tab/workspace for it.
+
+This fail-closed rule applies to confirmed non-targets including `m55`, `m55W`,
+`m75AirW`, `m75AirWU`, `katarproW`, `sabrev2proW`, `sabrev2proWU`, and
+`nautilusLcd`. DPI/Sniper indicator color belongs with mouse/DPI presentation;
+LCD-related color/output belongs with display presentation. Telemetry,
+transport, and other non-lighting color state must remain in their proper
+feature areas and must not cause Lighting capability exposure. Indicator colors
+are not general Lighting features. Removing any exposed modern Lighting
+tabs/workspaces for confirmed non-targets is required follow-up cleanup; this
+docs-only reconciliation does not implement UI or runtime changes.
 
 Device-authored zone state remains owned by the device profile rather than
 being fabricated as generic `EffectSettings`. The shared authored-zone

@@ -232,9 +232,9 @@ Generated as a read-only architecture inventory. This does not declare migration
 - Packages with any scanned lighting marker: **137**
 - Strong-marker packages requiring source-contract classification: **131**
 - Weak-marker-only packages requiring manual review: **6**
-- Corrected remaining native Lighting targets: **113** (previously 114),
-  comprising **113 A** contracts and **0 B** constrained contracts,
-  planned as **85** tentative migration passes (previously 86).
+- Corrected remaining native Lighting targets: **111** (previously 113),
+  comprising **111 A** contracts and **0 B** constrained contracts,
+  planned as **84** tentative migration passes (previously 85).
 
 Strong markers are audit leads, not proof of a Lighting implementation. A real
 Lighting target requires source-backed persisted state, a user mutation,
@@ -248,10 +248,17 @@ two packages and one pass. Hydro then completed its constrained fixed-static
 canonical migration in `395b23b9`, reducing the queue by one package and one
 pass. Wired M75 then completed one standalone A package/pass in `749f781f`,
 reducing **114 A + 0 B = 114 packages / 86 tentative passes** to
-**113 A + 0 B = 113 packages / 85 tentative passes**. The 137/131/6 marker figures above
-remain historical structural-scan totals, not current target counts.
+**113 A + 0 B = 113 packages / 85 tentative passes**. Focused source-contract
+audits then removed `m55` and `m55W` as strong-marker false positives. Their
+previous two-package `single-profile` scheduling group represented one
+tentative migration pass, so removing it yields the authoritative remaining
+queue: **111 A + 0 B = 111 packages / 84 tentative passes**. The 137/131/6
+marker figures above remain historical structural-scan totals, not current
+target counts.
 
 ### Structural shapes
+
+Historical structural-scan totals; these are not the current audited queue.
 
 - zoned: **60**
 - single-profile: **51**
@@ -337,8 +344,8 @@ remain historical structural-scan totals, not current target counts.
 | `lnpro` | Y | Legacy | multi-channel | Y | Y |  |  |  |  |  |  |
 | `lsh` | Y | Legacy | multi-channel + per-LED | Y | Y | Y |  | Y | Y | Y | led, liquid-temperature, probe-temperature |
 | `lt100` | Y | Legacy | multi-channel | Y | Y |  |  |  | Y | Y |  |
-| `m55` | Y | Legacy | single-profile | Y | Y |  |  |  |  |  |  |
-| `m55W` | Y | Legacy | single-profile | Y | Y |  |  |  |  |  |  |
+| `m55` | Y | Not a lighting target | dormant/inert Lighting metadata | Y | Y |  |  |  |  |  | DPI/Sniper indicator only |
+| `m55W` | Y | Not a lighting target | dormant/inert Lighting metadata | Y | Y |  |  |  |  |  | DPI/Sniper indicator only |
 | `m55rgbpro` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `m65prorgb` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `m65rgbelite` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
@@ -447,6 +454,30 @@ indicator. `katarproW` is likewise not a Lighting target: it has no RGB profile
 store or Lighting mutation and flashes a DPI-stage indicator before returning it
 to black. These packages are not candidate sibling/standalone migrations.
 
+`m55` and `m55W` are strong-marker false positives, classified as **Not a
+lighting target | dormant/inert Lighting metadata | DPI/Sniper indicator only**.
+Both have `LEDChannels = 1` and `ChangeableLedChannels = 0`. Physical color
+output is the active DPI-stage color, with Sniper mode substituting the Sniper
+DPI color. `BrightnessSlider` scales that indicator, and `setDeviceColor` writes
+one RGB triplet. Neither initializes a package-owned general effect
+renderer/runtime or has a selectable Lighting effect pipeline reaching physical
+output. Their `RGBProfile="mouse"`, `Rgb *rgb.RGB`, `RgbOff`, and legacy-looking
+RGB mutation scaffolding are dormant/non-authoritative for physical Lighting
+behavior; they do not establish canonical Lighting support.
+
+If a package does not have a complete source-backed Lighting contract, the
+modern workspace must not advertise a Lighting tab/workspace for it.
+
+This fail-closed rule applies to confirmed non-targets including `m55`, `m55W`,
+`m75AirW`, `m75AirWU`, `katarproW`, `sabrev2proW`, `sabrev2proWU`, and
+`nautilusLcd`. DPI/Sniper indicator color belongs with mouse/DPI presentation;
+LCD-related color/output belongs with display presentation. Telemetry,
+transport, and other non-lighting color state must remain in their proper
+feature areas and must not cause Lighting capability exposure. Indicator colors
+are not general Lighting features. Removing any exposed modern Lighting
+tabs/workspaces for confirmed non-targets is required follow-up cleanup; this
+docs-only reconciliation does not implement UI or runtime changes.
+
 `hydro` completed its constrained fixed-static canonical migration in
 `395b23b9` (*Migrate Hydro static lighting*). It has canonical fixed `static`
 identity, editable Static color, and canonical desired Brightness; it has no
@@ -510,12 +541,6 @@ Count: **3**
 
 `hydro`, `lncore`, `lnpro`
 
-### single-profile
-
-Count: **2**
-
-`m55`, `m55W`
-
 ### multi-channel + cluster + openrgb-target
 
 Count: **2**
@@ -542,9 +567,9 @@ Count: **1**
 
 ### dormant/inert metadata
 
-Count: **6**
+Count: **8** (audited non-targets; excluded from migration scheduling)
 
-`katarproW`, `m75AirW`, `m75AirWU`, `nautilusLcd`, `sabrev2proW`, `sabrev2proWU`
+`katarproW`, `m55`, `m55W`, `m75AirW`, `m75AirWU`, `nautilusLcd`, `sabrev2proW`, `sabrev2proWU`
 
 ### single-profile + cluster + openrgb-target + special:mousepad
 

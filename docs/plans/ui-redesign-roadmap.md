@@ -510,11 +510,12 @@ state for a migrated package and cannot make it participate in the global path.
 The bridge and its compatibility machinery remain until the final `/rgb` cleanup
 after every legitimate native consumer has migrated.
 
-The strict native Lighting source-contract master audit, followed by the focused
-M75 W/WU, constrained Hydro, and wired M75 migrations, corrects the remaining planning
-inventory to **113** Lighting targets: **113 A** contracts and **0 B**
-constrained contracts, in **85** tentative migration passes (from 114 and 86). A
-real target requires source-backed persisted state,
+After the strict native Lighting source-contract master audit, the focused
+M75 W/WU, constrained Hydro, and wired M75 migrations, and the subsequent
+`m55`/`m55W` false-positive correction, the remaining planning inventory is
+**111** Lighting targets: **111 A** contracts and **0 B** constrained contracts,
+in **84** tentative migration passes (from 113 and 85). A real target requires
+source-backed persisted state,
 a user mutation, renderer/direct output resolver, and device-owned physical
 write boundary, plus lifecycle/reconnect proof where applicable. RGB-looking
 fields, `RGBModes`, or persistence markers alone do not qualify. The audit
@@ -527,6 +528,23 @@ static lighting*). Wired M75 then completed one standalone A package/pass
 native set to twelve packages. This is independent of the completed modern Devices workspace
 migration. M75 Air W/WU remain false positives / non-targets: their
 DPI/Sniper indicator behavior is not a complete general Lighting contract.
+`m55` and `m55W` are likewise strong-marker false positives: dormant/inert
+Lighting metadata with DPI/Sniper indicator output only. Removing their one
+previous `single-profile` tentative pass removes two A packages and one pass;
+it does not add canonical Lighting support. Historical scan totals are unchanged.
+
+If a package does not have a complete source-backed Lighting contract, the
+modern workspace must not advertise a Lighting tab/workspace for it.
+
+This fail-closed rule applies to confirmed non-targets including `m55`, `m55W`,
+`m75AirW`, `m75AirWU`, `katarproW`, `sabrev2proW`, `sabrev2proWU`, and
+`nautilusLcd`. DPI/Sniper indicator color belongs with mouse/DPI presentation;
+LCD-related color/output belongs with display presentation. Telemetry,
+transport, and other non-lighting color state must remain in their proper
+feature areas and must not cause Lighting capability exposure. Indicator colors
+are not general Lighting features. Removing any exposed modern Lighting
+tabs/workspaces for confirmed non-targets is required follow-up cleanup; this
+docs-only reconciliation does not implement UI or runtime changes.
 
 K60 RGB PRO (`k60rgbpro`) remains a complete-contract **A** Lighting target,
 but is **Deferred** / scheduling-blocked pending durable authored

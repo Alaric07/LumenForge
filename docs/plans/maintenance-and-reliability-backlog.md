@@ -95,8 +95,28 @@ LumenForge is a local, alpha-stage RGB and fan controller maintained by one deve
   the authoritative remaining queue.
   Wired M75 removes one standalone A package/pass from the previous
   **114 A + 0 B = 114 packages / 86 tentative passes**. Detailed classification
-  and the remaining **113 A + 0 B** queue of **113 packages** in
-  **85 tentative passes** remain in the migration matrix.
+  remains in the migration matrix. Focused source-contract audits subsequently
+  classify `m55` and `m55W` as strong-marker false positives: **Not a lighting
+  target | dormant/inert Lighting metadata | DPI/Sniper indicator only**. Their
+  previous `single-profile` group represented one tentative migration pass;
+  removing both A packages leaves the authoritative remaining **111 A + 0 B**
+  queue of **111 packages** in **84 tentative passes**. Historical
+  structural-scan totals are unchanged.
+
+### Required presentation cleanup for confirmed non-Lighting targets
+
+If a package does not have a complete source-backed Lighting contract, the
+modern workspace must not advertise a Lighting tab/workspace for it.
+
+This fail-closed rule applies to confirmed non-targets including `m55`, `m55W`,
+`m75AirW`, `m75AirWU`, `katarproW`, `sabrev2proW`, `sabrev2proWU`, and
+`nautilusLcd`. DPI/Sniper indicator color belongs with mouse/DPI presentation;
+LCD-related color/output belongs with display presentation. Telemetry,
+transport, and other non-lighting color state must remain in their proper
+feature areas and must not cause Lighting capability exposure. Indicator colors
+are not general Lighting features. Removing any exposed modern Lighting
+tabs/workspaces for confirmed non-targets is required follow-up cleanup; this
+docs-only reconciliation does not implement UI or runtime changes.
 
 ## Observations to revisit only if reproduced
 
