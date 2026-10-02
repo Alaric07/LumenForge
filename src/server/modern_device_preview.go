@@ -1148,8 +1148,15 @@ func buildLightingNodeProModernPreview() *devicesWorkspaceSummary {
 func buildXC7ModernPreview() *devicesWorkspaceSummary {
 	display := devicesDisplayWorkspaceSummary{ImageModeID: 10, Modes: []devicesDisplayOptionSummary{{ID: 0, Label: "Liquid Temperature", Selected: true}, {ID: 10, Label: "Image / GIF"}, {ID: 100, Label: "Arc"}}, Rotations: []devicesDisplayOptionSummary{{ID: 0, Label: "default", Selected: true}, {ID: 1, Label: "90 degrees"}, {ID: 2, Label: "180 degrees"}, {ID: 3, Label: "270 degrees"}}, Images: []devicesDisplayImageSummary{{Name: "loop-status"}, {Name: "system"}}}
 	display.Displays = []devicesDisplayWorkspaceSummary{display}
+	effects := []lightingpresentation.EffectOption{}
+	for _, id := range []string{"circle", "circleshift", "colorpulse", "colorshift", "colorwarp", "cpu-temperature", "flickering", "flame", "aurora", "cyberpunkglitch", "tokyonight", "gpu-temperature", "gradient", "liquid-temperature", "off", "rainbow", "pastelrainbow", "rotator", "spinner", "static", "storm", "watercolor", "wave"} {
+		descriptor, _ := rgb.SoftwareEffectDescriptorByID(id)
+		effects = append(effects, lightingpresentation.EffectOption{ID: id, Label: descriptor.Label})
+	}
+	lighting := devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "liquid-temperature", EffectSupported: true, EffectSelectionAvailable: true, SupportedEffects: effects, HasBrightness: true, Brightness: 70, PaletteKind: string(rgb.LightingPaletteTemperatureThree), HasTemperature: true, TemperatureLow: lightingpresentation.TemperaturePoint{ColorHex: "#00ff00", Celsius: 20}, TemperatureMiddle: lightingpresentation.TemperaturePoint{ColorHex: "#ffff00", Celsius: 40}, TemperatureHigh: lightingpresentation.TemperaturePoint{ColorHex: "#ff0000", Celsius: 60}})
+	lighting.ClusterOwnershipAvailable, lighting.ExternalOwnershipAvailable = false, false
 	return &devicesWorkspaceSummary{
-		Product: "XC7 ELITE LCD CPU Water Block", Serial: "preview-xc7-modern", Firmware: "1.4.12", Image: "icon-cooler.svg", View: "overview", LegacyLighting: true,
+		Product: "XC7 ELITE LCD CPU Water Block", Serial: "preview-xc7-modern", Firmware: "1.4.12", Image: "icon-cooler.svg", View: "overview", Lighting: lighting,
 		DeviceProfiles:    &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "Gaming"}, ActiveProfile: "Default", CanSwitch: true, CanSave: true, CanDelete: true, Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription},
 		Display:           &display,
 		OverviewTelemetry: []devicesOverviewStatusRow{{Label: "Liquid Temperature", Value: "31.8°C", Telemetry: true}},

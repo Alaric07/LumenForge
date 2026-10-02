@@ -90,6 +90,19 @@ type shippedProfile struct {
 	Gradients map[int]rgb.Color `json:"gradients"`
 }
 
+// EffectSettingsFromRGBProfile adapts a complete existing renderer profile to
+// the shared editable settings contract without changing renderer metadata.
+func EffectSettingsFromRGBProfile(effect string, profile rgb.Profile) (EffectSettings, error) {
+	descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect)
+	if !ok {
+		return EffectSettings{}, fmt.Errorf("%w: %q", ErrUnknownEffect, effect)
+	}
+	return settingsFromShippedProfile(descriptor, shippedProfile{
+		Speed: &profile.Speed, Start: &profile.StartColor, Middle: &profile.MiddleColor,
+		End: &profile.EndColor, Gradients: profile.Gradients,
+	})
+}
+
 func settingsFromShippedProfile(descriptor rgb.SoftwareEffectDescriptor, profile shippedProfile) (EffectSettings, error) {
 	settings := EffectSettings{SchemaVersion: SchemaVersion, EffectID: descriptor.ID}
 	if descriptor.SupportsSpeed {

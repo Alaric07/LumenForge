@@ -10,6 +10,7 @@ import (
 	"LumenForge/src/dashboard"
 	"LumenForge/src/devices/lcd"
 	"LumenForge/src/led"
+	"LumenForge/src/lightingsettings"
 	"LumenForge/src/logger"
 	"LumenForge/src/rgb"
 	"LumenForge/src/stats"
@@ -84,6 +85,12 @@ type Device struct {
 	GpuTemp           float32
 	Rgb               *rgb.RGB
 	rgbMutex          sync.RWMutex
+	lightingMu        sync.Mutex
+	lightingMutation  sync.Mutex
+	lightingDefaults  *lightingsettings.DefaultRepository
+	lightingRestart   func()
+	schedulerDark     bool
+	userRGBOff        bool
 	LCDImage          *lcd.ImageData
 	Exit              bool
 	mutex             sync.Mutex
@@ -194,14 +201,17 @@ func Init(vendorId, productId uint16, serial, _ string) *common.Device {
 	}
 
 	// Bootstrap
-	d.getManufacturer()     // Manufacturer
-	d.getProduct()          // Product
-	d.getSerial()           // Serial
-	d.loadRgb()             // Load RGB
-	d.getDeviceFirmware()   // Firmware
-	d.loadDeviceProfiles()  // Load all device profiles
-	d.setAutoRefresh()      // Set auto device refresh
-	d.saveDeviceProfile()   // Save profile
+	d.getManufacturer()    // Manufacturer
+	d.getProduct()         // Product
+	d.getSerial()          // Serial
+	d.loadRgb()            // Load RGB
+	d.getDeviceFirmware()  // Firmware
+	d.loadDeviceProfiles() // Load all device profiles
+	d.setAutoRefresh()     // Set auto device refresh
+	d.saveDeviceProfile()  // Save profile
+	if err := d.attachLightingRuntime(config.GetPaths()); err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to attach canonical device lighting runtime")
+	}
 	d.setupLedProfile()     // LED profile
 	d.getTemperatureProbe() // Devices with temperature probes
 	d.setDeviceColor()      // Device color
@@ -294,6 +304,8 @@ func (d *Device) saveLedProfile() {
 
 // GetRgbProfiles will return RGB profiles for a target device
 func (d *Device) GetRgbProfiles() interface{} {
+	d.rgbMutex.RLock()
+	defer d.rgbMutex.RUnlock()
 	tmp := *d.Rgb
 
 	// Filter unsupported modes out
@@ -460,11 +472,22 @@ func (d *Device) upgradeRgbProfile(path string, profiles []string) {
 
 // GetRgbProfile will return rgb.Profile struct
 func (d *Device) GetRgbProfile(profile string) *rgb.Profile {
+	if d.lightingDefaults != nil {
+		d.rgbMutex.RLock()
+		defer d.rgbMutex.RUnlock()
+	}
 	if d.Rgb == nil {
 		return nil
 	}
 
 	if val, ok := d.Rgb.Profiles[profile]; ok {
+		if val.Gradients != nil {
+			gradients := make(map[int]rgb.Color, len(val.Gradients))
+			for key, color := range val.Gradients {
+				gradients[key] = color
+			}
+			val.Gradients = gradients
+		}
 		return &val
 	}
 	return nil
@@ -758,6 +781,22 @@ func (d *Device) ControlDeviceRgb(value bool) {
 		return
 	}
 
+	if d.lightingDefaults != nil {
+		d.lightingMutation.Lock()
+		defer d.lightingMutation.Unlock()
+		d.lightingMu.Lock()
+		if d.lightingReady() != nil {
+			d.lightingMu.Unlock()
+			return
+		}
+		changed := d.userRGBOff != value
+		d.userRGBOff = value
+		d.lightingMu.Unlock()
+		if changed {
+			d.restartLighting()
+		}
+		return
+	}
 	d.DeviceProfile.RgbOff = value
 	d.saveDeviceProfile()
 
@@ -770,6 +809,7 @@ func (d *Device) ControlDeviceRgb(value bool) {
 
 // setDeviceColor will activate and set device RGB
 func (d *Device) setDeviceColor() {
+	effect, brightness, off := d.lightingOutputState()
 	// Reset
 	reset := map[int][]byte{}
 	var buffer []byte
@@ -792,20 +832,20 @@ func (d *Device) setDeviceColor() {
 
 	buffer = rgb.SetColor(reset)
 	d.transfer(buffer, transferTypeColor)
-	if d.DeviceProfile.RGBProfile == "off" {
+	if effect == "off" {
 		return
 	}
 
-	if d.DeviceProfile.RgbOff {
+	if off {
 		return
 	}
 
-	if d.DeviceProfile.RGBProfile == "static" {
+	if effect == "static" {
 		profile := d.GetRgbProfile("static")
 		if profile == nil {
 			return
 		}
-		profile.StartColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
+		profile.StartColor.Brightness = rgb.GetBrightnessValueFloat(brightness)
 
 		profileColor := rgb.ModifyBrightness(profile.StartColor)
 		for i := 0; i < d.LEDChannels; i++ {
@@ -833,10 +873,11 @@ func (d *Device) setDeviceColor() {
 			case <-d.activeRgb.Exit:
 				return
 			default:
+				effect, brightness, _ := d.lightingOutputState()
 				buff := make([]byte, 0)
 
 				rgbCustomColor := true
-				profile := d.GetRgbProfile(d.DeviceProfile.RGBProfile)
+				profile := d.GetRgbProfile(effect)
 				if profile == nil {
 					for i := 0; i < d.LEDChannels; i++ {
 						buff = append(buff, []byte{0, 0, 0}...)
@@ -875,17 +916,17 @@ func (d *Device) setDeviceColor() {
 				}
 
 				// Brightness
-				r.RGBBrightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
+				r.RGBBrightness = rgb.GetBrightnessValueFloat(brightness)
 				r.RGBStartColor.Brightness = r.RGBBrightness
 				r.RGBEndColor.Brightness = r.RGBBrightness
 				r.RGBMiddleColor.Brightness = r.RGBBrightness
 
-				switch d.DeviceProfile.RGBProfile {
+				switch effect {
 				case "custom":
 					{
 						for n := 0; n < d.LEDChannels; n++ {
 							value := d.getLedProfileColor(n, 0) // This ledId is always 0
-							value.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
+							value.Brightness = rgb.GetBrightnessValueFloat(brightness)
 							val := rgb.ModifyBrightness(*value)
 							buff = append(buff, []byte{byte(val.Red), byte(val.Green), byte(val.Blue)}...)
 						}
@@ -1044,6 +1085,15 @@ func (d *Device) ChangeDeviceBrightness(mode uint8) uint8 {
 
 // ChangeDeviceBrightnessValue will change device brightness via slider
 func (d *Device) ChangeDeviceBrightnessValue(value uint8) uint8 {
+	if d.lightingDefaults != nil {
+		if d.GlobalBrightness != 0 {
+			return 2
+		}
+		if err := d.SetLightingBrightness(value); err != nil {
+			return 0
+		}
+		return 1
+	}
 	if d.GlobalBrightness != 0 {
 		return 2
 	}
@@ -1067,6 +1117,23 @@ func (d *Device) ChangeDeviceBrightnessValue(value uint8) uint8 {
 
 // SchedulerBrightness will change device brightness via scheduler
 func (d *Device) SchedulerBrightness(value uint8) uint8 {
+	if d.lightingDefaults != nil {
+		d.lightingMutation.Lock()
+		defer d.lightingMutation.Unlock()
+		d.lightingMu.Lock()
+		if d.lightingReady() != nil {
+			d.lightingMu.Unlock()
+			return 0
+		}
+		changed := d.schedulerDark != (value == 0)
+		d.schedulerDark = value == 0
+		static := d.DeviceProfile.RGBProfile == "static"
+		d.lightingMu.Unlock()
+		if changed && static {
+			d.restartLighting()
+		}
+		return 1
+	}
 	if value == 0 {
 		d.DeviceProfile.OriginalBrightness = *d.DeviceProfile.BrightnessSlider
 		d.DeviceProfile.BrightnessSlider = &value
@@ -1088,6 +1155,11 @@ func (d *Device) SchedulerBrightness(value uint8) uint8 {
 
 // ChangeDeviceProfile will change device profile
 func (d *Device) ChangeDeviceProfile(profileName string) uint8 {
+	if d.lightingDefaults != nil {
+		d.lightingMutation.Lock()
+		defer d.lightingMutation.Unlock()
+		d.lightingMu.Lock()
+	}
 	if profile, ok := d.UserProfiles[profileName]; ok {
 		currentProfile := d.DeviceProfile
 		currentProfile.Active = false
@@ -1095,17 +1167,28 @@ func (d *Device) ChangeDeviceProfile(profileName string) uint8 {
 		d.saveDeviceProfile()
 
 		// RGB reset
-		if d.activeRgb != nil {
+		if d.lightingDefaults == nil && d.activeRgb != nil {
 			d.activeRgb.Exit <- true
 			d.activeRgb = nil
 		}
 
 		newProfile := profile
 		newProfile.Active = true
+		if d.lightingDefaults != nil {
+			newProfile.RgbOff = false
+		}
 		d.DeviceProfile = newProfile
 		d.saveDeviceProfile()
-		d.setDeviceColor()
+		if d.lightingDefaults != nil {
+			d.lightingMu.Unlock()
+			d.restartLighting()
+		} else {
+			d.setDeviceColor()
+		}
 		return 1
+	}
+	if d.lightingDefaults != nil {
+		d.lightingMu.Unlock()
 	}
 	return 0
 }
@@ -1251,6 +1334,38 @@ func (d *Device) saveRgbProfile() {
 
 // ProcessNewGradientColor will create new gradient color
 func (d *Device) ProcessNewGradientColor(profileName string) (uint8, uint) {
+	if d.lightingDefaults != nil {
+		d.lightingMutation.Lock()
+		defer d.lightingMutation.Unlock()
+		d.lightingMu.Lock()
+		if _, err := d.resolveLightingSettings(profileName); err != nil {
+			d.lightingMu.Unlock()
+			return 0, 0
+		}
+		pf := d.GetRgbProfile(profileName)
+		if pf.Gradients == nil {
+			d.lightingMu.Unlock()
+			return 0, 0
+		}
+
+		nextID := 0
+		for key := range pf.Gradients {
+			if key >= nextID {
+				nextID = key + 1
+			}
+		}
+		pf.Gradients[nextID] = rgb.Color{Green: 255, Blue: 255}
+		index := nextID
+
+		err := d.persistLightingRGBProfile(profileName, *pf)
+		d.lightingMu.Unlock()
+		if err != nil {
+			return 0, 0
+		}
+		d.restartLighting()
+		return 1, uint(index)
+	}
+
 	if d.GetRgbProfile(profileName) == nil {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profileName}).Warn("Non-existing RGB profile")
 		return 0, 0
@@ -1286,6 +1401,41 @@ func (d *Device) ProcessNewGradientColor(profileName string) (uint8, uint) {
 
 // ProcessDeleteGradientColor will delete gradient color
 func (d *Device) ProcessDeleteGradientColor(profileName string) (uint8, uint) {
+	if d.lightingDefaults != nil {
+		d.lightingMutation.Lock()
+		defer d.lightingMutation.Unlock()
+		d.lightingMu.Lock()
+		if _, err := d.resolveLightingSettings(profileName); err != nil {
+			d.lightingMu.Unlock()
+			return 0, 0
+		}
+		pf := d.GetRgbProfile(profileName)
+		if pf.Gradients == nil {
+			d.lightingMu.Unlock()
+			return 0, 0
+		}
+
+		if len(pf.Gradients) < 3 {
+			d.lightingMu.Unlock()
+			return 2, 0
+		}
+		index := -1
+		for key := range pf.Gradients {
+			if key > index {
+				index = key
+			}
+		}
+		delete(pf.Gradients, index)
+
+		err := d.persistLightingRGBProfile(profileName, *pf)
+		d.lightingMu.Unlock()
+		if err != nil {
+			return 0, 0
+		}
+		d.restartLighting()
+		return 1, uint(index)
+	}
+
 	if d.GetRgbProfile(profileName) == nil {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profileName}).Warn("Non-existing RGB profile")
 		return 0, 0
@@ -1320,9 +1470,16 @@ func (d *Device) ProcessDeleteGradientColor(profileName string) (uint8, uint) {
 
 // UpdateRgbProfileData will update RGB profile data
 func (d *Device) UpdateRgbProfileData(profileName string, profile rgb.Profile) uint8 {
+	if d.lightingDefaults != nil {
+		settings, err := lightingsettings.EffectSettingsFromRGBProfile(profileName, profile)
+		if err != nil || d.SetLightingEffectSettings(profileName, settings) != nil {
+			return 0
+		}
+		return 1
+	}
+
 	d.rgbMutex.Lock()
 	defer d.rgbMutex.Unlock()
-
 	if d.GetRgbProfile(profileName) == nil {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
 		return 0
@@ -1366,6 +1523,12 @@ func (d *Device) UpdateRgbProfileData(profileName string, profile rgb.Profile) u
 
 // UpdateRgbProfile will update device RGB profile
 func (d *Device) UpdateRgbProfile(_ int, profile string) uint8 {
+	if d.lightingDefaults != nil {
+		if d.SetLightingEffect(profile) != nil {
+			return 0
+		}
+		return 1
+	}
 	if d.GetRgbProfile(profile) == nil {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
 		return 0

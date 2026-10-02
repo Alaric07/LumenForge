@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -170,13 +171,29 @@ func TestXC7ModernPreviewIsInertAndRendersDisplay(t *testing.T) {
 		t.Fatalf("fixture=%#v ok=%t", fixture, ok)
 	}
 	summary := fixture.Build()
-	if summary == nil || summary.Serial != "preview-xc7-modern" || !summary.LegacyLighting || summary.Lighting != nil || summary.Cooling != nil || summary.Display == nil || summary.Display.ImageModeID != 10 || summary.DeviceProfiles == nil || devices.GetDevice(summary.Serial) != nil {
+	if summary == nil || summary.Serial != "preview-xc7-modern" || summary.LegacyLighting || summary.Lighting == nil || summary.Cooling != nil || summary.Display == nil || summary.Display.ImageModeID != 10 || summary.DeviceProfiles == nil || devices.GetDevice(summary.Serial) != nil {
 		t.Fatalf("summary=%#v", summary)
+	}
+	lighting := summary.Lighting
+	var ids []string
+	for _, effect := range lighting.SupportedEffects {
+		ids = append(ids, effect.ID)
+	}
+	expected := []string{"circle", "circleshift", "colorpulse", "colorshift", "colorwarp", "cpu-temperature", "flickering", "flame", "aurora", "cyberpunkglitch", "tokyonight", "gpu-temperature", "gradient", "liquid-temperature", "off", "rainbow", "pastelrainbow", "rotator", "spinner", "static", "storm", "watercolor", "wave"}
+	sort.Strings(ids)
+	sort.Strings(expected)
+	if !reflect.DeepEqual(ids, expected) || lighting.ConfiguredEffect != "liquid-temperature" || lighting.Brightness != 70 || !lighting.HasTemperature || lighting.ClusterOwnershipAvailable || lighting.ExternalOwnershipAvailable || lighting.AuthoredZoneEditor != nil || len(lighting.Channels) != 0 {
+		t.Fatalf("lighting = %#v", lighting)
 	}
 	router := legacyDevicePreviewRouter(t, true)
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/xc7-modern?view=display"))
 	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "Display mode") || strings.Contains(recorder.Body.String(), "lf-display-brightness") {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/xc7-modern?view=lighting"))
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "Liquid Temperature") || strings.Contains(recorder.Body.String(), "Legacy Lighting") || devices.GetDevice(summary.Serial) != nil {
 		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
 	}
 }
@@ -275,6 +292,22 @@ func TestM75LightingFallsBackOnlyWhenCanonicalSnapshotIsUnavailable(t *testing.T
 	unavailable, ok := devicesWorkspaceSummaryForSerial(devicesBySerial, nil, "m75-unavailable")
 	if !ok || unavailable.Lighting != nil || !unavailable.LegacyLighting {
 		t.Fatalf("unavailable M75 summary = %#v, %t", unavailable, ok)
+	}
+}
+
+func TestXC7LightingFallsBackOnlyWhenCanonicalSnapshotIsUnavailable(t *testing.T) {
+	const usableSerial = "xc7-canonical"
+	devicesBySerial := map[string]*common.Device{
+		usableSerial:      {Serial: usableSerial, ProductType: common.ProductTypeXC7, Instance: devicesPageLightingSnapshotProvider{serial: usableSerial, snapshot: lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "static", EffectSupported: true, SupportedEffects: []lightingpresentation.EffectOption{{ID: "static", Label: "Static"}}}}},
+		"xc7-unavailable": {Serial: "xc7-unavailable", ProductType: common.ProductTypeXC7, Instance: devicesPageLightingSnapshotProvider{serial: "xc7-unavailable"}},
+	}
+	usable, ok := devicesWorkspaceSummaryForSerial(devicesBySerial, nil, usableSerial)
+	if !ok || usable.Lighting == nil || usable.LegacyLighting {
+		t.Fatalf("usable XC7 summary = %#v, %t", usable, ok)
+	}
+	unavailable, ok := devicesWorkspaceSummaryForSerial(devicesBySerial, nil, "xc7-unavailable")
+	if !ok || unavailable.Lighting != nil || !unavailable.LegacyLighting {
+		t.Fatalf("unavailable XC7 summary = %#v, %t", unavailable, ok)
 	}
 }
 
