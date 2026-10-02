@@ -1483,7 +1483,19 @@ func buildScimitarEliteModernPreview() *devicesWorkspaceSummary {
 }
 
 func buildKatarProModernPreview() *devicesWorkspaceSummary {
-	return buildKatarModernPreview("KATAR PRO", "preview-katar-pro-modern", "2.4.17", "Stage 2")
+	s := buildKatarModernPreview("KATAR PRO", "preview-katar-pro-modern", "2.4.17", "Stage 2")
+	effects := make([]lightingpresentation.EffectOption, 0, 19)
+	for _, effect := range []string{"colorpulse", "colorwarp", "cpu-temperature", "flickering", "flame", "aurora", "cyberpunkglitch", "tokyonight", "gpu-temperature", "gradient", "mouse", "off", "rainbow", "pastelrainbow", "rotator", "static", "storm", "watercolor", "wave"} {
+		label := "Mouse"
+		if descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect); ok {
+			label = descriptor.Label
+		}
+		effects = append(effects, lightingpresentation.EffectOption{ID: effect, Label: label})
+	}
+	s.LegacyLighting = false
+	s.Lighting = devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "mouse", EffectSupported: true, EffectSelectionAvailable: true, HasBrightness: true, Brightness: 70, SupportedEffects: effects, AuthoredZoneEditor: &lightingpresentation.AuthoredZoneEditor{EffectID: "mouse", Heading: "Zones", Description: "Choose a color for the Scroll zone.", Zones: []lightingpresentation.AuthoredZone{{ID: "0", Label: "Scroll", ColorHex: "#00ffff"}}}})
+	s.Lighting.ClusterOwnershipAvailable, s.Lighting.ExternalOwnershipAvailable = false, false
+	return s
 }
 
 func buildKatarProXTModernPreview() *devicesWorkspaceSummary {
