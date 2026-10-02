@@ -511,9 +511,9 @@ The bridge and its compatibility machinery remain until the final `/rgb` cleanup
 after every legitimate native consumer has migrated.
 
 The strict native Lighting source-contract master audit, followed by the focused
-M75 W/WU and constrained Hydro migrations, corrects the remaining planning
-inventory to **114** Lighting targets: **114 A** contracts and **0 B**
-constrained contracts, in **86** tentative migration passes (from 120 and 90). A
+M75 W/WU, constrained Hydro, and wired M75 migrations, corrects the remaining planning
+inventory to **113** Lighting targets: **113 A** contracts and **0 B**
+constrained contracts, in **85** tentative migration passes (from 114 and 86). A
 real target requires source-backed persisted state,
 a user mutation, renderer/direct output resolver, and device-owned physical
 write boundary, plus lifecycle/reconnect proof where applicable. RGB-looking
@@ -522,9 +522,17 @@ removed `m75AirW`, `m75AirWU`, and `katarproW` in addition to the previously
 removed Sabre V2 W/WU and Nautilus LCD false positives. M75 W/WU then completed
 one focused sibling pass (`90f1d10e`, *Migrate M75 wireless lighting*), and
 Hydro completed its constrained fixed-static proof (`395b23b9`, *Migrate Hydro
-static lighting*), bringing the completed canonical native set to eleven
-packages. This is independent of the completed modern Devices workspace
-migration.
+static lighting*). Wired M75 then completed one standalone A package/pass
+(`749f781f`, *Migrate wired M75 lighting*), bringing the completed canonical
+native set to twelve packages. This is independent of the completed modern Devices workspace
+migration. M75 Air W/WU remain false positives / non-targets: their
+DPI/Sniper indicator behavior is not a complete general Lighting contract.
+
+K60 RGB PRO (`k60rgbpro`) remains a complete-contract **A** Lighting target,
+but is **Deferred** / scheduling-blocked pending durable authored
+keyboard-color persistence, dual brightness semantics, and a sparse
+frame/topology adapter. It is not migrated or a false positive and remains in
+the authoritative remaining queue.
 
 - [x] Extract the shared independent-device lighting runtime and move Scimitar
   Pro selected effect to canonical state (`d833da87`, with canonical-read fixes
@@ -1101,8 +1109,9 @@ after OpenRGB parity.
 23. [~] Migrate native-device families one at a time without changing their
 hardware-specific output behavior. Scimitar Pro RGB, Scimitar RGB Elite, MM800,
 K95 Platinum, Commander Core XT, Commander CORE, Memory, ST100 RGB, M75 W,
-M75 WU, and Hydro are fully migrated to the canonical Device Lighting model and no longer participate in legacy
-`/rgb` lighting persistence or mutation paths. Aggregate parent controls for
+M75 WU, wired M75, and Hydro are fully migrated to the canonical Device Lighting
+model and, while the canonical runtime is usable, no longer participate in
+legacy `/rgb` lighting persistence or mutation paths. Aggregate parent controls for
 Memory and both Commander Core families remain convenience mutations over
 existing canonical children rather than new parent effect state (`aed0d672`).
 ST100 RGB is the deliberate authored-zone accessory/reference exception; other
@@ -1117,6 +1126,19 @@ Brightness, transient scheduler darkness, and its direct existing HID
 configuration boundary; it has no effect-selection mutation, Speed, authored
 zones, RGB Cluster, or native OpenRGB Integration. Automated/source-backed
 validation is complete; no physical Hydro hardware validation is recorded.
+Wired M75 (`src/devices/m75`) completed its standalone canonical migration in
+`749f781f` (*Migrate wired M75 lighting*) with the exact source-backed catalogue
+of 20 effects, including authored `mouse` mode with Bottom / Logo zones.
+Canonical state owns selected effect and desired Brightness; generic effect
+settings use canonical `lightingsettings.DeviceStore`. Scheduler darkness and
+user RGB-off are independent transient overrides. It has no RGB Cluster or
+OpenRGB Integration capability. Wired HID/output/lifecycle behavior is
+preserved, and canonical runtime failure retains the legacy Lighting fallback.
+Its canonical preview is migrated and inert. Automated package/server/race
+validation passed for the migration; no physical hardware validation was
+performed. The M75 family now has canonical coverage for wired M75, M75 W,
+and M75 WU, excluding M75 Air W/WU.
+
 24. [x] Add the generic native authored-zone presentation and mutation contract
 for device-owned modes (`ce890f75`).
 25. [ ] Remove `/rgb`, global mutations, remaining target-local RGB copies,

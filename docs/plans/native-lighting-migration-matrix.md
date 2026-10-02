@@ -78,9 +78,10 @@ with the global system.
 ### Completed native migration proofs
 
 `scimitarprorgb`, `scimitarrgbelite`, `mm800`, `k95platinum`, `ccxt`, `cc`,
-`memory`, `st100`, `m75W`, and `m75WU` are now tracked as **Migrated**. Canonical Device Lighting is
-authoritative and these packages no longer participate in retained legacy `/rgb` lighting persistence
-or mutation paths.
+`memory`, `st100`, `m75`, `m75W`, `m75WU`, and `hydro` are now tracked as **Migrated**. Canonical Device Lighting is
+authoritative while the canonical runtime is usable, and these packages then
+no longer participate in retained legacy `/rgb` lighting persistence or mutation
+paths.
 
 Completed shared native work includes:
 
@@ -132,6 +133,19 @@ supports RGB Cluster or native OpenRGB Integration. Automated and source-backed
 validation is complete; no physical M75 hardware validation has been recorded.
 Their shared migration followed focused package-equivalence evidence and does
 not make other W/WU siblings safe to batch.
+
+Wired M75 (`src/devices/m75`) completed its standalone canonical migration in
+`749f781f` (*Migrate wired M75 lighting*) with the exact source-backed catalogue
+of 20 effects, including authored `mouse` mode with Bottom / Logo zones.
+Canonical state owns selected effect and desired Brightness; generic effect
+settings use canonical `lightingsettings.DeviceStore`. Scheduler darkness and
+user RGB-off are independent transient overrides. It has no RGB Cluster or
+OpenRGB Integration capability. Wired HID/output/lifecycle behavior is
+preserved, and canonical runtime failure retains the legacy Lighting fallback.
+Its canonical preview is migrated and inert. Automated package/server/race
+validation passed for the migration; no physical hardware validation was
+performed. The M75 family now has canonical coverage for wired M75, M75 W,
+and M75 WU, excluding M75 Air W/WU.
 
 Commander Core XT and Commander CORE establish the separate multi-channel
 controller proof. Both expose modern Overview, Lighting, and Cooling workspaces,
@@ -218,9 +232,9 @@ Generated as a read-only architecture inventory. This does not declare migration
 - Packages with any scanned lighting marker: **137**
 - Strong-marker packages requiring source-contract classification: **131**
 - Weak-marker-only packages requiring manual review: **6**
-- Corrected remaining native Lighting targets: **114** (previously 120),
-  comprising **114 A** contracts and **0 B** constrained contracts,
-  planned as **86** tentative migration passes (previously 90).
+- Corrected remaining native Lighting targets: **113** (previously 114),
+  comprising **113 A** contracts and **0 B** constrained contracts,
+  planned as **85** tentative migration passes (previously 86).
 
 Strong markers are audit leads, not proof of a Lighting implementation. A real
 Lighting target requires source-backed persisted state, a user mutation,
@@ -232,7 +246,9 @@ the M75 AIR W/WU sibling batch, and Katar Pro W from the backlog. M75 W/WU
 subsequently completed their focused canonical migration, reducing the queue by
 two packages and one pass. Hydro then completed its constrained fixed-static
 canonical migration in `395b23b9`, reducing the queue by one package and one
-pass. The 137/131/6 marker figures above
+pass. Wired M75 then completed one standalone A package/pass in `749f781f`,
+reducing **114 A + 0 B = 114 packages / 86 tentative passes** to
+**113 A + 0 B = 113 packages / 85 tentative passes**. The 137/131/6 marker figures above
 remain historical structural-scan totals, not current target counts.
 
 ### Structural shapes
@@ -289,7 +305,7 @@ remain historical structural-scan totals, not current target counts.
 | `k55proXT` | Y | Legacy | single-profile | Y |  |  |  |  |  |  | keyboard |
 | `k57rgbW` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
 | `k57rgbWU` | Y | Legacy | single-profile | Y |  |  |  |  |  |  | keyboard |
-| `k60rgbpro` | Y | Legacy | single-profile | Y |  |  |  |  |  |  | keyboard |
+| `k60rgbpro` | Y | Deferred | single-profile | Y |  |  |  |  |  |  | keyboard |
 | `k65plusW` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
 | `k65plusWU` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
 | `k65pm` | Y | Legacy | single-profile | Y | Y |  |  |  | Y |  | keyboard |
@@ -329,7 +345,7 @@ remain historical structural-scan totals, not current target counts.
 | `m65rgbultra` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `m65rgbultraW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `m65rgbultraWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `m75` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  | mouse |
+| `m75` | Y | Migrated | zoned |  | Y |  | Y |  |  |  | mouse |
 | `m75AirW` | Y | Not a lighting target | dormant/inert metadata | Y | Y |  | Y |  |  |  | DPI/Sniper indicator only |
 | `m75AirWU` | Y | Not a lighting target | dormant/inert metadata | Y | Y |  | Y |  |  |  | DPI/Sniper indicator only |
 | `m75W` | Y | Migrated | zoned |  | Y |  | Y |  |  |  | mouse |
@@ -423,7 +439,9 @@ metadata, not Legacy Lighting targets.
 feature-report/image transfer. Its `Rgb` and `saveRgbProfile` are orphaned
 RGB-shaped metadata with no renderer, mutation, or LED output consumer.
 
-`m75AirW` and `m75AirWU` are not Lighting targets. Their retained RGB-shaped
+`m75AirW` and `m75AirWU` remain false positives / non-targets for canonical
+Lighting: DPI/Sniper indicator behavior is not a complete general Lighting
+contract. Their retained RGB-shaped
 state is not rendered; the only physical color output is the active DPI/Sniper
 indicator. `katarproW` is likewise not a Lighting target: it has no RGB profile
 store or Lighting mutation and flashes a DPI-stage indicator before returning it
@@ -436,6 +454,12 @@ effect-selection mutation, Speed, authored zones, RGB Cluster, or native
 OpenRGB Integration. Scheduler darkness is transient. The direct existing HID
 configuration boundary remains intact. Automated/source-backed validation is
 complete; no physical Hydro hardware validation is recorded.
+
+K60 RGB PRO (`k60rgbpro`) remains a complete-contract **A** Lighting target,
+but is **Deferred** / scheduling-blocked pending durable authored
+keyboard-color persistence, dual brightness semantics, and a sparse
+frame/topology adapter. It is not migrated or a false positive and remains in
+the authoritative remaining queue.
 
 ## Architectural signature groups
 

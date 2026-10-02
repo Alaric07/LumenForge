@@ -14,7 +14,7 @@ This is a deliberate clean break for alpha software. Compatibility with old
 lighting customization data is not required. OpenRGB-imported devices and RGB
 Cluster established the canonical model first. Scimitar Pro RGB, Scimitar RGB
 Elite, MM800, K95 Platinum, Commander Core XT, Commander CORE, Memory, ST100
-RGB, M75 W, M75 WU, and Hydro now
+RGB, wired M75, M75 W, M75 WU, and Hydro now
 form the completed native migration proof set. Remaining native device families
 still migrate separately and only after their hardware-specific behavior and required controls are understood; they are not
 part of one broad migration milestone.
@@ -34,7 +34,7 @@ the roadmap governs repository-wide cleanup classification.
 
 Scimitar Pro RGB established the first native package on the shared canonical
 independent-device lighting runtime. Scimitar RGB Elite, MM800, K95 Platinum,
-Commander Core XT, Commander CORE, Memory, ST100 RGB, M75 W, M75 WU, and Hydro are separate package proofs of the
+Commander Core XT, Commander CORE, Memory, ST100 RGB, wired M75, M75 W, M75 WU, and Hydro are separate package proofs of the
 canonical Device Lighting model while retaining their own device-specific
 hardware boundaries.
 
@@ -77,6 +77,19 @@ package supports RGB Cluster or native OpenRGB Integration. Automated and
 source-backed validation is complete; physical M75 hardware validation has not
 been recorded. This proof does not infer parity for any other W/WU pair.
 
+Wired M75 (`src/devices/m75`) completed its standalone canonical migration in
+`749f781f` (*Migrate wired M75 lighting*) with the exact source-backed catalogue
+of 20 effects, including authored `mouse` mode with Bottom / Logo zones.
+Canonical state owns selected effect and desired Brightness; generic effect
+settings use canonical `lightingsettings.DeviceStore`. Scheduler darkness and
+user RGB-off are independent transient overrides. It has no RGB Cluster or
+OpenRGB Integration capability. Wired HID/output/lifecycle behavior is
+preserved, and canonical runtime failure retains the legacy Lighting fallback.
+Its canonical preview is migrated and inert. Automated package/server/race
+validation passed for the migration; no physical hardware validation was
+performed. The M75 family now has canonical coverage for wired M75, M75 W,
+and M75 WU, excluding M75 Air W/WU.
+
 Hydro completed the constrained fixed-static proof in `395b23b9` (*Migrate
 Hydro static lighting*): canonical fixed `static` identity, editable Static
 color, and canonical desired Brightness. It intentionally has no
@@ -84,6 +97,12 @@ effect-selection mutation, Speed, authored zones, RGB Cluster, or native
 OpenRGB Integration. Scheduler darkness is transient, and the direct existing
 HID configuration boundary remains intact. Automated/source-backed validation
 is complete; no physical Hydro hardware validation is recorded.
+
+K60 RGB PRO (`k60rgbpro`) remains a complete-contract **A** Lighting target,
+but is **Deferred** / scheduling-blocked pending durable authored
+keyboard-color persistence, dual brightness semantics, and a sparse
+frame/topology adapter. It is not migrated or a false positive and remains in
+the authoritative remaining queue.
 
 K95 Platinum remains the canonical keyboard-lighting proof. The non-Lighting
 modern device-workspace migration phase is complete across active supported
@@ -102,7 +121,9 @@ renderer/direct output resolver, and a device-owned physical write boundary,
 plus lifecycle/reconnect proof where applicable. The Sabre V2 W/WU packages,
 M75 AIR W/WU, and Katar Pro W have only dormant RGB metadata or DPI-stage
 indicator color; Nautilus LCD's RGB-shaped metadata is unrelated to its LCD
-feature-report/image output. None is a Lighting target. Hydro is the completed
+feature-report/image output. None is a Lighting target. M75 Air W/WU remain false positives / non-targets
+for canonical Lighting: their DPI/Sniper indicator behavior is not a complete
+general Lighting contract. Hydro is the completed
 constrained fixed-static proof: its HID output remains limited to the
 Brightness-scaled `static` profile and has no selected-effect mutation, without
 fabricating effect parity. A complete-contract A classification establishes only that package's

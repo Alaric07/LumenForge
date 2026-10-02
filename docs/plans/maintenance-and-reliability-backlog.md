@@ -58,7 +58,9 @@ LumenForge is a local, alpha-stage RGB and fan controller maintained by one deve
   physical write boundary are required, with lifecycle/reconnect proof where
   applicable. RGB-shaped metadata alone is not a target. The completed master
   audit removed Sabre V2 W/WU, Nautilus LCD, M75 AIR W/WU, and Katar Pro W
-  false positives. Structural sibling groups remain discovery candidates only; W/WU
+  false positives. M75 Air W/WU remain canonical Lighting non-targets: their
+  DPI/Sniper indicator behavior is not a complete general Lighting contract.
+  Structural sibling groups remain discovery candidates only; W/WU
   packages need focused equivalence proof before a shared implementation pass.
   M75 W/WU subsequently completed one focused canonical sibling pass
   (`90f1d10e`, *Migrate M75 wireless lighting*): canonical selected effect and
@@ -73,9 +75,28 @@ LumenForge is a local, alpha-stage RGB and fan controller maintained by one deve
   zones, RGB Cluster, or native OpenRGB Integration; transient scheduler
   darkness; and the retained direct existing HID configuration boundary.
   Automated/source-backed validation is complete; no physical Hydro hardware
-  validation is recorded. Detailed classification and the remaining **114 A + 0
-  B** queue of **114 packages** in **86 tentative passes** remain in the
-  migration matrix.
+  validation is recorded.
+  Wired M75 (`src/devices/m75`) completed its standalone canonical migration in
+  `749f781f` (*Migrate wired M75 lighting*) with the exact source-backed catalogue
+  of 20 effects, including authored `mouse` mode with Bottom / Logo zones.
+  Canonical state owns selected effect and desired Brightness; generic effect
+  settings use canonical `lightingsettings.DeviceStore`. Scheduler darkness and
+  user RGB-off are independent transient overrides. It has no RGB Cluster or
+  OpenRGB Integration capability. Wired HID/output/lifecycle behavior is
+  preserved, and canonical runtime failure retains the legacy Lighting fallback.
+  Its canonical preview is migrated and inert. Automated package/server/race
+  validation passed for the migration; no physical hardware validation was
+  performed. The M75 family now has canonical coverage for wired M75, M75 W,
+  and M75 WU, excluding M75 Air W/WU.
+  K60 RGB PRO (`k60rgbpro`) remains a complete-contract **A** Lighting target,
+  but is **Deferred** / scheduling-blocked pending durable authored
+  keyboard-color persistence, dual brightness semantics, and a sparse
+  frame/topology adapter. It is not migrated or a false positive and remains in
+  the authoritative remaining queue.
+  Wired M75 removes one standalone A package/pass from the previous
+  **114 A + 0 B = 114 packages / 86 tentative passes**. Detailed classification
+  and the remaining **113 A + 0 B** queue of **113 packages** in
+  **85 tentative passes** remain in the migration matrix.
 
 ## Observations to revisit only if reproduced
 
