@@ -249,6 +249,9 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "dark-core-rgb-pro-wireless-modern", Title: "Dark Core RGB Pro Wireless", ProductType: common.ProductTypeDarkCoreRgbProW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
 		return buildWirelessMouseModernPreviewWithCapabilities("DARK CORE RGB PRO WIRELESS", "preview-dark-core-rgb-pro-wireless-modern", false, true, true, false)
 	}},
+	{Key: "dark-core-rgb-pro-usb-modern", Title: "Dark Core RGB Pro USB", ProductType: common.ProductTypeDarkCoreRgbProWU, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary { return buildDarkCoreDirectHIDModernPreview(false) }},
+	{Key: "dark-core-rgb-pro-se-usb-modern", Title: "Dark Core RGB Pro SE USB", ProductType: common.ProductTypeDarkCoreRgbProSEWU, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary { return buildDarkCoreDirectHIDModernPreview(true) }},
+
 	{Key: "dark-core-rgb-se-wireless-modern", Title: "Dark Core RGB SE Wireless", ProductType: common.ProductTypeDarkCoreRgbSEW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
 		return buildWirelessMouseModernPreviewWithCapabilities("DARK CORE RGB SE WIRELESS", "preview-dark-core-rgb-se-wireless-modern", false, false, true, true)
 	}},
@@ -1518,4 +1521,44 @@ func buildKatarModernPreview(product, serial, firmware, activeStage string) *dev
 		DeviceProfiles:      &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "FPS"}, ActiveProfile: "Default", Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription},
 		OverviewPerformance: &devicesOverviewPerformanceStatusSummary{Rows: []devicesOverviewStatusRow{{Label: "DPI", Value: "1600", Telemetry: true}, {Label: "Active Stage", Value: activeStage}, {Label: "Polling Rate", Value: "1000 Hz / 1 msec", Telemetry: true}}},
 	}
+}
+
+// Direct-HID fixtures are pure descriptor data, with no device runtime, controller
+// registration, persistence, HID discovery or goroutine initialization.
+type darkCorePreviewZone struct {
+	name    string
+	indices []int
+	color   string
+}
+
+func darkCoreDirectHIDPreviewZones() []darkCorePreviewZone {
+	return []darkCorePreviewZone{
+		{"Scroll", []int{0, 12, 24}, "#00ffff"}, {"Logo", []int{6, 18, 30}, "#ff8000"},
+		{"Side Accent 1", []int{1, 13, 25}, "#ff0080"}, {"Side Accent 2", []int{2, 14, 26}, "#ff00ff"},
+		{"Side Accent 3", []int{3, 15, 27}, "#8000ff"}, {"Side Accent 4", []int{4, 16, 28}, "#0080ff"},
+		{"Side Accent 5", []int{5, 17, 29}, "#00ff80"}, {"Side Accent 6", []int{7, 19, 31}, "#80ff00"},
+	}
+}
+func buildDarkCoreDirectHIDModernPreview(se bool) *devicesWorkspaceSummary {
+	product, serial := "DARK CORE PRO", "preview-dark-core-rgb-pro-usb-modern"
+	if se {
+		product, serial = "DARK CORE PRO SE", "preview-dark-core-rgb-pro-se-usb-modern"
+	}
+	s := buildWirelessMouseModernPreviewWithCapabilities(product, serial, false, true, true, false)
+	effects := []lightingpresentation.EffectOption{}
+	for _, effect := range []string{"colorpulse", "colorshift", "colorwarp", "cpu-temperature", "flickering", "flame", "aurora", "cyberpunkglitch", "tokyonight", "gpu-temperature", "gradient", "mouse", "off", "rainbow", "pastelrainbow", "rotator", "static", "storm", "watercolor", "wave"} {
+		label := "Mouse"
+		if descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect); ok {
+			label = descriptor.Label
+		}
+		effects = append(effects, lightingpresentation.EffectOption{ID: effect, Label: label})
+	}
+	editor := &lightingpresentation.AuthoredZoneEditor{EffectID: "mouse", Heading: "Zones", Description: "Choose colors for the selected zones."}
+	for id, zone := range darkCoreDirectHIDPreviewZones() {
+		editor.Zones = append(editor.Zones, lightingpresentation.AuthoredZone{ID: strconv.Itoa(id), Label: zone.name, ColorHex: zone.color})
+	}
+	s.LegacyLighting = false
+	s.Lighting = devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "mouse", EffectSupported: true, EffectSelectionAvailable: true, HasBrightness: true, Brightness: 70, SupportedEffects: effects, AuthoredZoneEditor: editor})
+	s.Lighting.ClusterOwnershipAvailable, s.Lighting.ExternalOwnershipAvailable = true, true
+	return s
 }
