@@ -617,10 +617,10 @@ func TestVirtuosoModernPreviewsRenderOnlySourceBackedCapabilities(t *testing.T) 
 			t.Fatalf("fixture %q registered a device", test.key)
 		}
 		summary := fixture.Build()
-		if summary == nil || summary.DeviceProfiles == nil || !summary.DeviceProfiles.CanSwitch || !summary.DeviceProfiles.CanSave || !summary.DeviceProfiles.CanDelete || summary.Headset == nil || summary.Headset.MuteIndicator == nil || len(summary.Headset.Equalizer) != 10 || !summary.HasBattery || summary.LegacyLighting != test.sleep || (summary.SleepTimer != nil) != test.sleep || summary.Headset.Sidetone != nil || len(summary.Headset.Assignments) != 0 {
+		if summary == nil || summary.DeviceProfiles == nil || !summary.DeviceProfiles.CanSwitch || !summary.DeviceProfiles.CanSave || !summary.DeviceProfiles.CanDelete || summary.Headset == nil || summary.Headset.MuteIndicator == nil || len(summary.Headset.Equalizer) != 10 || !summary.HasBattery || summary.LegacyLighting || (summary.SleepTimer != nil) != test.sleep || summary.Headset.Sidetone != nil || len(summary.Headset.Assignments) != 0 {
 			t.Fatalf("%s summary=%#v", test.key, summary)
 		}
-		if !test.sleep && (summary.Lighting == nil || summary.Lighting.ConfiguredEffect != "headset" || summary.Lighting.Brightness != 70 || len(summary.Lighting.SupportedEffects) != 20 || summary.Lighting.AuthoredZoneEditor == nil || len(summary.Lighting.AuthoredZoneEditor.Zones) != 3 || summary.Lighting.ClusterOwnershipAvailable || summary.Lighting.ExternalOwnershipAvailable) {
+		if summary.Lighting == nil || summary.Lighting.ConfiguredEffect != "headset" || summary.Lighting.Brightness != 70 || len(summary.Lighting.SupportedEffects) != 20 || summary.Lighting.AuthoredZoneEditor == nil || len(summary.Lighting.AuthoredZoneEditor.Zones) != 3 || summary.Lighting.ClusterOwnershipAvailable || summary.Lighting.ExternalOwnershipAvailable {
 			t.Fatalf("%s canonical Lighting=%#v", test.key, summary.Lighting)
 		}
 		recorder := httptest.NewRecorder()

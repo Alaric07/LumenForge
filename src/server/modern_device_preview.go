@@ -135,7 +135,7 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "void-elite-wireless-modern", Title: "VOID ELITE Wireless", ProductType: common.ProductTypeHS80RGB, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildVOIDEliteWirelessModernPreview},
 	{Key: "void-wireless-v2-modern", Title: "VOID Wireless V2", ProductType: common.ProductTypeVoidV2W, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildVOIDWirelessV2ModernPreview},
 	{Key: "virtuoso-wireless-modern", Title: "Virtuoso Wireless", ProductType: common.ProductTypeVirtuosoW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: func() *devicesWorkspaceSummary {
-		return buildVirtuosoModernPreview("VIRTUOSO", "preview-virtuoso-wireless-modern", true)
+		return buildVirtuosoWirelessModernPreview()
 	}},
 	{Key: "virtuoso-usb-modern", Title: "Virtuoso USB", ProductType: common.ProductTypeVirtuosoWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: func() *devicesWorkspaceSummary {
 		return buildVirtuosoUSBModernPreview()
@@ -401,6 +401,7 @@ func buildVirtuosoSEWirelessModernPreview() *devicesWorkspaceSummary {
 	profile := virtuosoSEWPreviewProfile()
 	device := &virtuosoSEW.Device{Serial: serial, DeviceProfile: profile, UserProfiles: map[string]*virtuosoSEW.DeviceProfile{"Default": {Active: true}, "Gaming": {}}, SleepModes: map[int]string{0: "Off", 1: "1 minute", 5: "5 minutes", 10: "10 minutes", 15: "15 minutes", 30: "30 minutes", 60: "1 hour"}, MuteIndicators: map[int]string{0: "Disabled", 1: "Enabled"}}
 	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "VIRTUOSO SE", ProductType: common.ProductTypeVirtuosoSEW, Instance: device}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
+	applyVirtuosoUSBLightingPreview(summary)
 	return summary
 }
 
@@ -1796,4 +1797,12 @@ func buildScimitarReceiverModernPreview(se bool) *devicesWorkspaceSummary {
 	s.Lighting = devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "mouse", EffectSupported: true, EffectSelectionAvailable: true, HasBrightness: true, Brightness: 70, SupportedEffects: effects, AuthoredZoneEditor: editor})
 	s.Lighting.ClusterOwnershipAvailable, s.Lighting.ExternalOwnershipAvailable = true, true
 	return s
+}
+
+// Fixture-only receiver presentation. The source-confirmed Lighting topology
+// matches the USB fixture; receiver hardware and canonical runtimes stay inert.
+func buildVirtuosoWirelessModernPreview() *devicesWorkspaceSummary {
+	summary := buildVirtuosoModernPreview("VIRTUOSO", "preview-virtuoso-wireless-modern", true)
+	applyVirtuosoUSBLightingPreview(summary)
+	return summary
 }

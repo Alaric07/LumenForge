@@ -16,6 +16,10 @@ import (
 	"testing"
 )
 
+var _ nativeDeviceLightingTarget = (*virtuosoW.Device)(nil)
+var _ nativeDeviceLightingTarget = (*virtuosoSEW.Device)(nil)
+var _ nativeDeviceAuthoredZoneLightingMultiTarget = (*virtuosoW.Device)(nil)
+var _ nativeDeviceAuthoredZoneLightingMultiTarget = (*virtuosoSEW.Device)(nil)
 var _ nativeDeviceLightingTarget = (*virtuosoWU.Device)(nil)
 var _ nativeDeviceLightingTarget = (*virtuosoSEWU.Device)(nil)
 var _ nativeDeviceAuthoredZoneLightingMultiTarget = (*virtuosoWU.Device)(nil)
@@ -32,8 +36,8 @@ func (p virtuosoCanonicalProvider) LightingSnapshot() (lightingpresentation.Snap
 	return p.snapshot, p.usable
 }
 
-func TestVirtuosoDirectHIDCutoverRequiresUsableSnapshot(t *testing.T) {
-	for _, productType := range []uint16{common.ProductTypeVirtuosoWU, common.ProductTypeVirtuosoSEWU} {
+func TestVirtuosoCutoverRequiresUsableSnapshot(t *testing.T) {
+	for _, productType := range []uint16{common.ProductTypeVirtuosoWU, common.ProductTypeVirtuosoSEWU, common.ProductTypeVirtuosoW, common.ProductTypeVirtuosoSEW} {
 		for _, usable := range []bool{false, true} {
 			serial := "virtuoso-canonical"
 			provider := virtuosoCanonicalProvider{serial: serial, usable: usable, snapshot: lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "headset", EffectSupported: true, HasBrightness: true, Brightness: 70, SupportedEffects: []lightingpresentation.EffectOption{{ID: "headset", Label: "Headset"}}}}
@@ -52,7 +56,7 @@ func TestVirtuosoDirectHIDCutoverRequiresUsableSnapshot(t *testing.T) {
 		}
 	}
 	// Real unattached packages fail closed and remain eligible for legacy Lighting.
-	for _, instance := range []interface{}{&virtuosoWU.Device{Serial: "virtuoso-offline"}, &virtuosoSEWU.Device{Serial: "virtuoso-offline"}} {
+	for _, instance := range []interface{}{&virtuosoWU.Device{Serial: "virtuoso-offline"}, &virtuosoSEWU.Device{Serial: "virtuoso-offline"}, &virtuosoW.Device{Serial: "virtuoso-offline"}, &virtuosoSEW.Device{Serial: "virtuoso-offline"}} {
 		summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{"virtuoso-offline": {Serial: "virtuoso-offline", ProductType: common.ProductTypeVirtuosoWU, Instance: instance}}, map[string]stats.BatteryStats{}, "virtuoso-offline")
 		if !ok || !summary.LegacyLighting || summary.Lighting != nil {
 			t.Fatal("unattached real package lost fallback")
@@ -60,10 +64,10 @@ func TestVirtuosoDirectHIDCutoverRequiresUsableSnapshot(t *testing.T) {
 	}
 }
 
-func TestVirtuosoDirectHIDResolverKeepsPackageIdentityAndGuards(t *testing.T) {
+func TestVirtuosoResolverKeepsPackageIdentityAndGuards(t *testing.T) {
 	original := lookupNativeDeviceLightingWrapper
 	t.Cleanup(func() { lookupNativeDeviceLightingWrapper = original })
-	for _, target := range []nativeDeviceLightingTarget{&virtuosoWU.Device{Serial: "ProUSB"}, &virtuosoSEWU.Device{Serial: "ProSEUSB"}} {
+	for _, target := range []nativeDeviceLightingTarget{&virtuosoWU.Device{Serial: "ProUSB"}, &virtuosoSEWU.Device{Serial: "ProSEUSB"}, &virtuosoW.Device{Serial: "ReceiverW"}, &virtuosoSEW.Device{Serial: "ReceiverSEW"}} {
 		lookupNativeDeviceLightingWrapper = func(serial string) (*common.Device, bool) {
 			return &common.Device{Serial: target.LightingDeviceID(), Instance: target}, true
 		}
@@ -78,17 +82,12 @@ func TestVirtuosoDirectHIDResolverKeepsPackageIdentityAndGuards(t *testing.T) {
 			t.Fatal("server target accepted unavailable runtime")
 		}
 	}
-	for _, instance := range []interface{}{&virtuosoW.Device{}, &virtuosoSEW.Device{}} {
-		if _, ok := instance.(devicesLightingSnapshotProvider); ok {
-			t.Fatal("receiver package migrated without authorization")
-		}
-	}
 }
 
-func TestVirtuosoDirectHIDPreviewsAreInertExactDescriptors(t *testing.T) {
+func TestVirtuosoPreviewsAreInertExactDescriptors(t *testing.T) {
 	want := []string{"colorpulse", "colorshift", "colorwarp", "cpu-temperature", "flickering", "flame", "aurora", "cyberpunkglitch", "tokyonight", "gpu-temperature", "gradient", "headset", "off", "rainbow", "pastelrainbow", "rotator", "static", "storm", "watercolor", "wave"}
 	sort.Strings(want)
-	previews := []*devicesWorkspaceSummary{buildVirtuosoUSBModernPreview(), buildVirtuosoSEUSBModernPreview()}
+	previews := []*devicesWorkspaceSummary{buildVirtuosoUSBModernPreview(), buildVirtuosoSEUSBModernPreview(), buildVirtuosoWirelessModernPreview(), buildVirtuosoSEWirelessModernPreview()}
 	for _, s := range previews {
 		l := s.Lighting
 		if s.LegacyLighting || l == nil || l.ConfiguredEffect != "headset" || l.Brightness != 70 || len(l.SupportedEffects) != 20 || l.AuthoredZoneEditor == nil || len(l.AuthoredZoneEditor.Zones) != 3 || l.ClusterOwnershipAvailable || l.ExternalOwnershipAvailable || l.ClusterControlled || l.ExternalControlled {
@@ -111,14 +110,18 @@ func TestVirtuosoDirectHIDPreviewsAreInertExactDescriptors(t *testing.T) {
 		}
 		l.AuthoredZoneEditor.Zones[0].Label = "changed"
 	}
+	if previews[2].Serial == previews[3].Serial || previews[2].Product == previews[3].Product || buildVirtuosoWirelessModernPreview().Lighting.AuthoredZoneEditor.Zones[0].Label != "Logo" || buildVirtuosoSEWirelessModernPreview().Lighting.AuthoredZoneEditor.Zones[0].Label != "Logo" {
+		t.Fatal("receiver identity/alias")
+	}
+
 	if previews[0].Serial == previews[1].Serial || previews[0].Product == previews[1].Product || buildVirtuosoUSBModernPreview().Lighting.AuthoredZoneEditor.Zones[0].Label != "Logo" || buildVirtuosoSEUSBModernPreview().Lighting.AuthoredZoneEditor.Zones[0].Label != "Logo" {
 		t.Fatal("identity/alias")
 	}
 }
 
-func TestVirtuosoUSBPreviewLightingRendersWithoutRegistration(t *testing.T) {
+func TestVirtuosoPreviewLightingRendersWithoutRegistration(t *testing.T) {
 	router := legacyDevicePreviewRouter(t, true)
-	for _, key := range []string{"virtuoso-usb-modern", "virtuoso-se-usb-modern"} {
+	for _, key := range []string{"virtuoso-usb-modern", "virtuoso-se-usb-modern", "virtuoso-wireless-modern", "virtuoso-se-wireless-modern"} {
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/"+key+"?view=lighting"))
 		if recorder.Code != http.StatusOK {
