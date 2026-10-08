@@ -1671,6 +1671,11 @@ func TestWirelessMouseFamilyModernPreviewsRenderWithoutRegistration(t *testing.T
 					if strings.Contains(body, "Native Lighting migration is not complete.") {
 						t.Error("canonical receiver preview retained legacy notice")
 					}
+				} else if test.key == "ironclaw-wireless-modern" || test.key == "ironclaw-wireless-se-modern" {
+					wants = append(wants, "Mouse", "Logo", "Scroll", "Front")
+					if strings.Contains(body, "Native Lighting migration is not complete.") {
+						t.Error("canonical Ironclaw receiver preview retained legacy notice")
+					}
 				} else {
 					wants = append(wants, "Native Lighting migration is not complete.")
 				}

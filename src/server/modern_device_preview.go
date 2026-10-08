@@ -232,10 +232,10 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 		return buildWirelessMouseModernPreview("SABRE RGB PRO WIRELESS", "preview-sabre-rgb-pro-wireless-modern", true, true)
 	}},
 	{Key: "ironclaw-wireless-modern", Title: "Ironclaw Wireless", ProductType: common.ProductTypeIronClawRgbW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
-		return buildWirelessMouseModernPreview("IRONCLAW WIRELESS", "preview-ironclaw-wireless-modern", false, false)
+		return buildIronclawReceiverModernPreview(false)
 	}},
 	{Key: "ironclaw-wireless-se-modern", Title: "Ironclaw Wireless SE", ProductType: common.ProductTypeIronClawSEW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
-		return buildWirelessMouseModernPreview("IRONCLAW WIRELESS SE", "preview-ironclaw-wireless-se-modern", false, true)
+		return buildIronclawReceiverModernPreview(true)
 	}},
 	{Key: "ironclaw-rgb-usb-modern", Title: "Ironclaw RGB USB", ProductType: common.ProductTypeIronClawRgbWU, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary { return buildIronclawDirectHIDModernPreview(false) }},
 	{Key: "ironclaw-rgb-se-usb-modern", Title: "Ironclaw RGB SE USB", ProductType: common.ProductTypeIronClawSEWU, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary { return buildIronclawDirectHIDModernPreview(true) }},
@@ -1734,4 +1734,36 @@ func applySCUFCanonicalLightingPreview(s *devicesWorkspaceSummary) {
 	s.LegacyLighting = false
 	s.Lighting = devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "controller", EffectSupported: true, EffectSelectionAvailable: true, HasBrightness: true, Brightness: 70, SupportedEffects: effects, AuthoredZoneEditor: &lightingpresentation.AuthoredZoneEditor{EffectID: "controller", Heading: "Zones", Description: "Choose a color for the Controller zone.", Zones: []lightingpresentation.AuthoredZone{{ID: "0", Label: "Controller", ColorHex: "#00ffff"}}}})
 	s.Lighting.ClusterOwnershipAvailable, s.Lighting.ExternalOwnershipAvailable = false, false
+}
+
+// Inert receiver fixtures: no Init, Connect, hardware setup or external registration.
+func buildIronclawReceiverModernPreview(se bool) *devicesWorkspaceSummary {
+	product, serial := "IRONCLAW WIRELESS", "preview-ironclaw-wireless-modern"
+	if se {
+		product, serial = "IRONCLAW WIRELESS SE", "preview-ironclaw-wireless-se-modern"
+	}
+	s := buildWirelessMouseModernPreviewWithCapabilities(product, serial, false, true, true, se)
+	s.DPI.MinimumDPI, s.DPI.MaximumDPI = 200, 18000
+	if se {
+		s.DPI.MinimumDPI, s.DPI.MaximumDPI = 100, 26000
+	}
+	if se {
+		s.Performance.LiftHeight = &devicesPerformanceSelectSummary{Value: 2, Options: []devicesPerformanceOptionSummary{{Value: 2, Label: "Low"}, {Value: 3, Label: "Medium"}, {Value: 4, Label: "High"}, {Value: 6, Label: "Calibrated"}}}
+	}
+	effects := []lightingpresentation.EffectOption{}
+	for _, effect := range []string{"colorpulse", "colorshift", "colorwarp", "cpu-temperature", "flickering", "flame", "aurora", "cyberpunkglitch", "tokyonight", "gpu-temperature", "gradient", "mouse", "off", "rainbow", "pastelrainbow", "rotator", "static", "storm", "watercolor", "wave"} {
+		label := "Mouse"
+		if descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect); ok {
+			label = descriptor.Label
+		}
+		effects = append(effects, lightingpresentation.EffectOption{ID: effect, Label: label})
+	}
+	editor := &lightingpresentation.AuthoredZoneEditor{EffectID: "mouse", Heading: "Zones", Description: "Choose colors for the selected zones."}
+	for id, zone := range ironclawDirectHIDPreviewZones() {
+		editor.Zones = append(editor.Zones, lightingpresentation.AuthoredZone{ID: strconv.Itoa(id), Label: zone.name, ColorHex: zone.color})
+	}
+	s.LegacyLighting = false
+	s.Lighting = devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "mouse", EffectSupported: true, EffectSelectionAvailable: true, HasBrightness: true, Brightness: 70, SupportedEffects: effects, AuthoredZoneEditor: editor})
+	s.Lighting.ClusterOwnershipAvailable, s.Lighting.ExternalOwnershipAvailable = true, true
+	return s
 }
