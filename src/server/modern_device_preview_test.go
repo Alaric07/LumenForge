@@ -1676,6 +1676,11 @@ func TestWirelessMouseFamilyModernPreviewsRenderWithoutRegistration(t *testing.T
 					if strings.Contains(body, "Native Lighting migration is not complete.") {
 						t.Error("canonical Ironclaw receiver preview retained legacy notice")
 					}
+				} else if test.key == "scimitar-rgb-elite-wireless-modern" || test.key == "scimitar-elite-wireless-se-modern" {
+					wants = append(wants, "Mouse", "Side", "Logo")
+					if strings.Contains(body, "Native Lighting migration is not complete.") {
+						t.Error("canonical Scimitar receiver preview retained legacy notice")
+					}
 				} else {
 					wants = append(wants, "Native Lighting migration is not complete.")
 				}

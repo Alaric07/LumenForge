@@ -4633,7 +4633,7 @@ func devicesWorkspaceSummaryForSerial(
 	if device.ProductType == common.ProductTypeKatarProW {
 		summary.LegacyLighting = true
 	}
-	if device.ProductType == common.ProductTypeDarkCoreRgbProW || device.ProductType == common.ProductTypeDarkCoreRgbProSEW || device.ProductType == common.ProductTypeDarkCoreRgbProWU || device.ProductType == common.ProductTypeDarkCoreRgbProSEWU || device.ProductType == common.ProductTypeIronClawRgbW || device.ProductType == common.ProductTypeIronClawSEW || device.ProductType == common.ProductTypeIronClawRgbWU || device.ProductType == common.ProductTypeIronClawSEWU || device.ProductType == common.ProductTypeScimitarRgbEliteWU || device.ProductType == common.ProductTypeScimitarRgbEliteSEWU {
+	if device.ProductType == common.ProductTypeDarkCoreRgbProW || device.ProductType == common.ProductTypeDarkCoreRgbProSEW || device.ProductType == common.ProductTypeDarkCoreRgbProWU || device.ProductType == common.ProductTypeDarkCoreRgbProSEWU || device.ProductType == common.ProductTypeIronClawRgbW || device.ProductType == common.ProductTypeIronClawSEW || device.ProductType == common.ProductTypeIronClawRgbWU || device.ProductType == common.ProductTypeIronClawSEWU || device.ProductType == common.ProductTypeScimitarRgbEliteW || device.ProductType == common.ProductTypeScimitarRgbEliteSEW || device.ProductType == common.ProductTypeScimitarRgbEliteWU || device.ProductType == common.ProductTypeScimitarRgbEliteSEWU {
 		summary.LegacyLighting = true
 	}
 
