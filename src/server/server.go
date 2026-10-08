@@ -4633,7 +4633,7 @@ func devicesWorkspaceSummaryForSerial(
 	if device.ProductType == common.ProductTypeKatarProW {
 		summary.LegacyLighting = true
 	}
-	if device.ProductType == common.ProductTypeDarkCoreRgbProWU || device.ProductType == common.ProductTypeDarkCoreRgbProSEWU {
+	if device.ProductType == common.ProductTypeDarkCoreRgbProWU || device.ProductType == common.ProductTypeDarkCoreRgbProSEWU || device.ProductType == common.ProductTypeIronClawRgbWU || device.ProductType == common.ProductTypeIronClawSEWU {
 		summary.LegacyLighting = true
 	}
 
@@ -4654,7 +4654,7 @@ func devicesWorkspaceSummaryForSerial(
 				_, lighting.ClusterOwnershipAvailable = device.Instance.(interface{ ProcessSetRgbCluster(bool) uint8 })
 				_, lighting.ExternalOwnershipAvailable = device.Instance.(interface{ ProcessSetOpenRgbIntegration(bool) uint8 })
 				summary.Lighting = lighting
-				if device.ProductType == common.ProductTypeM75 || device.ProductType == common.ProductTypeXC7 || device.ProductType == common.ProductTypeKatarPro || device.ProductType == common.ProductTypeDarkCoreRgbProWU || device.ProductType == common.ProductTypeDarkCoreRgbProSEWU {
+				if device.ProductType == common.ProductTypeM75 || device.ProductType == common.ProductTypeXC7 || device.ProductType == common.ProductTypeKatarPro || device.ProductType == common.ProductTypeDarkCoreRgbProWU || device.ProductType == common.ProductTypeDarkCoreRgbProSEWU || device.ProductType == common.ProductTypeIronClawRgbWU || device.ProductType == common.ProductTypeIronClawSEWU {
 					summary.LegacyLighting = false
 				}
 			}
