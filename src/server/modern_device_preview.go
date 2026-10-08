@@ -239,6 +239,8 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	}},
 	{Key: "ironclaw-rgb-usb-modern", Title: "Ironclaw RGB USB", ProductType: common.ProductTypeIronClawRgbWU, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary { return buildIronclawDirectHIDModernPreview(false) }},
 	{Key: "ironclaw-rgb-se-usb-modern", Title: "Ironclaw RGB SE USB", ProductType: common.ProductTypeIronClawSEWU, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary { return buildIronclawDirectHIDModernPreview(true) }},
+	{Key: "scimitar-rgb-elite-usb-modern", Title: "Scimitar RGB Elite USB", ProductType: common.ProductTypeScimitarRgbEliteWU, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary { return buildScimitarDirectHIDModernPreview(false) }},
+	{Key: "scimitar-elite-se-usb-modern", Title: "Scimitar Elite SE USB", ProductType: common.ProductTypeScimitarRgbEliteSEWU, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary { return buildScimitarDirectHIDModernPreview(true) }},
 	{Key: "scimitar-rgb-elite-wireless-modern", Title: "Scimitar RGB Elite Wireless", ProductType: common.ProductTypeScimitarRgbEliteW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
 		return buildWirelessMouseModernPreview("SCIMITAR RGB ELITE WIRELESS", "preview-scimitar-rgb-elite-wireless-modern", false, true)
 	}},
@@ -1602,6 +1604,49 @@ func buildIronclawDirectHIDModernPreview(se bool) *devicesWorkspaceSummary {
 	}
 	editor := &lightingpresentation.AuthoredZoneEditor{EffectID: "mouse", Heading: "Zones", Description: "Choose colors for the selected zones."}
 	for id, zone := range ironclawDirectHIDPreviewZones() {
+		editor.Zones = append(editor.Zones, lightingpresentation.AuthoredZone{ID: strconv.Itoa(id), Label: zone.name, ColorHex: zone.color})
+	}
+	s.LegacyLighting = false
+	s.Lighting = devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "mouse", EffectSupported: true, EffectSelectionAvailable: true, HasBrightness: true, Brightness: 70, SupportedEffects: effects, AuthoredZoneEditor: editor})
+	s.Lighting.ClusterOwnershipAvailable, s.Lighting.ExternalOwnershipAvailable = true, true
+	return s
+}
+
+// Pure fixture construction: no device initialization, persistence or ownership registration.
+type scimitarPreviewZone struct {
+	name    string
+	indices []int
+	color   string
+}
+
+func scimitarDirectHIDPreviewZones() []scimitarPreviewZone {
+	return []scimitarPreviewZone{
+		{"Side", []int{1, 5, 9}, "#00ffff"},
+		{"Logo", []int{0, 4, 8}, "#ff8000"},
+	}
+}
+func buildScimitarDirectHIDModernPreview(se bool) *devicesWorkspaceSummary {
+	product, serial := "SCIMITAR ELITE", "preview-scimitar-rgb-elite-usb-modern"
+	if se {
+		product, serial = "SCIMITAR ELITE SE", "preview-scimitar-elite-se-usb-modern"
+	}
+	s := buildWirelessMouseModernPreviewWithCapabilities(product, serial, false, true, true, true)
+	s.DPI.MinimumDPI, s.DPI.MaximumDPI = 100, 26000
+	if se {
+		s.DPI.MinimumDPI, s.DPI.MaximumDPI = 100, 33000
+	}
+	s.Performance.PollingRate = &devicesPerformanceSelectSummary{Value: 4, Options: []devicesPerformanceOptionSummary{{Value: 0, Label: "Not Set"}, {Value: 1, Label: "125 Hz / 8 msec"}, {Value: 2, Label: "250 Hz / 4 msec"}, {Value: 3, Label: "500 Hz / 2 msec"}, {Value: 4, Label: "1000 Hz / 1 msec"}}}
+	s.Performance.LiftHeight = &devicesPerformanceSelectSummary{Value: 2, Options: []devicesPerformanceOptionSummary{{Value: 2, Label: "Low"}, {Value: 3, Label: "Medium"}, {Value: 4, Label: "High"}, {Value: 6, Label: "Calibrated"}}}
+	effects := []lightingpresentation.EffectOption{}
+	for _, effect := range []string{"colorpulse", "colorshift", "colorwarp", "cpu-temperature", "flickering", "flame", "aurora", "cyberpunkglitch", "tokyonight", "gpu-temperature", "gradient", "mouse", "off", "rainbow", "pastelrainbow", "rotator", "static", "storm", "watercolor", "wave"} {
+		label := "Mouse"
+		if descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect); ok {
+			label = descriptor.Label
+		}
+		effects = append(effects, lightingpresentation.EffectOption{ID: effect, Label: label})
+	}
+	editor := &lightingpresentation.AuthoredZoneEditor{EffectID: "mouse", Heading: "Zones", Description: "Choose colors for the selected zones."}
+	for id, zone := range scimitarDirectHIDPreviewZones() {
 		editor.Zones = append(editor.Zones, lightingpresentation.AuthoredZone{ID: strconv.Itoa(id), Label: zone.name, ColorHex: zone.color})
 	}
 	s.LegacyLighting = false
