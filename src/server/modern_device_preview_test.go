@@ -1666,7 +1666,14 @@ func TestWirelessMouseFamilyModernPreviewsRenderWithoutRegistration(t *testing.T
 			case "":
 				wants = append(wants, "78%", "Sleep Timer", "15 minutes")
 			case "?view=lighting":
-				wants = append(wants, "Native Lighting migration is not complete.")
+				if test.key == "dark-core-rgb-pro-wireless-modern" || test.key == "dark-core-rgb-pro-se-wireless-modern" {
+					wants = append(wants, "Mouse", "Scroll", "Side Accent 6")
+					if strings.Contains(body, "Native Lighting migration is not complete.") {
+						t.Error("canonical receiver preview retained legacy notice")
+					}
+				} else {
+					wants = append(wants, "Native Lighting migration is not complete.")
+				}
 			case "?view=dpi":
 				wants = append(wants, "Sniper")
 			case "?view=buttons":

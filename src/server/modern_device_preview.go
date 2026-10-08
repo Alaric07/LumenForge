@@ -248,10 +248,10 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 		return buildWirelessMouseModernPreview("SCIMITAR ELITE WIRELESS SE", "preview-scimitar-elite-wireless-se-modern", false, true)
 	}},
 	{Key: "dark-core-rgb-pro-se-wireless-modern", Title: "Dark Core RGB Pro SE Wireless", ProductType: common.ProductTypeDarkCoreRgbProSEW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
-		return buildWirelessMouseModernPreviewWithCapabilities("DARK CORE RGB PRO SE WIRELESS", "preview-dark-core-rgb-pro-se-wireless-modern", false, true, true, false)
+		return buildDarkCoreReceiverModernPreview(true)
 	}},
 	{Key: "dark-core-rgb-pro-wireless-modern", Title: "Dark Core RGB Pro Wireless", ProductType: common.ProductTypeDarkCoreRgbProW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
-		return buildWirelessMouseModernPreviewWithCapabilities("DARK CORE RGB PRO WIRELESS", "preview-dark-core-rgb-pro-wireless-modern", false, true, true, false)
+		return buildDarkCoreReceiverModernPreview(false)
 	}},
 	{Key: "dark-core-rgb-pro-usb-modern", Title: "Dark Core RGB Pro USB", ProductType: common.ProductTypeDarkCoreRgbProWU, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary { return buildDarkCoreDirectHIDModernPreview(false) }},
 	{Key: "dark-core-rgb-pro-se-usb-modern", Title: "Dark Core RGB Pro SE USB", ProductType: common.ProductTypeDarkCoreRgbProSEWU, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary { return buildDarkCoreDirectHIDModernPreview(true) }},
@@ -1551,6 +1551,30 @@ func buildDarkCoreDirectHIDModernPreview(se bool) *devicesWorkspaceSummary {
 	product, serial := "DARK CORE PRO", "preview-dark-core-rgb-pro-usb-modern"
 	if se {
 		product, serial = "DARK CORE PRO SE", "preview-dark-core-rgb-pro-se-usb-modern"
+	}
+	s := buildWirelessMouseModernPreviewWithCapabilities(product, serial, false, true, true, false)
+	effects := []lightingpresentation.EffectOption{}
+	for _, effect := range []string{"colorpulse", "colorshift", "colorwarp", "cpu-temperature", "flickering", "flame", "aurora", "cyberpunkglitch", "tokyonight", "gpu-temperature", "gradient", "mouse", "off", "rainbow", "pastelrainbow", "rotator", "static", "storm", "watercolor", "wave"} {
+		label := "Mouse"
+		if descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect); ok {
+			label = descriptor.Label
+		}
+		effects = append(effects, lightingpresentation.EffectOption{ID: effect, Label: label})
+	}
+	editor := &lightingpresentation.AuthoredZoneEditor{EffectID: "mouse", Heading: "Zones", Description: "Choose colors for the selected zones."}
+	for id, zone := range darkCoreDirectHIDPreviewZones() {
+		editor.Zones = append(editor.Zones, lightingpresentation.AuthoredZone{ID: strconv.Itoa(id), Label: zone.name, ColorHex: zone.color})
+	}
+	s.LegacyLighting = false
+	s.Lighting = devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "mouse", EffectSupported: true, EffectSelectionAvailable: true, HasBrightness: true, Brightness: 70, SupportedEffects: effects, AuthoredZoneEditor: editor})
+	s.Lighting.ClusterOwnershipAvailable, s.Lighting.ExternalOwnershipAvailable = true, true
+	return s
+}
+
+func buildDarkCoreReceiverModernPreview(se bool) *devicesWorkspaceSummary {
+	product, serial := "DARK CORE RGB PRO WIRELESS", "preview-dark-core-rgb-pro-wireless-modern"
+	if se {
+		product, serial = "DARK CORE RGB PRO SE WIRELESS", "preview-dark-core-rgb-pro-se-wireless-modern"
 	}
 	s := buildWirelessMouseModernPreviewWithCapabilities(product, serial, false, true, true, false)
 	effects := []lightingpresentation.EffectOption{}
