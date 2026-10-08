@@ -246,7 +246,64 @@ packages. Per the migration closeout, CodeRabbit reviewed all nine files and
 found that one minor inactive-profile switching issue; it was fixed and the
 requested package/server/race validation passed. **No physical hardware
 validation was performed.** G01 is completed, not a proposed bulk group; its W
-counterparts remain separate pending targets.
+counterparts completed the separate receiver-backed G06 pass (`53c19c88`).
+
+**G02–G09 — completed grouped migrations**
+
+G02–G09 are complete canonical Lighting migrations:
+
+| Group | Packages | Completed commit | Pending targets / passes after group |
+|---|---|---|---|
+| G02 | `ironclawWU` + `ironclawSEWU` | `a20d8968` | 104 / 96 |
+| G03 | `scimitarWU` + `scimitarSEWU` | `70d8b746` | 102 / 95 |
+| G04 | `virtuosoWU` + `virtuosoSEWU` | `9c27548a` | 100 / 94 |
+| G05 | `scufenvisionproW` + `scufenvisionproV2W` | `ed892867` | 98 / 93 |
+| G06 | `darkcorergbproW` + `darkcorergbproseW` | `53c19c88` | 96 / 92 |
+| G07 | `ironclawW` + `ironclawSEW` | `2a26bdc7` | 94 / 91 |
+| G08 | `scimitarW` + `scimitarSEW` | `f43c4c13` | 92 / 90 |
+| G09 | `virtuosoW` + `virtuosoSEW` | `08261567` | 90 / 89 |
+
+- G02 (`a20d8968`, *Migrate Ironclaw lighting*): `ironclawWU` +
+  `ironclawSEWU` expose the source-backed 20-effect mouse catalogue and three-zone
+  topology; Cluster/OpenRGB ownership is preserved.
+- G03 (`70d8b746`, *Migrate Scimitar lighting*): `scimitarWU` +
+  `scimitarSEWU` expose the source-backed 20-effect mouse catalogue and Side/Logo
+  topology; Cluster/OpenRGB is preserved. The renderer-survival regression for
+  transient nil DPI composition was fixed.
+- G04 (`9c27548a`, *Migrate Virtuoso lighting*): `virtuosoWU` +
+  `virtuosoSEWU` expose the source-backed 20-effect headset catalogue and
+  Logo / Microphone / Indicator LED zones. No Cluster/OpenRGB capability is
+  advertised; headset overlays and presentation are preserved.
+- G05 (`ed892867`, *Migrate SCUF Envision Pro lighting*): `scufenvisionproW` +
+  `scufenvisionproV2W` expose the source-backed 20-effect Controller catalogue
+  and one Controller zone `{0,9,18}`. No `SchedulerBrightness` was invented,
+  and no Cluster/OpenRGB capability is advertised. Receiver, analog, trigger,
+  and vibration behavior is preserved. Git history resolves the full commit to
+  `ed892867c3b7ad199fafdcc31c2a4859eee712c6`; the closeout reported no new
+  CodeRabbit findings before commit and push.
+- G06 (`53c19c88`, *Migrate Dark Core PRO receiver lighting*):
+  `darkcorergbproW` + `darkcorergbproseW` complete the receiver-backed counterpart
+  of G01. Source-backed scheduler/RGB-off and Cluster/OpenRGB are preserved,
+  including SE package-specific Connect, sleep, and key-assignment behavior.
+- G07 (`2a26bdc7`, *Migrate Ironclaw receiver lighting*): `ironclawW` +
+  `ironclawSEW` complete the receiver-backed counterpart of G02, preserving
+  Cluster/OpenRGB, package-specific Connect, and SE lift-height behavior.
+- G08 (`f43c4c13`, *Migrate Scimitar receiver lighting*): `scimitarW` +
+  `scimitarSEW` complete the receiver-backed counterpart of G03, preserving
+  Cluster/OpenRGB and renderer-survival behavior. CodeRabbit identified a major
+  regression that initially dropped scheduler/RGB-off requests while asleep or
+  disconnected. Before commit, the fix retained transient `schedulerDark` /
+  `userRGBOff` state while canonical attachment/profile exists; physical
+  readiness gates only immediate restart/output. Reconnect/wake respects that
+  retained state; ordinary authored mutations still require normal readiness.
+- G09 (`08261567`, *Migrate Virtuoso receiver lighting*): `virtuosoW` +
+  `virtuosoSEW` complete the receiver-backed counterpart of G04 with
+  source-confirmed Logo / Microphone / Indicator LED topology. Scheduler/RGB-off
+  requests are retained while asleep/disconnected. No Cluster/OpenRGB is
+  advertised; receiver/audio/mic/mute/listener behavior remains package-local.
+
+All eight groups are canonical Lighting complete. **No physical hardware
+validation was performed for G02–G09.**
 
 Commander Core XT and Commander CORE establish the separate multi-channel
 controller proof. Both expose modern Overview, Lighting, and Cooling workspaces,
@@ -334,10 +391,10 @@ Generated as a read-only architecture inventory. This does not declare migration
 - Strong-marker packages requiring source-contract classification: **131**
 - Weak-marker-only packages requiring manual review: **6**
 - Corrected assessment baseline after excluding `sabreprocs`: **108 A + 0 B =
-  108 packages / 98 conservative scheduling passes**, including completed G01.
-- Pending after completed G01: **106 A + 0 B = 106 packages / 97 passes**;
-  nine proven two-package groups plus 88 standalone slots, of which 54 still
-  require focused audits.
+  108 packages / 98 conservative scheduling passes**, including G01–G09.
+- Pending after completed G01–G09: **90 A + 0 B = 90 Lighting targets / 89 passes**;
+  G10 is the only remaining original two-package group, plus 88 standalone slots,
+  of which 54 still require focused audits.
 
 Strong markers are audit leads, not proof of a Lighting implementation. A real
 Lighting target requires source-backed persisted state, a user mutation,
@@ -390,9 +447,9 @@ Historical structural-scan totals; these are not the current audited queue.
 | `clipperpromini60` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
 | `cone` | Y | Legacy | multi-channel + per-LED | Y | Y | Y |  | Y | Y | Y | led, liquid-temperature |
 | `cpro` | Y | Legacy | multi-channel | Y | Y |  |  |  | Y | Y |  |
-| `darkcorergbproW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
+| `darkcorergbproW` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
 | `darkcorergbproWU` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
-| `darkcorergbproseW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
+| `darkcorergbproseW` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
 | `darkcorergbproseWU` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
 | `darkcorergbseW` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  | mouse |
 | `darkcorergbseWU` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  | mouse |
@@ -410,10 +467,10 @@ Historical structural-scan totals; these are not the current audited queue.
 | `hs80rgbWU` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `hydro` | Y | Migrated | multi-channel |  | Y |  |  |  |  |  | fixed static; no effect-selection mutation |
 | `ironclaw` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `ironclawSEW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `ironclawSEWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `ironclawW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `ironclawWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
+| `ironclawSEW` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
+| `ironclawSEWU` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
+| `ironclawW` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
+| `ironclawWU` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
 | `k100` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
 | `k100airW` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
 | `k100airWU` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
@@ -490,16 +547,16 @@ Historical structural-scan totals; these are not the current audited queue.
 | `sabrev2proW` | Y | Dormant/inert Lighting metadata | dormant/inert metadata |  | Y |  |  |  |  |  | DPI indicator only |
 | `sabrev2proWU` | Y | Dormant/inert Lighting metadata | dormant/inert metadata |  | Y |  |  |  |  |  | DPI indicator only |
 | `scimitar` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `scimitarSEW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `scimitarSEWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `scimitarW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `scimitarWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
+| `scimitarSEW` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
+| `scimitarSEWU` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
+| `scimitarW` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
+| `scimitarWU` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
 | `scimitarprorgb` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
 | `scimitarrgb` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `scimitarrgbelite` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
-| `scufenvisionproV2W` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
+| `scufenvisionproV2W` | Y | Migrated | zoned |  | Y |  | Y |  |  |  |  |
 | `scufenvisionproV2WU` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
-| `scufenvisionproW` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
+| `scufenvisionproW` | Y | Migrated | zoned |  | Y |  | Y |  |  |  |  |
 | `scufenvisionproWU` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `slipstream` |  | Not a lighting target | weak-marker only |  |  |  |  |  |  |  |  |
 | `st100` | Y | Migrated | single-profile |  | Y |  |  |  | Y | Y | stand |
@@ -510,10 +567,10 @@ Historical structural-scan totals; these are not the current audited queue.
 | `vanguard96pro` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
 | `vanguard99airW` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
 | `vanguard99airWU` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
-| `virtuosoSEW` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
-| `virtuosoSEWU` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
-| `virtuosoW` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
-| `virtuosoWU` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
+| `virtuosoSEW` | Y | Migrated | zoned |  | Y |  | Y |  |  |  |  |
+| `virtuosoSEWU` | Y | Migrated | zoned |  | Y |  | Y |  |  |  |  |
+| `virtuosoW` | Y | Migrated | zoned |  | Y |  | Y |  |  |  |  |
+| `virtuosoWU` | Y | Migrated | zoned |  | Y |  | Y |  |  |  |  |
 | `virtuosomaxW` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `virtuosorgbXTW` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `virtuosorgbXTWU` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
@@ -611,30 +668,39 @@ Removing `sabreprocs` corrects the assessment baseline to **108 A + 0 B = 108
 packages**. Source-backed batch assessment replaces unproved tentative grouping
 with **98 conservative scheduling passes**: ten proven two-package groups
 (20 packages) plus 88 standalone target slots. This is the overall corrected
-assessment baseline, including completed G01, not 98 implementation-ready
-remaining passes. With G01 completed, **106 A + 0 B = 106 packages / 97 pending
-passes** remain: nine proven two-package groups (18 packages) plus the same
-88 standalone slots. **54 standalone packages still require focused audits**.
+assessment baseline, including G01–G09, not 98 implementation-ready remaining
+passes. After G01–G09, **90 A + 0 B = 90 Lighting targets / 89 pending scheduling
+passes** remain: G10's two packages / one pass plus the same 88 standalone slots.
+Nine completed two-package groups remove 18 packages and nine passes:
+**108 - 18 = 90 targets; 98 - 9 = 89 passes**.
+**54 standalone packages still require focused audits**.
 Historical structural-scan totals remain **137 marked / 131 strong / 6 weak**.
 
 | Group | Packages | Status |
 |---|---|---|
 | G01 | `darkcorergbproWU` + `darkcorergbproseWU` | Completed — `438a7d45` |
-| G02 | `ironclawWU` + `ironclawSEWU` | Proven bulk candidate; pending |
-| G03 | `scimitarWU` + `scimitarSEWU` | Proven bulk candidate; pending |
-| G04 | `virtuosoWU` + `virtuosoSEWU` | Proven bulk candidate; pending |
-| G05 | `scufenvisionproW` + `scufenvisionproV2W` | Proven bulk candidate; pending |
-| G06 | `darkcorergbproW` + `darkcorergbproseW` | Proven bulk candidate; pending |
-| G07 | `ironclawW` + `ironclawSEW` | Proven bulk candidate; pending |
-| G08 | `scimitarW` + `scimitarSEW` | Proven bulk candidate; pending |
-| G09 | `virtuosoW` + `virtuosoSEW` | Proven bulk candidate; pending |
+| G02 | `ironclawWU` + `ironclawSEWU` | Completed — `a20d8968` |
+| G03 | `scimitarWU` + `scimitarSEWU` | Completed — `70d8b746` |
+| G04 | `virtuosoWU` + `virtuosoSEWU` | Completed — `9c27548a` |
+| G05 | `scufenvisionproW` + `scufenvisionproV2W` | Completed — `ed892867` |
+| G06 | `darkcorergbproW` + `darkcorergbproseW` | Completed — `53c19c88` |
+| G07 | `ironclawW` + `ironclawSEW` | Completed — `2a26bdc7` |
+| G08 | `scimitarW` + `scimitarSEW` | Completed — `f43c4c13` |
+| G09 | `virtuosoW` + `virtuosoSEW` | Completed — `08261567` |
 | G10 | `k65rgb` + `k65rgbRF` | Proven bulk candidate; pending |
 
 `darkcorergbseWU` and `k70coretklW` remain **NEEDS FOCUSED AUDIT** because each
 publishes `gradient` without a proven corresponding output dispatch. Neither
-audit gate is resolved by G01 or this reconciliation. K60 RGB PRO remains
+audit gate is resolved by G01–G09 or this reconciliation. K60 RGB PRO remains
 **Deferred A**, within the standalone target slots. Proven grouping does not
 claim physical validation or authorize shared hardware abstractions.
+
+G10 `k65rgb` + `k65rgbRF` is the only remaining original two-package group;
+it is a proven bulk candidate, **pending**, not complete. After G10, work proceeds
+into the standalone/focused-audit queue. Source-backed migration, automated
+tests, and inert preview are acceptable for hardware not physically owned;
+**no physical hardware validation was performed for G02–G09**. Complete canonical
+Lighting migration remains required before legacy Lighting removal.
 
 ## Architectural signature groups
 
@@ -652,9 +718,10 @@ Count: **35**
 
 `darkcorergbproW`, `darkcorergbproWU`, `darkcorergbproseW`, `darkcorergbproseWU`, `darkstarW`, `darkstarWU`, `glaivergb`, `glaivergbpro`, `harpoonW`, `harpoonWU`, `ironclaw`, `ironclawSEW`, `ironclawSEWU`, `ironclawW`, `ironclawWU`, `m55rgbpro`, `m65prorgb`, `m65rgbelite`, `m65rgbultra`, `m65rgbultraW`, `m65rgbultraWU`, `nightsabreW`, `nightsabreWU`, `nightswordrgb`, `sabrergbpro`, `sabrergbproW`, `sabrergbproWU`, `scimitar`, `scimitarSEW`, `scimitarSEWU`, `scimitarW`, `scimitarWU`, `scimitarprorgb`, `scimitarrgb`, `scimitarrgbelite`
 
-G01's two WU packages are now Migrated and excluded from pending scheduling;
-the 35-package signature count remains the discovery population. Their W
-counterparts form the separate pending G06 group.
+G01–G03 and G06–G08 are Migrated and excluded from pending scheduling;
+the 35-package signature count remains the discovery population. W/WU
+counterparts completed separate source-backed passes, not an automatic
+transport-equivalence migration.
 
 ### single-profile + cluster + special:keyboard
 

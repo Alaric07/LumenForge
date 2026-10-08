@@ -546,17 +546,39 @@ Removing `sabreprocs` corrects the assessment baseline to **108 A + 0 B = 108
 packages**. Source-backed batch assessment replaces unproved tentative grouping
 with **98 conservative scheduling passes**: ten proven two-package groups
 (20 packages) plus 88 standalone target slots. This is the overall corrected
-assessment baseline, including completed G01, not 98 implementation-ready
-remaining passes. With G01 completed, **106 A + 0 B = 106 packages / 97 pending
-passes** remain: nine proven two-package groups (18 packages) plus the same
-88 standalone slots. **54 standalone packages still require focused audits**.
+assessment baseline, including G01–G09, not 98 implementation-ready remaining
+passes. After G01–G09, **90 A + 0 B = 90 Lighting targets / 89 pending scheduling
+passes** remain: G10's two packages / one pass plus the same 88 standalone slots.
+Nine completed two-package groups remove 18 packages and nine passes:
+**108 - 18 = 90 targets; 98 - 9 = 89 passes**.
+**54 standalone packages still require focused audits**.
 Historical structural-scan totals remain **137 marked / 131 strong / 6 weak**.
 
-Remaining proven bulk candidates are G02 `ironclawWU` + `ironclawSEWU`,
-G03 `scimitarWU` + `scimitarSEWU`, G04 `virtuosoWU` + `virtuosoSEWU`,
-G05 `scufenvisionproW` + `scufenvisionproV2W`, G06 `darkcorergbproW` +
-`darkcorergbproseW`, G07 `ironclawW` + `ironclawSEW`, G08 `scimitarW` +
-`scimitarSEW`, G09 `virtuosoW` + `virtuosoSEW`, and G10 `k65rgb` + `k65rgbRF`.
+G02–G09 are complete canonical Lighting migrations:
+
+| Group | Packages | Completed commit | Pending targets / passes after group |
+|---|---|---|---|
+| G02 | `ironclawWU` + `ironclawSEWU` | `a20d8968` | 104 / 96 |
+| G03 | `scimitarWU` + `scimitarSEWU` | `70d8b746` | 102 / 95 |
+| G04 | `virtuosoWU` + `virtuosoSEWU` | `9c27548a` | 100 / 94 |
+| G05 | `scufenvisionproW` + `scufenvisionproV2W` | `ed892867` | 98 / 93 |
+| G06 | `darkcorergbproW` + `darkcorergbproseW` | `53c19c88` | 96 / 92 |
+| G07 | `ironclawW` + `ironclawSEW` | `2a26bdc7` | 94 / 91 |
+| G08 | `scimitarW` + `scimitarSEW` | `f43c4c13` | 92 / 90 |
+| G09 | `virtuosoW` + `virtuosoSEW` | `08261567` | 90 / 89 |
+
+The migration matrix records the package-specific G02–G09 catalogues,
+topologies, preserved ownership/lifecycle boundaries, and G08 asleep/disconnected
+scheduler/RGB-off regression fix. G05 resolves from git history to
+`ed892867c3b7ad199fafdcc31c2a4859eee712c6` (*Migrate SCUF Envision Pro lighting*);
+its closeout reported no new CodeRabbit findings before commit and push.
+
+G10 `k65rgb` + `k65rgbRF` is the only remaining original two-package group;
+it is a proven bulk candidate, **pending**, not complete. After G10, work proceeds
+into the standalone/focused-audit queue. Source-backed migration, automated
+tests, and inert preview are acceptable for hardware not physically owned;
+**no physical hardware validation was performed for G02–G09**. Complete canonical
+Lighting migration remains required before legacy Lighting removal.
 
 G01 completed the source-proven same-transport Dark Core PRO bulk migration:
 `darkcorergbproWU` + `darkcorergbproseWU` in `438a7d45` (*Migrate Dark Core PRO
