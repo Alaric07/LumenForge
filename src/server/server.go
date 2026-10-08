@@ -4654,9 +4654,8 @@ func devicesWorkspaceSummaryForSerial(
 				_, lighting.ClusterOwnershipAvailable = device.Instance.(interface{ ProcessSetRgbCluster(bool) uint8 })
 				_, lighting.ExternalOwnershipAvailable = device.Instance.(interface{ ProcessSetOpenRgbIntegration(bool) uint8 })
 				summary.Lighting = lighting
-				if device.ProductType == common.ProductTypeM75 || device.ProductType == common.ProductTypeXC7 || device.ProductType == common.ProductTypeKatarPro || device.ProductType == common.ProductTypeDarkCoreRgbProWU || device.ProductType == common.ProductTypeDarkCoreRgbProSEWU || device.ProductType == common.ProductTypeIronClawRgbWU || device.ProductType == common.ProductTypeIronClawSEWU || device.ProductType == common.ProductTypeScimitarRgbEliteWU || device.ProductType == common.ProductTypeScimitarRgbEliteSEWU || device.ProductType == common.ProductTypeVirtuosoWU || device.ProductType == common.ProductTypeVirtuosoSEWU {
-					summary.LegacyLighting = false
-				}
+				// A usable canonical snapshot owns Lighting presentation.
+				summary.LegacyLighting = false
 			}
 		}
 	}

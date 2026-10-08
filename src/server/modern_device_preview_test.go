@@ -372,7 +372,7 @@ func TestSCUFEnvisionProModernPreviewsPreserveCapabilitySplit(t *testing.T) {
 			t.Fatalf("fixture %q = %#v", test.key, fixture)
 		}
 		summary := fixture.Build()
-		if summary == nil || summary.Controller == nil || !summary.LegacyLighting || !summary.HasBattery || (summary.SleepTimer != nil) != test.sleep {
+		if summary == nil || summary.Controller == nil || summary.LegacyLighting != test.sleep || !summary.HasBattery || (summary.SleepTimer != nil) != test.sleep {
 			t.Fatalf("%s summary=%#v", test.key, summary)
 		}
 		if len(summary.Controller.AssignmentTypes) != 8 || len(summary.Controller.Assignments) != 8 || len(summary.Controller.Analogs) != 4 || summary.Controller.Assignments[2].Index != 2048 || summary.Controller.Assignments[3].Index != 4096 {

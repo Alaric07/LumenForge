@@ -355,6 +355,9 @@ func buildSCUFEnvisionProModernPreview(product, serial string, usb bool) *device
 	if usb {
 		s.SleepTimer = &devicesSleepTimerWorkspaceSummary{Value: 15, Options: []devicesSleepTimerOptionSummary{{0, "Never"}, {1, "1 minute"}, {5, "5 minutes"}, {10, "10 minutes"}, {15, "15 minutes"}, {30, "30 minutes"}, {60, "1 hour"}}}
 	}
+	if !usb {
+		applySCUFCanonicalLightingPreview(s)
+	}
 	return s
 }
 
@@ -1688,4 +1691,23 @@ type virtuosoUSBPreviewZone struct {
 
 func virtuosoUSBPreviewZones() []virtuosoUSBPreviewZone {
 	return []virtuosoUSBPreviewZone{{"Logo", []int{0, 3, 6}, "#ffff00"}, {"Microphone", []int{2, 5, 8}, "#00ffff"}, {"Indicator LED", []int{1, 4, 7}, "#00ffff"}}
+}
+
+// Fixture-only: no device construction, receiver initialization or persistence.
+func applySCUFCanonicalLightingPreview(s *devicesWorkspaceSummary) {
+	effects := []lightingpresentation.EffectOption{}
+	for _, id := range []string{"colorpulse", "colorshift", "colorwarp", "cpu-temperature", "flickering", "flame", "aurora", "cyberpunkglitch", "tokyonight", "gpu-temperature", "gradient", "controller", "off", "rainbow", "pastelrainbow", "rotator", "static", "storm", "watercolor", "wave"} {
+		label := "Controller"
+		if id != "controller" {
+			descriptor, ok := rgb.SoftwareEffectDescriptorByID(id)
+			if !ok {
+				continue
+			}
+			label = descriptor.Label
+		}
+		effects = append(effects, lightingpresentation.EffectOption{ID: id, Label: label})
+	}
+	s.LegacyLighting = false
+	s.Lighting = devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "controller", EffectSupported: true, EffectSelectionAvailable: true, HasBrightness: true, Brightness: 70, SupportedEffects: effects, AuthoredZoneEditor: &lightingpresentation.AuthoredZoneEditor{EffectID: "controller", Heading: "Zones", Description: "Choose a color for the Controller zone.", Zones: []lightingpresentation.AuthoredZone{{ID: "0", Label: "Controller", ColorHex: "#00ffff"}}}})
+	s.Lighting.ClusterOwnershipAvailable, s.Lighting.ExternalOwnershipAvailable = false, false
 }
