@@ -185,11 +185,56 @@ Brightness-scaled `static` profile and has no selected-effect mutation, without
 fabricating effect parity. A complete-contract A classification establishes only that package's
 contract; it does not make structural siblings equivalent or safe to batch.
 
+The previous queue was **109 A + 0 B = 109 packages / 82 tentative passes**.
+Removing `sabreprocs` corrects the assessment baseline to **108 A + 0 B = 108
+packages**. Source-backed batch assessment replaces unproved tentative grouping
+with **98 conservative scheduling passes**: ten proven two-package groups
+(20 packages) plus 88 standalone target slots. This is the overall corrected
+assessment baseline, including completed G01, not 98 implementation-ready
+remaining passes. With G01 completed, **106 A + 0 B = 106 packages / 97 pending
+passes** remain: nine proven two-package groups (18 packages) plus the same
+88 standalone slots. **54 standalone packages still require focused audits**.
+Historical structural-scan totals remain **137 marked / 131 strong / 6 weak**.
+
+Remaining proven bulk candidates are G02 `ironclawWU` + `ironclawSEWU`,
+G03 `scimitarWU` + `scimitarSEWU`, G04 `virtuosoWU` + `virtuosoSEWU`,
+G05 `scufenvisionproW` + `scufenvisionproV2W`, G06 `darkcorergbproW` +
+`darkcorergbproseW`, G07 `ironclawW` + `ironclawSEW`, G08 `scimitarW` +
+`scimitarSEW`, G09 `virtuosoW` + `virtuosoSEW`, and G10 `k65rgb` + `k65rgbRF`.
+
+G01 completed the source-proven same-transport Dark Core PRO bulk migration:
+`darkcorergbproWU` + `darkcorergbproseWU` in `438a7d45` (*Migrate Dark Core PRO
+lighting*), bringing the completed native set to sixteen packages. Package-local
+adapters expose the same 20 effects and eight authored zones documented in the
+migration matrix. Desired `BrightnessSlider`, transient scheduler darkness and
+RGB-off, persist-before-publication, active-profile refresh, defensive copies,
+Cluster/OpenRGB ownership, inert previews, and usable-snapshot legacy
+fallback/suppression are preserved. Both packages normalize nil legacy
+`BrightnessSlider` to 100 during profile switching. Per the migration closeout,
+CodeRabbit reviewed all nine files; its minor inactive-profile switching issue
+was fixed, and requested package/server/race validation passed. No physical
+hardware validation was performed.
+
+`sabreprocs` is **Not a lighting target | dormant/orphan RGB metadata |
+DPI/Sniper indicator only**, analogous to `m55`/`m55W`. It has no selected-effect,
+Brightness, catalogue, scheduler percentage, or general renderer authority.
+Its one physical LED receives the active DPI-stage or Sniper color directly;
+legacy RGB profile and gradient-edit helpers do not establish Lighting capability.
+
+Architectural signatures are discovery aids only; ProductType, family, or name
+does not establish batching. W/WU pairs require transport/lifecycle equivalence
+and generally remain separate; no remaining W/WU counterpart pair is
+strict-equivalence. Same-transport model revisions are the proven bulk pattern,
+with package-local adapters preferred over new shared hardware abstractions.
+`darkcorergbseWU` and `k70coretklW` remain **NEEDS FOCUSED AUDIT**: each publishes
+`gradient` without a proven corresponding output dispatch. K60 RGB PRO remains
+**Deferred A**.
+
 If a package does not have a complete source-backed Lighting contract, the
 modern workspace must not advertise a Lighting tab/workspace for it.
 
 This fail-closed rule applies to confirmed non-targets including `m55`, `m55W`,
-`m75AirW`, `m75AirWU`, `katarproW`, `sabrev2proW`, `sabrev2proWU`, and
+`m75AirW`, `m75AirWU`, `katarproW`, `sabreprocs`, `sabrev2proW`, `sabrev2proWU`, and
 `nautilusLcd`. DPI/Sniper indicator color belongs with mouse/DPI presentation;
 LCD-related color/output belongs with display presentation. Telemetry,
 transport, and other non-lighting color state must remain in their proper

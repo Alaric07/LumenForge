@@ -78,7 +78,8 @@ with the global system.
 ### Completed native migration proofs
 
 `scimitarprorgb`, `scimitarrgbelite`, `mm800`, `k95platinum`, `ccxt`, `cc`,
-`memory`, `st100`, `m75`, `m75W`, `m75WU`, `hydro`, and `xc7` are now tracked as **Migrated**. Canonical Device Lighting is
+`memory`, `st100`, `m75`, `m75W`, `m75WU`, `hydro`, `xc7`, `katarpro`,
+`darkcorergbproWU`, and `darkcorergbproseWU` are now tracked as **Migrated**. Canonical Device Lighting is
 authoritative while the canonical runtime is usable, and these packages then
 no longer participate in retained legacy `/rgb` lighting persistence or mutation
 paths.
@@ -212,6 +213,41 @@ OpenRGB, or per-LED capability was added. `katarproW` remains a separate confirm
 non-Lighting target. Focused package/server/race tests and `git diff --check`
 passed for the migration; no physical hardware validation was performed.
 
+**G01 — completed Dark Core PRO bulk migration**
+
+`darkcorergbproWU` and `darkcorergbproseWU` completed one source-proven,
+same-transport model-revision pass in `438a7d45` (*Migrate Dark Core PRO
+lighting*). Both use package-local canonical adapters and expose exactly
+**20 effects**: `colorpulse`, `colorshift`, `colorwarp`, `cpu-temperature`,
+`flickering`, `flame`, `aurora`, `cyberpunkglitch`, `tokyonight`,
+`gpu-temperature`, `gradient`, `mouse`, `off`, `rainbow`, `pastelrainbow`,
+`rotator`, `static`, `storm`, `watercolor`, and `wave`.
+
+Their authored `mouse` zones are identical; IDs and RGB byte mappings remain
+device-owned:
+
+| Zone ID | Zone | RGB byte mapping |
+|---:|---|---|
+| 0 | Scroll | [0,12,24] |
+| 1 | Logo | [6,18,30] |
+| 2 | Side Accent 1 | [1,13,25] |
+| 3 | Side Accent 2 | [2,14,26] |
+| 4 | Side Accent 3 | [3,15,27] |
+| 5 | Side Accent 4 | [4,16,28] |
+| 6 | Side Accent 5 | [5,17,29] |
+| 7 | Side Accent 6 | [7,19,31] |
+
+Desired `BrightnessSlider` authority, transient scheduler darkness and RGB-off,
+persist-before-publication, active-profile refresh, defensive color/settings
+copies, and usable-snapshot legacy fallback/suppression are preserved. Cluster
+and native OpenRGB ownership remain intact, and canonical previews are inert.
+Profile switching normalizes nil legacy `BrightnessSlider` to 100 in both
+packages. Per the migration closeout, CodeRabbit reviewed all nine files and
+found that one minor inactive-profile switching issue; it was fixed and the
+requested package/server/race validation passed. **No physical hardware
+validation was performed.** G01 is completed, not a proposed bulk group; its W
+counterparts remain separate pending targets.
+
 Commander Core XT and Commander CORE establish the separate multi-channel
 controller proof. Both expose modern Overview, Lighting, and Cooling workspaces,
 with full Device Profiles on Overview, shared Cooling presentation, controller
@@ -297,9 +333,11 @@ Generated as a read-only architecture inventory. This does not declare migration
 - Packages with any scanned lighting marker: **137**
 - Strong-marker packages requiring source-contract classification: **131**
 - Weak-marker-only packages requiring manual review: **6**
-- Corrected remaining native Lighting targets: **109** (previously 110),
-  comprising **109 A** contracts and **0 B** constrained contracts,
-  planned as **82** tentative migration passes (previously 83).
+- Corrected assessment baseline after excluding `sabreprocs`: **108 A + 0 B =
+  108 packages / 98 conservative scheduling passes**, including completed G01.
+- Pending after completed G01: **106 A + 0 B = 106 packages / 97 passes**;
+  nine proven two-package groups plus 88 standalone slots, of which 54 still
+  require focused audits.
 
 Strong markers are audit leads, not proof of a Lighting implementation. A real
 Lighting target requires source-backed persisted state, a user mutation,
@@ -325,7 +363,7 @@ removing that one remaining package/pass yielded
 completed its standalone A package/pass in `17631e14`. Its shared
 `zoned + special:mouse` signature is a discovery grouping, not a shared migration
 pass with `katarproxt` or the other listed packages. Removing `katarpro` alone
-therefore yields the authoritative remaining queue:
+therefore yielded the pre-reconciliation queue:
 **109 A + 0 B = 109 packages / 82 tentative passes**. The 137/131/6
 marker figures above remain historical structural-scan totals, not current
 target counts.
@@ -353,9 +391,9 @@ Historical structural-scan totals; these are not the current audited queue.
 | `cone` | Y | Legacy | multi-channel + per-LED | Y | Y | Y |  | Y | Y | Y | led, liquid-temperature |
 | `cpro` | Y | Legacy | multi-channel | Y | Y |  |  |  | Y | Y |  |
 | `darkcorergbproW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `darkcorergbproWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
+| `darkcorergbproWU` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
 | `darkcorergbproseW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `darkcorergbproseWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
+| `darkcorergbproseWU` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
 | `darkcorergbseW` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  | mouse |
 | `darkcorergbseWU` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  | mouse |
 | `darkstarW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
@@ -445,7 +483,7 @@ Historical structural-scan totals; these are not the current audited queue.
 | `platinum` | Y | Legacy | multi-channel | Y | Y |  |  |  |  | Y | liquid-temperature |
 | `psudongle` |  | Not a lighting target | weak-marker only |  |  |  |  |  |  |  |  |
 | `psuhid` |  | Not a lighting target | weak-marker only |  |  |  |  |  |  |  |  |
-| `sabreprocs` | Y | Legacy | other lighting | Y |  |  |  |  |  |  |  |
+| `sabreprocs` | Y | Not a lighting target | dormant/orphan RGB metadata |  |  |  |  |  |  |  | DPI/Sniper indicator only |
 | `sabrergbpro` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `sabrergbproW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `sabrergbproWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
@@ -543,7 +581,7 @@ If a package does not have a complete source-backed Lighting contract, the
 modern workspace must not advertise a Lighting tab/workspace for it.
 
 This fail-closed rule applies to confirmed non-targets including `m55`, `m55W`,
-`m75AirW`, `m75AirWU`, `katarproW`, `sabrev2proW`, `sabrev2proWU`, and
+`m75AirW`, `m75AirWU`, `katarproW`, `sabreprocs`, `sabrev2proW`, `sabrev2proWU`, and
 `nautilusLcd`. DPI/Sniper indicator color belongs with mouse/DPI presentation;
 LCD-related color/output belongs with display presentation. Telemetry,
 transport, and other non-lighting color state must remain in their proper
@@ -566,18 +604,57 @@ keyboard-color persistence, dual brightness semantics, and a sparse
 frame/topology adapter. It is not migrated or a false positive and remains in
 the authoritative remaining queue.
 
+### Source-backed bulk scheduling assessment
+
+The previous queue was **109 A + 0 B = 109 packages / 82 tentative passes**.
+Removing `sabreprocs` corrects the assessment baseline to **108 A + 0 B = 108
+packages**. Source-backed batch assessment replaces unproved tentative grouping
+with **98 conservative scheduling passes**: ten proven two-package groups
+(20 packages) plus 88 standalone target slots. This is the overall corrected
+assessment baseline, including completed G01, not 98 implementation-ready
+remaining passes. With G01 completed, **106 A + 0 B = 106 packages / 97 pending
+passes** remain: nine proven two-package groups (18 packages) plus the same
+88 standalone slots. **54 standalone packages still require focused audits**.
+Historical structural-scan totals remain **137 marked / 131 strong / 6 weak**.
+
+| Group | Packages | Status |
+|---|---|---|
+| G01 | `darkcorergbproWU` + `darkcorergbproseWU` | Completed — `438a7d45` |
+| G02 | `ironclawWU` + `ironclawSEWU` | Proven bulk candidate; pending |
+| G03 | `scimitarWU` + `scimitarSEWU` | Proven bulk candidate; pending |
+| G04 | `virtuosoWU` + `virtuosoSEWU` | Proven bulk candidate; pending |
+| G05 | `scufenvisionproW` + `scufenvisionproV2W` | Proven bulk candidate; pending |
+| G06 | `darkcorergbproW` + `darkcorergbproseW` | Proven bulk candidate; pending |
+| G07 | `ironclawW` + `ironclawSEW` | Proven bulk candidate; pending |
+| G08 | `scimitarW` + `scimitarSEW` | Proven bulk candidate; pending |
+| G09 | `virtuosoW` + `virtuosoSEW` | Proven bulk candidate; pending |
+| G10 | `k65rgb` + `k65rgbRF` | Proven bulk candidate; pending |
+
+`darkcorergbseWU` and `k70coretklW` remain **NEEDS FOCUSED AUDIT** because each
+publishes `gradient` without a proven corresponding output dispatch. Neither
+audit gate is resolved by G01 or this reconciliation. K60 RGB PRO remains
+**Deferred A**, within the standalone target slots. Proven grouping does not
+claim physical validation or authorize shared hardware abstractions.
+
 ## Architectural signature groups
 
-These groups are discovery and scheduling candidates only. Matching signatures
-do NOT mean packages are automatically safe to migrate together; W/WU siblings
-still require a focused package-equivalence audit before a shared implementation
-pass.
+These architectural signature groups are discovery aids only. Matching
+signatures, ProductType, family, or name do not establish batching. W/WU pairs
+require transport/lifecycle equivalence and generally remain separate; no
+remaining W/WU counterpart pair is strict-equivalence. Same-transport model
+revisions are the proven bulk pattern. Prefer package-local adapters over new
+shared hardware abstractions. The source-backed scheduling groups above are
+separate from these historical discovery populations.
 
 ### zoned + cluster + openrgb-target + special:mouse
 
 Count: **35**
 
 `darkcorergbproW`, `darkcorergbproWU`, `darkcorergbproseW`, `darkcorergbproseWU`, `darkstarW`, `darkstarWU`, `glaivergb`, `glaivergbpro`, `harpoonW`, `harpoonWU`, `ironclaw`, `ironclawSEW`, `ironclawSEWU`, `ironclawW`, `ironclawWU`, `m55rgbpro`, `m65prorgb`, `m65rgbelite`, `m65rgbultra`, `m65rgbultraW`, `m65rgbultraWU`, `nightsabreW`, `nightsabreWU`, `nightswordrgb`, `sabrergbpro`, `sabrergbproW`, `sabrergbproWU`, `scimitar`, `scimitarSEW`, `scimitarSEWU`, `scimitarW`, `scimitarWU`, `scimitarprorgb`, `scimitarrgb`, `scimitarrgbelite`
+
+G01's two WU packages are now Migrated and excluded from pending scheduling;
+the 35-package signature count remains the discovery population. Their W
+counterparts form the separate pending G06 group.
 
 ### single-profile + cluster + special:keyboard
 
@@ -640,11 +717,21 @@ Count: **2**
 
 `cone`, `elite`
 
-### other lighting
+### Dormant/orphan RGB metadata with DPI/Sniper indicator output
 
-Count: **1**
+Count: **1** (audited non-target; excluded from migration scheduling)
 
-`sabreprocs`
+`sabreprocs` — **Not a lighting target | dormant/orphan RGB metadata |
+DPI/Sniper indicator only**. Like the confirmed `m55`/`m55W` false positives,
+it has no `RGBProfile` or `BrightnessSlider` authority, selectable `rgbModes`
+catalogue, canonical-style effect selection, `SchedulerBrightness` percentage
+Lighting authority, or general renderer / `rgb.New`. `LEDChannels=1`,
+`ChangeableLedChannels=1`, and `ZoneAmount=0`. `setDeviceColor` selects the active
+DPI-stage color; `SniperMode` substitutes the Sniper DPI color, and that RGB
+triplet is written directly to the one physical LED. `GetRgbProfiles`,
+`loadRgb`, `saveRgbProfile`, and gradient-edit helpers are dormant/orphan
+metadata helpers, not proof of general Lighting capability: they ultimately
+return to the DPI/Sniper indicator output path.
 
 ### dormant/inert metadata
 
