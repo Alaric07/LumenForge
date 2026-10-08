@@ -138,7 +138,7 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 		return buildVirtuosoModernPreview("VIRTUOSO", "preview-virtuoso-wireless-modern", true)
 	}},
 	{Key: "virtuoso-usb-modern", Title: "Virtuoso USB", ProductType: common.ProductTypeVirtuosoWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: func() *devicesWorkspaceSummary {
-		return buildVirtuosoModernPreview("VIRTUOSO", "preview-virtuoso-usb-modern", false)
+		return buildVirtuosoUSBModernPreview()
 	}},
 	{Key: "virtuoso-se-wireless-modern", Title: "Virtuoso SE Wireless", ProductType: common.ProductTypeVirtuosoSEW, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildVirtuosoSEWirelessModernPreview},
 	{Key: "virtuoso-se-usb-modern", Title: "Virtuoso SE USB", ProductType: common.ProductTypeVirtuosoSEWU, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}}, Build: buildVirtuosoSEUSBModernPreview},
@@ -406,6 +406,7 @@ func buildVirtuosoSEUSBModernPreview() *devicesWorkspaceSummary {
 	profile := virtuosoSEWUPreviewProfile()
 	device := &virtuosoSEWU.Device{Serial: serial, Usb: true, DeviceProfile: profile, UserProfiles: map[string]*virtuosoSEWU.DeviceProfile{"Default": {Active: true}, "Gaming": {}}, MuteIndicators: map[int]string{0: "Disabled", 1: "Enabled"}}
 	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "VIRTUOSO SE", ProductType: common.ProductTypeVirtuosoSEWU, Instance: device}}, map[string]stats.BatteryStats{serial: {Level: 78}}, serial)
+	applyVirtuosoUSBLightingPreview(summary)
 	return summary
 }
 
@@ -1653,4 +1654,38 @@ func buildScimitarDirectHIDModernPreview(se bool) *devicesWorkspaceSummary {
 	s.Lighting = devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "mouse", EffectSupported: true, EffectSelectionAvailable: true, HasBrightness: true, Brightness: 70, SupportedEffects: effects, AuthoredZoneEditor: editor})
 	s.Lighting.ClusterOwnershipAvailable, s.Lighting.ExternalOwnershipAvailable = true, true
 	return s
+}
+
+// Fixture-only presentation: no device initialization, persistence or runtime.
+func buildVirtuosoUSBModernPreview() *devicesWorkspaceSummary {
+	s := buildVirtuosoModernPreview("VIRTUOSO", "preview-virtuoso-usb-modern", false)
+	applyVirtuosoUSBLightingPreview(s)
+	return s
+}
+func applyVirtuosoUSBLightingPreview(s *devicesWorkspaceSummary) {
+	effects := []lightingpresentation.EffectOption{}
+	for _, effect := range []string{"colorpulse", "colorshift", "colorwarp", "cpu-temperature", "flickering", "flame", "aurora", "cyberpunkglitch", "tokyonight", "gpu-temperature", "gradient", "headset", "off", "rainbow", "pastelrainbow", "rotator", "static", "storm", "watercolor", "wave"} {
+		label := "Headset"
+		if descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect); ok {
+			label = descriptor.Label
+		}
+		effects = append(effects, lightingpresentation.EffectOption{ID: effect, Label: label})
+	}
+	editor := &lightingpresentation.AuthoredZoneEditor{EffectID: "headset", Heading: "Zones", Description: "Choose colors for the selected zones."}
+	for id, zone := range virtuosoUSBPreviewZones() {
+		editor.Zones = append(editor.Zones, lightingpresentation.AuthoredZone{ID: strconv.Itoa(id), Label: zone.name, ColorHex: zone.color})
+	}
+	s.LegacyLighting = false
+	s.Lighting = devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "headset", EffectSupported: true, EffectSelectionAvailable: true, HasBrightness: true, Brightness: 70, SupportedEffects: effects, AuthoredZoneEditor: editor})
+	s.Lighting.ClusterOwnershipAvailable, s.Lighting.ExternalOwnershipAvailable = false, false
+}
+
+type virtuosoUSBPreviewZone struct {
+	name    string
+	indices []int
+	color   string
+}
+
+func virtuosoUSBPreviewZones() []virtuosoUSBPreviewZone {
+	return []virtuosoUSBPreviewZone{{"Logo", []int{0, 3, 6}, "#ffff00"}, {"Microphone", []int{2, 5, 8}, "#00ffff"}, {"Indicator LED", []int{1, 4, 7}, "#00ffff"}}
 }

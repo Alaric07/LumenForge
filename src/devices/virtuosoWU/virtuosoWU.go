@@ -8,6 +8,7 @@ import (
 	"LumenForge/src/audio"
 	"LumenForge/src/common"
 	"LumenForge/src/config"
+	"LumenForge/src/lightingsettings"
 	"LumenForge/src/logger"
 	"LumenForge/src/rgb"
 	"LumenForge/src/stats"
@@ -81,6 +82,13 @@ type Device struct {
 	GpuTemp               float32
 	Layouts               []string
 	Rgb                   *rgb.RGB
+	lightingMu            sync.Mutex
+	lightingMutation      sync.Mutex
+	lightingDefaults      *lightingsettings.DefaultRepository
+	schedulerDark         bool
+	userRGBOff            bool
+	lightingRestart       func()
+	lightingWrite         func([]byte)
 	rgbMutex              sync.RWMutex
 	SleepModes            map[int]string
 	mutex                 sync.Mutex
@@ -199,17 +207,20 @@ func Init(vendorId, productId uint16, _, path string) *common.Device { // Set gl
 	d.loadRgb()            // Load RGB
 	d.loadDeviceProfiles() // Load all device profiles
 	d.saveDeviceProfile()  // Save profile
-	d.getDeviceFirmware()  // Firmware
-	d.setSoftwareMode()    // Activate software mode
-	d.getBatterLevel()     // Battery level
-	d.getMuteStatus()      // Mute status
-	d.initLeds()           // Init LED ports
-	d.setDeviceColor()     // Device color
-	d.setKeepAlive()       // Keepalive
-	d.setAutoRefresh()     // Set auto device refresh
-	d.backendListener()    // Control listener
-	d.createDevice()       // Device register
-	d.setEqualizer()       // Equalizer
+	if err := d.attachLightingRuntime(config.GetPaths()); err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Warn("Canonical Lighting unavailable; retaining legacy Lighting")
+	}
+	d.getDeviceFirmware() // Firmware
+	d.setSoftwareMode()   // Activate software mode
+	d.getBatterLevel()    // Battery level
+	d.getMuteStatus()     // Mute status
+	d.initLeds()          // Init LED ports
+	d.setDeviceColor()    // Device color
+	d.setKeepAlive()      // Keepalive
+	d.setAutoRefresh()    // Set auto device refresh
+	d.backendListener()   // Control listener
+	d.createDevice()      // Device register
+	d.setEqualizer()      // Equalizer
 	logger.Log(logger.Fields{"serial": d.Serial, "product": d.Product}).Info("Device successfully initialized")
 
 	return d.instance
@@ -229,13 +240,20 @@ func (d *Device) createDevice() {
 
 // GetRgbProfiles will return RGB profiles for a target device
 func (d *Device) GetRgbProfiles() interface{} {
+	if d.lightingDefaults != nil {
+		d.rgbMutex.RLock()
+		defer d.rgbMutex.RUnlock()
+	}
+	if d.Rgb == nil {
+		return nil
+	}
 	tmp := *d.Rgb
 
 	// Filter unsupported modes out
 	profiles := make(map[string]rgb.Profile, len(tmp.Profiles))
 	for key, value := range tmp.Profiles {
 		if slices.Contains(rgbModes, key) {
-			profiles[key] = value
+			profiles[key] = copyLightingRGBProfile(value)
 		}
 	}
 	tmp.Profiles = profiles
@@ -244,6 +262,11 @@ func (d *Device) GetRgbProfiles() interface{} {
 
 // GetZoneColors will return current device zone colors
 func (d *Device) GetZoneColors() interface{} {
+	if d.lightingDefaults != nil {
+		d.lightingMu.Lock()
+		defer d.lightingMu.Unlock()
+		return d.copyLightingZones()
+	}
 	if d.DeviceProfile == nil {
 		return nil
 	}
@@ -252,7 +275,9 @@ func (d *Device) GetZoneColors() interface{} {
 
 // Stop will stop all device operations and switch a device back to hardware mode
 func (d *Device) Stop() {
+	d.lightingMu.Lock()
 	d.Exit = true
+	d.lightingMu.Unlock()
 	logger.Log(logger.Fields{"serial": d.Serial, "product": d.Product}).Info("Stopping device...")
 	if d.activeRgb != nil {
 		d.activeRgb.Stop()
@@ -280,7 +305,9 @@ func (d *Device) Stop() {
 
 // StopDirty will stop device in a dirty way
 func (d *Device) StopDirty() uint8 {
+	d.lightingMu.Lock()
 	d.Exit = true
+	d.lightingMu.Unlock()
 	logger.Log(logger.Fields{"serial": d.Serial, "product": d.Product}).Info("Stopping device (dirty)...")
 	if d.activeRgb != nil {
 		d.activeRgb.Stop()
@@ -391,11 +418,16 @@ func (d *Device) upgradeRgbProfile(path string, profiles []string) {
 
 // GetRgbProfile will return rgb.Profile struct
 func (d *Device) GetRgbProfile(profile string) *rgb.Profile {
+	if d.lightingDefaults != nil {
+		d.rgbMutex.RLock()
+		defer d.rgbMutex.RUnlock()
+	}
 	if d.Rgb == nil {
 		return nil
 	}
 
 	if val, ok := d.Rgb.Profiles[profile]; ok {
+		val = copyLightingRGBProfile(val)
 		return &val
 	}
 	return nil
@@ -408,6 +440,12 @@ func (d *Device) GetDeviceTemplate() string {
 
 // ChangeDeviceProfile will change device profile
 func (d *Device) ChangeDeviceProfile(profileName string) uint8 {
+	if d.lightingDefaults != nil {
+		if d.switchLightingProfile(profileName) != nil {
+			return 0
+		}
+		return 1
+	}
 	if profile, ok := d.UserProfiles[profileName]; ok {
 		currentProfile := d.DeviceProfile
 		currentProfile.Active = false
@@ -468,6 +506,46 @@ func (d *Device) saveRgbProfile() {
 
 // ProcessNewGradientColor will create new gradient color
 func (d *Device) ProcessNewGradientColor(profileName string) (uint8, uint) {
+
+	if d.lightingDefaults != nil {
+		d.lightingMutation.Lock()
+		defer d.lightingMutation.Unlock()
+		d.lightingMu.Lock()
+		if _, err := d.resolveLightingSettings(profileName); err != nil {
+			d.lightingMu.Unlock()
+			return 0, 0
+		}
+		pf := d.GetRgbProfile(profileName)
+		if pf.Gradients == nil {
+			d.lightingMu.Unlock()
+			return 0, 0
+		}
+
+		nextID := 0
+		for key := range pf.Gradients {
+			if key >= nextID {
+				nextID = key + 1
+			}
+		}
+		pf.Gradients[nextID] = rgb.Color{Green: 255, Blue: 255}
+		index := nextID
+
+		if _, err := lightingsettings.EffectSettingsFromRGBProfile(profileName, *pf); err != nil {
+			d.lightingMu.Unlock()
+			return 0, 0
+		}
+		err := d.persistLightingRGBProfile(profileName, *pf)
+		selected := d.DeviceProfile.RGBProfile == profileName
+		d.lightingMu.Unlock()
+		if err != nil {
+			return 0, 0
+		}
+		if selected {
+			d.restartLighting()
+		}
+		return 1, uint(index)
+	}
+
 	if d.GetRgbProfile(profileName) == nil {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profileName}).Warn("Non-existing RGB profile")
 		return 0, 0
@@ -503,6 +581,49 @@ func (d *Device) ProcessNewGradientColor(profileName string) (uint8, uint) {
 
 // ProcessDeleteGradientColor will delete gradient color
 func (d *Device) ProcessDeleteGradientColor(profileName string) (uint8, uint) {
+
+	if d.lightingDefaults != nil {
+		d.lightingMutation.Lock()
+		defer d.lightingMutation.Unlock()
+		d.lightingMu.Lock()
+		if _, err := d.resolveLightingSettings(profileName); err != nil {
+			d.lightingMu.Unlock()
+			return 0, 0
+		}
+		pf := d.GetRgbProfile(profileName)
+		if pf.Gradients == nil {
+			d.lightingMu.Unlock()
+			return 0, 0
+		}
+
+		if len(pf.Gradients) < 3 {
+			d.lightingMu.Unlock()
+			return 2, 0
+		}
+		index := -1
+		for key := range pf.Gradients {
+			if key > index {
+				index = key
+			}
+		}
+		delete(pf.Gradients, index)
+
+		if _, err := lightingsettings.EffectSettingsFromRGBProfile(profileName, *pf); err != nil {
+			d.lightingMu.Unlock()
+			return 0, 0
+		}
+		err := d.persistLightingRGBProfile(profileName, *pf)
+		selected := d.DeviceProfile.RGBProfile == profileName
+		d.lightingMu.Unlock()
+		if err != nil {
+			return 0, 0
+		}
+		if selected {
+			d.restartLighting()
+		}
+		return 1, uint(index)
+	}
+
 	if d.GetRgbProfile(profileName) == nil {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profileName}).Warn("Non-existing RGB profile")
 		return 0, 0
@@ -537,6 +658,13 @@ func (d *Device) ProcessDeleteGradientColor(profileName string) (uint8, uint) {
 
 // UpdateRgbProfileData will update RGB profile data
 func (d *Device) UpdateRgbProfileData(profileName string, profile rgb.Profile) uint8 {
+	if d.lightingDefaults != nil {
+		value, err := lightingsettings.EffectSettingsFromRGBProfile(profileName, profile)
+		if err != nil || d.SetLightingEffectSettings(profileName, value) != nil {
+			return 0
+		}
+		return 1
+	}
 	d.rgbMutex.Lock()
 	defer d.rgbMutex.Unlock()
 
@@ -583,6 +711,12 @@ func (d *Device) UpdateRgbProfileData(profileName string, profile rgb.Profile) u
 
 // UpdateRgbProfile will update device RGB profile
 func (d *Device) UpdateRgbProfile(_ int, profile string) uint8 {
+	if d.lightingDefaults != nil {
+		if d.SetLightingEffect(profile) != nil {
+			return 0
+		}
+		return 1
+	}
 	if d.GetRgbProfile(profile) == nil {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
 		return 0
@@ -599,6 +733,21 @@ func (d *Device) UpdateRgbProfile(_ int, profile string) uint8 {
 
 // ChangeDeviceBrightness will change device brightness
 func (d *Device) ChangeDeviceBrightness(mode uint8) uint8 {
+	if d.lightingDefaults != nil {
+		d.lightingMutation.Lock()
+		defer d.lightingMutation.Unlock()
+		d.lightingMu.Lock()
+		defer d.lightingMu.Unlock()
+		if d.lightingReady() != nil || mode > 3 {
+			return 0
+		}
+		profile := *d.DeviceProfile
+		profile.Brightness = mode
+		if d.persistLightingProfile(profile) != nil {
+			return 0
+		}
+		return 1
+	}
 	d.DeviceProfile.Brightness = mode
 	d.saveDeviceProfile()
 	if d.activeRgb != nil {
@@ -611,6 +760,12 @@ func (d *Device) ChangeDeviceBrightness(mode uint8) uint8 {
 
 // ChangeDeviceBrightnessValue will change device brightness via slider
 func (d *Device) ChangeDeviceBrightnessValue(value uint8) uint8 {
+	if d.lightingDefaults != nil {
+		if d.SetLightingBrightness(value) != nil {
+			return 0
+		}
+		return 1
+	}
 	if value < 0 || value > 100 {
 		return 0
 	}
@@ -630,6 +785,12 @@ func (d *Device) ChangeDeviceBrightnessValue(value uint8) uint8 {
 
 // SchedulerBrightness will change device brightness via scheduler
 func (d *Device) SchedulerBrightness(value uint8) uint8 {
+	if d.lightingDefaults != nil {
+		if d.setLightingDarkness(true, value == 0) != nil {
+			return 0
+		}
+		return 1
+	}
 	if value == 0 {
 		d.DeviceProfile.OriginalBrightness = *d.DeviceProfile.BrightnessSlider
 		d.DeviceProfile.BrightnessSlider = &value
@@ -689,6 +850,12 @@ func (d *Device) SaveUserProfile(profileName string) uint8 {
 
 // SaveHeadsetZoneColors will save headset zone colors
 func (d *Device) SaveHeadsetZoneColors(zoneColors map[int]rgb.Color) uint8 {
+	if d.lightingDefaults != nil {
+		if d.saveLightingHeadsetColors(zoneColors) != nil {
+			return 0
+		}
+		return 1
+	}
 	i := 0
 	if d.DeviceProfile == nil {
 		return 0
@@ -1213,6 +1380,10 @@ func (d *Device) initLeds() {
 
 // ControlDeviceRgb will change device brightness via schedulerSchedulerBrightness
 func (d *Device) ControlDeviceRgb(value bool) {
+	if d.lightingDefaults != nil {
+		_ = d.setLightingDarkness(false, value)
+		return
+	}
 	if d.DeviceProfile == nil {
 		return
 	}
@@ -1230,13 +1401,15 @@ func (d *Device) ControlDeviceRgb(value bool) {
 // setDeviceColor will activate and set device RGB
 func (d *Device) setDeviceColor() {
 	buf := make([]byte, d.LEDChannels*3)
+	effect, brightness, off := d.lightingOutputState()
+	zones := d.lightingOutputZones(brightness, effect == "headset")
 	if d.DeviceProfile == nil {
 		logger.Log(logger.Fields{"serial": d.Serial}).Error("Unable to set color. DeviceProfile is null!")
 		return
 	}
 
-	if d.DeviceProfile.RgbOff {
-		for _, zoneColor := range d.DeviceProfile.ZoneColors {
+	if off {
+		for _, zoneColor := range zones {
 			zoneColorIndexRange := zoneColor.ColorIndex
 			for key, zoneColorIndex := range zoneColorIndexRange {
 				switch key {
@@ -1253,10 +1426,8 @@ func (d *Device) setDeviceColor() {
 		return
 	}
 
-	if d.DeviceProfile.RGBProfile == "headset" {
-		for _, zoneColor := range d.DeviceProfile.ZoneColors {
-			zoneColor.Color.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
-			zoneColor.Color = rgb.ModifyBrightness(*zoneColor.Color)
+	if effect == "headset" {
+		for _, zoneColor := range zones {
 			zoneColorIndexRange := zoneColor.ColorIndex
 			for key, zoneColorIndex := range zoneColorIndexRange {
 				switch key {
@@ -1273,15 +1444,15 @@ func (d *Device) setDeviceColor() {
 		return
 	}
 
-	if d.DeviceProfile.RGBProfile == "static" {
+	if effect == "static" {
 		profile := d.GetRgbProfile("static")
 		if profile == nil {
 			return
 		}
 
-		profile.StartColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
+		profile.StartColor.Brightness = rgb.GetBrightnessValueFloat(brightness)
 		profileColor := rgb.ModifyBrightness(profile.StartColor)
-		for _, zoneColor := range d.DeviceProfile.ZoneColors {
+		for _, zoneColor := range zones {
 			zoneColorIndexRange := zoneColor.ColorIndex
 			for key, zoneColorIndex := range zoneColorIndexRange {
 				switch key {
@@ -1298,26 +1469,30 @@ func (d *Device) setDeviceColor() {
 		return
 	}
 
+	d.activeRgb = rgb.Exit()
+	active := d.activeRgb
 	go func(lightChannels int) {
 		startTime := time.Now()
-		d.activeRgb = rgb.Exit()
 
 		// Generate random colors
-		d.activeRgb.RGBStartColor = rgb.GenerateRandomColor(1)
-		d.activeRgb.RGBEndColor = rgb.GenerateRandomColor(1)
+		active.RGBStartColor = rgb.GenerateRandomColor(1)
+		active.RGBEndColor = rgb.GenerateRandomColor(1)
 
 		for {
 			select {
-			case <-d.activeRgb.Exit:
+			case <-active.Exit:
 				return
 			default:
+				effect, brightness, _ := d.lightingOutputState()
+				zones := d.lightingOutputZones(brightness, false)
 				buff := make([]byte, 0)
 				rgbCustomColor := true
-				profile := d.GetRgbProfile(d.DeviceProfile.RGBProfile)
+				profile := d.GetRgbProfile(effect)
 				if profile == nil {
 					for i := 0; i < d.ChangeableLedChannels*3; i++ {
 						buff = append(buff, []byte{0, 0, 0}...)
 					}
+					time.Sleep(40 * time.Millisecond)
 					continue
 				}
 				rgbModeSpeed := common.FClamp(profile.Speed, 0.1, 10)
@@ -1343,9 +1518,9 @@ func (d *Device) setDeviceColor() {
 					r.RGBEndColor = &profile.EndColor
 					r.RGBMiddleColor = &profile.MiddleColor
 				} else {
-					r.RGBStartColor = d.activeRgb.RGBStartColor
-					r.RGBEndColor = d.activeRgb.RGBEndColor
-					r.RGBMiddleColor = d.activeRgb.RGBMiddleColor
+					r.RGBStartColor = active.RGBStartColor
+					r.RGBEndColor = active.RGBEndColor
+					r.RGBMiddleColor = active.RGBMiddleColor
 				}
 
 				if r.RGBMiddleColor == nil {
@@ -1353,12 +1528,12 @@ func (d *Device) setDeviceColor() {
 				}
 
 				// Brightness
-				r.RGBBrightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
+				r.RGBBrightness = rgb.GetBrightnessValueFloat(brightness)
 				r.RGBStartColor.Brightness = r.RGBBrightness
 				r.RGBEndColor.Brightness = r.RGBBrightness
 				r.RGBMiddleColor.Brightness = r.RGBBrightness
 
-				switch d.DeviceProfile.RGBProfile {
+				switch effect {
 				case "off":
 					{
 						for n := 0; n < d.ChangeableLedChannels; n++ {
@@ -1456,7 +1631,7 @@ func (d *Device) setDeviceColor() {
 					}
 				case "colorshift":
 					{
-						r.Colorshift(&startTime, d.activeRgb)
+						r.Colorshift(&startTime, active)
 						buff = append(buff, r.Output...)
 					}
 				case "circleshift":
@@ -1476,19 +1651,19 @@ func (d *Device) setDeviceColor() {
 					}
 				case "colorwarp":
 					{
-						r.Colorwarp(&startTime, d.activeRgb)
+						r.Colorwarp(&startTime, active)
 						buff = append(buff, r.Output...)
 					}
 				}
-				zoneKeys := make([]int, 0, len(d.DeviceProfile.ZoneColors))
-				for key := range d.DeviceProfile.ZoneColors {
+				zoneKeys := make([]int, 0, len(zones))
+				for key := range zones {
 					zoneKeys = append(zoneKeys, key)
 				}
 				sort.Ints(zoneKeys)
 
 				m := 0
 				for _, key := range zoneKeys {
-					zoneColor := d.DeviceProfile.ZoneColors[key]
+					zoneColor := zones[key]
 					for _, zoneColorIndex := range zoneColor.ColorIndex {
 						if m >= len(buff) {
 							break
@@ -1507,19 +1682,17 @@ func (d *Device) setDeviceColor() {
 
 // writeColor will write color data to the device
 func (d *Device) writeColor(data []byte) {
-	if d.Exit {
+	d.lightingMu.Lock()
+	stopped := d.Exit
+	d.lightingMu.Unlock()
+	if stopped {
 		return
 	}
 
-	// When mic is muted and MuteIndicator is set
-	if d.MuteStatus == 1 {
-		data[2] = 0xff
-		data[5] = 0x00
-		data[8] = 0x00
-	} else if d.MuteStatus == 0 && d.DeviceProfile.DisableMicIndicator == 1 {
-		data[2] = 0x00
-		data[5] = 0x00
-		data[8] = 0x00
+	data = d.lightingMicFrame(data)
+	if d.lightingWrite != nil {
+		d.lightingWrite(data)
+		return
 	}
 
 	buffer := make([]byte, len(data)+headerWriteSize)
