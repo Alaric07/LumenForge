@@ -492,8 +492,16 @@ func (d *Device) keyboardZoneEditor() *lightingpresentation.AuthoredZoneEditor {
 					}
 				}
 			}
+			// The shipped enter-custom class extends the key into the empty cells
+			// above it. Preserve that two-row rectangle in logical grid units;
+			// packet positions and legacy pixel dimensions are not coordinates.
+			top, height := rowIndex*100, 100
+			if rowIndex > 0 && slices.Contains(strings.Fields(key.Css), "enter-custom") {
+				top -= 100
+				height = 200
+			}
 			if len(key.PacketIndex) > 0 && !key.NoColor {
-				editor.Zones = append(editor.Zones, lightingpresentation.AuthoredZone{ID: strconv.Itoa(keyID), Label: key.KeyName, ColorHex: fmt.Sprintf("#%02x%02x%02x", uint8(key.Color.Red), uint8(key.Color.Green), uint8(key.Color.Blue)), GroupID: strconv.Itoa(id), GroupLabel: fmt.Sprintf("Row %d", id), HasGeometry: true, Left: column * 100, Top: rowIndex * 100, Width: span * 100, Height: 100})
+				editor.Zones = append(editor.Zones, lightingpresentation.AuthoredZone{ID: strconv.Itoa(keyID), Label: key.KeyName, ColorHex: fmt.Sprintf("#%02x%02x%02x", uint8(key.Color.Red), uint8(key.Color.Green), uint8(key.Color.Blue)), GroupID: strconv.Itoa(id), GroupLabel: fmt.Sprintf("Row %d", id), HasGeometry: true, Left: column * 100, Top: top, Width: span * 100, Height: height})
 			}
 			column += span
 		}

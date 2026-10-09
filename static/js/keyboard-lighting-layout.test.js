@@ -63,3 +63,23 @@ test("keyboard CSS insets all four faces without moving logical cells", () => {
     assert.match(rule(".lf-app-shell .lf-authored-zone-list-keyboard .lf-authored-zone span:first-child"), /text-overflow: ellipsis;/);
     assert.doesNotMatch(canvas + key, /packet|channel|k65/i);
 });
+
+test("existing geometry CSS preserves an upward two-row key without changing single-row keys", () => {
+    // Source enter-custom is a tall rectangle, not an L-shaped polygon. The
+    // adapter moves its logical top to row 4 and extends through row 5.
+    const sourceCSS = fs.readFileSync(path.join(__dirname, "../css/themes/default.css"), "utf8");
+    assert.match(sourceCSS, /\.enter-custom \{\s*margin-top: calc\(-1 \* var\(--keyboard-top\)\);\s*height: var\(--keyboard-height-custom\);/);
+    assert.match(key, /height: calc\(100% \* var\(--lf-authored-zone-height\) \/ var\(--lf-authored-zone-layout-height\) - var\(--lf-authored-key-gutter\)\);/);
+    assert.doesNotMatch(key, /clip-path|height: 100px|k65/i);
+    for (const available of [320, 600, 800, 896]) {
+        const cell = Math.max(available, 20 * pitch) / 20;
+        const de = {left: 14 * cell + gutter / 2, top: 3 * cell + gutter / 2, width: 2 * cell - gutter, height: 2 * cell - gutter};
+        const us = {left: 13 * cell + gutter / 2, top: 4 * cell + gutter / 2, width: 3 * cell - gutter, height: cell - gutter};
+        assert.ok(de.height > us.height);
+        close(de.top + de.height, us.top + us.height);
+        close(de.left - (13 * cell + gutter / 2 + cell - gutter), gutter); // DE # / +
+        close(17 * cell + gutter / 2 - (de.left + de.width), cell + gutter); // empty column 16
+        assert.ok(us.height >= 32);
+        close(de.height, 2 * us.height + gutter);
+    }
+});
