@@ -1737,10 +1737,7 @@ func TestKatarModernDevicePreviewsRenderSharedMouseWorkspace(t *testing.T) {
 		if devices.GetDevice(fixture.serial) != nil {
 			t.Fatalf("fixture serial %q unexpectedly exists", fixture.serial)
 		}
-		lightingWant := "Native Lighting migration is not complete."
-		if fixture.key == "katar-pro-modern" {
-			lightingWant = "Scroll"
-		}
+		lightingWant := "Scroll"
 		for _, test := range []struct{ query, want string }{{"", fixture.product}, {"?view=lighting", lightingWant}, {"?view=dpi", "Button Optimization"}, {"?view=buttons", "DPI Button"}} {
 			recorder := httptest.NewRecorder()
 			router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/"+fixture.key+test.query))

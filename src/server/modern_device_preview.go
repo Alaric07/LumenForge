@@ -1533,7 +1533,24 @@ func buildKatarProModernPreview() *devicesWorkspaceSummary {
 }
 
 func buildKatarProXTModernPreview() *devicesWorkspaceSummary {
-	return buildKatarModernPreview("KATAR PRO XT", "preview-katar-pro-xt-modern", "3.1.28", "Stage 2")
+	// Pure XT fixture; identity, catalogue and Scroll are audited independently.
+	s := buildKatarModernPreview("KATAR PRO XT", "preview-katar-pro-xt-modern", "3.1.28", "Stage 2")
+	effects := make([]lightingpresentation.EffectOption, 0, 19)
+	for _, effect := range []string{"colorpulse", "colorwarp", "cpu-temperature", "flickering", "flame", "aurora", "cyberpunkglitch", "tokyonight", "gpu-temperature", "gradient", "mouse", "off", "rainbow", "pastelrainbow", "rotator", "static", "storm", "watercolor", "wave"} {
+		label := "Mouse"
+		if descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect); ok {
+			label = descriptor.Label
+		}
+		effects = append(effects, lightingpresentation.EffectOption{ID: effect, Label: label})
+	}
+	s.LegacyLighting = false
+	s.Lighting = devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "mouse", EffectSupported: true, EffectSelectionAvailable: true, HasBrightness: true, Brightness: 70, SupportedEffects: effects, AuthoredZoneEditor: &lightingpresentation.AuthoredZoneEditor{EffectID: "mouse", Heading: "Zones", Description: "Choose a color for the Scroll zone.", Zones: []lightingpresentation.AuthoredZone{{ID: "0", Label: "Scroll", ColorHex: "#00ffff"}}}})
+	s.Lighting.ClusterOwnershipAvailable, s.Lighting.ExternalOwnershipAvailable = false, false
+	s.DPI.MinimumDPI, s.DPI.MaximumDPI = 100, 18000
+	s.DPI.RegularStages = []devicesDPIStageSummary{{ID: "0", Name: "Stage 1", DPI: 800, ColorHex: "#ff0000"}, {ID: "1", Name: "Stage 2", DPI: 1500, ColorHex: "#ffffff", Active: true}, {ID: "2", Name: "Stage 3", DPI: 3000, ColorHex: "#00ff00"}}
+	s.DPI.SniperStage = &devicesDPIStageSummary{ID: "3", Name: "Sniper", DPI: 200, ColorHex: "#ffff00", Sniper: true}
+	s.OverviewPerformance.Rows[0].Value = "1500"
+	return s
 }
 
 func buildKatarProWirelessModernPreview() *devicesWorkspaceSummary {
