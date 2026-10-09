@@ -9,19 +9,28 @@ import (
 // SelectMouseDPIStage selects an existing regular stage through the same
 // DeviceProfile state used by the physical DPI button.
 func (d *Device) SelectMouseDPIStage(stage int) uint8 {
-	if d == nil || d.DeviceProfile == nil {
+	if d == nil {
+		return 0
+	}
+	d.lightingMu.Lock()
+	if d.DeviceProfile == nil {
+		d.lightingMu.Unlock()
 		return 0
 	}
 	profile, exists := d.DeviceProfile.Profiles[stage]
 	if !exists || profile.Sniper {
+		d.lightingMu.Unlock()
 		return 0
 	}
 	if d.DeviceProfile.Profile == stage {
+		d.lightingMu.Unlock()
 		return 1
 	}
 	d.DeviceProfile.Profile = stage
-	d.saveDeviceProfile()
-	if !d.SniperMode {
+	d.saveDeviceProfileLocked()
+	sniper := d.SniperMode
+	d.lightingMu.Unlock()
+	if !sniper {
 		d.toggleDPI(false)
 	}
 	return 1
@@ -29,24 +38,41 @@ func (d *Device) SelectMouseDPIStage(stage int) uint8 {
 
 // SetMouseSniperMode delegates to Harpoon's existing runtime Sniper path.
 func (d *Device) SetMouseSniperMode(active bool) uint8 {
-	if d == nil || d.DeviceProfile == nil {
+	if d == nil {
 		return 0
 	}
+	d.lightingMu.Lock()
+	if d.DeviceProfile == nil {
+		d.lightingMu.Unlock()
+		return 0
+	}
+	found := false
 	for _, profile := range d.DeviceProfile.Profiles {
 		if profile.Sniper {
-			if d.SniperMode != active {
-				d.sniperMode(active)
-			}
-			return 1
+			found = true
+			break
 		}
 	}
-	return 0
+	change := d.SniperMode != active
+	d.lightingMu.Unlock()
+	if !found {
+		return 0
+	}
+	if change {
+		d.sniperMode(active)
+	}
+	return 1
 }
 
 // SaveMouseDPISettings applies the shared workspace's complete DPI draft to
 // the existing Harpoon DeviceProfile, then uses its established output path.
 func (d *Device) SaveMouseDPISettings(stages map[int]uint16, colors map[int]rgb.Color) uint8 {
-	if d == nil || d.DeviceProfile == nil || len(stages) == 0 || len(stages) != len(colors) {
+	if d == nil {
+		return 0
+	}
+	d.lightingMu.Lock()
+	if d.DeviceProfile == nil || len(stages) == 0 || len(stages) != len(colors) {
+		d.lightingMu.Unlock()
 		return 0
 	}
 	for key, value := range stages {
@@ -54,11 +80,13 @@ func (d *Device) SaveMouseDPISettings(stages map[int]uint16, colors map[int]rgb.
 		color, hasColor := colors[key]
 		if !exists || !hasColor || profile.Color == nil || value < uint16(d.MinDPI) || value > uint16(d.MaxDPI) ||
 			color.Red < 0 || color.Red > 255 || color.Green < 0 || color.Green > 255 || color.Blue < 0 || color.Blue > 255 {
+			d.lightingMu.Unlock()
 			return 0
 		}
 	}
 	for key := range colors {
 		if _, exists := stages[key]; !exists {
+			d.lightingMu.Unlock()
 			return 0
 		}
 	}
@@ -72,7 +100,8 @@ func (d *Device) SaveMouseDPISettings(stages map[int]uint16, colors map[int]rgb.
 		profile.Color.Hex = fmt.Sprintf("#%02x%02x%02x", int(color.Red), int(color.Green), int(color.Blue))
 		d.DeviceProfile.Profiles[key] = profile
 	}
-	d.saveDeviceProfile()
+	d.saveDeviceProfileLocked()
+	d.lightingMu.Unlock()
 	d.updateMouseDPI()
 	d.toggleDPI(false)
 	return 1

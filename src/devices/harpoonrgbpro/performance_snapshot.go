@@ -15,6 +15,10 @@ func (d *Device) PerformanceDeviceID() string {
 
 // PerformanceSnapshot exposes Harpoon's polling-rate capability only.
 func (d *Device) PerformanceSnapshot() (performancepresentation.Snapshot, bool) {
+	if d != nil {
+		d.lightingMu.Lock()
+		defer d.lightingMu.Unlock()
+	}
 	if d == nil || d.DeviceProfile == nil || len(d.PollingRates) == 0 {
 		return performancepresentation.Snapshot{}, false
 	}

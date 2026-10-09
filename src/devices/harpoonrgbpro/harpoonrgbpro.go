@@ -8,6 +8,7 @@ import (
 	"LumenForge/src/common"
 	"LumenForge/src/config"
 	"LumenForge/src/inputmanager"
+	"LumenForge/src/lightingsettings"
 	"LumenForge/src/logger"
 	"LumenForge/src/macro"
 	"LumenForge/src/rgb"
@@ -64,58 +65,71 @@ type DPIProfile struct {
 }
 
 type Device struct {
-	Debug                 bool
-	dev                   *hid.Device
-	listener              *hid.Device
-	Manufacturer          string `json:"manufacturer"`
-	Product               string `json:"product"`
-	Serial                string `json:"serial"`
-	Firmware              string `json:"firmware"`
-	activeRgb             *rgb.ActiveRGB
-	UserProfiles          map[string]*DeviceProfile `json:"userProfiles"`
-	ProfileOrder          []string                  `json:"profileOrder"`
-	Devices               map[int]string            `json:"devices"`
-	DeviceProfile         *DeviceProfile
-	OriginalProfile       *DeviceProfile
-	Template              string
-	VendorId              uint16
-	ProductId             uint16
-	Brightness            map[int]string
-	PollingRates          map[int]string
-	KeyAssignmentTypes    map[int]string
-	LEDChannels           int
-	ChangeableLedChannels int
-	CpuTemp               float32
-	GpuTemp               float32
-	Layouts               []string
-	Rgb                   *rgb.RGB
-	rgbMutex              sync.RWMutex
-	SleepModes            map[int]string
-	mutex                 sync.Mutex
-	deviceLock            sync.Mutex
-	timerKeepAlive        *time.Ticker
-	keepAliveChan         chan struct{}
-	timer                 *time.Ticker
-	autoRefreshChan       chan struct{}
-	Exit                  bool
-	KeyAssignment         map[int]inputmanager.KeyAssignment
-	InputActions          map[uint16]inputmanager.InputAction
-	PressLoop             bool
-	keyAssignmentFile     string
-	KeyAssignmentData     *inputmanager.KeyAssignment
-	ModifierIndex         byte
-	SniperMode            bool
-	MacroTracker          map[int]uint16
-	RGBModes              []string
-	instance              *common.Device
-	Usb                   bool
-	Connected             bool
-	MinDPI                int
-	MaxDPI                int
-	ZoneAmount            int
-	DPIAmount             int
-	stopRepeat            chan struct{}
-	stopRepeatMutex       sync.Mutex
+	Debug                  bool
+	dev                    *hid.Device
+	listener               *hid.Device
+	Manufacturer           string `json:"manufacturer"`
+	Product                string `json:"product"`
+	Serial                 string `json:"serial"`
+	Firmware               string `json:"firmware"`
+	activeRgb              *rgb.ActiveRGB
+	lightingMu             sync.Mutex
+	lightingMutation       sync.Mutex
+	lightingCanonical      *harpoonLighting
+	schedulerDark          bool
+	userRGBOff             bool
+	rendererMu             sync.Mutex
+	rendererStop           chan struct{}
+	rendererDone           chan struct{}
+	stopOnce               sync.Once
+	lightingRestart        func()
+	lightingWriteJSON      func(string, interface{}) error
+	lightingReport         func([]byte) error
+	lightingProfileChanged func()
+	UserProfiles           map[string]*DeviceProfile `json:"userProfiles"`
+	ProfileOrder           []string                  `json:"profileOrder"`
+	Devices                map[int]string            `json:"devices"`
+	DeviceProfile          *DeviceProfile
+	OriginalProfile        *DeviceProfile
+	Template               string
+	VendorId               uint16
+	ProductId              uint16
+	Brightness             map[int]string
+	PollingRates           map[int]string
+	KeyAssignmentTypes     map[int]string
+	LEDChannels            int
+	ChangeableLedChannels  int
+	CpuTemp                float32
+	GpuTemp                float32
+	Layouts                []string
+	Rgb                    *rgb.RGB
+	rgbMutex               sync.RWMutex
+	SleepModes             map[int]string
+	mutex                  sync.Mutex
+	deviceLock             sync.Mutex
+	timerKeepAlive         *time.Ticker
+	keepAliveChan          chan struct{}
+	timer                  *time.Ticker
+	autoRefreshChan        chan struct{}
+	Exit                   bool
+	KeyAssignment          map[int]inputmanager.KeyAssignment
+	InputActions           map[uint16]inputmanager.InputAction
+	PressLoop              bool
+	keyAssignmentFile      string
+	KeyAssignmentData      *inputmanager.KeyAssignment
+	ModifierIndex          byte
+	SniperMode             bool
+	MacroTracker           map[int]uint16
+	RGBModes               []string
+	instance               *common.Device
+	Usb                    bool
+	Connected              bool
+	MinDPI                 int
+	MaxDPI                 int
+	ZoneAmount             int
+	DPIAmount              int
+	stopRepeat             chan struct{}
+	stopRepeatMutex        sync.Mutex
 }
 
 var (
@@ -227,22 +241,24 @@ func Init(vendorId, productId uint16, _, path string) *common.Device {
 		DPIAmount:         6,
 	}
 
-	d.getDebugMode()        // Debug mode
-	d.getManufacturer()     // Manufacturer
-	d.getSerial()           // Serial
-	d.loadRgb()             // Load RGB
-	d.loadDeviceProfiles()  // Load all device profiles
-	d.saveDeviceProfile()   // Save profile
-	d.getDeviceFirmware()   // Firmware
-	d.setSoftwareMode()     // Activate software mode
-	d.updateMouseDPI()      // Update DPI
-	d.setDeviceColor(false) // Device color
-	d.toggleDPI(false)      // DPI
-	d.backendListener()     // Control listener
-	d.setAutoRefresh()      // Set auto device refresh
-	d.loadKeyAssignments()  // Key Assignments
-	d.setupKeyAssignment()  // Setup key assignments
-	d.createDevice()        // Device register
+	d.getDebugMode()       // Debug mode
+	d.getManufacturer()    // Manufacturer
+	d.getSerial()          // Serial
+	d.loadRgb()            // Load RGB
+	d.loadDeviceProfiles() // Load all device profiles
+	d.saveDeviceProfile()  // Save profile
+	if err := d.attachLightingRuntime(config.GetPaths()); err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Warn("Canonical Lighting unavailable; retaining legacy Lighting")
+	}
+	d.getDeviceFirmware()  // Firmware
+	d.setSoftwareMode()    // Activate software mode
+	d.updateMouseDPI()     // Update DPI
+	d.toggleDPI(false)     // DPI
+	d.backendListener()    // Control listener
+	d.setAutoRefresh()     // Set auto device refresh
+	d.loadKeyAssignments() // Key Assignments
+	d.setupKeyAssignment() // Setup key assignments
+	d.createDevice()       // Device register
 	logger.Log(logger.Fields{"serial": d.Serial, "product": d.Product}).Info("Device successfully initialized")
 
 	return d.instance
@@ -263,32 +279,45 @@ func (d *Device) createDevice() {
 
 // GetRgbProfiles will return RGB profiles for a target device
 func (d *Device) GetRgbProfiles() interface{} {
+	d.lightingMu.Lock()
+	attached := d.lightingCanonical != nil
+	d.lightingMu.Unlock()
+	if attached {
+		result := rgb.RGB{Device: d.Product, Profiles: make(map[string]rgb.Profile)}
+		for _, effect := range rgbModes {
+			if profile := d.GetRgbProfile(effect); profile != nil {
+				result.Profiles[effect] = *profile
+			}
+		}
+		return result
+	}
+	d.rgbMutex.RLock()
+	defer d.rgbMutex.RUnlock()
+	if d.Rgb == nil {
+		return rgb.RGB{}
+	}
 	tmp := *d.Rgb
-
-	// Filter unsupported modes out
-	profiles := make(map[string]rgb.Profile, len(tmp.Profiles))
-	for key, value := range tmp.Profiles {
+	tmp.Profiles = make(map[string]rgb.Profile)
+	for key, value := range d.Rgb.Profiles {
 		if slices.Contains(rgbModes, key) {
-			profiles[key] = value
+			tmp.Profiles[key] = copyLightingRGBProfile(value)
 		}
 	}
-	tmp.Profiles = profiles
 	return tmp
 }
 
 // Stop will stop all device operations and switch a device back to hardware mode
 func (d *Device) Stop() {
+	d.lightingMu.Lock()
 	d.Exit = true
+	d.lightingMu.Unlock()
 	logger.Log(logger.Fields{"serial": d.Serial, "product": d.Product}).Info("Stopping device...")
-	if d.activeRgb != nil {
-		d.activeRgb.Stop()
-	}
+	d.stopLighting()
 
 	d.timerKeepAlive.Stop()
 	d.timer.Stop()
-	var once sync.Once
 	go func() {
-		once.Do(func() {
+		d.stopOnce.Do(func() {
 			if d.keepAliveChan != nil {
 				close(d.keepAliveChan)
 			}
@@ -310,17 +339,16 @@ func (d *Device) Stop() {
 
 // StopDirty will stop device in a dirty way
 func (d *Device) StopDirty() uint8 {
+	d.lightingMu.Lock()
 	d.Exit = true
+	d.lightingMu.Unlock()
 	logger.Log(logger.Fields{"serial": d.Serial, "product": d.Product}).Info("Stopping device (dirty)...")
-	if d.activeRgb != nil {
-		d.activeRgb.Stop()
-	}
+	d.stopLighting()
 
 	d.timerKeepAlive.Stop()
 	d.timer.Stop()
-	var once sync.Once
 	go func() {
-		once.Do(func() {
+		d.stopOnce.Do(func() {
 			if d.keepAliveChan != nil {
 				close(d.keepAliveChan)
 			}
@@ -426,14 +454,21 @@ func (d *Device) upgradeRgbProfile(path string, profiles []string) {
 
 // GetRgbProfile will return rgb.Profile struct
 func (d *Device) GetRgbProfile(profile string) *rgb.Profile {
-	if d.Rgb == nil {
-		return nil
+	d.lightingMu.Lock()
+	if d.lightingCanonical != nil {
+		defer d.lightingMu.Unlock()
+		if profile == "mouse" {
+			return &rgb.Profile{}
+		}
+		resolution, err := d.resolveLightingSettings(profile)
+		if err != nil {
+			return nil
+		}
+		value := lightingsettings.RendererProfileFromEffectSettings(resolution.Settings)
+		return &value
 	}
-
-	if val, ok := d.Rgb.Profiles[profile]; ok {
-		return &val
-	}
-	return nil
+	d.lightingMu.Unlock()
+	return d.legacyRgbProfile(profile)
 }
 
 // GetDeviceTemplate will return device template name
@@ -443,28 +478,30 @@ func (d *Device) GetDeviceTemplate() string {
 
 // ChangeDeviceProfile will change device profile
 func (d *Device) ChangeDeviceProfile(profileName string) uint8 {
+	if d.lightingAttached() {
+		return d.changeLightingDeviceProfile(profileName)
+	}
+	d.lightingMu.Lock()
 	if profile, ok := d.UserProfiles[profileName]; ok {
 		currentProfile := d.DeviceProfile
 		currentProfile.Active = false
 		d.DeviceProfile = currentProfile
-		d.saveDeviceProfile()
+		d.saveDeviceProfileLocked()
 
 		// RGB reset
-		if d.activeRgb != nil {
-			d.activeRgb.Exit <- true
-			d.activeRgb = nil
-		}
+		d.stopLighting()
 
 		newProfile := profile
 		newProfile.Active = true
 		d.DeviceProfile = newProfile
-		d.saveDeviceProfile()
-		d.setDeviceColor(false)
+		d.saveDeviceProfileLocked()
+		d.lightingMu.Unlock()
 		d.toggleDPI(false)
 		d.loadKeyAssignments()
 		d.setupKeyAssignment()
 		return 1
 	}
+	d.lightingMu.Unlock()
 	return 0
 }
 
@@ -550,15 +587,16 @@ func (d *Device) UpdatePollingRate(pullingRate int) uint8 {
 		if d.DeviceProfile == nil {
 			return 0
 		}
+		d.lightingMu.Lock()
 		d.Exit = true
-		if d.activeRgb != nil {
-			d.activeRgb.Exit <- true
-			d.activeRgb = nil
-		}
+		d.lightingMu.Unlock()
+		d.stopLighting()
 		time.Sleep(40 * time.Millisecond)
 
+		d.lightingMu.Lock()
 		d.DeviceProfile.PollingRate = pullingRate
-		d.saveDeviceProfile()
+		d.saveDeviceProfileLocked()
+		d.lightingMu.Unlock()
 		buf := make([]byte, 1)
 		buf[0] = byte(pullingRate)
 		_, err := d.transfer(cmdWrite, cmdSetPollingRate, buf)
@@ -573,6 +611,9 @@ func (d *Device) UpdatePollingRate(pullingRate int) uint8 {
 
 // ProcessNewGradientColor will create new gradient color
 func (d *Device) ProcessNewGradientColor(profileName string) (uint8, uint) {
+	if d.lightingAttached() {
+		return d.changeLightingGradient(profileName, false)
+	}
 	if d.GetRgbProfile(profileName) == nil {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profileName}).Warn("Non-existing RGB profile")
 		return 0, 0
@@ -596,18 +637,20 @@ func (d *Device) ProcessNewGradientColor(profileName string) (uint8, uint) {
 	}
 	pf.Gradients[nextID] = rgb.Color{Red: 0, Green: 255, Blue: 255}
 
+	d.rgbMutex.Lock()
 	d.Rgb.Profiles[profileName] = *pf
 	d.saveRgbProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
+	d.rgbMutex.Unlock()
+	d.stopLighting()
 	d.setDeviceColor(false)
 	return 1, uint(nextID)
 }
 
 // ProcessDeleteGradientColor will delete gradient color
 func (d *Device) ProcessDeleteGradientColor(profileName string) (uint8, uint) {
+	if d.lightingAttached() {
+		return d.changeLightingGradient(profileName, true)
+	}
 	if d.GetRgbProfile(profileName) == nil {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profileName}).Warn("Non-existing RGB profile")
 		return 0, 0
@@ -630,20 +673,24 @@ func (d *Device) ProcessDeleteGradientColor(profileName string) (uint8, uint) {
 	}
 	delete(pf.Gradients, maxKey)
 
+	d.rgbMutex.Lock()
 	d.Rgb.Profiles[profileName] = *pf
 	d.saveRgbProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
+	d.rgbMutex.Unlock()
+	d.stopLighting()
 	d.setDeviceColor(false)
 	return 1, uint(maxKey)
 }
 
 // UpdateRgbProfileData will update RGB profile data
 func (d *Device) UpdateRgbProfileData(profileName string, profile rgb.Profile) uint8 {
-	d.rgbMutex.Lock()
-	defer d.rgbMutex.Unlock()
+	if d.lightingAttached() {
+		value, err := harpoonEffectSettings(profileName, profile)
+		if err != nil {
+			return 0
+		}
+		return lightingStatus(d.SetLightingEffectSettings(profileName, value))
+	}
 
 	if d.GetRgbProfile(profileName) == nil {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
@@ -674,60 +721,86 @@ func (d *Device) UpdateRgbProfileData(profileName string, profile rgb.Profile) u
 	pf.EndColor = profile.EndColor
 	pf.MiddleColor = profile.MiddleColor
 	pf.Speed = profile.Speed
-	pf.Gradients = profile.Gradients
+	pf.Gradients = copyLightingRGBProfile(profile).Gradients
 
+	d.rgbMutex.Lock()
 	d.Rgb.Profiles[profileName] = *pf
 	d.saveRgbProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
+	d.rgbMutex.Unlock()
+	d.stopLighting()
 	d.setDeviceColor(false)
 	return 1
 }
 
 // UpdateRgbProfile will update device RGB profile
 func (d *Device) UpdateRgbProfile(_ int, profile string) uint8 {
+	if d.lightingAttached() {
+		return lightingStatus(d.SetLightingEffect(profile))
+	}
 	if d.GetRgbProfile(profile) == nil {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
 		return 0
 	}
-	d.DeviceProfile.RGBProfile = profile // Set profile
-	d.saveDeviceProfile()                // Save profile
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
+	d.lightingMu.Lock()
+	if d.DeviceProfile == nil {
+		d.lightingMu.Unlock()
+		return 0
 	}
+	d.DeviceProfile.RGBProfile = profile
+	d.saveDeviceProfileLocked()
+	d.lightingMu.Unlock()
+	d.stopLighting()
 	d.setDeviceColor(false)
 	return 1
 }
 
 // ChangeDeviceBrightness will change device brightness
 func (d *Device) ChangeDeviceBrightness(mode uint8) uint8 {
-	d.DeviceProfile.Brightness = mode
-	d.saveDeviceProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
+	d.lightingMu.Lock()
+	if d.DeviceProfile == nil {
+		d.lightingMu.Unlock()
+		return 0
 	}
+	candidate := cloneHarpoonProfile(*d.DeviceProfile)
+	candidate.Brightness = mode
+	if d.lightingCanonical != nil {
+		if mode > 3 || d.lightingReady() != nil || d.writeLightingProfile(candidate) != nil {
+			d.lightingMu.Unlock()
+			return 0
+		}
+		*d.DeviceProfile = candidate
+		d.lightingMu.Unlock()
+		return 1
+	}
+	d.DeviceProfile.Brightness = mode
+	d.saveDeviceProfileLocked()
+	d.lightingMu.Unlock()
+	d.stopLighting()
 	d.setDeviceColor(false)
 	return 1
 }
 
 // ChangeDeviceBrightnessValue will change device brightness via slider
 func (d *Device) ChangeDeviceBrightnessValue(value uint8) uint8 {
+	if d.lightingAttached() {
+		return lightingStatus(d.SetLightingBrightness(value))
+	}
 	if value < 0 || value > 100 {
 		return 0
 	}
 
+	d.lightingMu.Lock()
+	if d.DeviceProfile == nil {
+		d.lightingMu.Unlock()
+		return 0
+	}
 	d.DeviceProfile.BrightnessSlider = &value
-	d.saveDeviceProfile()
+	d.saveDeviceProfileLocked()
+	effect := d.DeviceProfile.RGBProfile
+	d.lightingMu.Unlock()
 
-	if d.DeviceProfile.RGBProfile == "static" || d.DeviceProfile.RGBProfile == "mouse" {
-		if d.activeRgb != nil {
-			d.activeRgb.Exit <- true
-			d.activeRgb = nil
-		}
+	if effect == "static" || effect == "mouse" {
+		d.stopLighting()
 		d.setDeviceColor(false)
 	}
 	return 1
@@ -735,6 +808,15 @@ func (d *Device) ChangeDeviceBrightnessValue(value uint8) uint8 {
 
 // SchedulerBrightness will change device brightness via scheduler
 func (d *Device) SchedulerBrightness(value uint8) uint8 {
+	if d.lightingAttached() {
+		d.setLightingOverride(true, value == 0)
+		return 1
+	}
+	d.lightingMu.Lock()
+	if d.DeviceProfile == nil || d.DeviceProfile.BrightnessSlider == nil {
+		d.lightingMu.Unlock()
+		return 0
+	}
 	if value == 0 {
 		d.DeviceProfile.OriginalBrightness = *d.DeviceProfile.BrightnessSlider
 		d.DeviceProfile.BrightnessSlider = &value
@@ -742,12 +824,11 @@ func (d *Device) SchedulerBrightness(value uint8) uint8 {
 		d.DeviceProfile.BrightnessSlider = &d.DeviceProfile.OriginalBrightness
 	}
 
-	d.saveDeviceProfile()
-	if d.DeviceProfile.RGBProfile == "static" || d.DeviceProfile.RGBProfile == "mouse" {
-		if d.activeRgb != nil {
-			d.activeRgb.Exit <- true
-			d.activeRgb = nil
-		}
+	d.saveDeviceProfileLocked()
+	effect := d.DeviceProfile.RGBProfile
+	d.lightingMu.Unlock()
+	if effect == "static" || effect == "mouse" {
+		d.stopLighting()
 		d.setDeviceColor(false)
 	}
 	return 1
@@ -755,11 +836,14 @@ func (d *Device) SchedulerBrightness(value uint8) uint8 {
 
 // SaveUserProfile will generate a new user profile configuration and save it to a file
 func (d *Device) SaveUserProfile(profileName string) uint8 {
+	d.lightingMu.Lock()
+	defer d.lightingMu.Unlock()
 	if d.DeviceProfile != nil {
 		profilePath := pwd + "/database/profiles/" + d.Serial + "-" + profileName + ".json"
 		keyAssignmentHash := common.GenerateRandomMD5()
 
-		newProfile := d.DeviceProfile
+		candidate := cloneHarpoonProfile(*d.DeviceProfile)
+		newProfile := &candidate
 		newProfile.Path = profilePath
 		newProfile.Active = false
 		newProfile.KeyAssignmentHash = keyAssignmentHash
@@ -789,7 +873,7 @@ func (d *Device) SaveUserProfile(profileName string) uint8 {
 			return 0
 		}
 		d.saveKeyAssignments()
-		d.loadDeviceProfiles()
+		d.loadDeviceProfilesLocked()
 		return 1
 	}
 	return 0
@@ -797,12 +881,15 @@ func (d *Device) SaveUserProfile(profileName string) uint8 {
 
 // SaveMouseDPI will save mouse DPI
 func (d *Device) SaveMouseDPI(stages map[int]uint16) uint8 {
+	d.lightingMu.Lock()
 	i := 0
 	if d.DeviceProfile == nil {
+		d.lightingMu.Unlock()
 		return 0
 	}
 
 	if len(stages) == 0 {
+		d.lightingMu.Unlock()
 		return 0
 	}
 
@@ -822,11 +909,13 @@ func (d *Device) SaveMouseDPI(stages map[int]uint16) uint8 {
 	}
 
 	if i > 0 {
-		d.saveDeviceProfile()
+		d.saveDeviceProfileLocked()
+		d.lightingMu.Unlock()
 		d.updateMouseDPI()
 		d.toggleDPI(false)
 		return 1
 	}
+	d.lightingMu.Unlock()
 	return 0
 }
 
@@ -835,12 +924,22 @@ func (d *Device) updateMouseDPI() {
 	d.deviceLock.Lock()
 	defer d.deviceLock.Unlock()
 
-	if d.Exit {
+	if d.stopped() {
 		return
 	}
 
+	d.lightingMu.Lock()
+	if d.DeviceProfile == nil {
+		d.lightingMu.Unlock()
+		return
+	}
+	profile := cloneHarpoonProfile(*d.DeviceProfile)
+	d.lightingMu.Unlock()
 	index := 209
-	for key, value := range d.DeviceProfile.Profiles {
+	for key, value := range profile.Profiles {
+		if value.Color == nil {
+			continue
+		}
 		buf := make([]byte, 10)
 		buf[0] = byte(index + key)
 		if value.Sniper {
@@ -862,8 +961,10 @@ func (d *Device) updateMouseDPI() {
 
 // SaveMouseDpiColors will save mouse dpi colors
 func (d *Device) SaveMouseDpiColors(dpi rgb.Color, dpiColors map[int]rgb.Color) uint8 {
+	d.lightingMu.Lock()
 	i := 0
 	if d.DeviceProfile == nil {
+		d.lightingMu.Unlock()
 		return 0
 	}
 	if dpi.Red > 255 ||
@@ -872,6 +973,7 @@ func (d *Device) SaveMouseDpiColors(dpi rgb.Color, dpiColors map[int]rgb.Color) 
 		dpi.Red < 0 ||
 		dpi.Green < 0 ||
 		dpi.Blue < 0 {
+		d.lightingMu.Unlock()
 		return 0
 	}
 
@@ -885,7 +987,7 @@ func (d *Device) SaveMouseDpiColors(dpi rgb.Color, dpiColors map[int]rgb.Color) 
 			zone.Blue < 0 {
 			continue
 		}
-		if profileColor, ok := d.DeviceProfile.Profiles[key]; ok {
+		if profileColor, ok := d.DeviceProfile.Profiles[key]; ok && profileColor.Color != nil {
 			profileColor.Color.Red = zone.Red
 			profileColor.Color.Green = zone.Green
 			profileColor.Color.Blue = zone.Blue
@@ -895,21 +997,29 @@ func (d *Device) SaveMouseDpiColors(dpi rgb.Color, dpiColors map[int]rgb.Color) 
 	}
 
 	if i > 0 {
-		d.saveDeviceProfile()
-		if d.activeRgb != nil {
-			d.activeRgb.Exit <- true
-			d.activeRgb = nil
-		}
+		d.saveDeviceProfileLocked()
+		d.lightingMu.Unlock()
+		d.stopLighting()
 		d.setDeviceColor(true)
 		return 1
 	}
+	d.lightingMu.Unlock()
 	return 0
 }
 
 // SaveMouseZoneColors will save mouse zone colors
 func (d *Device) SaveMouseZoneColors(_ rgb.Color, zoneColors map[int]rgb.Color) uint8 {
+	if d.lightingAttached() {
+		color, ok := zoneColors[0]
+		if !ok || len(zoneColors) != 1 {
+			return 0
+		}
+		return lightingStatus(d.SetLightingZoneColors("mouse", []string{"0"}, color))
+	}
+	d.lightingMu.Lock()
 	i := 0
 	if d.DeviceProfile == nil {
+		d.lightingMu.Unlock()
 		return 0
 	}
 
@@ -923,7 +1033,7 @@ func (d *Device) SaveMouseZoneColors(_ rgb.Color, zoneColors map[int]rgb.Color) 
 			zone.Blue < 0 {
 			continue
 		}
-		if zoneColor, ok := d.DeviceProfile.ZoneColors[key]; ok {
+		if zoneColor, ok := d.DeviceProfile.ZoneColors[key]; ok && zoneColor.Color != nil {
 			zoneColor.Color.Red = zone.Red
 			zoneColor.Color.Green = zone.Green
 			zoneColor.Color.Blue = zone.Blue
@@ -933,14 +1043,13 @@ func (d *Device) SaveMouseZoneColors(_ rgb.Color, zoneColors map[int]rgb.Color) 
 	}
 
 	if i > 0 {
-		d.saveDeviceProfile()
-		if d.activeRgb != nil {
-			d.activeRgb.Exit <- true
-			d.activeRgb = nil
-		}
+		d.saveDeviceProfileLocked()
+		d.lightingMu.Unlock()
+		d.stopLighting()
 		d.setDeviceColor(false)
 		return 1
 	}
+	d.lightingMu.Unlock()
 	return 0
 }
 
@@ -967,6 +1076,8 @@ func (d *Device) setSoftwareMode() {
 
 // GetSleepMode will return current sleep mode
 func (d *Device) GetSleepMode() int {
+	d.lightingMu.Lock()
+	defer d.lightingMu.Unlock()
 	if d.DeviceProfile != nil {
 		return d.DeviceProfile.SleepMode
 	}
@@ -995,6 +1106,11 @@ func (d *Device) getDeviceFirmware() {
 
 // saveDeviceProfile will save device profile for persistent configuration
 func (d *Device) saveDeviceProfile() {
+	d.lightingMu.Lock()
+	defer d.lightingMu.Unlock()
+	d.saveDeviceProfileLocked()
+}
+func (d *Device) saveDeviceProfileLocked() {
 	var defaultBrightness = uint8(100)
 	profilePath := pwd + "/database/profiles/" + d.Serial + ".json"
 
@@ -1170,7 +1286,7 @@ func (d *Device) saveDeviceProfile() {
 		return
 	}
 
-	d.loadDeviceProfiles()
+	d.loadDeviceProfilesLocked()
 }
 
 // upgradeDpiProfiles will perform upgrade of DPI profiles in needed
@@ -1333,8 +1449,10 @@ func (d *Device) loadKeyAssignments() {
 
 // setCpuTemperature will store current CPU temperature
 func (d *Device) setTemperatures() {
-	d.CpuTemp = temperatures.GetCpuTemperature()
-	d.GpuTemp = temperatures.GetGpuTemperature()
+	cpu, gpu := temperatures.GetCpuTemperature(), temperatures.GetGpuTemperature()
+	d.lightingMu.Lock()
+	d.CpuTemp, d.GpuTemp = cpu, gpu
+	d.lightingMu.Unlock()
 }
 
 // setAutoRefresh will refresh device data
@@ -1344,7 +1462,7 @@ func (d *Device) setAutoRefresh() {
 		for {
 			select {
 			case <-d.timer.C:
-				if d.Exit {
+				if d.stopped() {
 					return
 				}
 				d.setTemperatures()
@@ -1358,6 +1476,11 @@ func (d *Device) setAutoRefresh() {
 
 // loadDeviceProfiles will load custom user profiles
 func (d *Device) loadDeviceProfiles() {
+	d.lightingMu.Lock()
+	defer d.lightingMu.Unlock()
+	d.loadDeviceProfilesLocked()
+}
+func (d *Device) loadDeviceProfilesLocked() {
 	profileList := make(map[string]*DeviceProfile)
 	userProfileDirectory := pwd + "/database/profiles/"
 
@@ -1450,9 +1573,18 @@ func (d *Device) getDeviceProfile() {
 
 // getSniperColor will get sniper dpi color
 func (d *Device) getSniperColor() *rgb.Color {
+	d.lightingMu.Lock()
+	defer d.lightingMu.Unlock()
+	if d.DeviceProfile == nil {
+		return nil
+	}
 	for _, val := range d.DeviceProfile.Profiles {
 		if val.Sniper {
-			return val.Color
+			if val.Color == nil {
+				return nil
+			}
+			color := *val.Color
+			return &color
 		}
 	}
 	return nil
@@ -1460,325 +1592,82 @@ func (d *Device) getSniperColor() *rgb.Color {
 
 // ControlDeviceRgb will change device brightness via schedulerSchedulerBrightness
 func (d *Device) ControlDeviceRgb(value bool) {
+	if d.lightingAttached() {
+		d.setLightingOverride(false, value)
+		return
+	}
+	d.lightingMu.Lock()
 	if d.DeviceProfile == nil {
+		d.lightingMu.Unlock()
 		return
 	}
 
 	d.DeviceProfile.RgbOff = value
-	d.saveDeviceProfile()
+	d.saveDeviceProfileLocked()
+	d.lightingMu.Unlock()
 
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
+	d.stopLighting()
 	d.setDeviceColor(true)
 }
 
 // setDeviceColor will activate and set device RGB
 func (d *Device) setDeviceColor(dpi bool) {
-	buf := make([]byte, d.LEDChannels*3)
-
-	if d.DeviceProfile == nil {
-		logger.Log(logger.Fields{"serial": d.Serial}).Error("Unable to set color. DeviceProfile is null!")
+	if d.stopped() {
 		return
 	}
-
-	if dpi {
-		// DPI
-		dpiColor := d.DeviceProfile.Profiles[d.DeviceProfile.Profile].Color
-		if d.SniperMode {
-			dpiColor = d.getSniperColor()
-		}
-
-		if dpiColor == nil {
-			return
-		}
-
-		dpiColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
-		dpiColor = rgb.ModifyBrightness(*dpiColor)
-
-		dpiLeds := d.DeviceProfile.Profiles[d.DeviceProfile.Profile]
-		for i := 0; i < len(dpiLeds.ColorIndex); i++ {
-			dpiColorIndexRange := dpiLeds.ColorIndex[i]
-			for key, dpiColorIndex := range dpiColorIndexRange {
-				switch key {
-				case 0: // Red
-					buf[dpiColorIndex] = byte(dpiColor.Red)
-				case 1: // Green
-					buf[dpiColorIndex] = byte(dpiColor.Green)
-				case 2: // Blue
-					buf[dpiColorIndex] = byte(dpiColor.Blue)
-				}
-			}
-		}
-		d.writeColor(buf)
-		time.Sleep(500 * time.Millisecond)
-	}
-
-	if d.DeviceProfile.RgbOff {
-		for _, zoneColor := range d.DeviceProfile.ZoneColors {
-			zoneColorIndexRange := zoneColor.ColorIndex
-			for key, zoneColorIndex := range zoneColorIndexRange {
-				switch key {
-				case 0: // Red
-					buf[zoneColorIndex] = 0x00
-				case 1: // Green
-					buf[zoneColorIndex] = 0x00
-				case 2: // Blue
-					buf[zoneColorIndex] = 0x00
-				}
-			}
-		}
-		d.writeColor(buf)
-		return
-	}
-
-	if d.DeviceProfile.RGBProfile == "mouse" {
-		for _, zoneColor := range d.DeviceProfile.ZoneColors {
-			if d.SniperMode {
-				zoneColor.Color = d.getSniperColor()
-			}
-
-			zoneColor.Color.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
-			zoneColor.Color = rgb.ModifyBrightness(*zoneColor.Color)
-
-			zoneColorIndexRange := zoneColor.ColorIndex
-			for key, zoneColorIndex := range zoneColorIndexRange {
-				switch key {
-				case 0: // Red
-					buf[zoneColorIndex] = byte(zoneColor.Color.Red)
-				case 1: // Green
-					buf[zoneColorIndex] = byte(zoneColor.Color.Green)
-				case 2: // Blue
-					buf[zoneColorIndex] = byte(zoneColor.Color.Blue)
-				}
-			}
-		}
-		d.writeColor(buf)
-		return
-	}
-
-	if d.DeviceProfile.RGBProfile == "static" {
-		profile := d.GetRgbProfile("static")
-		if profile == nil {
-			return
-		}
-
-		profile.StartColor.Brightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
-		profileColor := rgb.ModifyBrightness(profile.StartColor)
-
-		for _, zoneColor := range d.DeviceProfile.ZoneColors {
-			zoneColorIndexRange := zoneColor.ColorIndex
-			for key, zoneColorIndex := range zoneColorIndexRange {
-				switch key {
-				case 0: // Red
-					buf[zoneColorIndex] = byte(profileColor.Red)
-				case 1: // Green
-					buf[zoneColorIndex] = byte(profileColor.Green)
-				case 2: // Blue
-					buf[zoneColorIndex] = byte(profileColor.Blue)
-				}
-			}
-		}
-		d.writeColor(buf)
-		return
-	}
-
-	go func(lightChannels int) {
+	owner, stop, done := d.startLightingRenderer()
+	go func() {
+		defer close(done)
+		defer d.retireLightingRenderer(owner, stop)
 		startTime := time.Now()
-		d.activeRgb = rgb.Exit()
-
-		// Generate random colors
-		d.activeRgb.RGBStartColor = rgb.GenerateRandomColor(1)
-		d.activeRgb.RGBEndColor = rgb.GenerateRandomColor(1)
-
+		owner.RGBStartColor = rgb.GenerateRandomColor(1)
+		owner.RGBEndColor = rgb.GenerateRandomColor(1)
+		if dpi {
+			if value, err := d.lightingFrameState(); err == nil && value.indicator != nil {
+				frame := make([]byte, 3)
+				for _, indexes := range value.indicatorIndexes {
+					composeColor(frame, indexes, *value.indicator, value.indicatorBrightness)
+				}
+				d.writeColor(frame, stop)
+				if !lightingDelay(stop, 500*time.Millisecond) {
+					return
+				}
+			}
+		}
 		for {
 			select {
-			case <-d.activeRgb.Exit:
+			case <-stop:
+				return
+			case <-owner.Exit:
 				return
 			default:
-				buff := make([]byte, 0)
-				rgbCustomColor := true
-				profile := d.GetRgbProfile(d.DeviceProfile.RGBProfile)
-				if profile == nil {
-					for i := 0; i < d.ChangeableLedChannels*3; i++ {
-						buff = append(buff, []byte{0, 0, 0}...)
-					}
-					continue
+			}
+			value, err := d.lightingFrameState()
+			if err != nil {
+				if !lightingDelay(stop, 40*time.Millisecond) {
+					return
 				}
-				rgbModeSpeed := common.FClamp(profile.Speed, 0.1, 10)
-				// Check if we have custom colors
-				if (rgb.Color{}) == profile.StartColor || (rgb.Color{}) == profile.EndColor {
-					rgbCustomColor = false
+				continue
+			}
+			frame := d.renderLightingFrame(value, owner, &startTime)
+			if len(frame) == 0 {
+				if !lightingDelay(stop, 40*time.Millisecond) {
+					return
 				}
-
-				r := rgb.New(
-					d.ChangeableLedChannels,
-					rgbModeSpeed,
-					nil,
-					nil,
-					profile.Brightness,
-					common.Clamp(profile.Smoothness, 1, 100),
-					time.Duration(rgbModeSpeed)*time.Second,
-					rgbCustomColor,
-				)
-
-				if rgbCustomColor {
-					r.RGBStartColor = &profile.StartColor
-					r.RGBEndColor = &profile.EndColor
-					r.RGBMiddleColor = &profile.MiddleColor
-				} else {
-					r.RGBStartColor = d.activeRgb.RGBStartColor
-					r.RGBEndColor = d.activeRgb.RGBEndColor
-					r.RGBMiddleColor = d.activeRgb.RGBMiddleColor
-				}
-
-				if r.RGBMiddleColor == nil {
-					r.RGBMiddleColor = &rgb.Color{}
-				}
-
-				// Brightness
-				r.RGBBrightness = rgb.GetBrightnessValueFloat(*d.DeviceProfile.BrightnessSlider)
-				r.RGBStartColor.Brightness = r.RGBBrightness
-				r.RGBEndColor.Brightness = r.RGBBrightness
-				r.RGBMiddleColor.Brightness = r.RGBBrightness
-
-				switch d.DeviceProfile.RGBProfile {
-				case "off":
-					{
-						for n := 0; n < d.ChangeableLedChannels; n++ {
-							buff = append(buff, []byte{0, 0, 0}...)
-						}
-					}
-				case "rainbow":
-					{
-						r.Rainbow(startTime)
-						buff = append(buff, r.Output...)
-					}
-				case "pastelrainbow":
-					{
-						r.PastelRainbow(startTime)
-						buff = append(buff, r.Output...)
-					}
-				case "watercolor":
-					{
-						r.Watercolor(startTime)
-						buff = append(buff, r.Output...)
-					}
-				case "gradient":
-					{
-						r.ColorshiftGradient(startTime, profile.Gradients, profile.Speed)
-						buff = append(buff, r.Output...)
-					}
-				case "cpu-temperature":
-					{
-						r.MinTemp = profile.MinTemp
-						r.MaxTemp = profile.MaxTemp
-						r.Temperature(float64(d.CpuTemp))
-						buff = append(buff, r.Output...)
-					}
-				case "gpu-temperature":
-					{
-						r.MinTemp = profile.MinTemp
-						r.MaxTemp = profile.MaxTemp
-						r.Temperature(float64(d.GpuTemp))
-						buff = append(buff, r.Output...)
-					}
-				case "colorpulse":
-					{
-						r.Colorpulse(&startTime)
-						buff = append(buff, r.Output...)
-					}
-				case "static":
-					{
-						r.Static()
-						buff = append(buff, r.Output...)
-					}
-				case "rotator":
-					{
-						r.Rotator(&startTime)
-						buff = append(buff, r.Output...)
-					}
-				case "wave":
-					{
-						r.Wave(&startTime)
-						buff = append(buff, r.Output...)
-					}
-				case "storm":
-					{
-						r.Storm()
-						buff = append(buff, r.Output...)
-					}
-				case "flickering":
-					{
-
-						r.Flickering(&startTime)
-						buff = append(buff, r.Output...)
-					}
-				case "flame":
-					{
-
-						r.Flame(&startTime)
-						buff = append(buff, r.Output...)
-					}
-				case "aurora":
-					{
-
-						r.Aurora(&startTime)
-						buff = append(buff, r.Output...)
-					}
-				case "cyberpunkglitch":
-					{
-
-						r.CyberpunkGlitch(&startTime)
-						buff = append(buff, r.Output...)
-					}
-				case "tokyonight":
-					{
-
-						r.TokyoNight(&startTime)
-						buff = append(buff, r.Output...)
-					}
-				case "colorshift":
-					{
-						r.Colorshift(&startTime, d.activeRgb)
-						buff = append(buff, r.Output...)
-					}
-				case "circleshift":
-					{
-						r.CircleShift(&startTime)
-						buff = append(buff, r.Output...)
-					}
-				case "circle":
-					{
-						r.Circle(&startTime)
-						buff = append(buff, r.Output...)
-					}
-				case "spinner":
-					{
-						r.Spinner(&startTime)
-						buff = append(buff, r.Output...)
-					}
-				case "colorwarp":
-					{
-						r.Colorwarp(&startTime, d.activeRgb)
-						buff = append(buff, r.Output...)
-					}
-				}
-				m := 0
-				for _, zoneColor := range d.DeviceProfile.ZoneColors {
-					zoneColorIndexRange := zoneColor.ColorIndex
-					for _, zoneColorIndex := range zoneColorIndexRange {
-						buf[zoneColorIndex] = buff[m]
-						m++
-					}
-				}
-
-				d.writeColor(buf)
-				time.Sleep(40 * time.Millisecond)
+				continue
+			}
+			if !d.rendererCurrent(stop) {
+				return
+			}
+			d.writeColor(frame, stop)
+			if value.transientOff || value.effect == "mouse" || value.effect == "static" {
+				return
+			}
+			if !lightingDelay(stop, 40*time.Millisecond) {
+				return
 			}
 		}
-	}(d.ChangeableLedChannels)
+	}()
 }
 
 // setupKeyAssignment will setup mouse keys
@@ -1817,12 +1706,18 @@ func (d *Device) setupKeyAssignment() {
 }
 
 func (d *Device) ModifyDpi(color bool) {
+	d.lightingMu.Lock()
+	if d.DeviceProfile == nil {
+		d.lightingMu.Unlock()
+		return
+	}
 	if d.DeviceProfile.Profile >= 4 {
 		d.DeviceProfile.Profile = 0
 	} else {
 		d.DeviceProfile.Profile++
 	}
-	d.saveDeviceProfile()
+	d.saveDeviceProfileLocked()
+	d.lightingMu.Unlock()
 	d.toggleDPI(color)
 }
 
@@ -2030,9 +1925,16 @@ func (d *Device) CallSniperMode(active bool) {
 
 // sniperMode will set mouse DPI to sniper mode
 func (d *Device) sniperMode(active bool) {
+	d.lightingMu.Lock()
+	if d.DeviceProfile == nil || d.Exit {
+		d.lightingMu.Unlock()
+		return
+	}
 	d.SniperMode = active
+	profile := cloneHarpoonProfile(*d.DeviceProfile)
+	d.lightingMu.Unlock()
 	if active {
-		for _, profile := range d.DeviceProfile.Profiles {
+		for _, profile := range profile.Profiles {
 			if profile.Sniper {
 				d.deviceLock.Lock()
 
@@ -2044,10 +1946,7 @@ func (d *Device) sniperMode(active bool) {
 				}
 				d.deviceLock.Unlock()
 
-				if d.activeRgb != nil {
-					d.activeRgb.Exit <- true
-					d.activeRgb = nil
-				}
+				d.stopLighting()
 				d.setDeviceColor(true)
 			}
 		}
@@ -2058,13 +1957,16 @@ func (d *Device) sniperMode(active bool) {
 
 // toggleDPI will change DPI mode
 func (d *Device) toggleDPI(color bool) {
-	if d.Exit {
+	if d.stopped() {
 		return
 	}
+	d.lightingMu.Lock()
 	if d.DeviceProfile != nil {
+		current := cloneHarpoonProfile(*d.DeviceProfile)
+		d.lightingMu.Unlock()
 		d.deviceLock.Lock()
 
-		profile := d.DeviceProfile.Profiles[d.DeviceProfile.Profile]
+		profile := current.Profiles[current.Profile]
 		value := profile.Value
 
 		// Send DPI packet
@@ -2076,33 +1978,35 @@ func (d *Device) toggleDPI(color bool) {
 		}
 
 		buf := make([]byte, 1)
-		buf[0] = byte(d.DeviceProfile.Profile + 1)
+		buf[0] = byte(current.Profile + 1)
 		_, err := d.transfer(cmdWrite, cmdSetDpi, buf)
 		if err != nil {
 			logger.Log(logger.Fields{"error": err, "vendorId": d.VendorId}).Error("Unable to set dpi")
 		}
 		d.deviceLock.Unlock()
 
-		if d.activeRgb != nil {
-			d.activeRgb.Exit <- true
-			d.activeRgb = nil
-		}
+		d.stopLighting()
 		d.setDeviceColor(color)
+	} else {
+		d.lightingMu.Unlock()
 	}
 }
 
 // writeColor will write color data to the device
-func (d *Device) writeColor(data []byte) {
+func (d *Device) writeColor(data []byte, renderer ...chan struct{}) {
 	d.deviceLock.Lock()
 	defer d.deviceLock.Unlock()
 
-	if d.Exit {
+	if d.stopped() {
+		return
+	}
+	if len(data) < 1 {
 		return
 	}
 	buffer := make([]byte, len(data)+headerWriteSize)
 	binary.LittleEndian.PutUint16(buffer[0:2], uint16(len(data)))
 	copy(buffer[headerWriteSize:], data)
-	_, err := d.transfer(cmdWrite, cmdWriteColor, buffer)
+	_, err := d.transfer(cmdWrite, cmdWriteColor, buffer, renderer...)
 	if err != nil {
 		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to write to color endpoint")
 	}
@@ -2113,7 +2017,7 @@ func (d *Device) writeKeyAssignmentData(data []byte) {
 	d.deviceLock.Lock()
 	defer d.deviceLock.Unlock()
 
-	if d.Exit {
+	if d.stopped() {
 		return
 	}
 
@@ -2128,10 +2032,13 @@ func (d *Device) writeKeyAssignmentData(data []byte) {
 }
 
 // transfer will send data to a device and retrieve device output
-func (d *Device) transfer(endpoint byte, command, buffer []byte) ([]byte, error) {
+func (d *Device) transfer(endpoint byte, command, buffer []byte, renderer ...chan struct{}) ([]byte, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
+	if len(renderer) > 0 && !d.rendererCurrent(renderer[0]) {
+		return make([]byte, readBufferSize), nil
+	}
 	bufferW := make([]byte, bufferSizeWrite)
 	bufferW[1] = endpoint
 	if len(command) > 0 {
@@ -2143,6 +2050,9 @@ func (d *Device) transfer(endpoint byte, command, buffer []byte) ([]byte, error)
 
 	bufferR := make([]byte, readBufferSize)
 
+	if d.lightingReport != nil {
+		return bufferR, d.lightingReport(append([]byte(nil), bufferW...))
+	}
 	if _, err := d.dev.Write(bufferW); err != nil {
 		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Error("Unable to write to a device")
 		return bufferR, err
@@ -2184,7 +2094,7 @@ func (d *Device) backendListener() {
 		for {
 			select {
 			default:
-				if d.Exit {
+				if d.stopped() {
 					err = d.listener.Close()
 					if err != nil {
 						logger.Log(logger.Fields{"error": err, "vendorId": d.VendorId}).Error("Failed to close listener")

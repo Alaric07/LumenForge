@@ -16,6 +16,10 @@ func (d *Device) DeviceProfileDeviceID() string {
 // DeviceProfileSnapshot projects the device-owned profile inventory for the
 // shared overview panel.
 func (d *Device) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bool) {
+	if d != nil {
+		d.lightingMu.Lock()
+		defer d.lightingMu.Unlock()
+	}
 	if d == nil {
 		return deviceprofilepresentation.Snapshot{}, false
 	}

@@ -19,6 +19,10 @@ func (d *Device) DPIDeviceID() string {
 // DPISnapshot projects the existing DeviceProfile DPI authority without HID
 // access or persistence changes.
 func (d *Device) DPISnapshot() (dpipresentation.Snapshot, bool) {
+	if d != nil {
+		d.lightingMu.Lock()
+		defer d.lightingMu.Unlock()
+	}
 	if d == nil || d.DeviceProfile == nil || d.MinDPI < 1 || d.MaxDPI < d.MinDPI || len(d.DeviceProfile.Profiles) == 0 {
 		return dpipresentation.Snapshot{}, false
 	}

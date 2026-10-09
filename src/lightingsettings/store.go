@@ -56,16 +56,18 @@ func (atomicPersistenceWriter) Write(path string, data []byte) error {
 }
 
 type deviceStoreDocument struct {
-	SchemaVersion int                                  `json:"schemaVersion"`
-	Devices       map[string]map[string]EffectSettings `json:"devices"`
+	SchemaVersion int                                    `json:"schemaVersion"`
+	Devices       map[string]map[string]EffectSettings   `json:"devices"`
+	AuthoredZones map[string]map[string]map[string]Color `json:"authoredZones,omitempty"`
 }
 
 // DeviceStore owns independent-device effect customizations.
 type DeviceStore struct {
-	mu      sync.RWMutex
-	path    string
-	writer  persistenceWriter
-	devices map[string]map[string]EffectSettings
+	mu            sync.RWMutex
+	path          string
+	writer        persistenceWriter
+	devices       map[string]map[string]EffectSettings
+	authoredZones map[string]map[string]map[string]Color
 }
 
 // LoadDeviceStore loads the dedicated independent-device customization store.
@@ -87,7 +89,7 @@ func loadDeviceStore(path string, writer persistenceWriter) (*DeviceStore, error
 	} else if err := validateDeviceDocument(document); err != nil {
 		return nil, fmt.Errorf("load device lighting settings %q: %w", path, err)
 	}
-	return &DeviceStore{path: path, writer: writer, devices: cloneDeviceRecords(document.Devices)}, nil
+	return &DeviceStore{path: path, writer: writer, devices: cloneDeviceRecords(document.Devices), authoredZones: cloneAuthoredZones(document.AuthoredZones)}, nil
 }
 
 // Get returns a defensive copy and whether the device/effect customization exists.
@@ -167,6 +169,10 @@ func (store *DeviceStore) Delete(deviceID, effectID string) (bool, error) {
 }
 
 func (store *DeviceStore) persist(document deviceStoreDocument) error {
+	// Generic effect writes must retain device-authored palettes in the same store.
+	if document.AuthoredZones == nil {
+		document.AuthoredZones = store.authoredZones
+	}
 	data, err := json.MarshalIndent(document, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode device lighting settings: %w", err)
@@ -321,7 +327,7 @@ func validateDeviceDocument(document deviceStoreDocument) error {
 			}
 		}
 	}
-	return nil
+	return validateAuthoredZones(document.AuthoredZones)
 }
 
 func validateClusterDocument(document clusterStoreDocument) error {

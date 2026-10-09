@@ -1542,7 +1542,7 @@ func TestHarpoonModernDevicePreviewRendersSharedMouseWorkspace(t *testing.T) {
 	}
 	for _, test := range []struct{ query, want string }{
 		{"", "1000 Hz / 1 msec"},
-		{"?view=lighting", "Native Lighting migration is not complete."},
+		{"?view=lighting", "Choose a color for the Logo zone."},
 		{"?view=dpi", "Stage 2"},
 		{"?view=buttons", "Forward Button"},
 	} {

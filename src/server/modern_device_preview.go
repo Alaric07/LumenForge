@@ -1322,14 +1322,28 @@ func buildHarpoonRGBProModernPreview() *devicesWorkspaceSummary {
 		{ID: "3", Name: "Stage 4", DPI: 6000, ColorHex: "#00ff00"},
 		{ID: "4", Name: "Stage 5", DPI: 9000, ColorHex: "#0000ff"},
 	}
-	return &devicesWorkspaceSummary{
-		Product: "HARPOON RGB PRO", Serial: "preview-harpoon-rgb-pro-modern", Firmware: "1.12.41", Image: "icon-mouse.svg", View: "overview", LegacyLighting: true,
+	summary := &devicesWorkspaceSummary{
+		Product: "HARPOON RGB PRO", Serial: "preview-harpoon-rgb-pro-modern", Firmware: "1.12.41", Image: "icon-mouse.svg", View: "overview", LegacyLighting: false,
 		DPI:                 &devicesDPIWorkspaceSummary{MinimumDPI: 200, MaximumDPI: 12000, ActiveRegularStageID: "1", RegularStages: regularStages, SniperStage: &devicesDPIStageSummary{ID: "5", Name: "Sniper", DPI: 200, ColorHex: "#ffff00", Sniper: true}},
 		Performance:         &devicesPerformanceWorkspaceSummary{PollingRate: &devicesPerformanceSelectSummary{Value: 1, Options: []devicesPerformanceOptionSummary{{Value: 0, Label: "Not Set"}, {Value: 1, Label: "1000 Hz / 1 msec"}, {Value: 2, Label: "500 Hz / 2 msec"}, {Value: 4, Label: "250 Hz / 4 msec"}, {Value: 8, Label: "125 Hz / 8 msec"}}}},
 		Buttons:             &devicesButtonsWorkspaceSummary{Buttons: []devicesButtonsButtonSummary{{KeyIndex: 1, Name: "Left Button", Default: true}, {KeyIndex: 2, Name: "Right Button", Default: true}, {KeyIndex: 4, Name: "Middle Button", Default: true}, {KeyIndex: 8, Name: "Back Button", Default: true}, {KeyIndex: 16, Name: "Forward Button", Default: true}, {KeyIndex: 32, Name: "DPI Button", Default: true}}, AssignmentTypes: []devicesButtonsAssignmentTypeSummary{{ID: 0, Label: "None"}, {ID: 1, Label: "Media Keys"}, {ID: 2, Label: "DPI"}, {ID: 3, Label: "Keyboard"}, {ID: 8, Label: "Sniper"}, {ID: 9, Label: "Mouse"}, {ID: 10, Label: "Macro"}, {ID: 11, Label: "Profile Switch"}}},
 		DeviceProfiles:      &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "FPS"}, ActiveProfile: "Default", Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription},
 		OverviewPerformance: &devicesOverviewPerformanceStatusSummary{Rows: []devicesOverviewStatusRow{{Label: "DPI", Value: "1500", Telemetry: true}, {Label: "Active Stage", Value: "Stage 2"}, {Label: "Polling Rate", Value: "1000 Hz / 1 msec", Telemetry: true}}},
 	}
+	// Pure authored fixture: no Device, stores, HID, goroutines or mutation calls.
+	effects := make([]lightingpresentation.EffectOption, 0, 20)
+	for _, effect := range []string{"colorpulse", "colorshift", "colorwarp", "cpu-temperature", "flickering", "flame", "aurora", "cyberpunkglitch", "tokyonight", "gpu-temperature", "gradient", "mouse", "off", "rainbow", "pastelrainbow", "rotator", "static", "storm", "watercolor", "wave"} {
+		label := "Mouse"
+		if descriptor, ok := rgb.SoftwareEffectDescriptorByID(effect); ok {
+			label = descriptor.Label
+		}
+		effects = append(effects, lightingpresentation.EffectOption{ID: effect, Label: label})
+	}
+	summary.Lighting = devicesLightingWorkspaceSummaryFromSnapshot(lightingpresentation.Snapshot{TargetKind: "native", ConfiguredEffect: "mouse", EffectSupported: true, EffectSelectionAvailable: true, HasBrightness: true, Brightness: 70, SupportedEffects: effects, AuthoredZoneEditor: &lightingpresentation.AuthoredZoneEditor{EffectID: "mouse", Heading: "Zones", Description: "Choose a color for the Logo zone.", Zones: []lightingpresentation.AuthoredZone{{ID: "0", Label: "Logo", ColorHex: "#ffff00"}}}})
+	summary.Lighting.ClusterOwnershipAvailable = false
+	summary.Lighting.ExternalOwnershipAvailable = false
+	return summary
+
 }
 
 func buildGlaiveRGBProModernPreview() *devicesWorkspaceSummary {
