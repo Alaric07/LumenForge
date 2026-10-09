@@ -933,7 +933,8 @@ func TestModernKeyboardDevicePreviewsRenderWorkspaceWithoutRegistration(t *testi
 			t.Fatalf("missing preview fixture %q", fixture.key)
 		}
 		summary := preview.Build()
-		if summary.KeyboardAssignments == nil || summary.Performance == nil || summary.DeviceProfiles == nil || !summary.LegacyLighting || summary.KeyboardAssignments.LayoutClass != fixture.geometry || summary.KeyboardAssignments.RowLayoutClass != fixture.rowGeometry || len(summary.KeyboardAssignments.Rows) != fixture.rows {
+		canonicalK65 := fixture.key == "k65-rgb-modern" || fixture.key == "k65-rgb-rapidfire-modern"
+		if summary.KeyboardAssignments == nil || summary.Performance == nil || summary.DeviceProfiles == nil || summary.LegacyLighting == canonicalK65 || summary.KeyboardAssignments.LayoutClass != fixture.geometry || summary.KeyboardAssignments.RowLayoutClass != fixture.rowGeometry || len(summary.KeyboardAssignments.Rows) != fixture.rows {
 			t.Fatalf("%s keyboard summary = %#v", fixture.key, summary.KeyboardAssignments)
 		}
 		keyCount := 0

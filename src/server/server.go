@@ -4637,6 +4637,9 @@ func devicesWorkspaceSummaryForSerial(
 		summary.LegacyLighting = true
 	}
 
+	if device.ProductType == common.ProductTypeK65Rgb {
+		summary.LegacyLighting = true
+	}
 	if device.ProductType == common.ProductTypeDarkstarW || device.ProductType == common.ProductTypeDarkstarWU {
 		summary.LegacyLighting = true
 	}

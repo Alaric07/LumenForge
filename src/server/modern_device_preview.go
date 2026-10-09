@@ -609,7 +609,12 @@ func buildK65RGBModernPreview() *devicesWorkspaceSummary {
 	profile := &k65rgb.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 1, DisableWinKey: true, DisableAltTab: true}
 	device := &k65rgb.Device{Serial: serial, UIKeyboard: "keyboard-7", UIKeyboardRow: "keyboard-row-20", Layouts: []string{"US"}, KeyAssignmentTypes: k70ModernPreviewAssignmentTypes(), PollingRates: map[int]string{0: "Not Set", 1: "1000 Hz / 1 msec", 2: "500 Hz / 2 msec", 4: "250 Hz / 4 msec", 8: "125 Hz / 8 msec"}, DeviceProfile: profile, UserProfiles: map[string]*k65rgb.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
 	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K65 RGB", ProductType: common.ProductTypeK65Rgb, Instance: device}}, map[string]stats.BatteryStats{}, serial)
-	summary.LegacyLighting = true
+	if snapshot, ok := k65rgb.LightingPreview(keyboard); ok {
+		summary.LegacyLighting = false
+		summary.Lighting = devicesLightingWorkspaceSummaryFromSnapshot(snapshot)
+		summary.Lighting.ClusterOwnershipAvailable = false
+		summary.Lighting.ExternalOwnershipAvailable = false
+	}
 	return summary
 }
 
@@ -679,7 +684,12 @@ func buildK65RGBRapidfireModernPreview() *devicesWorkspaceSummary {
 	profile := &k65rgbRF.DeviceProfile{Profile: "Default", Profiles: []string{"Default", "Gaming"}, Layout: "US", Keyboards: map[string]*keyboards.Keyboard{"Default": keyboard}, PollingRate: 1, DisableWinKey: true, DisableAltTab: true}
 	device := &k65rgbRF.Device{Serial: serial, UIKeyboard: "keyboard-7", UIKeyboardRow: "keyboard-row-20", Layouts: []string{"US"}, KeyAssignmentTypes: k70ModernPreviewAssignmentTypes(), PollingRates: map[int]string{0: "Not Set", 1: "1000 Hz / 1 msec", 2: "500 Hz / 2 msec", 4: "250 Hz / 4 msec", 8: "125 Hz / 8 msec"}, DeviceProfile: profile, UserProfiles: map[string]*k65rgbRF.DeviceProfile{"Default": {Active: true}, "Gaming": {}}}
 	summary, _ := devicesWorkspaceSummaryForSerial(map[string]*common.Device{serial: {Serial: serial, Product: "K65 RGB RAPIDFIRE", ProductType: common.ProductTypeK65Rgb, Instance: device}}, map[string]stats.BatteryStats{}, serial)
-	summary.LegacyLighting = true
+	if snapshot, ok := k65rgbRF.LightingPreview(keyboard); ok {
+		summary.LegacyLighting = false
+		summary.Lighting = devicesLightingWorkspaceSummaryFromSnapshot(snapshot)
+		summary.Lighting.ClusterOwnershipAvailable = false
+		summary.Lighting.ExternalOwnershipAvailable = false
+	}
 	return summary
 }
 

@@ -10,6 +10,7 @@ import (
 	"LumenForge/src/dispatcher"
 	"LumenForge/src/inputmanager"
 	"LumenForge/src/keyboards"
+	"LumenForge/src/lightingsettings"
 	"LumenForge/src/logger"
 	"LumenForge/src/macro"
 	"LumenForge/src/rgb"
@@ -59,6 +60,19 @@ type DeviceProfile struct {
 }
 
 type Device struct {
+	lightingPersist func(string, interface{}) error
+
+	lightingLayouts  map[string]*keyboards.Keyboard
+	lightingTransfer func(byte, []byte, []byte) error
+
+	lightingMu         sync.Mutex
+	lightingMutation   sync.Mutex
+	rendererMu         sync.Mutex
+	lightingRenderer   *lightingRenderer
+	lightingDefaults   *lightingsettings.DefaultRepository
+	lightingRestart    func()
+	schedulerDark      bool
+	userRGBOff         bool
 	Debug              bool
 	dev                *hid.Device
 	listener           *hid.Device
@@ -212,10 +226,13 @@ func Init(vendorId, productId uint16, _, path string) *common.Device {
 	d.loadDeviceProfiles() // Load all device profiles
 	d.saveDeviceProfile()  // Save profile
 	d.setAutoRefresh()     // Set auto device refresh
-	d.setDeviceColor()     // Device color
-	d.setupPerformance()   // Performance
-	d.backendListener()    // Control listener
-	d.createDevice()       // Device register
+	if err := d.attachLightingRuntime(config.GetPaths()); err != nil {
+		logger.Log(logger.Fields{"error": err, "serial": d.Serial}).Warn("Canonical Lighting unavailable")
+	}
+	d.setDeviceColor()   // Device color
+	d.setupPerformance() // Performance
+	d.backendListener()  // Control listener
+	d.createDevice()     // Device register
 	logger.Log(logger.Fields{"serial": d.Serial, "product": d.Product}).Info("Device successfully initialized")
 
 	return d.instance
@@ -255,13 +272,15 @@ func (d *Device) GetRgbProfiles() interface{} {
 
 // Stop will stop all device operations and switch a device back to hardware mode
 func (d *Device) Stop() {
+	d.lightingMu.Lock()
 	d.Exit = true
+	d.lightingMu.Unlock()
 	logger.Log(logger.Fields{"serial": d.Serial, "product": d.Product}).Info("Stopping device...")
-	if d.activeRgb != nil {
-		d.activeRgb.Stop()
-	}
+	d.stopLightingRenderer()
 
-	d.timer.Stop()
+	if d.timer != nil {
+		d.timer.Stop()
+	}
 	var once sync.Once
 	go func() {
 		once.Do(func() {
@@ -283,13 +302,15 @@ func (d *Device) Stop() {
 
 // StopDirty will stop device in a dirty way
 func (d *Device) StopDirty() uint8 {
+	d.lightingMu.Lock()
 	d.Exit = true
+	d.lightingMu.Unlock()
 	logger.Log(logger.Fields{"serial": d.Serial, "product": d.Product}).Info("Stopping device (dirty)...")
-	if d.activeRgb != nil {
-		d.activeRgb.Stop()
-	}
+	d.stopLightingRenderer()
 
-	d.timer.Stop()
+	if d.timer != nil {
+		d.timer.Stop()
+	}
 	var once sync.Once
 	go func() {
 		once.Do(func() {
@@ -441,11 +462,15 @@ func (d *Device) upgradeRgbProfile(path string, profiles []string) {
 
 // GetRgbProfile will return rgb.Profile struct
 func (d *Device) GetRgbProfile(profile string) *rgb.Profile {
+	d.rgbMutex.RLock()
+	defer d.rgbMutex.RUnlock()
+
 	if d.Rgb == nil {
 		return nil
 	}
 
 	if val, ok := d.Rgb.Profiles[profile]; ok {
+		val = copyLightingRGBProfile(val)
 		return &val
 	}
 	return nil
@@ -462,7 +487,10 @@ func (d *Device) getDebugMode() {
 }
 
 // setupPerformance will set up keyboard performance mode
-func (d *Device) setupPerformance() {
+func (d *Device) setupPerformance() { d.setupPerformanceOutput(true) }
+
+// Profile/layout switching has already refreshed lighting after persistence.
+func (d *Device) setupPerformanceOutput(refreshLighting bool) {
 	d.deviceLock.Lock()
 
 	if d.DeviceProfile == nil {
@@ -499,11 +527,8 @@ func (d *Device) setupPerformance() {
 	d.deviceLock.Unlock()
 	d.setupKeyAssignment()
 
-	if d.isRgbStatic() {
-		if d.activeRgb != nil {
-			d.activeRgb.Exit <- true
-			d.activeRgb = nil
-		}
+	if refreshLighting && d.isRgbStatic() {
+		d.stopLightingRenderer()
 		d.setDeviceColor()
 	}
 	d.setKeyControl()
@@ -770,7 +795,9 @@ func (d *Device) setAutoRefresh() {
 				}
 				d.setTemperatures()
 			case <-d.autoRefreshChan:
-				d.timer.Stop()
+				if d.timer != nil {
+					d.timer.Stop()
+				}
 				return
 			}
 		}
@@ -807,6 +834,42 @@ func (d *Device) saveRgbProfile() {
 
 // ProcessNewGradientColor will create new gradient color
 func (d *Device) ProcessNewGradientColor(profileName string) (uint8, uint) {
+	if d.lightingDefaults != nil {
+		d.lightingMutation.Lock()
+		defer d.lightingMutation.Unlock()
+		d.lightingMu.Lock()
+		if _, err := d.resolveLightingSettings(profileName); err != nil {
+			d.lightingMu.Unlock()
+			return 0, 0
+		}
+		pf := d.GetRgbProfile(profileName)
+		if pf == nil || pf.Gradients == nil {
+			d.lightingMu.Unlock()
+			return 0, 0
+		}
+
+		nextID := 0
+		for key := range pf.Gradients {
+			if key >= nextID {
+				nextID = key + 1
+			}
+		}
+		pf.Gradients[nextID] = rgb.Color{Green: 255, Blue: 255}
+		index := nextID
+
+		if _, err := lightingsettings.EffectSettingsFromRGBProfile(profileName, *pf); err != nil {
+			d.lightingMu.Unlock()
+			return 0, 0
+		}
+		err := d.persistLightingRGBProfile(profileName, *pf)
+		d.lightingMu.Unlock()
+		if err != nil {
+			return 0, 0
+		}
+		d.restartLighting()
+		return 1, uint(index)
+	}
+
 	if d.GetRgbProfile(profileName) == nil {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profileName}).Warn("Non-existing RGB profile")
 		return 0, 0
@@ -830,18 +893,56 @@ func (d *Device) ProcessNewGradientColor(profileName string) (uint8, uint) {
 	}
 	pf.Gradients[nextID] = rgb.Color{Red: 0, Green: 255, Blue: 255}
 
+	d.rgbMutex.Lock()
 	d.Rgb.Profiles[profileName] = *pf
 	d.saveRgbProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
+	d.rgbMutex.Unlock()
+	d.stopLightingRenderer()
 	d.setDeviceColor()
 	return 1, uint(nextID)
 }
 
 // ProcessDeleteGradientColor will delete gradient color
 func (d *Device) ProcessDeleteGradientColor(profileName string) (uint8, uint) {
+	if d.lightingDefaults != nil {
+		d.lightingMutation.Lock()
+		defer d.lightingMutation.Unlock()
+		d.lightingMu.Lock()
+		if _, err := d.resolveLightingSettings(profileName); err != nil {
+			d.lightingMu.Unlock()
+			return 0, 0
+		}
+		pf := d.GetRgbProfile(profileName)
+		if pf == nil || pf.Gradients == nil {
+			d.lightingMu.Unlock()
+			return 0, 0
+		}
+
+		if len(pf.Gradients) < 3 {
+			d.lightingMu.Unlock()
+			return 2, 0
+		}
+		index := -1
+		for key := range pf.Gradients {
+			if key > index {
+				index = key
+			}
+		}
+		delete(pf.Gradients, index)
+
+		if _, err := lightingsettings.EffectSettingsFromRGBProfile(profileName, *pf); err != nil {
+			d.lightingMu.Unlock()
+			return 0, 0
+		}
+		err := d.persistLightingRGBProfile(profileName, *pf)
+		d.lightingMu.Unlock()
+		if err != nil {
+			return 0, 0
+		}
+		d.restartLighting()
+		return 1, uint(index)
+	}
+
 	if d.GetRgbProfile(profileName) == nil {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profileName}).Warn("Non-existing RGB profile")
 		return 0, 0
@@ -864,20 +965,24 @@ func (d *Device) ProcessDeleteGradientColor(profileName string) (uint8, uint) {
 	}
 	delete(pf.Gradients, maxKey)
 
+	d.rgbMutex.Lock()
 	d.Rgb.Profiles[profileName] = *pf
 	d.saveRgbProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
+	d.rgbMutex.Unlock()
+	d.stopLightingRenderer()
 	d.setDeviceColor()
 	return 1, uint(maxKey)
 }
 
 // UpdateRgbProfileData will update RGB profile data
 func (d *Device) UpdateRgbProfileData(profileName string, profile rgb.Profile) uint8 {
-	d.rgbMutex.Lock()
-	defer d.rgbMutex.Unlock()
+	if d.lightingDefaults != nil {
+		value, err := lightingsettings.EffectSettingsFromRGBProfile(profileName, profile)
+		if err != nil || d.SetLightingEffectSettings(profileName, value) != nil {
+			return 0
+		}
+		return 1
+	}
 
 	if d.GetRgbProfile(profileName) == nil {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
@@ -910,28 +1015,31 @@ func (d *Device) UpdateRgbProfileData(profileName string, profile rgb.Profile) u
 	pf.Speed = profile.Speed
 	pf.Gradients = profile.Gradients
 
+	d.rgbMutex.Lock()
 	d.Rgb.Profiles[profileName] = *pf
 	d.saveRgbProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
+	d.rgbMutex.Unlock()
+	d.stopLightingRenderer()
 	d.setDeviceColor()
 	return 1
 }
 
 // UpdateRgbProfile will update device RGB profile
 func (d *Device) UpdateRgbProfile(_ int, profile string) uint8 {
+	if d.lightingDefaults != nil {
+		if d.SetLightingEffect(profile) != nil {
+			return 0
+		}
+		return 1
+	}
+
 	if d.GetRgbProfile(profile) == nil {
 		logger.Log(logger.Fields{"serial": d.Serial, "profile": profile}).Warn("Non-existing RGB profile")
 		return 0
 	}
 	d.DeviceProfile.RGBProfile = profile // Set profile
 	d.saveDeviceProfile()                // Save profile
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
+	d.stopLightingRenderer()
 	d.setDeviceColor()
 	return 1
 
@@ -939,6 +1047,13 @@ func (d *Device) UpdateRgbProfile(_ int, profile string) uint8 {
 
 // SchedulerBrightness will change device brightness via scheduler
 func (d *Device) SchedulerBrightness(value uint8) uint8 {
+	if d.lightingDefaults != nil {
+		if d.setLightingDarkness(true, value == 0) != nil {
+			return 0
+		}
+		return 1
+	}
+
 	if value == 0 {
 		d.DeviceProfile.OriginalBrightness = d.DeviceProfile.BrightnessSlider
 		d.DeviceProfile.BrightnessSlider = value
@@ -947,16 +1062,21 @@ func (d *Device) SchedulerBrightness(value uint8) uint8 {
 	}
 
 	d.saveDeviceProfile()
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
+	d.stopLightingRenderer()
 	d.setDeviceColor()
 	return 1
 }
 
 // ChangeDeviceProfile will change device profile
 func (d *Device) ChangeDeviceProfile(profileName string) uint8 {
+	if d.lightingDefaults != nil {
+		if d.switchLightingProfile(profileName) != nil {
+			return 0
+		}
+		d.setupPerformanceOutput(false)
+		return 1
+	}
+
 	if profile, ok := d.UserProfiles[profileName]; ok {
 		currentProfile := d.DeviceProfile
 		currentProfile.Active = false
@@ -964,10 +1084,7 @@ func (d *Device) ChangeDeviceProfile(profileName string) uint8 {
 		d.saveDeviceProfile()
 
 		// RGB reset
-		if d.activeRgb != nil {
-			d.activeRgb.Exit <- true
-			d.activeRgb = nil
-		}
+		d.stopLightingRenderer()
 
 		newProfile := profile
 		newProfile.Active = true
@@ -1006,6 +1123,25 @@ func (d *Device) DeleteDeviceProfile(profileName string) uint8 {
 
 // ChangeKeyboardLayout will change keyboard layout
 func (d *Device) ChangeKeyboardLayout(layout string) uint8 {
+	if d.lightingDefaults != nil {
+		if d.lightingLayouts[layout] == nil {
+			return 2
+		}
+		if err := d.mutateLightingKeyboard(func(p *DeviceProfile) error {
+			k := d.lightingLayouts[layout]
+			if k == nil {
+				return fmt.Errorf("unknown keyboard layout")
+			}
+			p.Keyboards["default"] = k
+			p.Layout = layout
+			return nil
+		}, true); err != nil {
+			return 0
+		}
+		d.setupPerformanceOutput(false)
+		return 1
+	}
+
 	layouts := keyboards.GetLayouts(keyboardKey)
 	if len(layouts) < 1 {
 		return 2
@@ -1026,10 +1162,7 @@ func (d *Device) ChangeKeyboardLayout(layout string) uint8 {
 				d.saveDeviceProfile()
 
 				// RGB reset
-				if d.activeRgb != nil {
-					d.activeRgb.Exit <- true
-					d.activeRgb = nil
-				}
+				d.stopLightingRenderer()
 				d.setDeviceColor()
 				d.setupPerformance()
 				return 1
@@ -1055,6 +1188,34 @@ func (d *Device) getCurrentKeyboard() *keyboards.Keyboard {
 
 // SaveDeviceProfile will save a new keyboard profile
 func (d *Device) SaveDeviceProfile(profileName string, new bool) uint8 {
+	if d.lightingDefaults != nil {
+		if new {
+			d.lightingMu.Lock()
+			exists := false
+			if d.DeviceProfile != nil {
+				_, exists = d.DeviceProfile.Keyboards[profileName]
+				exists = exists || slices.Contains(d.DeviceProfile.Profiles, profileName)
+			}
+			d.lightingMu.Unlock()
+			if exists {
+				return 2
+			}
+		}
+		if err := d.mutateLightingKeyboard(func(p *DeviceProfile) error {
+			if new {
+				if slices.Contains(p.Profiles, profileName) || p.Keyboards[profileName] != nil {
+					return fmt.Errorf("profile exists")
+				}
+				p.Profiles = append(p.Profiles, profileName)
+				p.Keyboards[profileName] = p.Keyboards[p.Profile]
+			}
+			return nil
+		}, false); err != nil {
+			return 0
+		}
+		return 1
+	}
+
 	if new {
 		if d.DeviceProfile == nil {
 			return 0
@@ -1080,6 +1241,19 @@ func (d *Device) SaveDeviceProfile(profileName string, new bool) uint8 {
 
 // UpdateKeyboardProfile will change keyboard profile
 func (d *Device) UpdateKeyboardProfile(profileName string) uint8 {
+	if d.lightingDefaults != nil {
+		if err := d.mutateLightingKeyboard(func(p *DeviceProfile) error {
+			if !slices.Contains(p.Profiles, profileName) || p.Keyboards[profileName] == nil {
+				return fmt.Errorf("unknown keyboard profile")
+			}
+			p.Profile = profileName
+			return nil
+		}, true); err != nil {
+			return 2
+		}
+		return 1
+	}
+
 	if d.DeviceProfile == nil {
 		return 0
 	}
@@ -1095,16 +1269,32 @@ func (d *Device) UpdateKeyboardProfile(profileName string) uint8 {
 	d.DeviceProfile.Profile = profileName
 	d.saveDeviceProfile()
 	// RGB reset
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
+	d.stopLightingRenderer()
 	d.setDeviceColor()
 	return 1
 }
 
 // DeleteKeyboardProfile will delete keyboard profile
 func (d *Device) DeleteKeyboardProfile(profileName string) uint8 {
+	if d.lightingDefaults != nil {
+		if profileName == "default" {
+			return 3
+		}
+		if err := d.mutateLightingKeyboard(func(p *DeviceProfile) error {
+			index := common.IndexOfString(p.Profiles, profileName)
+			if index < 0 || p.Keyboards[profileName] == nil {
+				return fmt.Errorf("unknown keyboard profile")
+			}
+			p.Profile = "default"
+			p.Profiles = append(p.Profiles[:index], p.Profiles[index+1:]...)
+			delete(p.Keyboards, profileName)
+			return nil
+		}, true); err != nil {
+			return 2
+		}
+		return 1
+	}
+
 	if d.DeviceProfile == nil {
 		return 0
 	}
@@ -1132,16 +1322,35 @@ func (d *Device) DeleteKeyboardProfile(profileName string) uint8 {
 
 	d.saveDeviceProfile()
 	// RGB reset
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
+	d.stopLightingRenderer()
 	d.setDeviceColor()
 	return 1
 }
 
 // SaveUserProfile will generate a new user profile configuration and save it to a file
 func (d *Device) SaveUserProfile(profileName string) uint8 {
+	if d.lightingDefaults != nil {
+		d.lightingMutation.Lock()
+		defer d.lightingMutation.Unlock()
+		d.lightingMu.Lock()
+		defer d.lightingMu.Unlock()
+		if d.lightingReady() != nil {
+			return 0
+		}
+		p, err := cloneLightingProfile(d.DeviceProfile)
+		if err != nil {
+			return 0
+		}
+		p.Path = filepath.Join(pwd, "database", "profiles", d.Serial+"-"+profileName+".json")
+		p.Active = false
+		p.RgbOff = false
+		if saveLightingJSON(p.Path, p) != nil {
+			return 0
+		}
+		d.UserProfiles[profileName] = p
+		return 1
+	}
+
 	if d.DeviceProfile != nil {
 		profilePath := pwd + "/database/profiles/" + d.Serial + "-" + profileName + ".json"
 
@@ -1281,6 +1490,10 @@ func (d *Device) buildKeyIndexMap() map[int]KeyPos {
 
 // UpdateDeviceColor will update device color based on selected input
 func (d *Device) UpdateDeviceColor(keyId, keyOption int, color rgb.Color, selections []int) uint8 {
+	if d.lightingDefaults != nil {
+		return d.updateLightingKeyColor(keyId, keyOption, color, selections)
+	}
+
 	switch keyOption {
 	case 0:
 		{
@@ -1294,10 +1507,7 @@ func (d *Device) UpdateDeviceColor(keyId, keyOption int, color rgb.Color, select
 							Brightness: 0,
 						}
 						d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row[rowIndex].Keys[keyIndex] = key
-						if d.activeRgb != nil {
-							d.activeRgb.Exit <- true
-							d.activeRgb = nil
-						}
+						d.stopLightingRenderer()
 						d.setDeviceColor()
 						return 1
 					}
@@ -1329,10 +1539,7 @@ func (d *Device) UpdateDeviceColor(keyId, keyOption int, color rgb.Color, select
 				}
 				d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row[rowId].Keys[keyIndex] = key
 			}
-			if d.activeRgb != nil {
-				d.activeRgb.Exit <- true
-				d.activeRgb = nil
-			}
+			d.stopLightingRenderer()
 			d.setDeviceColor()
 			return 1
 		}
@@ -1349,10 +1556,7 @@ func (d *Device) UpdateDeviceColor(keyId, keyOption int, color rgb.Color, select
 					d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row[rowIndex].Keys[keyIndex] = key
 				}
 			}
-			if d.activeRgb != nil {
-				d.activeRgb.Exit <- true
-				d.activeRgb = nil
-			}
+			d.stopLightingRenderer()
 			d.setDeviceColor()
 			return 1
 		}
@@ -1382,10 +1586,7 @@ func (d *Device) UpdateDeviceColor(keyId, keyOption int, color rgb.Color, select
 			}
 
 			if updated > 0 {
-				if d.activeRgb != nil {
-					d.activeRgb.Exit <- true
-					d.activeRgb = nil
-				}
+				d.stopLightingRenderer()
 				d.setDeviceColor()
 				return 1
 			}
@@ -1396,6 +1597,11 @@ func (d *Device) UpdateDeviceColor(keyId, keyOption int, color rgb.Color, select
 
 // ControlDeviceRgb will change device brightness via schedulerSchedulerBrightness
 func (d *Device) ControlDeviceRgb(value bool) {
+	if d.lightingDefaults != nil {
+		_ = d.setLightingDarkness(false, value)
+		return
+	}
+
 	if d.DeviceProfile == nil {
 		return
 	}
@@ -1403,10 +1609,7 @@ func (d *Device) ControlDeviceRgb(value bool) {
 	d.DeviceProfile.RgbOff = value
 	d.saveDeviceProfile()
 
-	if d.activeRgb != nil {
-		d.activeRgb.Exit <- true
-		d.activeRgb = nil
-	}
+	d.stopLightingRenderer()
 	d.setDeviceColor()
 }
 
@@ -1416,14 +1619,14 @@ func (d *Device) setDeviceColor() {
 	var bufG = make([]byte, colorPacketLength)
 	var bufB = make([]byte, colorPacketLength)
 
-	if d.DeviceProfile == nil {
-		logger.Log(logger.Fields{"serial": d.Serial}).Error("Unable to set color. DeviceProfile is null!")
+	state, err := d.lightingFrameState()
+	if err != nil {
 		return
 	}
 
-	if d.DeviceProfile.RgbOff {
-		if _, ok := d.DeviceProfile.Keyboards[d.DeviceProfile.Profile]; ok {
-			for _, rows := range d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row {
+	if state.RgbOff {
+		if _, ok := state.Keyboards[state.Profile]; ok {
+			for _, rows := range state.Keyboards[state.Profile].Row {
 				for _, keys := range rows.Keys {
 					for _, packetIndex := range keys.PacketIndex {
 						bufR[packetIndex] = 0x00
@@ -1440,11 +1643,11 @@ func (d *Device) setDeviceColor() {
 		}
 	}
 
-	if d.DeviceProfile.RGBProfile == "keyboard" {
-		if _, ok := d.DeviceProfile.Keyboards[d.DeviceProfile.Profile]; ok {
-			for _, rows := range d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row {
+	if state.RGBProfile == "keyboard" {
+		if _, ok := state.Keyboards[state.Profile]; ok {
+			for _, rows := range state.Keyboards[state.Profile].Row {
 				for _, keys := range rows.Keys {
-					keys.Color.Brightness = rgb.GetBrightnessValueFloat(d.DeviceProfile.BrightnessSlider)
+					keys.Color.Brightness = rgb.GetBrightnessValueFloat(state.BrightnessSlider)
 					keys.Color = *rgb.ModifyBrightness(keys.Color)
 					for _, packetIndex := range keys.PacketIndex {
 						bufR[packetIndex] = byte(keys.Color.Red)
@@ -1461,15 +1664,15 @@ func (d *Device) setDeviceColor() {
 		}
 	}
 
-	if d.DeviceProfile.RGBProfile == "static" {
+	if state.RGBProfile == "static" {
 		profile := d.GetRgbProfile("static")
 		if profile == nil {
 			return
 		}
 
-		profile.StartColor.Brightness = rgb.GetBrightnessValueFloat(d.DeviceProfile.BrightnessSlider)
+		profile.StartColor.Brightness = rgb.GetBrightnessValueFloat(state.BrightnessSlider)
 		profile.StartColor = *rgb.ModifyBrightness(profile.StartColor)
-		for _, rows := range d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row {
+		for _, rows := range state.Keyboards[state.Profile].Row {
 			for _, keys := range rows.Keys {
 				for _, packetIndex := range keys.PacketIndex {
 					bufR[packetIndex] = byte(profile.StartColor.Red)
@@ -1482,27 +1685,31 @@ func (d *Device) setDeviceColor() {
 		return
 	}
 
+	runner := d.beginLightingRenderer()
 	go func(lightChannels int) {
+		defer d.finishLightingRenderer(runner)
 		startTime := time.Now()
-		d.activeRgb = rgb.Exit()
+		active := runner.rgb
 
 		// Generate random colors
-		d.activeRgb.RGBStartColor = rgb.GenerateRandomColor(1)
-		d.activeRgb.RGBEndColor = rgb.GenerateRandomColor(1)
+		active.RGBStartColor = rgb.GenerateRandomColor(1)
+		active.RGBEndColor = rgb.GenerateRandomColor(1)
 
 		for {
 			select {
-			case <-d.activeRgb.Exit:
+			case <-active.Exit:
 				return
 			default:
+				state, err := d.lightingFrameState()
+				if err != nil {
+					return
+				}
 				buff := make([]byte, 0)
 
 				rgbCustomColor := true
-				profile := d.GetRgbProfile(d.DeviceProfile.RGBProfile)
+				profile := d.GetRgbProfile(state.RGBProfile)
 				if profile == nil {
-					for i := 0; i < d.LEDChannels; i++ {
-						buff = append(buff, []byte{0, 0, 0}...)
-					}
+					time.Sleep(20 * time.Millisecond)
 					continue
 				}
 				rgbModeSpeed := common.FClamp(profile.Speed, 0.1, 10)
@@ -1527,9 +1734,9 @@ func (d *Device) setDeviceColor() {
 					r.RGBEndColor = &profile.EndColor
 					r.RGBMiddleColor = &profile.MiddleColor
 				} else {
-					r.RGBStartColor = d.activeRgb.RGBStartColor
-					r.RGBEndColor = d.activeRgb.RGBEndColor
-					r.RGBMiddleColor = d.activeRgb.RGBMiddleColor
+					r.RGBStartColor = active.RGBStartColor
+					r.RGBEndColor = active.RGBEndColor
+					r.RGBMiddleColor = active.RGBMiddleColor
 				}
 
 				if r.RGBMiddleColor == nil {
@@ -1537,12 +1744,12 @@ func (d *Device) setDeviceColor() {
 				}
 
 				// Brightness
-				r.RGBBrightness = rgb.GetBrightnessValueFloat(d.DeviceProfile.BrightnessSlider)
+				r.RGBBrightness = rgb.GetBrightnessValueFloat(state.BrightnessSlider)
 				r.RGBStartColor.Brightness = r.RGBBrightness
 				r.RGBEndColor.Brightness = r.RGBBrightness
 				r.RGBMiddleColor.Brightness = r.RGBBrightness
 
-				switch d.DeviceProfile.RGBProfile {
+				switch state.RGBProfile {
 				case "off":
 					{
 						for n := 0; n < d.LEDChannels; n++ {
@@ -1640,7 +1847,7 @@ func (d *Device) setDeviceColor() {
 					}
 				case "colorshift":
 					{
-						r.Colorshift(&startTime, d.activeRgb)
+						r.Colorshift(&startTime, active)
 						buff = append(buff, r.Output...)
 					}
 				case "circleshift":
@@ -1660,7 +1867,7 @@ func (d *Device) setDeviceColor() {
 					}
 				case "colorwarp":
 					{
-						r.Colorwarp(&startTime, d.activeRgb)
+						r.Colorwarp(&startTime, active)
 						buff = append(buff, r.Output...)
 					}
 				}
@@ -1684,7 +1891,7 @@ func (d *Device) setDeviceColor() {
 					m++
 				}
 
-				for _, rows := range d.DeviceProfile.Keyboards[d.DeviceProfile.Profile].Row {
+				for _, rows := range state.Keyboards[state.Profile].Row {
 					for _, keys := range rows.Keys {
 						for _, packetIndex := range keys.PacketIndex {
 							bufR[packetIndex] = colorR[packetIndex]
@@ -1706,11 +1913,20 @@ func (d *Device) writeColor(dataR, dataG, dataB []byte) {
 	d.deviceLock.Lock()
 	defer d.deviceLock.Unlock()
 
-	if d.Exit {
+	d.lightingMu.Lock()
+	exiting := d.Exit
+	d.lightingMu.Unlock()
+	if exiting {
 		return
 	}
 
-	if d.DeviceProfile.Performance {
+	d.lightingMu.Lock()
+	performance := d.DeviceProfile != nil && d.DeviceProfile.Performance
+	d.lightingMu.Unlock()
+	dataR = append([]byte(nil), dataR...)
+	dataG = append([]byte(nil), dataG...)
+	dataB = append([]byte(nil), dataB...)
+	if performance {
 		dataR[8] = 255
 		dataG[8] = 0
 		dataB[8] = 0
@@ -1770,6 +1986,10 @@ func (d *Device) writeColor(dataR, dataG, dataB []byte) {
 
 // transfer will send data to a device and retrieve device output
 func (d *Device) transfer(command byte, endpoint, buffer []byte) error {
+	if d.lightingTransfer != nil {
+		return d.lightingTransfer(command, endpoint, buffer)
+	}
+
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
@@ -1962,6 +2182,21 @@ func (d *Device) triggerKeyAssignment(value []byte) {
 
 		// Brightness
 		if key.ActionType == 11 {
+			if d.lightingDefaults != nil {
+				d.lightingMu.Lock()
+				value := d.DeviceProfile.BrightnessSlider
+				d.lightingMu.Unlock()
+				if value >= 99 {
+					value = 0
+				} else if value > 67 {
+					value = 100
+				} else {
+					value += 33
+				}
+				_ = d.SetLightingBrightness(value)
+				return
+			}
+
 			if d.DeviceProfile.BrightnessSlider >= 99 {
 				d.DeviceProfile.BrightnessSlider = 0
 			} else {
@@ -1969,10 +2204,7 @@ func (d *Device) triggerKeyAssignment(value []byte) {
 			}
 
 			d.saveDeviceProfile()
-			if d.activeRgb != nil {
-				d.activeRgb.Exit <- true
-				d.activeRgb = nil
-			}
+			d.stopLightingRenderer()
 			d.setDeviceColor()
 			return
 		}
