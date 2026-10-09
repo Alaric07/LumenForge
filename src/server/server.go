@@ -2941,6 +2941,8 @@ type devicesLightingAuthoredZoneEditorSummary struct {
 	EffectID                  string
 	HasGroups, HasGeometry    bool
 	LayoutWidth, LayoutHeight int
+	KeyboardGeometry          bool
+	KeyboardUnit              int
 	Zones                     []devicesLightingAuthoredZoneSummary
 }
 
@@ -4500,6 +4502,13 @@ func devicesLightingWorkspaceSummaryFromSnapshot(snapshot lightingpresentation.S
 			summary.AuthoredZoneEditor.Zones[index] = devicesLightingAuthoredZoneSummary{ID: zone.ID, Label: zone.Label, ColorHex: zone.ColorHex, GroupID: zone.GroupID, GroupLabel: zone.GroupLabel, HasGeometry: zone.HasGeometry, Left: zone.Left, Top: zone.Top, Width: zone.Width, Height: zone.Height}
 			if zone.HasGeometry {
 				summary.AuthoredZoneEditor.HasGeometry = true
+				// Size the keyboard canvas from presentation geometry, never output indices.
+				if editor.EffectID == "keyboard" && zone.Width > 0 && zone.Height > 0 {
+					unit := min(zone.Width, zone.Height)
+					if summary.AuthoredZoneEditor.KeyboardUnit == 0 || unit < summary.AuthoredZoneEditor.KeyboardUnit {
+						summary.AuthoredZoneEditor.KeyboardUnit = unit
+					}
+				}
 				if right := zone.Left + zone.Width; right > summary.AuthoredZoneEditor.LayoutWidth {
 					summary.AuthoredZoneEditor.LayoutWidth = right
 				}
@@ -4508,6 +4517,7 @@ func devicesLightingWorkspaceSummaryFromSnapshot(snapshot lightingpresentation.S
 				}
 			}
 		}
+		summary.AuthoredZoneEditor.KeyboardGeometry = summary.AuthoredZoneEditor.KeyboardUnit > 0
 	}
 	if port := snapshot.ThreePinPort; port != nil {
 		summary.ThreePinPort = &devicesLightingThreePinPortSummary{QuantityDisabled: port.QuantityDisabled, DeviceOptions: make([]devicesLightingThreePinOptionSummary, len(port.DeviceOptions)), QuantityOptions: make([]devicesLightingThreePinOptionSummary, len(port.QuantityOptions))}
