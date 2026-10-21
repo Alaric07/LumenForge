@@ -4,6 +4,7 @@ import (
 	"LumenForge/src/buttonspresentation"
 	"LumenForge/src/common"
 	"LumenForge/src/deviceprofilepresentation"
+	"LumenForge/src/devices/katarpro"
 	"LumenForge/src/devices/katarproW"
 	"LumenForge/src/dpipresentation"
 	"LumenForge/src/lightingpresentation"
@@ -87,4 +88,30 @@ func TestKatarProCanonicalPreviewAndWirelessSeparation(t *testing.T) {
 	if _, ok := interface{}(&katarproW.Device{}).(devicesLightingSnapshotProvider); ok {
 		t.Fatal("wireless canonical Lighting provider added")
 	}
+}
+
+func TestKatarProUnavailableAttachmentRetainsLegacyLighting(t *testing.T) {
+	d := &katarpro.Device{Serial: "katar-unavailable"}
+	summary, ok := devicesWorkspaceSummaryForSerial(map[string]*common.Device{d.Serial: {Serial: d.Serial, ProductType: common.ProductTypeKatarPro, Instance: d}}, map[string]stats.BatteryStats{}, d.Serial)
+	if !ok || !summary.LegacyLighting || summary.Lighting != nil {
+		t.Fatalf("unattached target suppressed legacy: %#v", summary)
+	}
+	// A usable provider with a mismatched identity cannot take presentation ownership.
+	p := katarCanonicalProvider{katarWorkspaceProvider{"other-device"}, true}
+	summary, ok = devicesWorkspaceSummaryForSerial(map[string]*common.Device{d.Serial: {Serial: d.Serial, ProductType: common.ProductTypeKatarPro, Instance: p}}, map[string]stats.BatteryStats{}, d.Serial)
+	if !ok || !summary.LegacyLighting || summary.Lighting != nil {
+		t.Fatal("identity mismatch suppressed legacy")
+	}
+}
+func TestKatarProPreviewIsIndependentPureLightingData(t *testing.T) {
+	first, second := buildKatarProModernPreview(), buildKatarProModernPreview()
+	if first.Product != "KATAR PRO" || first.Serial != "preview-katar-pro-modern" || first.Lighting.AuthoredZoneEditor.Zones[0].ID != "0" || first.Lighting.AuthoredZoneEditor.Zones[0].ColorHex != "#00ffff" || first.Lighting.ClusterOwnershipAvailable || first.Lighting.ExternalOwnershipAvailable {
+		t.Fatalf("preview=%#v", first)
+	}
+	first.Lighting.AuthoredZoneEditor.Zones[0].ColorHex = "#ffffff"
+	first.Lighting.SupportedEffects[0].ID = "bad"
+	if second.Lighting.AuthoredZoneEditor.Zones[0].ColorHex != "#00ffff" || second.Lighting.SupportedEffects[0].ID == "bad" {
+		t.Fatal("preview shares mutable Lighting state")
+	}
+	// Construction uses literals and software descriptors only; no live Device exists.
 }

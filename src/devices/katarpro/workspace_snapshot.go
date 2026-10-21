@@ -39,6 +39,11 @@ func (d *Device) DeviceProfileDeviceID() string {
 }
 
 func (d *Device) DPISnapshot() (dpipresentation.Snapshot, bool) {
+	if d == nil {
+		return dpipresentation.Snapshot{}, false
+	}
+	d.lightingMu.Lock()
+	defer d.lightingMu.Unlock()
 	if d == nil || d.DeviceProfile == nil || d.MinDPI < 1 || d.MaxDPI < d.MinDPI || len(d.DeviceProfile.Profiles) == 0 {
 		return dpipresentation.Snapshot{}, false
 	}
@@ -90,6 +95,11 @@ func (d *Device) ButtonsSnapshot() (buttonspresentation.Snapshot, bool) {
 }
 
 func (d *Device) PerformanceSnapshot() (performancepresentation.Snapshot, bool) {
+	if d == nil {
+		return performancepresentation.Snapshot{}, false
+	}
+	d.lightingMu.Lock()
+	defer d.lightingMu.Unlock()
 	if d == nil || d.DeviceProfile == nil || len(d.PollingRates) == 0 || len(d.SwitchModes) == 0 {
 		return performancepresentation.Snapshot{}, false
 	}
@@ -109,6 +119,11 @@ func katarProPerformanceOptions(options map[int]string) []performancepresentatio
 }
 
 func (d *Device) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bool) {
+	if d == nil {
+		return deviceprofilepresentation.Snapshot{}, false
+	}
+	d.lightingMu.Lock()
+	defer d.lightingMu.Unlock()
 	if d == nil {
 		return deviceprofilepresentation.Snapshot{}, false
 	}
