@@ -1649,7 +1649,7 @@ func TestWirelessMouseFamilyModernPreviewsRenderWithoutRegistration(t *testing.T
 		{"scimitar-elite-wireless-se-modern", "preview-scimitar-elite-wireless-se-modern", "SCIMITAR ELITE WIRELESS SE", "Right Forward", false, true, true, true},
 		{"dark-core-rgb-pro-se-wireless-modern", "preview-dark-core-rgb-pro-se-wireless-modern", "DARK CORE RGB PRO SE WIRELESS", "Right Forward", false, true, true, false},
 		{"dark-core-rgb-pro-wireless-modern", "preview-dark-core-rgb-pro-wireless-modern", "DARK CORE RGB PRO WIRELESS", "Right Forward", false, true, true, false},
-		{"dark-core-rgb-se-wireless-modern", "preview-dark-core-rgb-se-wireless-modern", "DARK CORE RGB SE WIRELESS", "Right Forward", false, false, true, true},
+		{"dark-core-rgb-se-wireless-modern", "preview-dark-core-rgb-se-wireless-modern", "DARK CORE SE", "Right Forward", false, false, true, true},
 		{"sabre-v2-pro-wireless-modern", "preview-sabre-v2-pro-wireless-modern", "SABRE V2 PRO WIRELESS", "Right Forward", false, false, true, true},
 	} {
 		if devices.GetDevice(test.serial) != nil {
@@ -1671,6 +1671,11 @@ func TestWirelessMouseFamilyModernPreviewsRenderWithoutRegistration(t *testing.T
 					wants = append(wants, "Mouse", "Scroll", "Side Accent 6")
 					if strings.Contains(body, "Native Lighting migration is not complete.") {
 						t.Error("canonical receiver preview retained legacy notice")
+					}
+				} else if test.key == "dark-core-rgb-se-wireless-modern" {
+					wants = append(wants, "Mouse", "Static", "Logo", "Scroll", "Side")
+					if strings.Contains(body, "Native Lighting migration is not complete.") {
+						t.Error("canonical DARK CORE SE preview retained legacy notice")
 					}
 				} else if test.key == "ironclaw-wireless-modern" || test.key == "ironclaw-wireless-se-modern" {
 					wants = append(wants, "Mouse", "Logo", "Scroll", "Front")

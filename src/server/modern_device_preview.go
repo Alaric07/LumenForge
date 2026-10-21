@@ -263,7 +263,7 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "dark-core-rgb-pro-se-usb-modern", Title: "Dark Core RGB Pro SE USB", ProductType: common.ProductTypeDarkCoreRgbProSEWU, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary { return buildDarkCoreDirectHIDModernPreview(true) }},
 
 	{Key: "dark-core-rgb-se-wireless-modern", Title: "Dark Core RGB SE Wireless", ProductType: common.ProductTypeDarkCoreRgbSEW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
-		return buildWirelessMouseModernPreviewWithCapabilities("DARK CORE RGB SE WIRELESS", "preview-dark-core-rgb-se-wireless-modern", false, false, true, true)
+		return buildDarkCoreSEWirelessModernPreview()
 	}},
 	{Key: "sabre-v2-pro-wireless-modern", Title: "Sabre V2 Pro Wireless", ProductType: common.ProductTypeSabreV2Pro, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
 		return buildWirelessMouseModernPreviewWithCapabilities("SABRE V2 PRO WIRELESS", "preview-sabre-v2-pro-wireless-modern", false, false, true, true)
