@@ -15,7 +15,9 @@ lighting customization data is not required. OpenRGB-imported devices and RGB
 Cluster established the canonical model first. Scimitar Pro RGB, Scimitar RGB
 Elite, MM800, K95 Platinum, Commander Core XT, Commander CORE, Memory, ST100
 RGB, wired M75, M75 W, M75 WU, Hydro, XC7, and wired KATAR PRO now
-form the completed native migration proof set. Remaining native device families
+form the initial completed native migration proof set. G01–G10 and the six
+subsequent standalone migrations are also complete, as recorded in the migration
+matrix. Remaining native device families
 still migrate separately and only after their hardware-specific behavior and required controls are understood; they are not
 part of one broad migration milestone.
 
@@ -108,41 +110,15 @@ OpenRGB capability was added. Focused tests/race checks passed and CodeRabbit
 reported no new findings; no physical hardware validation was performed.
 This canonical milestone is separate from XC7's earlier modern workspace work.
 
-Wired KATAR PRO (`src/devices/katarpro`) completed its standalone canonical
-Lighting migration in `17631e14` (*Migrate KATAR PRO lighting*), separately from
-its modern Devices workspace migration. Canonical Lighting is presentation/state
-authority over the existing `database/rgb/<serial>.json` effect-settings store
-and active device profile backing state for selected effect, desired Brightness,
-authored zone color, and profile selection. No second RGB database or persistence
-format was introduced; the existing renderer/output/HID path remains authoritative.
-
-Its exact catalogue contains **19 selectable effects**: `colorpulse`, `colorwarp`,
-`cpu-temperature`, `flickering`, `flame`, `aurora`, `cyberpunkglitch`, `tokyonight`,
-`gpu-temperature`, `gradient`, `mouse`, `off`, `rainbow`, `pastelrainbow`, `rotator`,
-`static`, `storm`, `watercolor`, and `wave`. Shared effects `colorshift`, `circle`,
-`circleshift`, and `spinner` remain excluded. The source-backed authored `mouse`
-mode retains exactly one zone: **zone 0, Scroll**, with RGB byte mapping
-**[0, 1, 2]**. Sniper color substitution and brightness application are runtime-only
-and use local copies without mutating persisted Scroll-zone or Sniper DPI colors.
-CPU/GPU temperature effects retain their existing sources and profile
-`MinTemp` / `MaxTemp` semantics.
-
-Desired Brightness remains the active profile's 0..100 `BrightnessSlider` value.
-Scheduler darkness and user RGB-off are independent transient runtime overrides;
-neither replaces desired effect, Brightness, or settings, and clearing them
-restores the latest desired state. Profile switching refreshes canonical state
-and retires stale legacy off state. Canonical mutations persist proposed values
-before publishing state or restarting output; persistence failure leaves prior
-state/output authoritative. Unavailable/stopped mutations fail closed before
-state, persistence, renderer restart, or hardware output changes.
-
-Canonical attachment failure leaves the rest of the mouse workspace usable.
-LegacyLighting remains eligible unless a usable canonical snapshot resolves.
-The canonical modern preview is inert: no Init, HID, device registration,
-persistence, renderer goroutine, or background lifecycle. No RGB Cluster,
-OpenRGB, or per-LED capability was added. `katarproW` remains a separate confirmed
-non-Lighting target. Focused package/server/race tests and `git diff --check`
-passed for the migration; no physical hardware validation was performed.
+Wired KATAR PRO's earlier presentation milestone (`17631e14`, *Migrate KATAR
+PRO lighting*) used existing profile/RGB backing. That authority description is
+historical: `ca2c5954` (*Migrate Katar Pro lighting*) completes the shared canonical
+store cutover with clean defaults and no legacy Lighting import or dual authority.
+The contract remains 19 effects and one authored Scroll zone; scheduler/RGB-off
+are separated from desired state. No Cluster or native OpenRGB is advertised,
+and no physical hardware validation was performed. `katarproW` remains a separate
+confirmed non-Lighting target. The earlier inventory accounting is retained as history
+and is not charged again to the current queue.
 
 Hydro completed the constrained fixed-static proof in `395b23b9` (*Migrate
 Hydro static lighting*): canonical fixed `static` identity, editable Static
@@ -190,39 +166,22 @@ Removing `sabreprocs` corrects the assessment baseline to **108 A + 0 B = 108
 packages**. Source-backed batch assessment replaces unproved tentative grouping
 with **98 conservative scheduling passes**: ten proven two-package groups
 (20 packages) plus 88 standalone target slots. This is the overall corrected
-assessment baseline, including G01–G09, not 98 implementation-ready remaining
-passes. After G01–G09, **90 A + 0 B = 90 Lighting targets / 89 pending scheduling
-passes** remain: G10's two packages / one pass plus the same 88 standalone slots.
-Nine completed two-package groups remove 18 packages and nine passes:
-**108 - 18 = 90 targets; 98 - 9 = 89 passes**.
-**54 standalone packages still require focused audits**.
+assessment baseline, including G01–G10, not 98 implementation-ready remaining
+passes. G01–G10 are complete: ten two-package groups leave **88 targets / 88
+passes**. Six subsequent standalone migrations leave the authoritative current
+queue at **82 Lighting targets / 82 scheduling passes**. The baseline remains
+**108 targets / 98 passes**; package fingerprints do not recompute it.
+The earlier assessment recorded **54 standalone packages requiring focused
+audits**; that historical assessment is not a refreshed current audit count.
 Historical structural-scan totals remain **137 marked / 131 strong / 6 weak**.
 
-G02–G09 are complete canonical Lighting migrations:
-
-| Group | Packages | Completed commit | Pending targets / passes after group |
-|---|---|---|---|
-| G02 | `ironclawWU` + `ironclawSEWU` | `a20d8968` | 104 / 96 |
-| G03 | `scimitarWU` + `scimitarSEWU` | `70d8b746` | 102 / 95 |
-| G04 | `virtuosoWU` + `virtuosoSEWU` | `9c27548a` | 100 / 94 |
-| G05 | `scufenvisionproW` + `scufenvisionproV2W` | `ed892867` | 98 / 93 |
-| G06 | `darkcorergbproW` + `darkcorergbproseW` | `53c19c88` | 96 / 92 |
-| G07 | `ironclawW` + `ironclawSEW` | `2a26bdc7` | 94 / 91 |
-| G08 | `scimitarW` + `scimitarSEW` | `f43c4c13` | 92 / 90 |
-| G09 | `virtuosoW` + `virtuosoSEW` | `08261567` | 90 / 89 |
-
-The migration matrix records the package-specific G02–G09 catalogues,
-topologies, preserved ownership/lifecycle boundaries, and G08 asleep/disconnected
-scheduler/RGB-off regression fix. G05 resolves from git history to
-`ed892867c3b7ad199fafdcc31c2a4859eee712c6` (*Migrate SCUF Envision Pro lighting*);
-its closeout reported no new CodeRabbit findings before commit and push.
-
-G10 `k65rgb` + `k65rgbRF` is the only remaining original two-package group;
-it is a proven bulk candidate, **pending**, not complete. After G10, work proceeds
-into the standalone/focused-audit queue. Source-backed migration, automated
-tests, and inert preview are acceptable for hardware not physically owned;
-**no physical hardware validation was performed for G02–G09**. Complete canonical
-Lighting migration remains required before legacy Lighting removal.
+G01–G10 are complete; package contracts and commit history are recorded in the
+[native migration matrix](native-lighting-migration-matrix.md). The grouped
+preview follow-up is closed, including shared keyboard spacing and K65 DE Enter
+geometry (`e3f07005`); no browser or physical hardware validation is implied.
+Six standalone completions leave **82 targets / 82 passes**. Migration continues
+one independently audited target at a time; canonical parity is incomplete and
+legacy `/rgb` removal still requires parity/cutover plus proof of no consumers.
 
 G01 completed the source-proven same-transport Dark Core PRO bulk migration:
 `darkcorergbproWU` + `darkcorergbproseWU` in `438a7d45` (*Migrate Dark Core PRO
@@ -248,9 +207,12 @@ does not establish batching. W/WU pairs require transport/lifecycle equivalence
 and generally remain separate; no remaining W/WU counterpart pair is
 strict-equivalence. Same-transport model revisions are the proven bulk pattern,
 with package-local adapters preferred over new shared hardware abstractions.
-`darkcorergbseWU` and `k70coretklW` remain **NEEDS FOCUSED AUDIT**: each publishes
-`gradient` without a proven corresponding output dispatch. K60 RGB PRO remains
-**Deferred A**.
+`darkcorergbseWU`'s Gradient gate is **resolved** by `cbf0829b`: the canonical
+catalogue is `mouse` / `static`; nonfunctional Gradient advertisement was retired,
+with historical Gradient JSON untouched. Stored metadata is not proof of support.
+`k70coretklW` remains **NEEDS FOCUSED AUDIT** for advertised Gradient with unresolved
+output dispatch. K60 RGB PRO remains **Deferred A** for authored keyboard mode
+durability/ownership, dual brightness systems, and sparse topology/frame mapping.
 
 If a package does not have a complete source-backed Lighting contract, the
 modern workspace must not advertise a Lighting tab/workspace for it.
@@ -390,9 +352,55 @@ settings are ordinary cluster-owned settings, not overrides.
 When a device is cluster-controlled:
 
 - cluster lighting is authoritative;
-- local device lighting controls are disabled or unavailable;
+- local effective-output controls respect Cluster ownership; Native desired-state
+  editing may remain available where the package supports it;
 - the device's own settings remain stored but inactive;
 - leaving the cluster restores the device's own resolved settings.
+
+### Native desired state and effective-output ownership
+
+Migrated Native desired effect, desired Brightness, and complete effect settings
+have one canonical authority: shared canonical state/settings stores, clean
+canonical defaults, and the shared resolver. Do not import legacy Lighting state
+or maintain ongoing legacy/canonical dual reads/writes. Retained legacy fallback
+is a separate path only when canonical attachment is unusable, until final legacy
+removal; serialized legacy fields do not confer behavioral authority.
+
+Desired-state ownership is distinct from effective frame ownership. Native,
+RGB Cluster, and legacy native OpenRGB can remain separate output owners where
+source-backed. Glaive demonstrates complete retained Cluster/OpenRGB paths while
+Native desired state remains editable under external ownership. Do not rescale
+externally supplied zone bytes with local Brightness or move external ownership
+into `lightingsettings`.
+
+A source-backed persisted user preference such as `DeviceProfile.RgbOff` is
+separate from canonical desired effect/settings/Brightness. Dark Core SE receiver
+retains it because startup `ControlDeviceRgb` replay is not guaranteed; USB and
+Glaive also retain independent RGB-off persistence/replay. Scheduler darkness
+remains runtime-only where source semantics permit, including acceptance while
+disconnected where supported. Clearing it restores the latest desired state.
+
+Mutations validate the complete proposal, persist successfully, publish, then
+restart/output. Persistence failure must be observable and must not partially
+publish state or emit output. Renderer/output transforms use defensive copies
+of authored state; repeated brightness scaling must not mutate stored colors.
+Canonical workers must have cancellation/ownership separate from legacy
+`d.activeRgb` and its unbuffered `Exit` channels. Asynchronous frames require
+owner-generation/session checks so stale Native/Cluster/OpenRGB work cannot
+write after ownership changes. External registration must refresh safely across
+profile switches; stale sessions/callbacks must be retired.
+
+Capability correction is permitted when advertised UI metadata never had a
+source-backed output path. Dark Core SE USB now exposes only `mouse` / `static`:
+its nonfunctional Gradient advertisement/editor was retired after revision audit.
+Historical Gradient JSON remains untouched and must not re-enable that capability;
+shared Gradient support remains available to proven consumers.
+
+Inert previews must not initialize hardware, persistence, listeners, ownership
+registration, or renderers. Source-backed automated tests and inert previews are
+acceptable alpha migration evidence; they do not establish browser or physical
+hardware validation. Eventual community hardware validation remains necessary
+for release confidence.
 
 ## 4. Hidden immutable defaults
 

@@ -103,8 +103,9 @@ LumenForge is a local, alpha-stage RGB and fan controller maintained by one deve
   until a usable canonical snapshot resolves. Its canonical preview is inert.
   Focused tests/race checks passed and CodeRabbit reported no new findings;
   no physical hardware validation was performed.
-  Wired KATAR PRO (`src/devices/katarpro`) completed its standalone canonical
-  Lighting migration in `17631e14` (*Migrate KATAR PRO lighting*), separately from
+  Historical proof (superseded by shared-store cutover `ca2c5954` for desired
+  Lighting authority): wired KATAR PRO (`src/devices/katarpro`) completed its
+  standalone canonical Lighting migration in `17631e14` (*Migrate KATAR PRO lighting*), separately from
   its modern Devices workspace migration. Canonical Lighting is presentation/state
   authority over the existing `database/rgb/<serial>.json` effect-settings store
   and active device profile backing state for selected effect, desired Brightness,
@@ -163,39 +164,22 @@ Removing `sabreprocs` corrects the assessment baseline to **108 A + 0 B = 108
 packages**. Source-backed batch assessment replaces unproved tentative grouping
 with **98 conservative scheduling passes**: ten proven two-package groups
 (20 packages) plus 88 standalone target slots. This is the overall corrected
-assessment baseline, including G01–G09, not 98 implementation-ready remaining
-passes. After G01–G09, **90 A + 0 B = 90 Lighting targets / 89 pending scheduling
-passes** remain: G10's two packages / one pass plus the same 88 standalone slots.
-Nine completed two-package groups remove 18 packages and nine passes:
-**108 - 18 = 90 targets; 98 - 9 = 89 passes**.
-**54 standalone packages still require focused audits**.
+assessment baseline, including G01–G10, not 98 implementation-ready remaining
+passes. G01–G10 are complete: ten two-package groups leave **88 targets / 88
+passes**. Six subsequent standalone migrations leave the authoritative current
+queue at **82 Lighting targets / 82 scheduling passes**. The baseline remains
+**108 targets / 98 passes**; package fingerprints do not recompute it.
+The earlier assessment recorded **54 standalone packages requiring focused
+audits**; that historical assessment is not a refreshed current audit count.
 Historical structural-scan totals remain **137 marked / 131 strong / 6 weak**.
 
-G02–G09 are complete canonical Lighting migrations:
-
-| Group | Packages | Completed commit | Pending targets / passes after group |
-|---|---|---|---|
-| G02 | `ironclawWU` + `ironclawSEWU` | `a20d8968` | 104 / 96 |
-| G03 | `scimitarWU` + `scimitarSEWU` | `70d8b746` | 102 / 95 |
-| G04 | `virtuosoWU` + `virtuosoSEWU` | `9c27548a` | 100 / 94 |
-| G05 | `scufenvisionproW` + `scufenvisionproV2W` | `ed892867` | 98 / 93 |
-| G06 | `darkcorergbproW` + `darkcorergbproseW` | `53c19c88` | 96 / 92 |
-| G07 | `ironclawW` + `ironclawSEW` | `2a26bdc7` | 94 / 91 |
-| G08 | `scimitarW` + `scimitarSEW` | `f43c4c13` | 92 / 90 |
-| G09 | `virtuosoW` + `virtuosoSEW` | `08261567` | 90 / 89 |
-
-The migration matrix records the package-specific G02–G09 catalogues,
-topologies, preserved ownership/lifecycle boundaries, and G08 asleep/disconnected
-scheduler/RGB-off regression fix. G05 resolves from git history to
-`ed892867c3b7ad199fafdcc31c2a4859eee712c6` (*Migrate SCUF Envision Pro lighting*);
-its closeout reported no new CodeRabbit findings before commit and push.
-
-G10 `k65rgb` + `k65rgbRF` is the only remaining original two-package group;
-it is a proven bulk candidate, **pending**, not complete. After G10, work proceeds
-into the standalone/focused-audit queue. Source-backed migration, automated
-tests, and inert preview are acceptable for hardware not physically owned;
-**no physical hardware validation was performed for G02–G09**. Complete canonical
-Lighting migration remains required before legacy Lighting removal.
+G01–G10 are complete; package contracts and commit history are recorded in the
+[native migration matrix](native-lighting-migration-matrix.md). The grouped
+preview follow-up is closed, including shared keyboard spacing and K65 DE Enter
+geometry (`e3f07005`); no browser or physical hardware validation is implied.
+Six standalone completions leave **82 targets / 82 passes**. Migration continues
+one independently audited target at a time; canonical parity is incomplete and
+legacy `/rgb` removal still requires parity/cutover plus proof of no consumers.
 
 G01 completed the source-proven same-transport Dark Core PRO bulk migration:
 `darkcorergbproWU` + `darkcorergbproseWU` in `438a7d45` (*Migrate Dark Core PRO
@@ -221,9 +205,30 @@ does not establish batching. W/WU pairs require transport/lifecycle equivalence
 and generally remain separate; no remaining W/WU counterpart pair is
 strict-equivalence. Same-transport model revisions are the proven bulk pattern,
 with package-local adapters preferred over new shared hardware abstractions.
-`darkcorergbseWU` and `k70coretklW` remain **NEEDS FOCUSED AUDIT**: each publishes
-`gradient` without a proven corresponding output dispatch. K60 RGB PRO remains
-**Deferred A**.
+`darkcorergbseWU`'s Gradient gate is **resolved** by `cbf0829b`: the canonical
+catalogue is `mouse` / `static`; nonfunctional Gradient advertisement was retired,
+with historical Gradient JSON untouched. Stored metadata is not proof of support.
+`k70coretklW` remains **NEEDS FOCUSED AUDIT** for advertised Gradient with unresolved
+output dispatch. K60 RGB PRO remains **Deferred A** for authored keyboard mode
+durability/ownership, dual brightness systems, and sparse topology/frame mapping.
+
+### Reusable canonical Lighting reliability rules
+
+- Validate complete proposed desired state, persist successfully, then publish
+  and restart/output. Persistence errors must be observable; failure must not
+  partially publish state or emit output. Never fall back to legacy writes.
+- Keep canonical worker cancellation/ownership separate from legacy `d.activeRgb`
+  and unbuffered `Exit` channels. Legacy rendering remains fallback-only when
+  canonical attachment is unusable, not a parallel desired-state authority.
+- Reject stale asynchronous Native/Cluster/OpenRGB frames using owner generation
+  or session checks. Refresh external ownership registration safely across profile
+  switches and invalidate stale callbacks/frames on ownership changes.
+- Transform defensive copies of authored colors/settings so repeated Static
+  scaling or transient overlays cannot corrupt stored state.
+- Distinguish persisted user RGB-off preference from runtime-only scheduler
+  darkness. An independently persisted preference is not duplicate canonical
+  effect/settings/desired-brightness authority; disconnect/replay semantics need
+  source-backed handling.
 
 ### Required presentation cleanup for confirmed non-Lighting targets
 

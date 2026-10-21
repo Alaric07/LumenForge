@@ -177,41 +177,15 @@ persistence mutation, or renderer goroutines. Focused package/server tests,
 race testing, and `git diff --check` passed; CodeRabbit reported no new findings.
 No physical hardware validation was performed.
 
-Wired KATAR PRO (`src/devices/katarpro`) completed its standalone canonical
-Lighting migration in `17631e14` (*Migrate KATAR PRO lighting*), separately from
-its modern Devices workspace migration. Canonical Lighting is presentation/state
-authority over the existing `database/rgb/<serial>.json` effect-settings store
-and active device profile backing state for selected effect, desired Brightness,
-authored zone color, and profile selection. No second RGB database or persistence
-format was introduced; the existing renderer/output/HID path remains authoritative.
-
-Its exact catalogue contains **19 selectable effects**: `colorpulse`, `colorwarp`,
-`cpu-temperature`, `flickering`, `flame`, `aurora`, `cyberpunkglitch`, `tokyonight`,
-`gpu-temperature`, `gradient`, `mouse`, `off`, `rainbow`, `pastelrainbow`, `rotator`,
-`static`, `storm`, `watercolor`, and `wave`. Shared effects `colorshift`, `circle`,
-`circleshift`, and `spinner` remain excluded. The source-backed authored `mouse`
-mode retains exactly one zone: **zone 0, Scroll**, with RGB byte mapping
-**[0, 1, 2]**. Sniper color substitution and brightness application are runtime-only
-and use local copies without mutating persisted Scroll-zone or Sniper DPI colors.
-CPU/GPU temperature effects retain their existing sources and profile
-`MinTemp` / `MaxTemp` semantics.
-
-Desired Brightness remains the active profile's 0..100 `BrightnessSlider` value.
-Scheduler darkness and user RGB-off are independent transient runtime overrides;
-neither replaces desired effect, Brightness, or settings, and clearing them
-restores the latest desired state. Profile switching refreshes canonical state
-and retires stale legacy off state. Canonical mutations persist proposed values
-before publishing state or restarting output; persistence failure leaves prior
-state/output authoritative. Unavailable/stopped mutations fail closed before
-state, persistence, renderer restart, or hardware output changes.
-
-Canonical attachment failure leaves the rest of the mouse workspace usable.
-LegacyLighting remains eligible unless a usable canonical snapshot resolves.
-The canonical modern preview is inert: no Init, HID, device registration,
-persistence, renderer goroutine, or background lifecycle. No RGB Cluster,
-OpenRGB, or per-LED capability was added. `katarproW` remains a separate confirmed
-non-Lighting target. Focused package/server/race tests and `git diff --check`
-passed for the migration; no physical hardware validation was performed.
+Wired KATAR PRO's earlier presentation milestone (`17631e14`, *Migrate KATAR
+PRO lighting*) used existing profile/RGB backing. That authority description is
+historical: `ca2c5954` (*Migrate Katar Pro lighting*) completes the shared canonical
+store cutover with clean defaults and no legacy Lighting import or dual authority.
+The contract remains 19 effects and one authored Scroll zone; scheduler/RGB-off
+are separated from desired state. No Cluster or native OpenRGB is advertised,
+and no physical hardware validation was performed. `katarproW` remains a separate
+confirmed non-Lighting target. The earlier inventory accounting is retained as history
+and is not charged again to the current queue.
 
 **G01 — completed Dark Core PRO bulk migration**
 
@@ -305,6 +279,45 @@ G02–G09 are complete canonical Lighting migrations:
 All eight groups are canonical Lighting complete. **No physical hardware
 validation was performed for G02–G09.**
 
+**G10 and standalone completion contracts**
+
+G10 completed `k65rgb` and `k65rgbRF` in `b1ce9056` (*Migrate K65 RGB lighting*).
+The 20 G01–G10 fixture preview audit is closed: the shared keyboard spacing,
+gutter, and minimum-key-size issue and K65 DE Enter geometry loss are fixed.
+The spacing fix preceded `e3f07005` (*Fix K65 DE keyboard preview geometry*);
+this is manual/source-backed preview audit
+evidence, not browser or physical hardware validation.
+
+| Standalone target | Completed commit | Source-backed canonical contract |
+|---|---|---|
+| `katarproxt` | `f65d0b4a` — Migrate Katar Pro XT lighting | 19 effects; one authored Scroll zone; SchedulerBrightness; DPI flash and Mouse-only Sniper preserved; no Cluster/native OpenRGB. |
+| `harpoonrgbpro` | `d3a7f349` — Migrate Harpoon RGB Pro lighting | 20 effects; one authored Logo zone; shared canonical stores are sole desired-state authority; reusable authored-zone support added under `src/lightingsettings`; no Cluster/native OpenRGB. |
+| `katarpro` | `ca2c5954` — Migrate Katar Pro lighting | 19 effects; one authored Scroll zone; shared canonical stores with clean defaults, no legacy Lighting import/dual authority; scheduler/RGB-off separate from desired state; no Cluster/native OpenRGB. |
+| `darkcorergbseW` | `c3b9a191` — Migrate Dark Core SE receiver lighting | `mouse` / `static`; authored Logo, Scroll, Side zones; shared canonical stores with clean defaults; Static cumulative scaling and scheduler restoration fixed; scheduler state accepted disconnected; receiver transport unchanged; no Cluster/native OpenRGB. |
+| `darkcorergbseWU` | `cbf0829b` — Migrate Dark Core SE USB lighting | `mouse` / `static`; authored Logo, Scroll, Side zones; shared canonical stores; scheduler transient, RGB-off independently persisted/replayed; direct HID unchanged; no Cluster/native OpenRGB. |
+| `glaivergb` | `012a8e94` — Migrate Glaive RGB lighting | 20 effects; authored Front, Logo, Side zones; shared canonical stores with clean defaults and no legacy desired-state import/dual authority; complete retained Cluster and native OpenRGB ownership/output paths. |
+
+Dark Core SE receiver `DeviceProfile.RgbOff` remains persisted as a separate user
+preference because canonical devices have no guaranteed startup `ControlDeviceRgb`
+replay. It is not a second desired Lighting authority; `schedulerDark` is runtime-only.
+
+The Dark Core SE USB Gradient gate is **resolved**. Audit found advertised/editable
+Gradient without hardware output; follow-up across 19 local WU revisions found no
+proven output, only bulk catalogue/editor additions. Retiring that advertisement
+avoids inventing animation/lifecycle support. Historical Gradient JSON remains
+untouched, but Gradient is no longer selectable/editable for this target. This
+capability correction does not remove shared Gradient support. Future work must
+not re-add it solely from old stored metadata.
+
+Glaive retains separate Native, Cluster, and native OpenRGB output owners.
+Canonical Native desired state stays editable under external ownership. Scheduler
+darkness is transient; profile-backed RGB-off remains. Renderer cancellation and
+ownership/session checks reject stale Native/Cluster/OpenRGB frames; Cluster
+registration refreshes safely across profile switches. Canonical worker ownership
+is separate from legacy `d.activeRgb`, which remains fallback-only.
+
+No physical hardware validation was performed for these six standalone migrations.
+
 Commander Core XT and Commander CORE establish the separate multi-channel
 controller proof. Both expose modern Overview, Lighting, and Cooling workspaces,
 with full Device Profiles on Overview, shared Cooling presentation, controller
@@ -391,10 +404,10 @@ Generated as a read-only architecture inventory. This does not declare migration
 - Strong-marker packages requiring source-contract classification: **131**
 - Weak-marker-only packages requiring manual review: **6**
 - Corrected assessment baseline after excluding `sabreprocs`: **108 A + 0 B =
-  108 packages / 98 conservative scheduling passes**, including G01–G09.
-- Pending after completed G01–G09: **90 A + 0 B = 90 Lighting targets / 89 passes**;
-  G10 is the only remaining original two-package group, plus 88 standalone slots,
-  of which 54 still require focused audits.
+  108 packages / 98 conservative scheduling passes**, including G01–G10.
+- G01–G10 grouped phase complete: **88 targets / 88 passes** remained after G10.
+- Six standalone migrations complete: **82 Lighting targets / 82 passes** remain.
+  Historical audit and structural counts below are not current queue totals.
 
 Strong markers are audit leads, not proof of a Lighting implementation. A real
 Lighting target requires source-backed persisted state, a user mutation,
@@ -451,16 +464,16 @@ Historical structural-scan totals; these are not the current audited queue.
 | `darkcorergbproWU` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
 | `darkcorergbproseW` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
 | `darkcorergbproseWU` | Y | Migrated | zoned |  | Y |  | Y |  | Y | Y | mouse |
-| `darkcorergbseW` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  | mouse |
-| `darkcorergbseWU` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  | mouse |
+| `darkcorergbseW` | Y | Migrated | zoned | Y | Y |  | Y |  |  |  | mouse |
+| `darkcorergbseWU` | Y | Migrated | zoned | Y | Y |  | Y |  |  |  | mouse |
 | `darkstarW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `darkstarWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `elite` | Y | Legacy | multi-channel + per-LED | Y | Y | Y |  | Y | Y | Y | led, liquid-temperature |
-| `glaivergb` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
+| `glaivergb` | Y | Migrated | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `glaivergbpro` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `harpoonW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `harpoonWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `harpoonrgbpro` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  | mouse |
+| `harpoonrgbpro` | Y | Migrated | zoned | Y | Y |  | Y |  |  |  | mouse |
 | `hs80maxW` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `hs80rgb` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `hs80rgbW` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
@@ -485,8 +498,8 @@ Historical structural-scan totals; these are not the current audited queue.
 | `k65plusW` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
 | `k65plusWU` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
 | `k65pm` | Y | Legacy | single-profile | Y | Y |  |  |  | Y |  | keyboard |
-| `k65rgb` | Y | Legacy | single-profile | Y | Y |  |  |  |  |  | keyboard |
-| `k65rgbRF` | Y | Legacy | single-profile | Y | Y |  |  |  |  |  | keyboard |
+| `k65rgb` | Y | Migrated | single-profile | Y | Y |  |  |  |  |  | keyboard |
+| `k65rgbRF` | Y | Migrated | single-profile | Y | Y |  |  |  |  |  | keyboard |
 | `k65rm` | Y | Legacy | single-profile | Y | Y |  |  |  | Y |  | keyboard |
 | `k68rgb` | Y | Legacy | single-profile | Y | Y |  |  |  |  |  | keyboard |
 | `k70core` | Y | Legacy | single-profile | Y |  |  |  |  | Y |  | keyboard |
@@ -508,7 +521,7 @@ Historical structural-scan totals; these are not the current audited queue.
 | `k95platinumXT` | Y | Legacy | single-profile | Y |  |  |  |  |  |  | keyboard |
 | `katarpro` | Y | Migrated | zoned |  | Y |  | Y |  |  |  | mouse |
 | `katarproW` | Y | Not a lighting target | dormant/inert metadata | Y | Y |  |  |  |  |  | DPI indicator only |
-| `katarproxt` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  | mouse |
+| `katarproxt` | Y | Migrated | zoned | Y | Y |  | Y |  |  |  | mouse |
 | `lncore` | Y | Legacy | multi-channel | Y | Y |  |  |  |  |  |  |
 | `lnpro` | Y | Legacy | multi-channel | Y | Y |  |  |  |  |  |  |
 | `lsh` | Y | Legacy | multi-channel + per-LED | Y | Y | Y |  | Y | Y | Y | led, liquid-temperature, probe-temperature |
@@ -668,12 +681,13 @@ Removing `sabreprocs` corrects the assessment baseline to **108 A + 0 B = 108
 packages**. Source-backed batch assessment replaces unproved tentative grouping
 with **98 conservative scheduling passes**: ten proven two-package groups
 (20 packages) plus 88 standalone target slots. This is the overall corrected
-assessment baseline, including G01–G09, not 98 implementation-ready remaining
-passes. After G01–G09, **90 A + 0 B = 90 Lighting targets / 89 pending scheduling
-passes** remain: G10's two packages / one pass plus the same 88 standalone slots.
-Nine completed two-package groups remove 18 packages and nine passes:
-**108 - 18 = 90 targets; 98 - 9 = 89 passes**.
-**54 standalone packages still require focused audits**.
+assessment baseline, including G01–G10, not 98 implementation-ready remaining
+passes. G01–G10 are complete: ten two-package groups leave **88 targets / 88
+passes**. Six subsequent standalone migrations leave the authoritative current
+queue at **82 Lighting targets / 82 scheduling passes**. The baseline remains
+**108 targets / 98 passes**; package fingerprints do not recompute it.
+The earlier assessment recorded **54 standalone packages requiring focused
+audits**; that historical assessment is not a refreshed current audit count.
 Historical structural-scan totals remain **137 marked / 131 strong / 6 weak**.
 
 | Group | Packages | Status |
@@ -687,20 +701,34 @@ Historical structural-scan totals remain **137 marked / 131 strong / 6 weak**.
 | G07 | `ironclawW` + `ironclawSEW` | Completed — `2a26bdc7` |
 | G08 | `scimitarW` + `scimitarSEW` | Completed — `f43c4c13` |
 | G09 | `virtuosoW` + `virtuosoSEW` | Completed — `08261567` |
-| G10 | `k65rgb` + `k65rgbRF` | Proven bulk candidate; pending |
+| G10 | `k65rgb` + `k65rgbRF` | Completed — `b1ce9056` |
 
-`darkcorergbseWU` and `k70coretklW` remain **NEEDS FOCUSED AUDIT** because each
-publishes `gradient` without a proven corresponding output dispatch. Neither
-audit gate is resolved by G01–G09 or this reconciliation. K60 RGB PRO remains
-**Deferred A**, within the standalone target slots. Proven grouping does not
-claim physical validation or authorize shared hardware abstractions.
+`darkcorergbseWU`'s Gradient gate is **resolved** by `cbf0829b`: the canonical
+catalogue is `mouse` / `static`; nonfunctional Gradient advertisement was retired,
+with historical Gradient JSON untouched. Stored metadata is not proof of support.
+`k70coretklW` remains **NEEDS FOCUSED AUDIT** for advertised Gradient with unresolved
+output dispatch. K60 RGB PRO remains **Deferred A** for authored keyboard mode
+durability/ownership, dual brightness systems, and sparse topology/frame mapping.
+Proven grouping does not claim physical validation or authorize shared hardware abstractions.
 
-G10 `k65rgb` + `k65rgbRF` is the only remaining original two-package group;
-it is a proven bulk candidate, **pending**, not complete. After G10, work proceeds
-into the standalone/focused-audit queue. Source-backed migration, automated
-tests, and inert preview are acceptable for hardware not physically owned;
-**no physical hardware validation was performed for G02–G09**. Complete canonical
-Lighting migration remains required before legacy Lighting removal.
+G10 `k65rgb` + `k65rgbRF` completed in `b1ce9056` (*Migrate K65 RGB lighting*),
+closing the original G01–G10 grouped phase. The manual/source-backed audit of all
+20 grouped preview fixtures is closed: shared keyboard spacing/gutter/minimum
+key size was fixed before the K65 DE Enter geometry fix (`e3f07005`, *Fix K65 DE
+keyboard preview geometry*).
+These preview fixes do not establish browser or physical hardware validation.
+
+The standalone phase is active. Completed: `katarproxt` (`f65d0b4a`),
+`harpoonrgbpro` (`d3a7f349`), `katarpro` (`ca2c5954`), `darkcorergbseW`
+(`c3b9a191`), `darkcorergbseWU` (`cbf0829b`), and `glaivergb` (`012a8e94`).
+Continue one independently audited target at a time; W and WU remain separate
+passes unless equivalence is independently proven. Source-backed automated tests
+and inert previews are acceptable for this alpha migration phase. No physical
+hardware validation is recorded for these six migrations; eventual community
+hardware validation is required for release confidence. Canonical Lighting is
+still incomplete overall. Legacy `/rgb` removal is not ready: all supported true
+consumers need equivalent canonical parity/cutover and tracing must prove the old
+path unused.
 
 ## Architectural signature groups
 
@@ -718,7 +746,8 @@ Count: **35**
 
 `darkcorergbproW`, `darkcorergbproWU`, `darkcorergbproseW`, `darkcorergbproseWU`, `darkstarW`, `darkstarWU`, `glaivergb`, `glaivergbpro`, `harpoonW`, `harpoonWU`, `ironclaw`, `ironclawSEW`, `ironclawSEWU`, `ironclawW`, `ironclawWU`, `m55rgbpro`, `m65prorgb`, `m65rgbelite`, `m65rgbultra`, `m65rgbultraW`, `m65rgbultraWU`, `nightsabreW`, `nightsabreWU`, `nightswordrgb`, `sabrergbpro`, `sabrergbproW`, `sabrergbproWU`, `scimitar`, `scimitarSEW`, `scimitarSEWU`, `scimitarW`, `scimitarWU`, `scimitarprorgb`, `scimitarrgb`, `scimitarrgbelite`
 
-G01–G03 and G06–G08 are Migrated and excluded from pending scheduling;
+G01–G03, G06–G08, and standalone `glaivergb` (`012a8e94`) are Migrated
+and excluded from pending scheduling;
 the 35-package signature count remains the discovery population. W/WU
 counterparts completed separate source-backed passes, not an automatic
 transport-equivalence migration.
@@ -747,12 +776,12 @@ Count: **6**
 
 `darkcorergbseW`, `darkcorergbseWU`, `harpoonrgbpro`, `katarpro`, `katarproxt`, `m75`
 
-The six-package signature count above records the discovery population, not the
-remaining queue. Wired `m75` (`749f781f`) and `katarpro` (`17631e14`) are completed
-standalone migrations and excluded from remaining scheduling. `katarpro` was
-one standalone planned pass; no shared pass with `katarproxt` was documented.
-The other four packages remain pending; the signature alone does not authorize
-batching them.
+The six-package signature count above records the historical discovery population,
+not the remaining queue. All six are now Migrated: wired `m75` (`749f781f`),
+`katarpro` (earlier `17631e14`, shared-store cutover `ca2c5954`), `katarproxt`
+(`f65d0b4a`), `harpoonrgbpro` (`d3a7f349`), `darkcorergbseW` (`c3b9a191`), and
+`darkcorergbseWU` (`cbf0829b`). They completed separate standalone passes;
+the signature did not authorize batching them.
 
 ### weak-marker only
 
