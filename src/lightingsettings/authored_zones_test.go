@@ -101,3 +101,37 @@ func TestAuthoredImportRollbackAndValidation(t *testing.T) {
 		t.Fatal("authored Static introduced")
 	}
 }
+
+func TestAuthoredPaletteCommitPublishesOnlyAfterBothWrites(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "effects.json")
+	store, err := LoadDeviceStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := map[string]Color{"0": {Red: 10}}
+	if err = store.SetAuthoredZones("glaive", "mouse", original); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(path)
+	failure := errors.New("input failure")
+	if err = store.SetAuthoredZonesWithCommit("glaive", "mouse", map[string]Color{"0": {Red: 20}}, func() error { return failure }); !errors.Is(err, failure) {
+		t.Fatal(err)
+	}
+	after, _ := os.ReadFile(path)
+	got, _, _ := store.GetAuthoredZones("glaive", "mouse")
+	if !reflect.DeepEqual(before, after) || got["0"].Red != 10 {
+		t.Fatal("partial commit", got)
+	}
+	committed := false
+	if err = store.SetAuthoredZonesWithCommit("glaive", "mouse", map[string]Color{"0": {Red: 20}}, func() error { committed = true; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	got, _, _ = store.GetAuthoredZones("glaive", "mouse")
+	if !committed || got["0"].Red != 20 {
+		t.Fatal("missing commit")
+	}
+	store.writer = writerFunc(func(string, []byte) error { return errors.New("disk failure") })
+	if store.SetAuthoredZonesWithCommit("glaive", "mouse", original, func() error { t.Fatal("input saved before palette"); return nil }) == nil {
+		t.Fatal("disk failure swallowed")
+	}
+}

@@ -38,6 +38,12 @@ func (d *Device) DeviceProfileDeviceID() string {
 }
 
 func (d *Device) DPISnapshot() (dpipresentation.Snapshot, bool) {
+	if d == nil {
+		return dpipresentation.Snapshot{}, false
+	}
+	d.lightingMu.Lock()
+	defer d.lightingMu.Unlock()
+
 	if d == nil || d.DeviceProfile == nil || d.MinDPI < 1 || d.MaxDPI < d.MinDPI || d.DPIAmount < 1 || len(d.DeviceProfile.Profiles) != d.DPIAmount || d.DeviceProfile.DPIColor == nil || d.DeviceProfile.SniperColor == nil {
 		return dpipresentation.Snapshot{}, false
 	}
@@ -102,6 +108,12 @@ func glaiveRGBOptions(values map[int]string) []performancepresentation.Option {
 	return out
 }
 func (d *Device) PerformanceSnapshot() (performancepresentation.Snapshot, bool) {
+	if d == nil {
+		return performancepresentation.Snapshot{}, false
+	}
+	d.lightingMu.Lock()
+	defer d.lightingMu.Unlock()
+
 	if d == nil || d.DeviceProfile == nil || len(d.PollingRates) == 0 || len(d.ButtonOptimizations) == 0 || len(d.LiftHeights) == 0 || d.DeviceProfile.AngleSnapping < 0 || d.DeviceProfile.AngleSnapping > 1 {
 		return performancepresentation.Snapshot{}, false
 	}
@@ -117,6 +129,12 @@ func (d *Device) PerformanceSnapshot() (performancepresentation.Snapshot, bool) 
 	return performancepresentation.Snapshot{PollingRate: &performancepresentation.SelectSetting{Value: d.DeviceProfile.PollingRate, Options: glaiveRGBOptions(d.PollingRates)}, ButtonOptimization: &performancepresentation.SelectSetting{Value: d.DeviceProfile.ButtonOptimization, Options: glaiveRGBOptions(d.ButtonOptimizations)}, AngleSnapping: &performancepresentation.ToggleSetting{Enabled: d.DeviceProfile.AngleSnapping == 1}, LiftHeight: &performancepresentation.SelectSetting{Value: d.DeviceProfile.LiftHeight, Options: glaiveRGBOptions(d.LiftHeights)}}, true
 }
 func (d *Device) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bool) {
+	if d == nil {
+		return deviceprofilepresentation.Snapshot{}, false
+	}
+	d.lightingMu.Lock()
+	defer d.lightingMu.Unlock()
+
 	if d == nil {
 		return deviceprofilepresentation.Snapshot{}, false
 	}

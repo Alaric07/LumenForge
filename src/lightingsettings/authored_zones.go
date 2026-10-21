@@ -24,6 +24,15 @@ func (store *DeviceStore) GetAuthoredZones(deviceID, effect string) (map[string]
 // SetAuthoredZones persists a complete authored palette before publishing it.
 // The device validates the exact physical zone IDs before calling this seam.
 func (store *DeviceStore) SetAuthoredZones(deviceID, effect string, colors map[string]Color) error {
+	return store.SetAuthoredZonesWithCommit(deviceID, effect, colors, nil)
+}
+
+// SetAuthoredZonesWithCommit keeps a native compatibility request's palette and
+// device-owned input metadata together. commit must only persist the proposed
+// input value; it must not access this store or publish runtime state. Readers
+// see the new palette only after both writes succeed. A failed input save restores
+// the previous settings document, retaining the prior in-memory palette.
+func (store *DeviceStore) SetAuthoredZonesWithCommit(deviceID, effect string, colors map[string]Color, commit func() error) error {
 	if err := validateAuthoredIdentity(deviceID, effect); err != nil {
 		return err
 	}
@@ -42,6 +51,14 @@ func (store *DeviceStore) SetAuthoredZones(deviceID, effect string, colors map[s
 	next[deviceID][effect] = cloneZoneColors(colors)
 	if err := store.persist(deviceStoreDocument{SchemaVersion: storeSchemaVersion, Devices: store.devices, AuthoredZones: next}); err != nil {
 		return err
+	}
+	if commit != nil {
+		if err := commit(); err != nil {
+			if restoreErr := store.persist(deviceStoreDocument{SchemaVersion: storeSchemaVersion, Devices: store.devices, AuthoredZones: store.authoredZones}); restoreErr != nil {
+				return errors.Join(err, fmt.Errorf("restore authored palette: %w", restoreErr))
+			}
+			return err
+		}
 	}
 	store.authoredZones = next
 	return nil

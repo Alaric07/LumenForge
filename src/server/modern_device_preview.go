@@ -1368,6 +1368,7 @@ func buildGlaiveRGBModernPreview() *devicesWorkspaceSummary {
 	s.Performance.LiftHeight = &devicesPerformanceSelectSummary{Value: 3, Options: []devicesPerformanceOptionSummary{{Value: 2, Label: "Low"}, {Value: 3, Label: "Medium"}, {Value: 4, Label: "High"}}}
 	s.Buttons.Buttons = s.Buttons.Buttons[:6]
 	s.Buttons.Buttons[5].Name = "DPI Toggle"
+	addGlaiveCanonicalLightingPreview(s)
 	return s
 }
 
