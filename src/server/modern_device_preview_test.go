@@ -1639,7 +1639,7 @@ func TestWirelessMouseFamilyModernPreviewsRenderWithoutRegistration(t *testing.T
 	}{
 		{"m75-air-wireless-modern", "preview-m75-air-wireless-modern", "M75 AIR WIRELESS", "Right Forward", true, true, true, true},
 		{"m65-rgb-ultra-wireless-modern", "preview-m65-rgb-ultra-wireless-modern", "M65 RGB ULTRA WIRELESS", "Right Forward", true, true, true, true},
-		{"harpoon-wireless-modern", "preview-harpoon-wireless-modern", "HARPOON WIRELESS", "Right Forward", false, true, true, false},
+		{"harpoon-wireless-modern", "preview-harpoon-wireless-modern", "HARPOON RGB", "Forward Button", false, true, true, false},
 		{"m55-wireless-modern", "preview-m55-wireless-modern", "M55 WIRELESS", "Right Forward", false, true, true, false},
 		{"nightsabre-wireless-modern", "preview-nightsabre-wireless-modern", "NIGHTSABRE WIRELESS", "Right Forward", true, true, true, true},
 		{"sabre-rgb-pro-wireless-modern", "preview-sabre-rgb-pro-wireless-modern", "SABRE RGB PRO WIRELESS", "Right Forward", true, true, true, true},
@@ -1671,6 +1671,11 @@ func TestWirelessMouseFamilyModernPreviewsRenderWithoutRegistration(t *testing.T
 					wants = append(wants, "Mouse", "Scroll", "Side Accent 6")
 					if strings.Contains(body, "Native Lighting migration is not complete.") {
 						t.Error("canonical receiver preview retained legacy notice")
+					}
+				} else if test.key == "harpoon-wireless-modern" {
+					wants = append(wants, "Mouse", "Static", "Logo", "Color Pulse")
+					if strings.Contains(body, "Native Lighting migration is not complete.") {
+						t.Error("canonical Harpoon W preview retained legacy notice")
 					}
 				} else if test.key == "dark-core-rgb-se-wireless-modern" {
 					wants = append(wants, "Mouse", "Static", "Logo", "Scroll", "Side")

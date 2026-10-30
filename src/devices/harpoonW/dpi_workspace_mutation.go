@@ -6,6 +6,9 @@ import (
 )
 
 func (d *Device) SelectMouseDPIStage(stage int) uint8 {
+	if d.lightingAttached() {
+		return d.selectCanonicalDPI(stage)
+	}
 	if d == nil || d.DeviceProfile == nil {
 		return 0
 	}
@@ -24,6 +27,9 @@ func (d *Device) SelectMouseDPIStage(stage int) uint8 {
 	return 1
 }
 func (d *Device) SetMouseSniperMode(active bool) uint8 {
+	if d.lightingAttached() {
+		return d.setCanonicalSniperMode(active)
+	}
 	if d == nil || d.DeviceProfile == nil {
 		return 0
 	}
@@ -41,6 +47,9 @@ func harpoonWColorOK(c rgb.Color) bool {
 	return c.Red >= 0 && c.Red <= 255 && c.Green >= 0 && c.Green <= 255 && c.Blue >= 0 && c.Blue <= 255
 }
 func (d *Device) SaveMouseDPISettings(stages map[int]uint16, colors map[int]rgb.Color) uint8 {
+	if d.lightingAttached() {
+		return d.saveCanonicalDPI(stages, colors, false)
+	}
 	if d == nil || d.DeviceProfile == nil || len(d.DeviceProfile.Profiles) == 0 || len(stages) != len(d.DeviceProfile.Profiles) || len(colors) != len(d.DeviceProfile.Profiles) {
 		return 0
 	}

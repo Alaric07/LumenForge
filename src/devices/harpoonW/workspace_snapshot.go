@@ -44,6 +44,10 @@ func (d *Device) SleepTimerDeviceID() string {
 	return d.Serial
 }
 func (d *Device) DPISnapshot() (dpipresentation.Snapshot, bool) {
+	if d != nil {
+		d.lightingMu.Lock()
+		defer d.lightingMu.Unlock()
+	}
 	if d == nil || d.DeviceProfile == nil || d.MinDPI < 1 || d.MaxDPI < d.MinDPI || d.DPIAmount < 1 || len(d.DeviceProfile.Profiles) != d.DPIAmount {
 		return dpipresentation.Snapshot{}, false
 	}
@@ -71,6 +75,10 @@ func (d *Device) DPISnapshot() (dpipresentation.Snapshot, bool) {
 	return s, s.ActiveRegularStageID != ""
 }
 func (d *Device) ButtonsSnapshot() (buttonspresentation.Snapshot, bool) {
+	if d != nil {
+		d.lightingMu.Lock()
+		defer d.lightingMu.Unlock()
+	}
 	if d == nil || len(d.KeyAssignmentTypes) == 0 {
 		return buttonspresentation.Snapshot{}, false
 	}
@@ -108,6 +116,10 @@ func mouseOptions(m map[int]string) []performancepresentation.Option {
 }
 func mouseOptionsOK(m map[int]string) bool { return len(m) > 0 && mouseOptions(m) != nil }
 func (d *Device) PerformanceSnapshot() (performancepresentation.Snapshot, bool) {
+	if d != nil {
+		d.lightingMu.Lock()
+		defer d.lightingMu.Unlock()
+	}
 	if d == nil || d.DeviceProfile == nil {
 		return performancepresentation.Snapshot{}, false
 	}
@@ -121,6 +133,10 @@ func (d *Device) PerformanceSnapshot() (performancepresentation.Snapshot, bool) 
 	return s, true
 }
 func (d *Device) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bool) {
+	if d != nil {
+		d.lightingMu.Lock()
+		defer d.lightingMu.Unlock()
+	}
 	if d == nil || len(d.UserProfiles) == 0 {
 		return deviceprofilepresentation.Snapshot{}, false
 	}
@@ -139,10 +155,14 @@ func (d *Device) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bo
 	return s, s.ActiveProfile != ""
 }
 func (d *Device) SleepTimerSnapshot() (sleeptimerpresentation.Snapshot, bool) {
+	if d != nil {
+		d.lightingMu.Lock()
+		defer d.lightingMu.Unlock()
+	}
 	if d == nil || d.DeviceProfile == nil || len(d.SleepModes) == 0 {
 		return sleeptimerpresentation.Snapshot{}, false
 	}
-	s := sleeptimerpresentation.Snapshot{Value: d.GetSleepMode()}
+	s := sleeptimerpresentation.Snapshot{Value: d.DeviceProfile.SleepMode}
 	for k, l := range d.SleepModes {
 		if l == "" {
 			return sleeptimerpresentation.Snapshot{}, false

@@ -226,7 +226,7 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 		return buildWirelessMouseModernPreview("M65 RGB ULTRA WIRELESS", "preview-m65-rgb-ultra-wireless-modern", true, true)
 	}},
 	{Key: "harpoon-wireless-modern", Title: "Harpoon Wireless", ProductType: common.ProductTypeHarpoonRgbW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
-		return buildWirelessMouseModernPreview("HARPOON WIRELESS", "preview-harpoon-wireless-modern", false, false)
+		return buildHarpoonWirelessModernPreview(false)
 	}},
 	{Key: "m55-wireless-modern", Title: "M55 Wireless", ProductType: common.ProductTypeM55W, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
 		return buildWirelessMouseModernPreview("M55 WIRELESS", "preview-m55-wireless-modern", false, false)

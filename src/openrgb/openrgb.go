@@ -215,6 +215,35 @@ func AddDeviceController(controller *common.OpenRGBController) {
 	controllers = append(controllers, controller)
 }
 
+// ReconcileDeviceController replaces one native controller by serial, or removes
+// it when controller is nil. Runtime membership must remain correct even while
+// the target server is stopped. Existing legacy registration APIs are unchanged.
+func ReconcileDeviceController(serial string, controller *common.OpenRGBController) {
+	if serial == "" || (controller != nil && controller.Serial != serial) {
+		return
+	}
+	mutex.Lock()
+	first := -1
+	for i := 0; i < len(controllers); {
+		if controllers[i] != nil && controllers[i].Serial == serial {
+			if controller != nil && first < 0 {
+				controllers[i] = controller
+				first = i
+				i++
+				continue
+			}
+			controllers = append(controllers[:i], controllers[i+1:]...)
+			continue
+		}
+		i++
+	}
+	if controller != nil && first < 0 {
+		controllers = append(controllers, controller)
+	}
+	mutex.Unlock()
+	notifyTargetClient()
+}
+
 // SendToOpenRGB will notify OpenRGB about device list change
 func SendToOpenRGB() {
 	if targetEnabled() {
