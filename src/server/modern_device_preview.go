@@ -1348,7 +1348,7 @@ func buildHarpoonRGBProModernPreview() *devicesWorkspaceSummary {
 }
 
 func buildGlaiveRGBProModernPreview() *devicesWorkspaceSummary {
-	return &devicesWorkspaceSummary{
+	s := &devicesWorkspaceSummary{
 		Product: "GLAIVE RGB PRO", Serial: "preview-glaive-rgb-pro-modern", Firmware: "1.6.19", Image: "icon-mouse.svg", View: "overview", LegacyLighting: true,
 		DPI:                 &devicesDPIWorkspaceSummary{MinimumDPI: 100, MaximumDPI: 18000, ActiveRegularStageID: "1", RegularStages: []devicesDPIStageSummary{{ID: "0", Name: "Stage 1", DPI: 800, ColorHex: "#00ff00"}, {ID: "1", Name: "Stage 2", DPI: 1500, ColorHex: "#00ff00", Active: true}, {ID: "2", Name: "Stage 3", DPI: 3000, ColorHex: "#00ff00"}}, SniperStage: &devicesDPIStageSummary{ID: "3", Name: "Sniper", DPI: 400, ColorHex: "#ffff00", Sniper: true}},
 		Performance:         &devicesPerformanceWorkspaceSummary{PollingRate: &devicesPerformanceSelectSummary{Value: 1, Options: []devicesPerformanceOptionSummary{{Value: 0, Label: "Not Set"}, {Value: 1, Label: "1000 Hz / 1 msec"}, {Value: 2, Label: "500 Hz / 2 msec"}, {Value: 4, Label: "250 Hz / 4 msec"}, {Value: 8, Label: "125 Hz / 8 msec"}}}, AngleSnapping: &devicesPerformanceToggleSummary{Enabled: true}},
@@ -1356,6 +1356,8 @@ func buildGlaiveRGBProModernPreview() *devicesWorkspaceSummary {
 		DeviceProfiles:      &devicesDeviceProfileWorkspaceSummary{Profiles: []string{"Default", "FPS"}, ActiveProfile: "Default", Scope: "device", Label: "Device Profile", Description: devicesGenericDeviceProfileDescription},
 		OverviewPerformance: &devicesOverviewPerformanceStatusSummary{Rows: []devicesOverviewStatusRow{{Label: "DPI", Value: "1500", Telemetry: true}, {Label: "Active Stage", Value: "Stage 2"}, {Label: "Polling Rate", Value: "1000 Hz / 1 msec", Telemetry: true}}},
 	}
+	addGlaiveProCanonicalLightingPreview(s)
+	return s
 }
 
 func buildGlaiveRGBModernPreview() *devicesWorkspaceSummary {

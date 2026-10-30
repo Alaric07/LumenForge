@@ -43,6 +43,12 @@ func (d *Device) DeviceProfileDeviceID() string {
 // DPISnapshot projects the existing Glaive DPI authority without HID access.
 // The device stores one color for regular stages and another for sniper mode.
 func (d *Device) DPISnapshot() (dpipresentation.Snapshot, bool) {
+	if d == nil {
+		return dpipresentation.Snapshot{}, false
+	}
+	d.lightingMu.Lock()
+	defer d.lightingMu.Unlock()
+
 	if d == nil || d.DeviceProfile == nil || d.MinDPI < 1 || d.MaxDPI < d.MinDPI || d.DPIAmount < 1 || len(d.DeviceProfile.Profiles) != d.DPIAmount || d.DeviceProfile.DPIColor == nil || d.DeviceProfile.SniperColor == nil {
 		return dpipresentation.Snapshot{}, false
 	}
@@ -94,6 +100,12 @@ func (d *Device) ButtonsSnapshot() (buttonspresentation.Snapshot, bool) {
 }
 
 func (d *Device) PerformanceSnapshot() (performancepresentation.Snapshot, bool) {
+	if d == nil {
+		return performancepresentation.Snapshot{}, false
+	}
+	d.lightingMu.Lock()
+	defer d.lightingMu.Unlock()
+
 	if d == nil || d.DeviceProfile == nil || len(d.PollingRates) == 0 || d.DeviceProfile.AngleSnapping < 0 || d.DeviceProfile.AngleSnapping > 1 {
 		return performancepresentation.Snapshot{}, false
 	}
@@ -113,6 +125,12 @@ func (d *Device) PerformanceSnapshot() (performancepresentation.Snapshot, bool) 
 }
 
 func (d *Device) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bool) {
+	if d == nil {
+		return deviceprofilepresentation.Snapshot{}, false
+	}
+	d.lightingMu.Lock()
+	defer d.lightingMu.Unlock()
+
 	if d == nil {
 		return deviceprofilepresentation.Snapshot{}, false
 	}

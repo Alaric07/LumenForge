@@ -1716,7 +1716,7 @@ func TestGlaiveModernDevicePreviewRendersSharedMouseWorkspace(t *testing.T) {
 	if devices.GetDevice(serial) != nil {
 		t.Fatalf("fixture serial %q unexpectedly exists", serial)
 	}
-	for _, test := range []struct{ query, want string }{{"", "GLAIVE RGB PRO"}, {"?view=lighting", "Native Lighting migration is not complete."}, {"?view=dpi", "Angle Snapping"}, {"?view=buttons", "DPI Down"}} {
+	for _, test := range []struct{ query, want string }{{"", "GLAIVE RGB PRO"}, {"?view=lighting", "Front"}, {"?view=dpi", "Angle Snapping"}, {"?view=buttons", "DPI Down"}} {
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, legacyDevicePreviewRequest(http.MethodGet, "/dev/device-preview/glaive-rgb-pro-modern"+test.query))
 		if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), test.want) {
