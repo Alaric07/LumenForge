@@ -1424,6 +1424,17 @@ func buildM55RGBProModernPreview() *devicesWorkspaceSummary {
 	return s
 }
 func buildM65ProRGBModernPreview() *devicesWorkspaceSummary {
+	s := buildM65ProRGBPreviewBase()
+	s.Firmware = "n/a"
+	s.DPI.MaximumDPI = 12000
+	s.DPI.SniperStage.ColorHex = "#008080"
+	addM65ProCanonicalLightingPreview(s)
+	return s
+}
+
+// Existing derived legacy fixtures keep their previous input/presentation data;
+// the PRO's canonical Lighting fixture must not migrate those devices too.
+func buildM65ProRGBPreviewBase() *devicesWorkspaceSummary {
 	s := buildM65RGBEliteModernPreview()
 	s.Product, s.Serial = "M65 PRO RGB", "preview-m65-pro-rgb-modern"
 	s.Performance.ButtonOptimization = nil
@@ -1522,7 +1533,7 @@ func buildSabreProCSModernPreview() *devicesWorkspaceSummary {
 	return s
 }
 func buildScimitarRGBModernPreview() *devicesWorkspaceSummary {
-	s := buildM65ProRGBModernPreview()
+	s := buildM65ProRGBPreviewBase()
 	s.Product, s.Serial = "SCIMITAR RGB", "preview-scimitar-rgb-modern"
 	s.Buttons.Buttons = s.Buttons.Buttons[:5]
 	s.Buttons.Buttons = append(s.Buttons.Buttons, devicesButtonsButtonSummary{KeyIndex: 256, Name: "Side Button 1", Default: true}, devicesButtonsButtonSummary{KeyIndex: 512, Name: "Side Button 2", Default: true}, devicesButtonsButtonSummary{KeyIndex: 1024, Name: "Side Button 3", Default: true}, devicesButtonsButtonSummary{KeyIndex: 2048, Name: "Side Button 4", Default: true}, devicesButtonsButtonSummary{KeyIndex: 4096, Name: "Side Button 5", Default: true}, devicesButtonsButtonSummary{KeyIndex: 8192, Name: "Side Button 6", Default: true}, devicesButtonsButtonSummary{KeyIndex: 16384, Name: "Side Button 7", Default: true}, devicesButtonsButtonSummary{KeyIndex: 32768, Name: "Side Button 8", Default: true}, devicesButtonsButtonSummary{KeyIndex: 65536, Name: "Side Button 9", Default: true}, devicesButtonsButtonSummary{KeyIndex: 131072, Name: "Side Button 10", Default: true}, devicesButtonsButtonSummary{KeyIndex: 262144, Name: "Side Button 11", Default: true}, devicesButtonsButtonSummary{KeyIndex: 524288, Name: "Side Button 12", Default: true})
