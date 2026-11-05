@@ -27,6 +27,9 @@ func TestWiredMouseModernPreviewsRenderWithoutRegistration(t *testing.T) {
 			t.Fatalf("fixture %q unexpectedly registered", fixture.serial)
 		}
 		for _, view := range []struct{ query, want string }{{"", "Preview Mode"}, {"?view=lighting", "Native Lighting migration is not complete."}, {"?view=dpi", fixture.dpiWant}, {"?view=buttons", fixture.buttonWant}} {
+			if fixture.key == "m65-rgb-elite-modern" && view.query == "?view=lighting" {
+				view.want = "Scroll"
+			}
 			if fixture.key == "glaive-rgb-modern" && view.query == "?view=lighting" {
 				view.want = "Front"
 			}

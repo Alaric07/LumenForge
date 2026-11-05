@@ -37,6 +37,10 @@ func (d *Device) DeviceProfileDeviceID() string {
 	return d.Serial
 }
 func (d *Device) DPISnapshot() (dpipresentation.Snapshot, bool) {
+	if d != nil {
+		d.lightingMu.Lock()
+		defer d.lightingMu.Unlock()
+	}
 	if d == nil || d.DeviceProfile == nil || d.MinDPI < 1 || d.MaxDPI < d.MinDPI || d.DPIAmount < 1 || len(d.DeviceProfile.Profiles) != d.DPIAmount {
 		return dpipresentation.Snapshot{}, false
 	}
@@ -64,6 +68,10 @@ func (d *Device) DPISnapshot() (dpipresentation.Snapshot, bool) {
 	return s, true
 }
 func (d *Device) ButtonsSnapshot() (buttonspresentation.Snapshot, bool) {
+	if d != nil {
+		d.lightingMu.Lock()
+		defer d.lightingMu.Unlock()
+	}
 	if d == nil || len(d.KeyAssignment) == 0 || len(d.KeyAssignmentTypes) == 0 {
 		return buttonspresentation.Snapshot{}, false
 	}
@@ -100,6 +108,10 @@ func m65RGBEliteOptions(v map[int]string) []performancepresentation.Option {
 	return out
 }
 func (d *Device) PerformanceSnapshot() (performancepresentation.Snapshot, bool) {
+	if d != nil {
+		d.lightingMu.Lock()
+		defer d.lightingMu.Unlock()
+	}
 	if d == nil || d.DeviceProfile == nil || len(d.PollingRates) == 0 || len(d.SwitchModes) == 0 || d.DeviceProfile.AngleSnapping < 0 || d.DeviceProfile.AngleSnapping > 1 {
 		return performancepresentation.Snapshot{}, false
 	}
@@ -112,6 +124,10 @@ func (d *Device) PerformanceSnapshot() (performancepresentation.Snapshot, bool) 
 	return performancepresentation.Snapshot{PollingRate: &performancepresentation.SelectSetting{Value: d.DeviceProfile.PollingRate, Options: m65RGBEliteOptions(d.PollingRates)}, ButtonOptimization: &performancepresentation.SelectSetting{Value: d.DeviceProfile.ButtonOptimization, Options: m65RGBEliteOptions(d.SwitchModes)}, AngleSnapping: &performancepresentation.ToggleSetting{Enabled: d.DeviceProfile.AngleSnapping == 1}}, true
 }
 func (d *Device) DeviceProfileSnapshot() (deviceprofilepresentation.Snapshot, bool) {
+	if d != nil {
+		d.lightingMu.Lock()
+		defer d.lightingMu.Unlock()
+	}
 	if d == nil {
 		return deviceprofilepresentation.Snapshot{}, false
 	}

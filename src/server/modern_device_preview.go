@@ -1376,6 +1376,12 @@ func buildGlaiveRGBModernPreview() *devicesWorkspaceSummary {
 }
 
 func buildM65RGBEliteModernPreview() *devicesWorkspaceSummary {
+	s := buildM65RGBEliteInputPreview()
+	addM65EliteCanonicalLightingPreview(s)
+	return s
+}
+
+func buildM65RGBEliteInputPreview() *devicesWorkspaceSummary {
 	return &devicesWorkspaceSummary{Product: "M65 RGB ELITE", Serial: "preview-m65-rgb-elite-modern", Firmware: "1.10.22", Image: "icon-mouse.svg", View: "overview", LegacyLighting: true,
 		DPI:            &devicesDPIWorkspaceSummary{MinimumDPI: 100, MaximumDPI: 18000, ActiveRegularStageID: "1", RegularStages: []devicesDPIStageSummary{{ID: "0", Name: "Stage 1", DPI: 800, ColorHex: "#ff0000"}, {ID: "1", Name: "Stage 2", DPI: 1500, ColorHex: "#ffffff", Active: true}, {ID: "2", Name: "Stage 3", DPI: 3000, ColorHex: "#00ff00"}, {ID: "3", Name: "Stage 4", DPI: 6000, ColorHex: "#800080"}, {ID: "4", Name: "Stage 5", DPI: 9000, ColorHex: "#00bfff"}}, SniperStage: &devicesDPIStageSummary{ID: "5", Name: "Sniper", DPI: 400, ColorHex: "#ffff00", Sniper: true}},
 		Performance:    &devicesPerformanceWorkspaceSummary{PollingRate: &devicesPerformanceSelectSummary{Value: 1, Options: []devicesPerformanceOptionSummary{{Value: 0, Label: "Not Set"}, {Value: 1, Label: "1000 Hz / 1 msec"}, {Value: 2, Label: "500 Hz / 2 msec"}, {Value: 4, Label: "250 Hz / 4 msec"}, {Value: 8, Label: "125 Hz / 8 msec"}}}, ButtonOptimization: &devicesPerformanceSelectSummary{Value: 1, Options: []devicesPerformanceOptionSummary{{Value: 0, Label: "Disabled"}, {Value: 1, Label: "Enabled"}}}, AngleSnapping: &devicesPerformanceToggleSummary{Enabled: true}},
@@ -1384,7 +1390,7 @@ func buildM65RGBEliteModernPreview() *devicesWorkspaceSummary {
 }
 
 func buildSabreRGBProModernPreview() *devicesWorkspaceSummary {
-	s := buildM65RGBEliteModernPreview()
+	s := buildM65RGBEliteInputPreview()
 	s.Product, s.Serial, s.Firmware = "SABRE RGB PRO", "preview-sabre-rgb-pro-modern", "0.8.15"
 	s.Performance.PollingRate = &devicesPerformanceSelectSummary{Value: 7, Options: []devicesPerformanceOptionSummary{{Value: 0, Label: "Not Set"}, {Value: 1, Label: "125 Hz / 8 msec"}, {Value: 2, Label: "250 Hz / 4 msec"}, {Value: 3, Label: "500 Hz / 2 msec"}, {Value: 4, Label: "1000 Hz / 1 msec"}, {Value: 5, Label: "2000 Hz / 0.5 msec"}, {Value: 6, Label: "4000 Hz / 0.25 msec"}, {Value: 7, Label: "8000 Hz / 0.125 msec"}}}
 	s.Buttons.Buttons = s.Buttons.Buttons[:6]
@@ -1416,7 +1422,7 @@ func buildM55ModernPreview() *devicesWorkspaceSummary {
 	return s
 }
 func buildM55RGBProModernPreview() *devicesWorkspaceSummary {
-	s := buildM65RGBEliteModernPreview()
+	s := buildM65RGBEliteInputPreview()
 	s.Product, s.Serial = "M55 RGB PRO", "preview-m55-rgb-pro-modern"
 	s.Buttons.Buttons = []devicesButtonsButtonSummary{{KeyIndex: 1, Name: "Left Button", Default: true}, {KeyIndex: 2, Name: "Right Button", Default: true}, {KeyIndex: 4, Name: "Middle Button", Default: true}, {KeyIndex: 8, Name: "Left Back", Default: true}, {KeyIndex: 16, Name: "Left Forward", Default: true}, {KeyIndex: 32, Name: "Right Back", Default: true}, {KeyIndex: 64, Name: "Right Forward", Default: true}, {KeyIndex: 128, Name: "DPI Button", Default: true}}
 	s.Performance.ButtonOptimization = nil
@@ -1435,14 +1441,14 @@ func buildM65ProRGBModernPreview() *devicesWorkspaceSummary {
 // Existing derived legacy fixtures keep their previous input/presentation data;
 // the PRO's canonical Lighting fixture must not migrate those devices too.
 func buildM65ProRGBPreviewBase() *devicesWorkspaceSummary {
-	s := buildM65RGBEliteModernPreview()
+	s := buildM65RGBEliteInputPreview()
 	s.Product, s.Serial = "M65 PRO RGB", "preview-m65-pro-rgb-modern"
 	s.Performance.ButtonOptimization = nil
 	s.Performance.LiftHeight = &devicesPerformanceSelectSummary{Value: 3, Options: []devicesPerformanceOptionSummary{{Value: 2, Label: "Low"}, {Value: 3, Label: "Medium"}, {Value: 4, Label: "High"}}}
 	return s
 }
 func buildM65RGBUltraModernPreview() *devicesWorkspaceSummary {
-	s := buildM65RGBEliteModernPreview()
+	s := buildM65RGBEliteInputPreview()
 	s.Product, s.Serial = "M65 RGB ULTRA", "preview-m65-rgb-ultra-modern"
 	s.Buttons.Buttons = append(s.Buttons.Buttons, devicesButtonsButtonSummary{KeyIndex: 256, Name: "Tilt Front", Default: true}, devicesButtonsButtonSummary{KeyIndex: 512, Name: "Tilt Back", Default: true}, devicesButtonsButtonSummary{KeyIndex: 1024, Name: "Tilt Left", Default: true}, devicesButtonsButtonSummary{KeyIndex: 2048, Name: "Tilt Right", Default: true})
 	s.Performance.LiftHeight = &devicesPerformanceSelectSummary{Value: 3, Options: []devicesPerformanceOptionSummary{{Value: 2, Label: "Low"}, {Value: 3, Label: "Medium"}, {Value: 4, Label: "High"}}}
