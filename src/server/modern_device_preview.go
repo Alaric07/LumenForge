@@ -1452,6 +1452,21 @@ func buildM65RGBUltraModernPreview() *devicesWorkspaceSummary {
 	s.Product, s.Serial = "M65 RGB ULTRA", "preview-m65-rgb-ultra-modern"
 	s.Buttons.Buttons = append(s.Buttons.Buttons, devicesButtonsButtonSummary{KeyIndex: 256, Name: "Tilt Front", Default: true}, devicesButtonsButtonSummary{KeyIndex: 512, Name: "Tilt Back", Default: true}, devicesButtonsButtonSummary{KeyIndex: 1024, Name: "Tilt Left", Default: true}, devicesButtonsButtonSummary{KeyIndex: 2048, Name: "Tilt Right", Default: true})
 	s.Performance.LiftHeight = &devicesPerformanceSelectSummary{Value: 3, Options: []devicesPerformanceOptionSummary{{Value: 2, Label: "Low"}, {Value: 3, Label: "Medium"}, {Value: 4, Label: "High"}}}
+	s.DPI.MaximumDPI = 26000
+	values := []int{400, 800, 1200, 1600, 3000}
+	colors := []string{"#ff0000", "#ffffff", "#00ff00", "#ff00ff", "#00ffff"}
+	for i := range s.DPI.RegularStages {
+		s.DPI.RegularStages[i].DPI = uint16(values[i])
+		s.DPI.RegularStages[i].ColorHex = colors[i]
+		if s.DPI.RegularStages[i].ID == s.DPI.ActiveRegularStageID {
+			s.OverviewPerformance.Rows[0].Value = strconv.FormatUint(uint64(s.DPI.RegularStages[i].DPI), 10)
+		}
+	}
+	s.DPI.SniperStage.DPI = 200
+	s.DPI.SniperStage.ColorHex = "#ffff00"
+	s.Performance.PollingRate = &devicesPerformanceSelectSummary{Value: 4, Options: []devicesPerformanceOptionSummary{{Value: 0, Label: "Not Set"}, {Value: 1, Label: "125 Hz / 8 msec"}, {Value: 2, Label: "250 Hz / 4 msec"}, {Value: 3, Label: "500 Hz / 2 msec"}, {Value: 4, Label: "1000 Hz / 1 msec"}, {Value: 5, Label: "2000 Hz / 0.5 msec"}, {Value: 6, Label: "4000 Hz / 0.25 msec"}, {Value: 7, Label: "8000 Hz / 0.125 msec"}}}
+	s.Performance.LiftHeight = &devicesPerformanceSelectSummary{Value: 2, Options: []devicesPerformanceOptionSummary{{Value: 2, Label: "Low"}, {Value: 3, Label: "Medium"}, {Value: 4, Label: "High"}, {Value: 6, Label: "Calibrated"}, {Value: 7, Label: "Ultra Low"}}}
+	addM65UltraCanonicalLightingPreview(s)
 	return s
 }
 func buildM75ModernPreview() *devicesWorkspaceSummary {

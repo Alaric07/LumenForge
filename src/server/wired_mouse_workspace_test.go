@@ -74,7 +74,7 @@ func TestRemainingWiredMousePreviewShapes(t *testing.T) {
 		{"m55", buildM55ModernPreview, 6, true, true, false, true},
 		{"m55-rgb-pro", buildM55RGBProModernPreview, 8, false, false, false, true},
 		{"m65-pro-rgb", buildM65ProRGBModernPreview, 8, true, false, true, false},
-		{"m65-rgb-ultra", buildM65RGBUltraModernPreview, 12, true, true, true, true},
+		{"m65-rgb-ultra", buildM65RGBUltraModernPreview, 12, true, true, true, false},
 		{"m75", buildM75ModernPreview, 8, true, true, true, false},
 		{"sabre-pro-cs", buildSabreProCSModernPreview, 6, true, true, false, true},
 		{"scimitar-rgb", buildScimitarRGBModernPreview, 17, true, false, true, true},

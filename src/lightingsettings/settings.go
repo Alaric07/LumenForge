@@ -169,12 +169,16 @@ func (stop *GradientStop) UnmarshalJSON(data []byte) error {
 
 // GradientSettings is a complete ordered Gradient palette.
 type GradientSettings struct {
+	// Keys optionally retains authored map identity independently of position order.
+	// Omitted palettes keep the existing sequential-index contract.
+	Keys  []int          `json:"keys,omitempty"`
 	Stops []GradientStop `json:"stops"`
 }
 
 func (settings *GradientSettings) UnmarshalJSON(data []byte) error {
 	var value struct {
 		Stops *[]GradientStop `json:"stops"`
+		Keys  []int           `json:"keys,omitempty"`
 	}
 	if err := decodeStrictJSON(data, &value); err != nil {
 		return err
@@ -183,6 +187,7 @@ func (settings *GradientSettings) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("Gradient stops are required")
 	}
 	settings.Stops = *value.Stops
+	settings.Keys = value.Keys
 	return nil
 }
 
@@ -220,6 +225,7 @@ func (value EffectSettings) Clone() EffectSettings {
 	if value.Gradient != nil {
 		gradient := *value.Gradient
 		gradient.Stops = append([]GradientStop(nil), value.Gradient.Stops...)
+		gradient.Keys = append([]int(nil), value.Gradient.Keys...)
 		cloned.Gradient = &gradient
 	}
 	return cloned
@@ -346,6 +352,19 @@ func validateTemperature(settings TemperatureSettings) error {
 }
 
 func validateGradient(settings GradientSettings) error {
+	if settings.Keys != nil {
+		if len(settings.Keys) != len(settings.Stops) {
+			return fmt.Errorf("Gradient keys must identify every stop")
+		}
+		seen := make(map[int]bool, len(settings.Keys))
+		for _, k := range settings.Keys {
+			if k < 0 || seen[k] {
+				return fmt.Errorf("Gradient keys must be unique and nonnegative")
+			}
+			seen[k] = true
+		}
+	}
+
 	if len(settings.Stops) < 2 || len(settings.Stops) > maximumGradientStops {
 		return fmt.Errorf("Gradient requires between 2 and %d stops", maximumGradientStops)
 	}
