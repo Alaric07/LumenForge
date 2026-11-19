@@ -168,23 +168,26 @@ with **98 conservative scheduling passes**: ten proven two-package groups
 (20 packages) plus 88 standalone target slots. This is the overall corrected
 assessment baseline, including G01–G10, not 98 implementation-ready remaining
 passes. G01–G10 are complete: ten two-package groups leave **88 targets / 88
-passes**. Fourteen subsequent standalone migrations complete **34 / 108 targets**
-(20 grouped + 14 standalone), leaving the authoritative current queue at
-**74 Lighting targets / 74 scheduling passes**. The baseline remains
+passes**. Thirteen subsequent standalone baseline completions bring progress to
+**33 / 108 targets** (20 grouped + 13 standalone). Completed baseline passes are
+**23** (10 grouped + 13 standalone), leaving the authoritative current queue at
+**75 Lighting targets / 75 scheduling passes**. The baseline remains
 **108 targets / 98 passes**; package fingerprints do not recompute it.
 The earlier assessment recorded **54 standalone packages requiring focused
 audits**; that historical assessment is not a refreshed current audit count.
 Historical structural-scan totals remain **137 marked / 131 strong / 6 weak**.
-The matrix separately flags a pre-existing one-row discrepancy between this
-baseline accounting and its pending package rows (74 Legacy + deferred K60).
-These progress figures preserve the supplied baseline, not a reconciled row tally.
+Wired `katarpro` was already excluded after its first migration (`17631e14`),
+before the corrected baseline was established. Its later shared-store cutover
+(`ca2c5954`) is a second architectural milestone for the same package, not another
+baseline target/pass completion. It remains Migrated and must not be subtracted
+again. Deferred K60 RGB PRO remains included in the pending queue.
 
 G01–G10 are complete; package contracts and commit history are recorded in the
 [native migration matrix](native-lighting-migration-matrix.md). The grouped
 preview follow-up is closed, including shared keyboard spacing and K65 DE Enter
 geometry (`e3f07005`); no browser or physical hardware validation is implied.
-Fourteen standalone completions bring progress to **34 / 108 targets complete**,
-with **74 targets / 74 passes remaining**. Migration continues
+Thirteen standalone baseline completions bring progress to **33 / 108 targets complete**,
+with **75 targets / 75 passes remaining**. Migration continues
 one independently audited target at a time; canonical parity is incomplete and
 legacy `/rgb` removal still requires parity/cutover plus proof of no consumers.
 

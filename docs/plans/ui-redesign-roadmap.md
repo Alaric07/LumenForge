@@ -548,16 +548,19 @@ with **98 conservative scheduling passes**: ten proven two-package groups
 (20 packages) plus 88 standalone target slots. This is the overall corrected
 assessment baseline, including G01–G10, not 98 implementation-ready remaining
 passes. G01–G10 are complete: ten two-package groups leave **88 targets / 88
-passes**. Fourteen subsequent standalone migrations complete **34 / 108 targets**
-(20 grouped + 14 standalone), leaving the authoritative current queue at
-**74 Lighting targets / 74 scheduling passes**. The baseline remains
+passes**. Thirteen subsequent standalone baseline completions bring progress to
+**33 / 108 targets** (20 grouped + 13 standalone). Completed baseline passes are
+**23** (10 grouped + 13 standalone), leaving the authoritative current queue at
+**75 Lighting targets / 75 scheduling passes**. The baseline remains
 **108 targets / 98 passes**; package fingerprints do not recompute it.
 The earlier assessment recorded **54 standalone packages requiring focused
 audits**; that historical assessment is not a refreshed current audit count.
 Historical structural-scan totals remain **137 marked / 131 strong / 6 weak**.
-The matrix separately flags a pre-existing one-row discrepancy between this
-baseline accounting and its pending package rows (74 Legacy + deferred K60).
-These progress figures preserve the supplied baseline, not a reconciled row tally.
+Wired `katarpro` was already excluded after its first migration (`17631e14`),
+before the corrected baseline was established. Its later shared-store cutover
+(`ca2c5954`) is a second architectural milestone for the same package, not another
+baseline target/pass completion. It remains Migrated and must not be subtracted
+again. Deferred K60 RGB PRO remains included in the pending queue.
 
 G02–G09 are complete canonical Lighting migrations:
 
@@ -592,8 +595,8 @@ Six further standalone cutovers (`glaivergbpro`, `harpoonW`, `harpoonWU`,
 `m65prorgb`, `m65rgbelite`, and wired `m65rgbultra`) precede the latest completed
 migrations: receiver-owned `m65rgbultraW` (`8d48d18d`) and direct-USB
 `m65rgbultraWU` (`4e0676d9`). Their independent source-level canonical Lighting
-migrations are complete, bringing progress to **34 of 108 targets complete** and
-**74 targets / 74 passes remaining**. Git history and separate package rows are
+migrations are complete, bringing progress to **33 of 108 targets complete** and
+**75 targets / 75 passes remaining**. Git history and separate package rows are
 recorded in the matrix. **W and WU physical hardware validation remains
 outstanding**; use the [physical alpha checklist](maintenance-and-reliability-backlog.md#m65-wireless-physical-alpha-validation).
 The first pending row in matrix order is `cduo`; there is no separately ranked
@@ -602,7 +605,7 @@ standalone execution queue. The overall Lighting project remains incomplete.
 Continue one independently audited target at a time; W and WU remain separate
 passes unless equivalence is independently proven. Source-backed automated tests
 and inert previews are acceptable for this alpha migration phase. No physical
-hardware validation is recorded for the original six standalone migrations; eventual community
+hardware validation is recorded for the original six standalone milestones; eventual community
 hardware validation is required for release confidence. Canonical Lighting is
 still incomplete overall. Legacy `/rgb` removal is not ready: all supported true
 consumers need equivalent canonical parity/cutover and tracing must prove the old
@@ -1240,8 +1243,8 @@ Memory and both Commander Core families remain convenience mutations over
 existing canonical children rather than new parent effect state (`aed0d672`).
 ST100 RGB is the deliberate authored-zone accessory/reference exception; other
 native families remain pending. G01–G10 and their preview follow-up are complete;
-the active standalone phase has fourteen completed migrations, bringing baseline
-progress to **34 / 108 targets complete** and **74 targets / 74 passes**
+the active standalone phase has thirteen baseline target completions, bringing
+progress to **33 / 108 targets complete** and **75 targets / 75 passes**
 remaining (see the matrix and milestone detail above). Final native migration and legacy removal remain incomplete. M75 W/WU (`90f1d10e`) retain 19
 software-rendered effects plus their device-authored `mouse` mode; Bottom and
 Logo continue to use the existing device-owned `ZoneColors` persistence/output

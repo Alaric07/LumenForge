@@ -288,11 +288,11 @@ The spacing fix preceded `e3f07005` (*Fix K65 DE keyboard preview geometry*);
 this is manual/source-backed preview audit
 evidence, not browser or physical hardware validation.
 
-| Standalone target | Completed commit | Source-backed canonical contract |
+| Standalone milestone | Completed commit | Source-backed canonical contract |
 |---|---|---|
 | `katarproxt` | `f65d0b4a` — Migrate Katar Pro XT lighting | 19 effects; one authored Scroll zone; SchedulerBrightness; DPI flash and Mouse-only Sniper preserved; no Cluster/native OpenRGB. |
 | `harpoonrgbpro` | `d3a7f349` — Migrate Harpoon RGB Pro lighting | 20 effects; one authored Logo zone; shared canonical stores are sole desired-state authority; reusable authored-zone support added under `src/lightingsettings`; no Cluster/native OpenRGB. |
-| `katarpro` | `ca2c5954` — Migrate Katar Pro lighting | 19 effects; one authored Scroll zone; shared canonical stores with clean defaults, no legacy Lighting import/dual authority; scheduler/RGB-off separate from desired state; no Cluster/native OpenRGB. |
+| `katarpro` | `ca2c5954` — Migrate Katar Pro lighting | Second milestone for an already-excluded package; no baseline target/pass decrement. 19 effects; one authored Scroll zone; shared canonical stores with clean defaults, no legacy Lighting import/dual authority; scheduler/RGB-off separate from desired state; no Cluster/native OpenRGB. |
 | `darkcorergbseW` | `c3b9a191` — Migrate Dark Core SE receiver lighting | `mouse` / `static`; authored Logo, Scroll, Side zones; shared canonical stores with clean defaults; Static cumulative scaling and scheduler restoration fixed; scheduler state accepted disconnected; receiver transport unchanged; no Cluster/native OpenRGB. |
 | `darkcorergbseWU` | `cbf0829b` — Migrate Dark Core SE USB lighting | `mouse` / `static`; authored Logo, Scroll, Side zones; shared canonical stores; scheduler transient, RGB-off independently persisted/replayed; direct HID unchanged; no Cluster/native OpenRGB. |
 | `glaivergb` | `012a8e94` — Migrate Glaive RGB lighting | 20 effects; authored Front, Logo, Side zones; shared canonical stores with clean defaults and no legacy desired-state import/dual authority; complete retained Cluster and native OpenRGB ownership/output paths. |
@@ -316,7 +316,7 @@ ownership/session checks reject stale Native/Cluster/OpenRGB frames; Cluster
 registration refreshes safely across profile switches. Canonical worker ownership
 is separate from legacy `d.activeRgb`, which remains fallback-only.
 
-No physical hardware validation was performed for these six standalone migrations.
+No physical hardware validation was performed for these six standalone milestones.
 
 Eight further standalone canonical Lighting completions are verified in Git
 history; these are separate passes, not new or renumbered historical groups:
@@ -341,19 +341,27 @@ these completed migrations; the [backlog](maintenance-and-reliability-backlog.md
 tracks limitations and the outstanding physical alpha checklist. No new test
 execution or hardware evidence is asserted by this reconciliation.
 
-Current baseline progress is **34 / 108 targets complete**, leaving **74 targets /
-74 passes**. In the actual Package matrix order, the first pending target is
+Current baseline progress is **33 / 108 targets complete**, leaving **75 targets /
+75 passes**. In the actual Package matrix order, the first pending target is
 `cduo` (**Legacy**). The matrix has no separately ranked standalone execution
 queue; this identifies its next pending row, not a new priority decision.
 
-**Accounting discrepancy to reconcile separately:** the supplied baseline
-milestone arithmetic is 108 − 34 = 74 targets and 98 − (10 grouped + 14
-standalone) = 74 passes. The Package matrix currently lists **74 Legacy + 1
-Deferred = 75 pending rows**, including K60. This one-row difference predates
-this reconciliation (82 reported versus 83 pending rows before these eight
-status updates). The requested baseline/progress figures are preserved; they
-are not a verified row tally. No target is removed, K60 remains pending, and no
-extra completion or revised historical baseline is inferred to force agreement.
+**Reconciled baseline accounting:** wired `katarpro` was removed from the queue
+by its first migration (`17631e14`, recorded in `48a1b779`), before `f13775c4`
+established the corrected 108-target / 98-pass baseline. Its later shared-store
+cutover (`ca2c5954`) is a second architectural milestone for the same package,
+not another baseline target/pass completion. The subsequent subtraction of six
+standalone milestones in `ecb05c78` counted this already-excluded package again;
+only five of those milestones completed baseline targets. Together with the
+eight later standalone completions, that gives 13 standalone baseline targets.
+
+Completed baseline targets are **33 = 20 grouped + 13 standalone**; completed
+baseline passes are **23 = 10 grouped + 13 standalone**. Therefore
+**108 − 33 = 75 targets** and **98 − 23 = 75 passes** remain. The Package matrix
+has **137 unique package rows**: **47 Migrated = 14 pre-baseline + 33 baseline
+completions**, **74 Legacy + 1 Deferred = 75 pending**, and **15 historical
+non-target rows**. K60 RGB PRO remains Deferred and included; `katarpro` remains
+Migrated. No package identity or historical baseline changes.
 
 Commander Core XT and Commander CORE establish the separate multi-channel
 controller proof. Both expose modern Overview, Lighting, and Cooling workspaces,
@@ -443,8 +451,8 @@ Generated as a read-only architecture inventory. This does not declare migration
 - Corrected assessment baseline after excluding `sabreprocs`: **108 A + 0 B =
   108 packages / 98 conservative scheduling passes**, including G01–G10.
 - G01–G10 grouped phase complete: **88 targets / 88 passes** remained after G10.
-- Fourteen standalone migrations complete: **34 / 108 targets complete**;
-  **74 Lighting targets / 74 passes** remain.
+- Thirteen standalone baseline targets complete: **33 / 108 targets complete**;
+  **23 baseline passes complete**; **75 Lighting targets / 75 passes** remain.
   Historical audit and structural counts below are not current queue totals.
 
 Strong markers are audit leads, not proof of a Lighting implementation. A real
@@ -721,9 +729,10 @@ with **98 conservative scheduling passes**: ten proven two-package groups
 (20 packages) plus 88 standalone target slots. This is the overall corrected
 assessment baseline, including G01–G10, not 98 implementation-ready remaining
 passes. G01–G10 are complete: ten two-package groups leave **88 targets / 88
-passes**. Fourteen subsequent standalone migrations complete **34 / 108 targets**
-(20 grouped + 14 standalone), leaving the authoritative current queue at
-**74 Lighting targets / 74 scheduling passes**. The baseline remains
+passes**. Thirteen subsequent standalone baseline completions bring progress to
+**33 / 108 targets** (20 grouped + 13 standalone). Completed baseline passes are
+**23** (10 grouped + 13 standalone), leaving the authoritative current queue at
+**75 Lighting targets / 75 scheduling passes**. The baseline remains
 **108 targets / 98 passes**; package fingerprints do not recompute it.
 The earlier assessment recorded **54 standalone packages requiring focused
 audits**; that historical assessment is not a refreshed current audit count.
@@ -765,7 +774,7 @@ followed by the eight standalone completions above, most recently receiver
 Continue one independently audited target at a time; W and WU remain separate
 passes unless equivalence is independently proven. Source-backed automated tests
 and inert previews are acceptable for this alpha migration phase. No physical
-hardware validation is recorded for the original six standalone migrations; eventual community
+hardware validation is recorded for the original six standalone milestones; eventual community
 hardware validation is required for release confidence. Canonical Lighting is
 still incomplete overall. Legacy `/rgb` removal is not ready: all supported true
 consumers need equivalent canonical parity/cutover and tracing must prove the old
