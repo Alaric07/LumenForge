@@ -168,18 +168,23 @@ with **98 conservative scheduling passes**: ten proven two-package groups
 (20 packages) plus 88 standalone target slots. This is the overall corrected
 assessment baseline, including G01–G10, not 98 implementation-ready remaining
 passes. G01–G10 are complete: ten two-package groups leave **88 targets / 88
-passes**. Six subsequent standalone migrations leave the authoritative current
-queue at **82 Lighting targets / 82 scheduling passes**. The baseline remains
+passes**. Fourteen subsequent standalone migrations complete **34 / 108 targets**
+(20 grouped + 14 standalone), leaving the authoritative current queue at
+**74 Lighting targets / 74 scheduling passes**. The baseline remains
 **108 targets / 98 passes**; package fingerprints do not recompute it.
 The earlier assessment recorded **54 standalone packages requiring focused
 audits**; that historical assessment is not a refreshed current audit count.
 Historical structural-scan totals remain **137 marked / 131 strong / 6 weak**.
+The matrix separately flags a pre-existing one-row discrepancy between this
+baseline accounting and its pending package rows (74 Legacy + deferred K60).
+These progress figures preserve the supplied baseline, not a reconciled row tally.
 
 G01–G10 are complete; package contracts and commit history are recorded in the
 [native migration matrix](native-lighting-migration-matrix.md). The grouped
 preview follow-up is closed, including shared keyboard spacing and K65 DE Enter
 geometry (`e3f07005`); no browser or physical hardware validation is implied.
-Six standalone completions leave **82 targets / 82 passes**. Migration continues
+Fourteen standalone completions bring progress to **34 / 108 targets complete**,
+with **74 targets / 74 passes remaining**. Migration continues
 one independently audited target at a time; canonical parity is incomplete and
 legacy `/rgb` removal still requires parity/cutover plus proof of no consumers.
 
@@ -401,6 +406,43 @@ registration, or renderers. Source-backed automated tests and inert previews are
 acceptable alpha migration evidence; they do not establish browser or physical
 hardware validation. Eventual community hardware validation remains necessary
 for release confidence.
+
+### M65 RGB Ultra wireless transport boundaries
+
+Receiver `m65rgbultraW` (`8d48d18d`) and direct-USB `m65rgbultraWU`
+(`4e0676d9`) complete separate canonical Lighting migrations. Both follow the
+ownership rules above: canonical State owns desired effect/Brightness, shared
+`lightingsettings.DeviceStore` owns complete effect customization and authored
+Logo colors, and missing state resolves to clean `static` / 100 defaults through
+shipped defaults and the resolver. Failed attachment retains each package's
+independent legacy fallback; it does not import or synchronize legacy Lighting.
+`DeviceProfile.RgbOff` remains a persisted preference and scheduler darkness
+remains transient. Both expose one authored Logo zone (ID 0), with DPI/Sniper
+indicator state outside authored Lighting. External Cluster/OpenRGB controllers
+own effective Logo output, not canonical desired settings; supplied Logo bytes
+remain unchanged while the device composes its local indicator separately.
+Modern previews are inert data fixtures; their sample Mouse selection is not
+the runtime default.
+
+- **W — receiver-owned peripheral:** output uses the shared receiver transport,
+  mutex, and assigned endpoint. Its hardware adapter composes six planar bytes
+  (Logo R, indicator R, Logo G, indicator G, Logo B, indicator B). Receiver
+  sleep/wake/reconnect and connection-generation plus ownership invalidation
+  retire stale work. Software-mode/endpoint setup and assignment replay gate
+  readiness, subject to the source's deferred-repair/invalid-map allowances.
+- **WU — direct USB:** existing 65-byte write reports retain fixed command
+  address `0x08` and six-byte planar Logo/indicator composition. A private
+  canonical worker and output pump use terminal-lifetime and ownership tokens.
+  Endpoint recovery is bounded to three open attempts at startup/recovery and
+  polling transitions. Once registered, its OpenRGB controller slot remains
+  stable through temporary polling recovery, including exhausted recovery;
+  initial setup failure has no slot to preserve and terminal retirement removes
+  it. WU does not rebind a receiver or inherit W's reconnect lifecycle.
+
+These output/lifecycle implementations are not interchangeable. Source completion
+and preview fixtures do not establish physical parity. Outstanding limitations
+and **NOT PHYSICALLY VERIFIED** alpha checks are in the
+[maintenance backlog](maintenance-and-reliability-backlog.md#m65-rgb-ultra-wireless-follow-up).
 
 ## 4. Hidden immutable defaults
 

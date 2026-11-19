@@ -318,6 +318,43 @@ is separate from legacy `d.activeRgb`, which remains fallback-only.
 
 No physical hardware validation was performed for these six standalone migrations.
 
+Eight further standalone canonical Lighting completions are verified in Git
+history; these are separate passes, not new or renumbered historical groups:
+
+| Standalone target | Completed commit | Variant / completion |
+|---|---|---|
+| `glaivergbpro` | `c7b3712d` — Migrate Glaive RGB Pro lighting | Standalone canonical Lighting complete. |
+| `harpoonW` | `aa394124` — Migrate Harpoon receiver lighting | Standalone canonical Lighting complete. |
+| `harpoonWU` | `ac26e11a` — Migrate Harpoon USB lighting | Standalone canonical Lighting complete. |
+| `m65prorgb` | `97ae7c52` — Migrate M65 Pro RGB lighting | Standalone canonical Lighting complete. |
+| `m65rgbelite` | `dbea3e49` — Migrate M65 RGB Elite lighting | Standalone canonical Lighting complete. |
+| `m65rgbultra` | `41c541e7` — Migrate M65 RGB Ultra lighting | Standalone canonical Lighting complete. |
+| `m65rgbultraW` | `8d48d18d` — Migrate M65 RGB Ultra receiver lighting | Receiver-owned wireless peripheral; shared receiver transport/endpoint. |
+| `m65rgbultraWU` | `4e0676d9` — Migrate M65 RGB Ultra direct USB lighting | Direct-USB wireless variant; fixed-address USB transport, separate lifecycle. |
+
+Both M65 wireless variants are **Migrated** at source level. Each exposes 20
+effects and one authored Logo zone; DPI/Sniper stays separate. Their canonical
+ownership and distinct output/lifecycle boundaries are documented in the
+[architecture](lighting-configuration-architecture.md#m65-rgb-ultra-wireless-transport-boundaries).
+**Neither W nor WU is physically verified.** Deferred maintenance does not reopen
+these completed migrations; the [backlog](maintenance-and-reliability-backlog.md#m65-rgb-ultra-wireless-follow-up)
+tracks limitations and the outstanding physical alpha checklist. No new test
+execution or hardware evidence is asserted by this reconciliation.
+
+Current baseline progress is **34 / 108 targets complete**, leaving **74 targets /
+74 passes**. In the actual Package matrix order, the first pending target is
+`cduo` (**Legacy**). The matrix has no separately ranked standalone execution
+queue; this identifies its next pending row, not a new priority decision.
+
+**Accounting discrepancy to reconcile separately:** the supplied baseline
+milestone arithmetic is 108 − 34 = 74 targets and 98 − (10 grouped + 14
+standalone) = 74 passes. The Package matrix currently lists **74 Legacy + 1
+Deferred = 75 pending rows**, including K60. This one-row difference predates
+this reconciliation (82 reported versus 83 pending rows before these eight
+status updates). The requested baseline/progress figures are preserved; they
+are not a verified row tally. No target is removed, K60 remains pending, and no
+extra completion or revised historical baseline is inferred to force agreement.
+
 Commander Core XT and Commander CORE establish the separate multi-channel
 controller proof. Both expose modern Overview, Lighting, and Cooling workspaces,
 with full Device Profiles on Overview, shared Cooling presentation, controller
@@ -406,7 +443,8 @@ Generated as a read-only architecture inventory. This does not declare migration
 - Corrected assessment baseline after excluding `sabreprocs`: **108 A + 0 B =
   108 packages / 98 conservative scheduling passes**, including G01–G10.
 - G01–G10 grouped phase complete: **88 targets / 88 passes** remained after G10.
-- Six standalone migrations complete: **82 Lighting targets / 82 passes** remain.
+- Fourteen standalone migrations complete: **34 / 108 targets complete**;
+  **74 Lighting targets / 74 passes** remain.
   Historical audit and structural counts below are not current queue totals.
 
 Strong markers are audit leads, not proof of a Lighting implementation. A real
@@ -470,9 +508,9 @@ Historical structural-scan totals; these are not the current audited queue.
 | `darkstarWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `elite` | Y | Legacy | multi-channel + per-LED | Y | Y | Y |  | Y | Y | Y | led, liquid-temperature |
 | `glaivergb` | Y | Migrated | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `glaivergbpro` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `harpoonW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `harpoonWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
+| `glaivergbpro` | Y | Migrated | zoned | Y | Y |  | Y |  | Y | Y | mouse |
+| `harpoonW` | Y | Migrated | zoned | Y | Y |  | Y |  | Y | Y | mouse |
+| `harpoonWU` | Y | Migrated | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `harpoonrgbpro` | Y | Migrated | zoned | Y | Y |  | Y |  |  |  | mouse |
 | `hs80maxW` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
 | `hs80rgb` | Y | Legacy | zoned | Y | Y |  | Y |  |  |  |  |
@@ -529,11 +567,11 @@ Historical structural-scan totals; these are not the current audited queue.
 | `m55` | Y | Not a lighting target | dormant/inert Lighting metadata | Y | Y |  |  |  |  |  | DPI/Sniper indicator only |
 | `m55W` | Y | Not a lighting target | dormant/inert Lighting metadata | Y | Y |  |  |  |  |  | DPI/Sniper indicator only |
 | `m55rgbpro` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `m65prorgb` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `m65rgbelite` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `m65rgbultra` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `m65rgbultraW` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
-| `m65rgbultraWU` | Y | Legacy | zoned | Y | Y |  | Y |  | Y | Y | mouse |
+| `m65prorgb` | Y | Migrated | zoned | Y | Y |  | Y |  | Y | Y | mouse |
+| `m65rgbelite` | Y | Migrated | zoned | Y | Y |  | Y |  | Y | Y | mouse |
+| `m65rgbultra` | Y | Migrated | zoned | Y | Y |  | Y |  | Y | Y | mouse |
+| `m65rgbultraW` | Y | Migrated | zoned | Y | Y |  | Y |  | Y | Y | mouse |
+| `m65rgbultraWU` | Y | Migrated | zoned | Y | Y |  | Y |  | Y | Y | mouse |
 | `m75` | Y | Migrated | zoned |  | Y |  | Y |  |  |  | mouse |
 | `m75AirW` | Y | Not a lighting target | dormant/inert metadata | Y | Y |  | Y |  |  |  | DPI/Sniper indicator only |
 | `m75AirWU` | Y | Not a lighting target | dormant/inert metadata | Y | Y |  | Y |  |  |  | DPI/Sniper indicator only |
@@ -683,8 +721,9 @@ with **98 conservative scheduling passes**: ten proven two-package groups
 (20 packages) plus 88 standalone target slots. This is the overall corrected
 assessment baseline, including G01–G10, not 98 implementation-ready remaining
 passes. G01–G10 are complete: ten two-package groups leave **88 targets / 88
-passes**. Six subsequent standalone migrations leave the authoritative current
-queue at **82 Lighting targets / 82 scheduling passes**. The baseline remains
+passes**. Fourteen subsequent standalone migrations complete **34 / 108 targets**
+(20 grouped + 14 standalone), leaving the authoritative current queue at
+**74 Lighting targets / 74 scheduling passes**. The baseline remains
 **108 targets / 98 passes**; package fingerprints do not recompute it.
 The earlier assessment recorded **54 standalone packages requiring focused
 audits**; that historical assessment is not a refreshed current audit count.
@@ -720,11 +759,13 @@ These preview fixes do not establish browser or physical hardware validation.
 
 The standalone phase is active. Completed: `katarproxt` (`f65d0b4a`),
 `harpoonrgbpro` (`d3a7f349`), `katarpro` (`ca2c5954`), `darkcorergbseW`
-(`c3b9a191`), `darkcorergbseWU` (`cbf0829b`), and `glaivergb` (`012a8e94`).
+(`c3b9a191`), `darkcorergbseWU` (`cbf0829b`), and `glaivergb` (`012a8e94`),
+followed by the eight standalone completions above, most recently receiver
+`m65rgbultraW` (`8d48d18d`) and direct-USB `m65rgbultraWU` (`4e0676d9`).
 Continue one independently audited target at a time; W and WU remain separate
 passes unless equivalence is independently proven. Source-backed automated tests
 and inert previews are acceptable for this alpha migration phase. No physical
-hardware validation is recorded for these six migrations; eventual community
+hardware validation is recorded for the original six standalone migrations; eventual community
 hardware validation is required for release confidence. Canonical Lighting is
 still incomplete overall. Legacy `/rgb` removal is not ready: all supported true
 consumers need equivalent canonical parity/cutover and tracing must prove the old
@@ -746,8 +787,8 @@ Count: **35**
 
 `darkcorergbproW`, `darkcorergbproWU`, `darkcorergbproseW`, `darkcorergbproseWU`, `darkstarW`, `darkstarWU`, `glaivergb`, `glaivergbpro`, `harpoonW`, `harpoonWU`, `ironclaw`, `ironclawSEW`, `ironclawSEWU`, `ironclawW`, `ironclawWU`, `m55rgbpro`, `m65prorgb`, `m65rgbelite`, `m65rgbultra`, `m65rgbultraW`, `m65rgbultraWU`, `nightsabreW`, `nightsabreWU`, `nightswordrgb`, `sabrergbpro`, `sabrergbproW`, `sabrergbproWU`, `scimitar`, `scimitarSEW`, `scimitarSEWU`, `scimitarW`, `scimitarWU`, `scimitarprorgb`, `scimitarrgb`, `scimitarrgbelite`
 
-G01–G03, G06–G08, and standalone `glaivergb` (`012a8e94`) are Migrated
-and excluded from pending scheduling;
+G01–G03, G06–G08, `glaivergb`, and the eight further standalone
+completions recorded above are Migrated and excluded from pending scheduling;
 the 35-package signature count remains the discovery population. W/WU
 counterparts completed separate source-backed passes, not an automatic
 transport-equivalence migration.

@@ -166,18 +166,23 @@ with **98 conservative scheduling passes**: ten proven two-package groups
 (20 packages) plus 88 standalone target slots. This is the overall corrected
 assessment baseline, including G01–G10, not 98 implementation-ready remaining
 passes. G01–G10 are complete: ten two-package groups leave **88 targets / 88
-passes**. Six subsequent standalone migrations leave the authoritative current
-queue at **82 Lighting targets / 82 scheduling passes**. The baseline remains
+passes**. Fourteen subsequent standalone migrations complete **34 / 108 targets**
+(20 grouped + 14 standalone), leaving the authoritative current queue at
+**74 Lighting targets / 74 scheduling passes**. The baseline remains
 **108 targets / 98 passes**; package fingerprints do not recompute it.
 The earlier assessment recorded **54 standalone packages requiring focused
 audits**; that historical assessment is not a refreshed current audit count.
 Historical structural-scan totals remain **137 marked / 131 strong / 6 weak**.
+The matrix separately flags a pre-existing one-row discrepancy between this
+baseline accounting and its pending package rows (74 Legacy + deferred K60).
+These progress figures preserve the supplied baseline, not a reconciled row tally.
 
 G01–G10 are complete; package contracts and commit history are recorded in the
 [native migration matrix](native-lighting-migration-matrix.md). The grouped
 preview follow-up is closed, including shared keyboard spacing and K65 DE Enter
 geometry (`e3f07005`); no browser or physical hardware validation is implied.
-Six standalone completions leave **82 targets / 82 passes**. Migration continues
+Fourteen standalone completions bring progress to **34 / 108 targets complete**,
+with **74 targets / 74 passes remaining**. Migration continues
 one independently audited target at a time; canonical parity is incomplete and
 legacy `/rgb` removal still requires parity/cutover plus proof of no consumers.
 
@@ -260,6 +265,74 @@ A large transactional redesign was investigated but intentionally not retained b
 Similar `activeRgb` pointer ownership and goroutine lifecycle patterns exist across many device modules. No normal-use crash, shutdown failure, or race has been demonstrated.
 
 Do not begin a repository-wide or representative-device investigation solely because the repeated pattern exists. Revisit it only after a reproducible crash, an actual race report, a shutdown or effect-lifecycle failure, or an alpha-tester report tied to this area. Any future work must begin with one physically available device and focused lifecycle tests, not a broad sweep.
+
+### M65 RGB Ultra wireless follow-up
+
+Receiver `m65rgbultraW` (`8d48d18d`) and direct-USB `m65rgbultraWU`
+(`4e0676d9`) are canonical Lighting complete, independently. The findings below
+are deferred decision-support items, not migration blockers or hardware-confirmed
+bugs. Classification describes current source evidence; no new tests or hardware
+operations were run for this documentation reconciliation. Revisit concrete
+failures with focused fixes before considering broad persistence/lifecycle work.
+
+**WU — direct USB**
+
+| Classification | Remaining finding and action |
+|---|---|
+| Unverified concurrency risk | Full-profile legacy saves (`saveDeviceProfile` and callers) may lose overlapping changes. Canonical preference/DPI overlap was corrected; review unrelated legacy save paths only when persistence work or a reproducer warrants it. Coordinate with **Thin profile and path helpers** / **Atomic persistence primitives** below rather than opening duplicate general persistence work. |
+| Source-backed overlapping operation; UI reachability unverified | `SetLightingEffect` persists the Native effect, then separately resumes RGB-off for the same profile. An explicit off request between those steps can be cleared and unexpectedly relight the device. Establish ordinary UI reachability before prioritizing command-order changes. |
+| Source-backed transient limitation | `changeLightingDeviceProfile` publishes/captures new indicator state and refreshes external registrations before `toggleDPI` completes programming. External Logo output can briefly carry the new indicator with old hardware DPI. Check physical impact during profile switching before changing sequencing. |
+| Confirmed source-level test-fixture defect; developer-test maintenance | `TestWUReviewPollingTransition` sends reports into a bounded channel with a blocking send. If reports saturate it, the output stub can strand fixture cleanup. Bound or cancel the fixture send when maintaining this test; this is not a demonstrated device runtime hang. |
+| Optional test coverage | Rainbow polling already asserts a fresh worker, resolved Rainbow effect, saturated Logo spectrum, and progression. `TestWUSecondReviewPollingReadFailureRecovery` still checks restored output headers rather than the exact restored Logo payload; strengthen that targeted assertion. Do not reopen the resolved Rainbow/header-only finding. |
+| Inherited HID limitation | `transferLocked` uses blocking `dev.Read`; cancellation cannot interrupt a read already issued. Worker cancellation is separate, but in-flight transport completion still depends on HID. Revisit only with an observed shutdown/recovery failure and focused transport evidence. |
+| Source-backed telemetry limitation | CPU/GPU temperature effect dispatch consumes `CpuTemp` / `GpuTemp`, but the audited WU package does not populate those samples. Complete sampling in a separate focused change before claiming live temperature-effect accuracy. |
+| Optional cleanup | Renderer Gradient sorting/re-densification repeats the dense canonical projection; catalogue validation is repeated, and lifecycle state is complex. Simplify only during related work with output/ownership coverage; none is a demonstrated runtime defect by itself. |
+
+Source anchors: WU `lighting.go` (mutations/preferences), `lighting_output.go`
+(profile switching, rendering, recovery), `m65rgbultraWU.go` (legacy saves and
+HID), and `lighting_review_test.go` (polling fixtures/assertions).
+
+**W — receiver-owned peripheral**
+
+| Classification | Remaining finding and action |
+|---|---|
+| Source-backed readiness difference; physical availability impact unverified | `setupLightingConnection` requires successful software-mode/endpoint setup and assignment replay, unlike permissive legacy heartbeat-connected behavior. Optional preferences remain best-effort; invalid stored mappings can be skipped and repair-persistence deferral can retain connection availability. Check real wake failures before changing readiness. |
+| Hardware validation needed | Exercise receiver sleep/wake and reconnect under Native rendering, external ownership, and input writes using the checklist below. Source/session checks do not establish physical recovery. |
+| Source-backed storage-policy limitation | `changeCanonicalDeviceProfile` prepares assignments before activation and returns failure on read/decode/repair-write errors. Damaged assignment storage can therefore prevent profile activation. Reconnect already retains custom bindings for deferred repair and skips invalid replay shapes; do not report that fixed availability behavior as an open bug. Review activation/repair policy with the existing profile/path and persistence maintenance topics, preserving stored custom data. |
+| Optional simplification | Aggregate input revisions and assignment/profile replay coupling in `lighting_input.go` / `lighting_connection.go` increase state complexity. Revisit with a concrete maintenance obstacle or reproducer. |
+| Profiling needed | `validateLightingSource` repeatedly validates the full catalogue on frame-resolution paths. Measure cost before optimizing; no performance regression is established. |
+| Optional cleanup | `RebindReceiver` currently has test callers but no production caller found. W-local GPU sampling in `lighting_temperature.go` duplicates telemetry logic. Revisit removal/sharing only during related lifecycle/telemetry work, preserving bounded sampling and cancellation. |
+
+### M65 wireless physical alpha validation
+
+**NOT PHYSICALLY VERIFIED — every unchecked item below remains outstanding.**
+These checks are separate from source-level migration completion and existing
+automated fixtures. Record actual device/firmware and results when performed;
+do not infer a pass from source review or previews.
+
+**W — receiver-owned peripheral**
+
+- [ ] Cold start and warm wake.
+- [ ] Receiver sleep/wake during Native rendering.
+- [ ] Receiver disconnect/reconnect under Native and external ownership.
+- [ ] Input commands during disconnect and subsequent replay/recovery.
+- [ ] Sniper/DPI programming and indicator correctness.
+- [ ] Scheduler darkness and persisted RGB-off, including wake restoration.
+- [ ] External Logo bytes preserved during local indicator updates.
+- [ ] Profile switching and assignment replay, including damaged-storage policy.
+- [ ] Setup/write failure recovery without stale-session output.
+
+**WU — direct USB**
+
+- [ ] Cold USB startup and bounded endpoint recovery.
+- [ ] Effect changes and desired/effective Brightness.
+- [ ] Persisted RGB-off and transient scheduler darkness/restoration.
+- [ ] Sparse/tied Gradient playback.
+- [ ] DPI/Sniper programming and indicator colors; profile-switch timing.
+- [ ] Polling-rate transitions with input continuity and Lighting restoration.
+- [ ] Cluster output and Native/Cluster/OpenRGB ownership transitions.
+- [ ] OpenRGB controller-slot stability through polling recovery/failure.
+- [ ] Shutdown and subsequent recovery, including transport-read behavior.
 
 ## Deferred maintenance — trigger required
 
