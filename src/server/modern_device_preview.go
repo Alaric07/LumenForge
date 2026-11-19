@@ -222,9 +222,7 @@ var modernDevicePreviewFixtures = []modernDevicePreviewFixture{
 	{Key: "m75-air-wireless-modern", Title: "M75 AIR Wireless", ProductType: common.ProductTypeM75AirW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
 		return buildWirelessMouseModernPreview("M75 AIR WIRELESS", "preview-m75-air-wireless-modern", true, true)
 	}},
-	{Key: "m65-rgb-ultra-wireless-modern", Title: "M65 RGB Ultra Wireless", ProductType: common.ProductTypeM65RgbUltraW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
-		return buildWirelessMouseModernPreview("M65 RGB ULTRA WIRELESS", "preview-m65-rgb-ultra-wireless-modern", true, true)
-	}},
+	{Key: "m65-rgb-ultra-wireless-modern", Title: "M65 RGB Ultra Wireless", ProductType: common.ProductTypeM65RgbUltraW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildM65RGBUltraWirelessModernPreview},
 	{Key: "harpoon-usb-modern", Title: "Harpoon USB", ProductType: common.ProductTypeHarpoonRgbWU, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: buildHarpoonUSBModernPreview},
 	{Key: "harpoon-wireless-modern", Title: "Harpoon Wireless", ProductType: common.ProductTypeHarpoonRgbW, DeviceType: common.DeviceTypeMouse, Views: []modernDevicePreviewView{{ID: "overview", Label: "Overview"}, {ID: "lighting", Label: "Lighting"}, {ID: "dpi", Label: "DPI"}, {ID: "buttons", Label: "Buttons"}}, Build: func() *devicesWorkspaceSummary {
 		return buildHarpoonWirelessModernPreview(false)
